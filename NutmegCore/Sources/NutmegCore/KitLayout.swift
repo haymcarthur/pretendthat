@@ -14,6 +14,7 @@ public struct KitPage: Equatable, Sendable, Identifiable {
 }
 
 /// Paginates kit items onto US Letter pages (spec §6): 8 tickets/bills/keycards, 6 badges, or 1 sheet per page.
+/// Small items always fill their page (spares), so no sheet prints mostly blank.
 public enum KitLayout {
     public static let maxPages = 7
 
@@ -38,9 +39,17 @@ public enum KitLayout {
     public static func grid(for size: KitSize) -> Grid {
         switch size {
         case .ticket, .bill, .keycard: Grid(columns: 2, rows: 4)
-        case .badge: Grid(columns: 2, rows: 3)
+        case .badge: Grid(columns: 3, rows: 2)   // portrait badges side by side
         case .fullPage: Grid(columns: 1, rows: 1)
         }
+    }
+
+    /// Small items tile the whole sheet (Haylee fix round 1: one ticket in a corner looked broken): round the slot
+    /// count up to whole pages. Full-page sheets (capacity 1) are unchanged.
+    static func filled(_ slots: [KitSlot], capacity: Int, extra: (Int) -> KitSlot) -> [KitSlot] {
+        guard capacity > 1, !slots.isEmpty else { return slots }
+        let target = Int(ceil(Double(slots.count) / Double(capacity))) * capacity
+        return slots + (slots.count..<target).map(extra)
     }
 
     public static func pages(for kit: Kit, players: [PlayerToken], directorMode: Bool) -> [KitPage] {
@@ -53,9 +62,13 @@ public enum KitLayout {
                     return (0..<n).map { KitSlot(player: nil, index: $0) }
                 }
                 let who = players.isEmpty ? [PlayerToken.P1] : players
-                return who.flatMap { p in (0..<item.copies).map { _ in p } }.enumerated().map { KitSlot(player: $0.element, index: $0.offset) }
+                // Every player gets their copies; then the page is filled by cycling the players again (spares),
+                // each copy keeping its player's seat/number (index = the player's position).
+                let base = who.enumerated().flatMap { n, p in (0..<item.copies).map { _ in KitSlot(player: p, index: n) } }
+                return filled(base, capacity: grid(for: item.size).capacity) { k in base[k % base.count] }
             }
-            return (0..<item.copies).map { KitSlot(player: nil, index: $0) }
+            let base = (0..<item.copies).map { KitSlot(player: nil, index: $0) }
+            return filled(base, capacity: grid(for: item.size).capacity) { k in KitSlot(player: nil, index: k) }
         }
         // 2. Enforce the page cap: trim trailing slots from the item using the most pages, never below 1 page.
         func pageCount(_ i: Int) -> Int { max(1, Int(ceil(Double(perItem[i].count) / Double(grid(for: kit.items[i].size).capacity)))) }
@@ -102,7 +115,9 @@ public enum KitArtPrompt {
         Black and white only, thick clean outlines, no shading, no gray fills, plain white background, friendly and simple, \
         easy for a 5-year-old to color. Fill the whole image edge to edge with the card design and a thick rounded border.
         """
-        if item.size != .fullPage && item.recipe != .money {
+        if item.recipe == .money || (item.recipe == nil && item.size == .bill) {
+            p += " This is play money: no name field, no \"Name:\" label, no blank lines or banners to write on."
+        } else if item.size != .fullPage {
             p += " Leave a BLANK white rounded banner across the top quarter of the card with no text in it (a name is written there later)."
         }
         if item.recipe == .cutouts, !text.isEmpty {

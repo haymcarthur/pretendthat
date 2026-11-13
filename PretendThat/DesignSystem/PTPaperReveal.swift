@@ -86,3 +86,34 @@ private struct ArcFlight: @MainActor ViewModifier, @MainActor Animatable {
         }
     }
 }
+
+/// A neat grid for page thumbnails (letter-paper aspect): 1 row for up to 4 pages, else 2 (or 3) rows, as big as
+/// fits the box with even gaps, centered. Slot centers are relative to the box center (for PTPaperReveal).
+struct PTPageGrid {
+    let columns: Int, rows: Int
+    let paper: CGSize
+    let gap: CGFloat
+    let count: Int
+
+    init(count n: Int, in box: CGSize, gap: CGFloat = 20, aspect: CGFloat = 8.5 / 11) {
+        count = max(1, n); self.gap = gap
+        // Try 1–3 rows; keep the layout whose thumbnails come out biggest.
+        var best = (cols: 1, rows: 1, w: CGFloat(0))
+        for r in 1...3 {
+            let c = Int(ceil(Double(count) / Double(r)))
+            let w = min((box.width - CGFloat(c - 1) * gap) / CGFloat(c), ((box.height - CGFloat(r - 1) * gap) / CGFloat(r)) * aspect)
+            if w > best.w + 1 { best = (c, r, w) }
+        }
+        columns = best.cols; rows = best.rows
+        let w = max(40, min(best.w, 220))
+        paper = CGSize(width: w, height: w / aspect)
+    }
+
+    func center(_ i: Int) -> CGPoint {
+        let r = i / columns
+        let inRow = r == rows - 1 ? count - r * columns : columns   // last row centered
+        let c = CGFloat(i % columns) - CGFloat(inRow - 1) / 2
+        let y = CGFloat(r) - CGFloat(rows - 1) / 2
+        return CGPoint(x: c * (paper.width + gap), y: y * (paper.height + gap))
+    }
+}

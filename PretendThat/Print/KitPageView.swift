@@ -45,22 +45,34 @@ struct KitCardView: View {
         return tokens.untokenize(line.replacingOccurrences(of: #"\{P[1-4]\}"#, with: name, options: .regularExpression))
     }
 
+    /// Play money never gets a name field (Haylee fix round 1); full sheets don't either.
+    private var showsName: Bool { !fullPage && item.recipe != .money && !(item.recipe == nil && item.size == .bill) }
+
     var body: some View {
         GeometryReader { geo in
-            let h = geo.size.height
-            ZStack(alignment: .top) {
-                if let art {
-                    Image(uiImage: art).resizable().scaledToFill()
-                        .frame(width: geo.size.width, height: h).clipped()
-                    if !fullPage { nameBanner(height: h * 0.2).padding(.top, h * 0.04) }
-                } else {
-                    drawn(height: h)
+            if let art {
+                // AI art is fitted whole (never cropped) and centered in its cell; the name goes on its blank banner.
+                let fit = Self.aspectFit(art.size, in: geo.size)
+                ZStack(alignment: .top) {
+                    Image(uiImage: art).resizable().scaledToFit()
+                    if showsName { nameBanner(height: fit.height * 0.17).padding(.top, fit.height * 0.05) }
                 }
+                .frame(width: fit.width, height: fit.height)
+                .clipShape(RoundedRectangle(cornerRadius: fullPage ? 0 : 12))
+                .frame(width: geo.size.width, height: geo.size.height)
+            } else {
+                drawn(height: geo.size.height, narrow: !fullPage && geo.size.width < geo.size.height * 0.8)
+                    .frame(width: geo.size.width, height: geo.size.height)
+                    .clipShape(RoundedRectangle(cornerRadius: fullPage ? 0 : 14))
+                    .overlay(RoundedRectangle(cornerRadius: fullPage ? 0 : 14).strokeBorder(Theme.printInk, lineWidth: fullPage ? 0 : 2))
             }
-            .frame(width: geo.size.width, height: h)
-            .clipShape(RoundedRectangle(cornerRadius: fullPage ? 0 : 14))
-            .overlay(RoundedRectangle(cornerRadius: fullPage ? 0 : 14).strokeBorder(Theme.printInk, lineWidth: fullPage ? 0 : 2))
         }
+    }
+
+    static func aspectFit(_ image: CGSize, in box: CGSize) -> CGSize {
+        guard image.width > 0, image.height > 0 else { return box }
+        let s = min(box.width / image.width, box.height / image.height)
+        return CGSize(width: image.width * s, height: image.height * s)
     }
 
     private func nameBanner(height: CGFloat) -> some View {
@@ -74,15 +86,21 @@ struct KitCardView: View {
     }
 
     @ViewBuilder
-    private func drawn(height h: CGFloat) -> some View {
+    private func drawn(height h: CGFloat, narrow: Bool = false) -> some View {
         let big = fullPage ? 3.0 : 1.0
         VStack(spacing: h * 0.03) {
-            HStack(spacing: 8) {
-                Image(systemName: item.symbol).font(.system(size: h * 0.16 / big, weight: .regular)).foregroundStyle(Theme.printInk)
-                Text(item.title).font(Theme.printFont(h * 0.11 / big)).foregroundStyle(Theme.printInk).lineLimit(1).minimumScaleFactor(0.5)
-                if item.colorMe { Image(systemName: "star").font(.system(size: h * 0.1 / big)).foregroundStyle(Theme.printInk) }
+            if narrow {   // tall badge cells: symbol above a wrapping title, so the title is never squeezed to "C…"
+                Image(systemName: item.symbol).font(.system(size: h * 0.12, weight: .regular)).foregroundStyle(Theme.printInk)
+                Text(item.title).font(Theme.printFont(h * 0.07)).foregroundStyle(Theme.printInk)
+                    .multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.5)
+            } else {
+                HStack(spacing: 8) {
+                    Image(systemName: item.symbol).font(.system(size: h * 0.16 / big, weight: .regular)).foregroundStyle(Theme.printInk)
+                    Text(item.title).font(Theme.printFont(h * 0.11 / big)).foregroundStyle(Theme.printInk).lineLimit(1).minimumScaleFactor(0.5)
+                    if item.colorMe { Image(systemName: "star").font(.system(size: h * 0.1 / big)).foregroundStyle(Theme.printInk) }
+                }
             }
-            if !fullPage { nameBanner(height: h * 0.16) }
+            if showsName { nameBanner(height: h * 0.16) }
             ForEach(Array((fullPage ? item.lines : KitLayout.printedLines(for: item)).enumerated()), id: \.offset) { _, line in
                 Text(fill(line)).font(Theme.printFont(h * 0.075 / (fullPage ? 1.8 : 1))).foregroundStyle(Theme.printInk)
                     .lineLimit(1).minimumScaleFactor(0.5)

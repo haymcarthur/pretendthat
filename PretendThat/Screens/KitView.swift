@@ -2,12 +2,12 @@ import SwiftUI
 import NutmegCore
 
 /// Print step. While the kit is made Nutmeg colors on her clipboard (coloring pose); when it's ready the pages fly
-/// off her clipboard one after another and settle in a fanned row (PTPaperReveal). The black Print pill appears once
-/// they've all landed. Tap a page to preview it.
+/// off her clipboard one after another and settle in a neat grid (PTPaperReveal, PTPageGrid). The black Print pill appears once
+/// they've all landed. Tap a page to preview it full-size (PTPagePreview).
 struct KitView: View {
     let model: AppModel
     @State private var landed = false
-    @State private var preview: Int?
+    @State private var preview: PTPreviewTarget?
     private var revealed: Bool { store.phase == .kitReady && store.kit != nil }
     private var store: AdventureStore { model.store }
 
@@ -16,30 +16,29 @@ struct KitView: View {
         return KitLayout.pages(for: kit, players: store.players.map(\.token), directorMode: store.directorMode)
     }
 
-    static let paper = CGSize(width: 124, height: 124 * 11 / 8.5)
-
     var body: some View {
         VStack(spacing: Theme.Space.l) {
             PTSpeechBubble(text: store.nutmegLine)
+            // Every page fully visible as a neat thumbnail grid (Haylee fix round 1), sized to the space beside Nutmeg.
             GeometryReader { geo in
                 let n = pages.count
-                let step = n > 1 ? min(112, (geo.size.width - Self.paper.width - 20) / CGFloat(n - 1)) : 0
+                let g = PTPageGrid(count: n, in: geo.size)
                 PTPaperReveal(count: revealed ? n : 0, isRevealed: revealed,
                               origin: CGPoint(x: -geo.size.width / 2 - 150, y: 40),
-                              slot: { i in
-                                  let c = CGFloat(i) - CGFloat(n - 1) / 2
-                                  return (CGPoint(x: c * step, y: abs(c) * 7), Double(c) * 2.5)
-                              },
-                              paperSize: Self.paper,
+                              slot: { i in (g.center(i), 0) },
+                              paperSize: g.paper,
                               onLanded: { landed = true; model.gesture(.celebrate) },
-                              onTap: { i in preview = i }) { i in
+                              onTap: { i in
+                                  var tx = Transaction(); tx.disablesAnimations = true
+                                  withTransaction(tx) { preview = PTPreviewTarget(index: i) }
+                              }) { i in
                     KitPageView(page: pages[i], tokens: store.tokens, art: model.art.images[pages[i].item.id])
-                        .scaleEffect(Self.paper.width / KitPageView.size.width)
-                        .frame(width: Self.paper.width, height: Self.paper.height)
+                        .scaleEffect(g.paper.width / KitPageView.size.width)
+                        .frame(width: g.paper.width, height: g.paper.height)
                 }
                 .frame(width: geo.size.width, height: geo.size.height)
             }
-            .frame(height: Self.paper.height + 60)
+            .frame(maxHeight: .infinity)
             if store.phase == .makingKit || store.kit == nil {
                 PTWorkingIndicator(caption: "Nutmeg is making your kit...")
             } else if landed {
@@ -56,23 +55,13 @@ struct KitView: View {
         }
         .animation(Theme.bouncy, value: landed)
         .overlay { if store.phase == .kitReady && landed { PTConfetti().ignoresSafeArea() } }
-        .overlay {
-            if let i = preview, pages.indices.contains(i) {
-                ZStack {
-                    Theme.scrim.ignoresSafeArea().onTapGesture { preview = nil }
-                    KitPageView(page: pages[i], tokens: store.tokens, art: model.art.images[pages[i].item.id])
-                        .scaleEffect(0.75)
-                        .frame(width: KitPageView.size.width * 0.75, height: KitPageView.size.height * 0.75)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        .onTapGesture { preview = nil }
-                        .accessibilityAddTraits(.isButton)
-                        .accessibilityLabel("Page \(i + 1). Tap to close.")
-                }
-                .transition(.opacity.combined(with: .scale(scale: 0.9)))
-            }
+        .ptPagePreview($preview, count: pages.count) { i in
+            KitPageView(page: pages[i], tokens: store.tokens, art: model.art.images[pages[i].item.id])
         }
-        .animation(.spring(response: 0.4, dampingFraction: 0.85), value: preview)
         .sensoryFeedback(.success, trigger: landed)
+        #if DEBUG
+        .onChange(of: landed) { _, l in if l, let i = DemoDriver.previewPage { preview = PTPreviewTarget(index: i) } }
+        #endif
         .onChange(of: revealed) { _, r in if !r { landed = false } }
     }
 }

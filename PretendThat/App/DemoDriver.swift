@@ -19,6 +19,13 @@ enum DemoDriver {
         switch args[i + 1] { case "closeUp": return .closeUp; case "medium": return .medium; case "wide": return .wide; default: return nil }
     }
 
+    /// `-PTPreview <i>`: open the kit page preview on page i once the pages land (screenshots).
+    static var previewPage: Int? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-PTPreview"), i + 1 < args.count else { return nil }
+        return Int(args[i + 1])
+    }
+
     /// `-PTLive [-PTSay "text"]...`: start the real voice conversation at launch and send typed turns
     /// (one per -PTSay, each after Nutmeg finishes talking). For live tests in the simulator.
     static var liveTurns: [String]? {

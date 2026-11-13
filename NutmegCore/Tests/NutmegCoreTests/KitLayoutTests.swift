@@ -9,13 +9,35 @@ func kitItem(_ id: String, size: KitSize, perPlayer: Bool = false, copies: Int =
     let kit = Kit(nutmegSays: "", items: [kitItem("t", size: .ticket, perPlayer: true)], scenes: [])
     let pages = KitLayout.pages(for: kit, players: [.P1, .P2, .P3], directorMode: false)
     #expect(pages.count == 1)
-    #expect(pages[0].slots.map(\.player) == [.P1, .P2, .P3])
+    // Fills the sheet: every player, then spares cycling the players; each keeps their seat index.
+    #expect(pages[0].slots.map(\.player) == [.P1, .P2, .P3, .P1, .P2, .P3, .P1, .P2])
+    #expect(pages[0].slots.map(\.index) == [0, 1, 2, 0, 1, 2, 0, 1])
+}
+
+@Test func smallItemsFillEveryPage() {
+    for r in KitRecipe.allCases {
+        var item = kitItem(r.rawValue, size: r.size, perPlayer: r.perPlayer, copies: r == .money ? 8 : 1)
+        item.recipe = r
+        for players in [[PlayerToken.P1], [.P1, .P2], [.P1, .P2, .P3], [.P1, .P2, .P3, .P4]] {
+            let pages = KitLayout.pages(for: Kit(nutmegSays: "", items: [item], scenes: []), players: players, directorMode: false)
+            let cap = KitLayout.grid(for: r.size).capacity
+            #expect(pages.allSatisfy { $0.slots.count == cap }, "\(r) with \(players.count) players")
+            if r.perPlayer { #expect(Set(pages.flatMap(\.slots).compactMap(\.player)) == Set(players)) }
+        }
+    }
+}
+
+@Test func moneyPromptHasNoNameField() {
+    var item = kitItem("money", size: .bill, copies: 8); item.recipe = .money
+    let p = KitArtPrompt.prompt(for: item, gameTitle: "Cafe").lowercased()
+    #expect(p.contains("no name field"))
+    #expect(!p.contains("blank white rounded banner"))
 }
 
 @Test func badgesSixPerPage() {
     let kit = Kit(nutmegSays: "", items: [kitItem("b", size: .badge, copies: 8)], scenes: [])
     let pages = KitLayout.pages(for: kit, players: [.P1], directorMode: false)
-    #expect(pages.map(\.slots.count) == [6, 2])
+    #expect(pages.map(\.slots.count) == [6, 6])
 }
 
 @Test func capsAtSevenPages() {
@@ -40,7 +62,7 @@ func kitItem(_ id: String, size: KitSize, perPlayer: Bool = false, copies: Int =
 
 @Test func gridShapes() {
     #expect(KitLayout.grid(for: .ticket) == .init(columns: 2, rows: 4))
-    #expect(KitLayout.grid(for: .badge) == .init(columns: 2, rows: 3))
+    #expect(KitLayout.grid(for: .badge) == .init(columns: 3, rows: 2))
     #expect(KitLayout.grid(for: .fullPage) == .init(columns: 1, rows: 1))
 }
 
@@ -63,7 +85,7 @@ func kitItem(_ id: String, size: KitSize, perPlayer: Bool = false, copies: Int =
     item.bigNumber = "1A"
     let kit = Kit(nutmegSays: "", items: [item], scenes: [])
     let slots = KitLayout.pages(for: kit, players: [.P1, .P2, .P3], directorMode: false)[0].slots
-    #expect(slots.map { KitLayout.bigNumber(for: item, slot: $0) } == ["1A", "1B", "1C"])
+    #expect(slots.prefix(3).map { KitLayout.bigNumber(for: item, slot: $0) } == ["1A", "1B", "1C"])
     var shared = kitItem("money", size: .bill, copies: 3); shared.bigNumber = "5"
     #expect(KitLayout.bigNumber(for: shared, slot: KitSlot(player: nil, index: 2)) == "5")
 }
