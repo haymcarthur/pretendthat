@@ -29,32 +29,36 @@
     "nutmegSays": "Pretend that we're flying over the ocean! Here are your jobs!",
     "roles": [
       {
-        "player": "P1",
         "roleName": "Captain",
         "emoji": "🧑‍✈️",
         "symbol": "airplane",
-        "job": "Fly the plane and talk to the passengers"
+        "job": "Fly the plane and talk to the passengers",
+        "id": "R1",
+        "count": 1
       },
       {
-        "player": "P2",
         "roleName": "Flight Attendant",
         "emoji": "🧃",
         "symbol": "cup.and.saucer",
-        "job": "Check tickets and bring snacks"
+        "job": "Check tickets and bring snacks",
+        "id": "R2",
+        "count": 1
       },
       {
-        "player": "P3",
         "roleName": "Passenger",
         "emoji": "🧳",
         "symbol": "ticket",
-        "job": "Find your seat and enjoy the trip"
+        "job": "Find your seat and enjoy the trip",
+        "id": "R3",
+        "count": 1
       },
       {
-        "player": "P4",
         "roleName": "Co-Pilot",
         "emoji": "🗺️",
         "symbol": "map",
-        "job": "Read the map and help the captain"
+        "job": "Read the map and help the captain",
+        "id": "R4",
+        "count": 1
       }
     ]
   },
@@ -74,7 +78,7 @@
         "householdItem": "a plastic plate",
         "becomes": "steering wheel",
         "emoji": "🍽️",
-        "forRole": "P1",
+        "forRole": "R1",
         "safetyOK": true
       },
       {
@@ -82,7 +86,7 @@
         "householdItem": "a tray or box",
         "becomes": "snack cart",
         "emoji": "📦",
-        "forRole": "P2",
+        "forRole": "R2",
         "safetyOK": true
       },
       {
@@ -90,7 +94,7 @@
         "householdItem": "a backpack",
         "becomes": "suitcase",
         "emoji": "🎒",
-        "forRole": "P3",
+        "forRole": "R3",
         "safetyOK": true
       }
     ]
@@ -105,7 +109,6 @@
         "title": "Crew Badge",
         "symbol": "star",
         "lines": [
-          "{P1}",
           "Sky Crew"
         ],
         "bigNumber": null,
@@ -153,7 +156,6 @@
         "title": "Boarding Pass",
         "symbol": "airplane",
         "lines": [
-          "Passenger: {P1}",
           "Flight: Ocean Express"
         ],
         "bigNumber": "1A",
@@ -203,10 +205,10 @@
     "scenes": [
       {
         "id": "s1",
-        "owner": "P1",
+        "owner": "R1",
         "title": "Get the plane ready",
         "emoji": "🧑‍✈️",
-        "nutmegSays": "Captain {P1}, let's check the plane!",
+        "nutmegSays": "Captain, let's check the plane!",
         "steps": [
           {
             "emoji": "🪑",
@@ -224,7 +226,7 @@
       },
       {
         "id": "s2",
-        "owner": "P2",
+        "owner": "R2",
         "title": "Boarding time",
         "emoji": "🎫",
         "nutmegSays": "Ooh, passengers are here! Check their tickets!",
@@ -266,7 +268,7 @@
       },
       {
         "id": "s4",
-        "owner": "P2",
+        "owner": "R2",
         "title": "Snack cart",
         "emoji": "🧃",
         "nutmegSays": "Snack time in the sky! Yum yum!",
@@ -287,7 +289,7 @@
       },
       {
         "id": "s5",
-        "owner": "P1",
+        "owner": "R1",
         "title": "Landing",
         "emoji": "🛬",
         "nutmegSays": "Wow, I see the beach! Time to land, Captain!",

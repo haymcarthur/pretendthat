@@ -12,10 +12,6 @@ struct ComponentGallery: View {
     @State private var typing = false
     @State private var paperRun = 0
 
-    private let mia = Player(token: .P1, name: "Mia", colorIndex: 0, emoji: "💙")
-    private let sam = Player(token: .P2, name: "Sam", colorIndex: 1, emoji: "🧡")
-    private let ollie = Player(token: .P3, name: "", colorIndex: 2, emoji: "💚")
-    private let ava = Player(token: .P4, name: "Ava", colorIndex: 3, emoji: "💜")
     private var plan: GamePlan { Fallback.airplane.plan }
 
     var body: some View {
@@ -46,7 +42,7 @@ struct ComponentGallery: View {
                         PTItemCard(item: PTStageItem(id: "b", title: "Tray", subtitle: "Snack cart", image: UIImage(named: "prop-tray"), tint: Theme.playerColor(1)), tag: "Prop", chip: .found)
                         PTItemCard(item: PTStageItem(id: "c", title: "Books", subtitle: "Snack cart", image: UIImage(named: "prop-books"), tint: Theme.playerColor(2)), tag: "Prop", chip: .swapped)
                         PTItemCard(item: PTStageItem(id: "d", title: "Backpack", image: UIImage(named: "prop-backpack"), tint: Theme.playerColor(3), isPretend: true), tag: "Prop", chip: .pretend)
-                        PTItemCard(item: PTStageItem(id: "e", title: "Captain", subtitle: "Mia", tint: Theme.playerColor(0)), tag: "Mia")
+                        PTItemCard(item: PTStageItem(id: "e", title: "Captain", subtitle: "Fly the plane", tint: Theme.playerColor(0)), tag: "Role")
                     }
                     .padding().background(Theme.canvas)
                 }
@@ -127,10 +123,7 @@ struct ComponentGallery: View {
                 section("PTSpeechBubble") { PTSpeechBubble(text: "Ooh! Pretend that we're flying over the ocean!") }
                 section("PTRoleBadge") {
                     HStack(spacing: Theme.Space.l) {
-                        PTRoleBadge(player: mia, role: plan.roles[0])
-                        PTRoleBadge(player: sam, role: plan.roles[1])
-                        PTRoleBadge(player: ollie, role: plan.roles[2])
-                        PTRoleBadge(player: ava, role: nil)
+                        ForEach(plan.roles) { PTRoleBadge(role: $0) }
                     }
                 }
                 section("PTPropCard (found / not found)") {
@@ -143,7 +136,7 @@ struct ComponentGallery: View {
                     PTChecklistRow(emoji: "🎫", text: "Check each ticket", isChecked: $checked)
                     PTChecklistRow(emoji: "🪑", text: "Show everyone a seat", isChecked: .constant(true))
                 }
-                section("PTHandoffCard") { PTHandoffCard(player: mia, role: plan.roles[0]) {} }
+                section("PTHandoffCard") { PTHandoffCard(role: plan.roles[0]) {} }
                 section("PTMicButton (idle / listening / unavailable = type instead)") {
                     HStack(spacing: Theme.Space.l) {
                         PTMicButton(isListening: false, isAvailable: true, onPress: {}, onRelease: {})
@@ -164,12 +157,11 @@ struct ComponentGallery: View {
                     }
                 }
                 section("PTPageThumbnail + KitPageView") {
-                    let pages = KitLayout.pages(for: Fallback.airplane.kit, players: [.P1, .P2, .P3], directorMode: false)
-                    let tokens = NameTokens(players: [mia, sam, ollie])
+                    let pages = KitLayout.pages(for: Fallback.airplane.kit, roles: Fallback.airplane(playerCount: 3).plan.roles, playerCount: 3)
                     HStack(spacing: Theme.Space.m) {
                         ForEach(Array(pages.enumerated()), id: \.offset) { i, page in
                             PTPageThumbnail(number: i + 1) {
-                                KitPageView(page: page, tokens: tokens)
+                                KitPageView(page: page)
                                     .scaleEffect(Theme.Size.thumbnail / KitPageView.size.width)
                                     .frame(width: Theme.Size.thumbnail, height: Theme.Size.thumbnail * 11 / 8.5)
                             }

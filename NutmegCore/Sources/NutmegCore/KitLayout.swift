@@ -1,11 +1,14 @@
 import Foundation
 
+/// One printed copy. Every card with a name field prints a blank "Name: ________" line: we never ask for kids'
+/// names, kids write their own (roles-not-names.md).
 public struct KitSlot: Equatable, Sendable {
-    /// The player this copy is for; nil = blank "Name: ____" (shared item, or Director mode).
-    public var player: PlayerToken?
+    /// The role this badge is for (nil on tickets, shared items and spares).
+    public var roleID: RoleID?
     public var index: Int
-    /// The player's role ("Captain"), from their assignment; the app prints it on badges and tickets.
+    /// The role title ("Captain"), printed by the app on the badge's role banner.
     public var role: String? = nil
+    public init(roleID: RoleID? = nil, index: Int, role: String? = nil) { self.roleID = roleID; self.index = index; self.role = role }
 }
 
 public struct KitPage: Equatable, Sendable, Identifiable {
@@ -25,7 +28,7 @@ public enum KitLayout {
         public var capacity: Int { columns * rows }
     }
 
-    /// Per-copy big number: per-player seats count up (1A, 1B, 1C…); shared items keep theirs.
+    /// Per-copy big number: per-kid seats count up (1A, 1B, 1C…); shared items keep theirs.
     public static func bigNumber(for item: KitItem, slot: KitSlot) -> String? {
         guard let n = item.bigNumber, !n.isEmpty else { return nil }
         guard item.perPlayer, let last = n.unicodeScalars.last, CharacterSet.uppercaseLetters.contains(last),
@@ -33,9 +36,9 @@ public enum KitLayout {
         return String(n.dropLast()) + String(Character(base))
     }
 
-    /// Lines printed on a card. Lines with a player token are dropped: the name banner already shows the name.
+    /// Lines printed on a card (any stray "{P1}"-style placeholder from older JSON is dropped).
     public static func printedLines(for item: KitItem) -> [String] {
-        item.lines.filter { !$0.contains("{P") }
+        item.lines.filter { !$0.contains("{P") && !$0.contains("{R") }
     }
 
     public static func grid(for size: KitSize) -> Grid {
@@ -54,26 +57,26 @@ public enum KitLayout {
         return slots + (slots.count..<target).map(extra)
     }
 
-    /// `roles`: each player's role name (from the plan), printed by the app on their badge/ticket so every badge
-    /// shows the right role (the art is role-neutral and shared).
-    public static func pages(for kit: Kit, players: [PlayerToken], directorMode: Bool,
-                             roles: [PlayerToken: String] = [:]) -> [KitPage] {
+    /// Badges: one per kid, grouped by role (a role played by 2 kids prints 2 badges), each with its role title.
+    /// Tickets: one per kid with a blank name line. Kids pick their badge after printing.
+    public static func pages(for kit: Kit, roles: [Role], playerCount: Int) -> [KitPage] {
+        let kids = max(1, max(playerCount, roles.map(\.count).reduce(0, +)))
         // 1. Slots per item.
         var perItem: [[KitSlot]] = kit.items.map { item in
             if item.perPlayer {
-                // Director mode: 5+ kids and no names, so print a full page of blank ones (copies is "per player").
-                if directorMode {
-                    let n = max(item.copies, grid(for: item.size).capacity)
-                    return (0..<n).map { KitSlot(player: nil, index: $0) }
+                let isBadge = item.recipe == .badges || (item.recipe == nil && item.size == .badge)
+                let base: [KitSlot]
+                if isBadge, !roles.isEmpty {
+                    base = roles.flatMap { r in (0..<r.count).map { _ in KitSlot(roleID: r.id, index: 0, role: r.roleName) } }
+                        .enumerated().map { var s = $0.element; s.index = $0.offset; return s }
+                } else {
+                    base = (0..<kids).map { KitSlot(index: $0) }
                 }
-                let who = players.isEmpty ? [PlayerToken.P1] : players
-                // Every player gets their copies; then the page is filled by cycling the players again (spares),
-                // each copy keeping its player's seat/number (index = the player's position).
-                let base = who.enumerated().flatMap { n, p in (0..<item.copies).map { _ in KitSlot(player: p, index: n, role: roles[p]) } }
-                return filled(base, capacity: grid(for: item.size).capacity) { k in base[k % base.count] }
+                // Spares fill the page: badges cycle the roles again; tickets keep counting seats.
+                return filled(base, capacity: grid(for: item.size).capacity) { k in isBadge && !roles.isEmpty ? base[k % base.count] : KitSlot(index: k) }
             }
-            let base = (0..<item.copies).map { KitSlot(player: nil, index: $0) }
-            return filled(base, capacity: grid(for: item.size).capacity) { k in KitSlot(player: nil, index: k) }
+            let base = (0..<item.copies).map { KitSlot(index: $0) }
+            return filled(base, capacity: grid(for: item.size).capacity) { k in KitSlot(index: k) }
         }
         // 2. Enforce the page cap: trim trailing slots from the item using the most pages, never below 1 page.
         func pageCount(_ i: Int) -> Int { max(1, Int(ceil(Double(perItem[i].count) / Double(grid(for: kit.items[i].size).capacity)))) }
@@ -85,7 +88,7 @@ public enum KitLayout {
         // 3. Chunk into pages.
         return kit.items.indices.flatMap { i -> [KitPage] in
             let cap = grid(for: kit.items[i].size).capacity
-            let slots = perItem[i].isEmpty ? [KitSlot(player: nil, index: 0)] : perItem[i]
+            let slots = perItem[i].isEmpty ? [KitSlot(index: 0)] : perItem[i]
             return stride(from: 0, to: slots.count, by: cap).enumerated().map { n, start in
                 KitPage(item: kit.items[i], pageIndex: n, slots: Array(slots[start..<min(start + cap, slots.count)]))
             }
@@ -93,11 +96,11 @@ public enum KitLayout {
     }
 }
 
-/// Builds the OpenAI image prompt for one kit item's artwork. Names are never included:
-/// the art has a blank name banner and the app writes names on it (names never leave the iPad).
+/// Builds the OpenAI image prompt for one kit item's artwork. There are no kids' names anywhere: the art has a
+/// blank banner where the app prints a "Name: ____" line for kids to write on, and badges a second one for the role.
 public enum KitArtPrompt {
     public static func prompt(for item: KitItem, gameTitle: String) -> String {
-        let text = item.lines.filter { !$0.contains("{P") }
+        let text = KitLayout.printedLines(for: item)
         let shape: String
         switch item.recipe {
         case .sign?: shape = "a big sign to hang on the wall (portrait, US Letter) with a decorative theater-style border"
@@ -123,12 +126,12 @@ public enum KitArtPrompt {
         if item.recipe == .money || (item.recipe == nil && item.size == .bill) {
             p += " This is play money: no name field, no \"Name:\" label, no blank lines or banners to write on."
         } else if item.size != .fullPage {
-            p += " Leave a BLANK white rounded banner across the top quarter of the card with no text in it (a name is written there later)."
+            p += " Leave a BLANK white rounded banner across the top quarter of the card with no text in it (a blank name line is printed there later)."
         }
         let isBadge = item.recipe == .badges || (item.recipe == nil && item.size == .badge)
         if isBadge {
-            // One shared, role-neutral badge: the app writes each player's NAME and ROLE on it, so it's always right.
-            p += " Also leave a second BLANK white rounded banner across the bottom fifth (a role is written there later)."
+            // One shared, role-neutral badge: the app prints each ROLE title and a blank name line on it.
+            p += " Also leave a second BLANK white rounded banner across the bottom fifth (a role title is printed there later)."
             p += " Write no words or letters anywhere on the badge."
         } else if item.recipe == .cutouts, !text.isEmpty {
             p += " Draw these items, one each, with no words: " + text.joined(separator: ", ") + "."
@@ -148,7 +151,7 @@ public enum KitArtPrompt {
     }
 }
 
-/// On-screen sticker illustrations for ideas, roles and props in the voice conversation (D5). Never contains names.
+/// On-screen sticker illustrations for off-list props in the voice conversation (D5). Never contains names.
 public enum StickerPrompt {
     public enum Kind: Sendable { case idea, role, prop }
 

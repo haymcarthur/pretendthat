@@ -1,5 +1,7 @@
 # Tablet hand-off with color and role badges
 
+> **Updated** by [Roles, not names](roles-not-names.md) (Haylee, 2026-11-13): hand-offs are by role, "Pass the tablet to the Captain!" in the role color. No names.
+
 - **Date:** 2026-11-13
 - **Decided by:** Claude's call, Haylee agreed
 

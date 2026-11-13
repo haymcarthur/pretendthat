@@ -1,18 +1,17 @@
 import Foundation
 
-/// Compact, tokenized summary of what's decided so far. Never contains real names.
+/// Compact summary of what's decided so far. There are no kids' names anywhere (roles-not-names.md).
 public struct AdventureContext: Codable, Equatable, Sendable {
     public var gameTitle: String?
     public var plan: GamePlan?
     public var props: Props?
     public var playerCount: Int
-    public var directorMode: Bool
-    public init(gameTitle: String? = nil, plan: GamePlan? = nil, props: Props? = nil, playerCount: Int, directorMode: Bool = false) {
-        self.gameTitle = gameTitle; self.plan = plan; self.props = props; self.playerCount = playerCount; self.directorMode = directorMode
+    public init(gameTitle: String? = nil, plan: GamePlan? = nil, props: Props? = nil, playerCount: Int) {
+        self.gameTitle = gameTitle; self.plan = plan; self.props = props; self.playerCount = playerCount
     }
 }
 
-/// One async function per phase. Inputs are already tokenized; every result is sanitized.
+/// One async function per phase. Every result is sanitized.
 public final class PhaseService: Sendable {
     let llm: LLM
     public init(llm: LLM) { self.llm = llm }
@@ -23,14 +22,14 @@ public final class PhaseService: Sendable {
     }
     public func plan(game: String, ctx: AdventureContext) async throws -> GamePlan {
         try await ask(GamePlan.self, Prompts.plan(game: game, ctx: ctx), Schemas.plan(), .medium,
-                      clean: { Sanitizer.clean($0, playerCount: ctx.count) }, problem: { Validate.plan($0, count: ctx.count) })
+                      clean: { Sanitizer.clean($0, playerCount: ctx.playerCount) }, problem: { Validate.plan($0, count: min(4, max(1, ctx.playerCount))) })
     }
     public func props(ctx: AdventureContext) async throws -> Props {
         try await ask(Props.self, Prompts.props(ctx: ctx), Schemas.props(), .medium, clean: Sanitizer.clean, problem: Validate.props)
     }
     public func kit(ctx: AdventureContext) async throws -> Kit {
         try await ask(Kit.self, Prompts.kit(ctx: ctx), Schemas.kit(), .medium,
-                      clean: { Sanitizer.clean($0, playerCount: ctx.count) }, problem: Validate.kit)
+                      clean: { Sanitizer.clean($0, roleCount: ctx.plan?.roles.count ?? 4) }, problem: Validate.kit)
     }
 
     /// One call, sanitized. If the answer is under the spec's minimums (e.g. 1 scene), ask once more with a
@@ -55,11 +54,6 @@ public final class PhaseService: Sendable {
     }
 }
 
-extension AdventureContext {
-    /// Token count used for sanitizing: Director mode always uses 4 role tokens.
-    var count: Int { directorMode ? 4 : playerCount }
-}
-
 /// Minimums the schema can't express. `fatal` means the app can't use it at all.
 public enum Validate {
     public struct Problem: Equatable, Sendable { public var message: String; public var fatal: Bool }
@@ -70,7 +64,7 @@ public enum Validate {
         i.ideas.count < 3 ? short("game ideas", i.ideas.count, want: "exactly 3", fatal: i.ideas.isEmpty) : nil
     }
     public static func plan(_ p: GamePlan, count: Int) -> Problem? {
-        p.roles.count < count ? short("roles", p.roles.count, want: "one role for each of \(count) players", fatal: p.roles.isEmpty) : nil
+        p.roles.count < count ? short("roles", p.roles.count, want: "\(count) different roles", fatal: p.roles.isEmpty) : nil
     }
     public static func props(_ p: Props) -> Problem? {
         p.props.count < 3 ? short("safe props", p.props.count, want: "3 to 5 safe props", fatal: p.props.isEmpty) : nil

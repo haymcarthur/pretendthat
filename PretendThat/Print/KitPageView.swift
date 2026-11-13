@@ -1,10 +1,10 @@
 import SwiftUI
 import NutmegCore
 
-/// One printable US Letter page (612×792 pt): black line art on white, dashed cut lines, names written by the app.
+/// One printable US Letter page (612×792 pt): black line art on white, dashed cut lines. Cards print a blank
+/// "Name: ________" line for kids to write on, and badges their role title (we never ask for names).
 struct KitPageView: View {
     let page: KitPage
-    let tokens: NameTokens
     var art: UIImage? = nil
 
     static let size = CGSize(width: 612, height: 792)
@@ -17,7 +17,7 @@ struct KitPageView: View {
         ZStack(alignment: .topLeading) {
             Theme.printPaper
             ForEach(Array(page.slots.enumerated()), id: \.offset) { i, slot in
-                KitCardView(item: page.item, slot: slot, tokens: tokens, art: art, fullPage: page.item.size == .fullPage)
+                KitCardView(item: page.item, slot: slot, art: art, fullPage: page.item.size == .fullPage)
                     .padding(grid.capacity == 1 ? 0 : 8)
                     .frame(width: cellW, height: cellH)
                     .overlay(Rectangle().strokeBorder(Theme.printInk.opacity(grid.capacity == 1 ? 0 : 0.6),
@@ -34,15 +34,12 @@ struct KitPageView: View {
 struct KitCardView: View {
     let item: KitItem
     let slot: KitSlot
-    let tokens: NameTokens
     var art: UIImage?
     var fullPage = false
 
-    private var name: String? { slot.player.map { tokens.untokenize($0.placeholder) } }
-
+    /// Any stray placeholder from older JSON prints as a blank line.
     private func fill(_ line: String) -> String {
-        guard let name else { return line.replacingOccurrences(of: #"\{P[1-4]\}"#, with: "______", options: .regularExpression) }
-        return tokens.untokenize(line.replacingOccurrences(of: #"\{P[1-4]\}"#, with: name, options: .regularExpression))
+        line.replacingOccurrences(of: #"\{[PR][1-4]\}"#, with: "______", options: .regularExpression)
     }
 
     /// Play money never gets a name field (Haylee fix round 1); full sheets don't either.
@@ -51,12 +48,12 @@ struct KitCardView: View {
     var body: some View {
         GeometryReader { geo in
             if let art {
-                // AI art is fitted whole (never cropped) and centered in its cell; the name goes on its blank banner.
+                // AI art is fitted whole (never cropped) and centered in its cell; the blank name line goes on its banner.
                 let fit = Self.aspectFit(art.size, in: geo.size)
                 ZStack(alignment: .top) {
                     Image(uiImage: art).resizable().scaledToFit()
                     if showsName { nameBanner(height: fit.height * 0.17).padding(.top, fit.height * 0.05) }
-                    if let role = roleText {   // each player's own role, on the shared badge art's bottom banner
+                    if let role = roleText {   // the role title, on the shared badge art's bottom banner
                         roleBanner(role, height: fit.height * 0.13)
                             .frame(maxHeight: .infinity, alignment: .bottom).padding(.bottom, fit.height * 0.06)
                     }
@@ -79,10 +76,10 @@ struct KitCardView: View {
         return CGSize(width: image.width * s, height: image.height * s)
     }
 
-    /// Badges print the player's role (the art is shared and role-neutral). Blank line in Director mode.
+    /// Badges print their role title (the art is shared and role-neutral).
     private var roleText: String? {
         guard item.recipe == .badges || (item.recipe == nil && item.size == .badge) else { return nil }
-        return slot.role.map { tokens.untokenize($0) } ?? (slot.player == nil ? "Role: ______" : nil)
+        return slot.role ?? "Role: ______"
     }
 
     private func roleBanner(_ text: String, height: CGFloat) -> some View {
@@ -97,7 +94,7 @@ struct KitCardView: View {
     }
 
     private func nameBanner(height: CGFloat) -> some View {
-        Text(name ?? "Name: ________")
+        Text("Name: ________")
             .font(Theme.printFont(height * 0.55)).minimumScaleFactor(0.4).lineLimit(1)
             .foregroundStyle(Theme.printInk)
             .padding(.horizontal, 12)

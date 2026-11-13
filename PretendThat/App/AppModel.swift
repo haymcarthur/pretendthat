@@ -157,7 +157,7 @@ final class AppModel {
         }
     }
 
-    /// Routes a spoken answer by phase (names on the players screen, ideas on pick-game, chat elsewhere).
+    /// Routes a spoken answer by phase (ideas on pick-game, chat elsewhere). Names are never captured.
     func handleSpeech(_ text: String) async {
         switch store.phase {
         case .hello:
@@ -168,19 +168,8 @@ final class AppModel {
             } else {
                 await store.askForIdeas(text)
             }
-        case .players where store.plan == nil:
-            if let next = store.players.first(where: { $0.name.isEmpty }) {
-                store.setName(Self.firstName(from: text), for: next.token)
-            }
         default:
             await store.kidSaid(text)
         }
-    }
-
-    /// "My name is Mia" → "Mia".
-    static func firstName(from text: String) -> String {
-        let words = text.split(separator: " ").map(String.init)
-        let skip: Set<String> = ["my", "name", "is", "i'm", "im", "i", "am", "it's", "its", "called"]
-        return words.first { !skip.contains($0.lowercased()) }?.capitalized ?? text
     }
 }

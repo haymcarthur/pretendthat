@@ -13,18 +13,19 @@ public enum Schemas {
     static func emoji(_ of: String) -> [String: Any] { ["type": "string", "description": "One emoji that pictures \(of)."] }
     static var int: [String: Any] { ["type": "integer"] }
     static func enumStr(_ v: [String]) -> [String: Any] { ["type": "string", "enum": v] }
-    static let tokens = PlayerToken.allCases.map(\.rawValue)
+    static let roleIDs = RoleID.allCases.map(\.rawValue)
 
     public static func gameIdeas() -> [String: Any] {
         obj(["nutmegSays": str, "ideas": nonEmpty(obj(["id": str, "title": str, "emoji": str, "pitch": str]))])
     }
     public static func plan() -> [String: Any] {
         obj(["gameTitle": str, "gameEmoji": str, "setting": str, "nutmegSays": str,
-             "roles": nonEmpty(obj(["player": enumStr(tokens), "roleName": str, "emoji": str, "symbol": str, "job": str]))])
+             "roles": nonEmpty(obj(["id": enumStr(roleIDs), "roleName": str, "emoji": str, "symbol": str, "job": str,
+                                     "count": ["type": "integer", "description": "How many kids play this role (1 unless there are more kids than roles)."]]))])
     }
     public static func props() -> [String: Any] {
         obj(["nutmegSays": str, "props": nonEmpty(obj(["id": str, "householdItem": str, "becomes": str, "emoji": emoji("the householdItem itself"),
-                                                   "forRole": enumStr(tokens + ["all"]), "safetyOK": bool]))])
+                                                   "forRole": enumStr(roleIDs + ["all"]), "safetyOK": bool]))])
     }
     public static func kit() -> [String: Any] {
         obj(["nutmegSays": str,
@@ -36,7 +37,7 @@ public enum Schemas {
                                "size": enumStr(["ticket", "badge", "bill", "keycard", "fullPage"]),
                                "title": str, "symbol": str, "lines": arr(str), "bigNumber": ["type": ["string", "null"]],
                                "perPlayer": bool, "copies": int, "colorMe": bool])),
-             "scenes": nonEmpty(obj(["id": str, "owner": enumStr(tokens + ["all"]), "title": str, "emoji": str, "nutmegSays": str,
+             "scenes": nonEmpty(obj(["id": str, "owner": enumStr(roleIDs + ["all"]), "title": str, "emoji": str, "nutmegSays": str,
                                 "steps": nonEmpty(obj(["emoji": emoji("the main object or action named in this step's text"), "text": str]))]))])
     }
     public static func turn() -> [String: Any] {

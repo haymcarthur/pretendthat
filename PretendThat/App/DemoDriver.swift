@@ -59,7 +59,6 @@ enum DemoDriver {
         await store.start(); if reached("pickGame") { return }
         await store.chooseGame("Airplane")
         store.setPlayerCount(3)
-        for (t, n) in zip(PlayerToken.allCases, ["Mia", "Sam", "Ollie"]) { store.setName(n, for: t) }
         if reached("players") { return }
         await store.confirmPlayers(); if reached("roles") { return }
         await store.confirmRoles()
@@ -77,13 +76,13 @@ enum DemoDriver {
                 }
             }
         }
-        if case .handoff(let i) = store.phase, let t = store.kit?.scenes[i].owner.token { store.badgeTapped(t) }
+        if case .handoff(let i) = store.phase, let t = store.kit?.scenes[i].owner.role { store.badgeTapped(t) }
         store.toggleStep(0)
         if reached("scene") { return }
         store.sceneDone(); if reached("stepBack") { return }
         while case .stepBack = store.phase {
             store.nextScene()
-            if case .handoff(let i) = store.phase, let t = store.kit?.scenes[i].owner.token { store.badgeTapped(t) }
+            if case .handoff(let i) = store.phase, let t = store.kit?.scenes[i].owner.role { store.badgeTapped(t) }
             if case .scene = store.phase { store.sceneDone() }
         }
     }
@@ -98,15 +97,15 @@ enum DemoDriver {
                                               GameIdea(id: "c", title: "Pet Vet", emoji: "", pitch: "help sick puppies")]))
         if target == "convIdeas" { return }
         _ = await store.apply(.setGame("Airplane"))
-        _ = await store.apply(.setPlayers(names: ["Mia", "Sam", "Ollie"], count: 3))
-        _ = await store.apply(.setRoles([.init(playerName: "Mia", roleName: "Captain", job: "Fly the plane"),
-                                         .init(playerName: "Sam", roleName: "Flight Attendant", job: "Serve snacks"),
-                                         .init(playerName: "Ollie", roleName: "Passenger", job: "Enjoy the trip")]))
+        _ = await store.apply(.setPlayerCount(3))
+        _ = await store.apply(.setRoles([.init(roleName: "Captain", job: "Fly the plane"),
+                                         .init(roleName: "Flight Attendant", job: "Serve snacks"),
+                                         .init(roleName: "Passenger", job: "Enjoy the trip")]))
         if target == "convRoles" { return }
-        _ = await store.apply(.showProps([.init(itemID: "chair", becomes: "Plane seats", forPlayer: "all", alternates: ["cushion"]),
-                                          .init(itemID: "plate", becomes: "Steering wheel", forPlayer: "Mia", alternates: ["bowl"]),
-                                          .init(itemID: "tray", becomes: "Snack cart", forPlayer: "Sam", alternates: ["books"]),
-                                          .init(itemID: "backpack", becomes: "Suitcase", forPlayer: "Ollie", alternates: ["bag"])]))
+        _ = await store.apply(.showProps([.init(itemID: "chair", becomes: "Plane seats", forRole: "all", alternates: ["cushion"]),
+                                          .init(itemID: "plate", becomes: "Steering wheel", forRole: "Captain", alternates: ["bowl"]),
+                                          .init(itemID: "tray", becomes: "Snack cart", forRole: "Flight Attendant", alternates: ["books"]),
+                                          .init(itemID: "backpack", becomes: "Suitcase", forRole: "Passenger", alternates: ["bag"])]))
         if target == "convPropsEdit" {
             _ = await store.apply(.swapProp(oldID: "tray", newID: "books", becomes: "Snack cart"))
             _ = await store.apply(.skipProp("backpack"))

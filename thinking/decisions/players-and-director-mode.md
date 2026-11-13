@@ -1,5 +1,7 @@
 # Up to 4 players, Director mode for 5+
 
+> **Superseded** by [Roles, not names](roles-not-names.md) (Haylee, 2026-11-13): only the number of kids is asked (no names); up to 8 kids, 5+ share 4 roles (e.g. 2 Passengers). Director mode is removed.
+
 - **Date:** 2026-11-13
 - **Decided by:** Haylee
 

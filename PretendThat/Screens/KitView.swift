@@ -13,8 +13,7 @@ struct KitView: View {
 
     private var pages: [KitPage] {
         guard let kit = store.kit else { return [] }
-        let roles = Dictionary((store.plan?.roles ?? []).map { ($0.player, store.tokens.untokenize($0.roleName)) }, uniquingKeysWith: { a, _ in a })
-        return KitLayout.pages(for: kit, players: store.players.map(\.token), directorMode: store.directorMode, roles: roles)
+        return KitLayout.pages(for: kit, roles: store.plan?.roles ?? [], playerCount: store.playerCount)
     }
 
     var body: some View {
@@ -33,7 +32,7 @@ struct KitView: View {
                                   var tx = Transaction(); tx.disablesAnimations = true
                                   withTransaction(tx) { preview = PTPreviewTarget(index: i) }
                               }) { i in
-                    KitPageView(page: pages[i], tokens: store.tokens, art: model.art.images[pages[i].item.id])
+                    KitPageView(page: pages[i], art: model.art.images[pages[i].item.id])
                         .scaleEffect(g.paper.width / KitPageView.size.width)
                         .frame(width: g.paper.width, height: g.paper.height)
                 }
@@ -46,7 +45,7 @@ struct KitView: View {
                 if model.art.isGenerating { PTWorkingIndicator(caption: "Drawing your pictures...", progress: model.art.progress) }
                 HStack(spacing: Theme.Space.m) {
                     PTParentGate(label: "Grown-up: hold to print") {
-                        let pdf = KitPrinter.pdf(pages: pages, tokens: store.tokens, art: model.art.images)
+                        let pdf = KitPrinter.pdf(pages: pages, art: model.art.images)
                         KitPrinter.print(pdf, jobName: "PretendThat \(store.plan?.gameTitle ?? "kit")")
                     }
                     Button("Let's play!") { store.beginPlay() }.buttonStyle(.ptSecondary)
@@ -57,7 +56,7 @@ struct KitView: View {
         .animation(Theme.bouncy, value: landed)
         .overlay { if store.phase == .kitReady && landed { PTConfetti().ignoresSafeArea() } }
         .ptPagePreview($preview, count: pages.count) { i in
-            KitPageView(page: pages[i], tokens: store.tokens, art: model.art.images[pages[i].item.id])
+            KitPageView(page: pages[i], art: model.art.images[pages[i].item.id])
         }
         .sensoryFeedback(.success, trigger: landed)
         #if DEBUG

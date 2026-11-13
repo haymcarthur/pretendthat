@@ -7,8 +7,8 @@ struct HandoffView: View {
     private var store: AdventureStore { model.store }
 
     var body: some View {
-        if let token = store.kit?.scenes[sceneIndex].owner.token, let player = store.players.first(where: { $0.token == token }) {
-            PTHandoffCard(player: player, role: store.plan?.role(for: token)) { store.badgeTapped(token) }
+        if let id = store.kit?.scenes[sceneIndex].owner.role, let role = store.plan?.role(for: id) {
+            PTHandoffCard(role: role) { store.badgeTapped(id) }
                 .id(sceneIndex)
         }
     }
@@ -32,9 +32,9 @@ struct SceneView: View {
                                   onLanded: { model.gesture(.celebrate) }) { _ in
                         ScrollView {
                             VStack(spacing: Theme.Space.s) {
-                                PTStageHeader(emoji: scene.emoji, title: store.tokens.untokenize(scene.title))
+                                PTStageHeader(emoji: scene.emoji, title: scene.title)
                                 ForEach(Array(scene.steps.enumerated()), id: \.offset) { i, step in
-                                    PTChecklistRow(emoji: step.emoji, text: store.tokens.untokenize(step.text), isChecked: Binding(
+                                    PTChecklistRow(emoji: step.emoji, text: step.text, isChecked: Binding(
                                         get: { store.checkedSteps.contains(i) }, set: { _ in store.toggleStep(i) }))
                                 }
                             }

@@ -13,7 +13,7 @@ import Testing
     let input = try #require(audio["input"] as? [String: Any])
     #expect((input["turn_detection"] as? [String: Any])?["type"] as? String == "server_vad")
     let names = (session["tools"] as? [[String: Any]])?.compactMap { $0["name"] as? String }
-    #expect(names == ["show_game_ideas", "set_game", "set_players", "set_roles", "show_props", "swap_prop", "skip_prop", "finish_planning"])
+    #expect(names == ["show_game_ideas", "set_game", "set_player_count", "set_roles", "show_props", "swap_prop", "skip_prop", "finish_planning"])
     #expect(Realtime.json(s).contains("\"laundry-basket\""))   // the prop library is an enum in the schema
     // Serializes cleanly.
     #expect(Realtime.json(s).contains("\"server_vad\""))
@@ -33,15 +33,16 @@ import Testing
 @Test func decodesPlanningCalls() {
     #expect(PlanningCall.decode(name: "set_game", arguments: #"{"title":" Zoo "}"#) == .setGame("Zoo"))
     #expect(PlanningCall.decode(name: "set_game", arguments: #"{"title":""}"#) == nil)
-    #expect(PlanningCall.decode(name: "set_players", arguments: #"{"names":["Mia","Sam"],"count":2}"#) == .setPlayers(names: ["Mia", "Sam"], count: 2))
-    #expect(PlanningCall.decode(name: "set_players", arguments: #"{"names":[],"count":6}"#) == .setPlayers(names: [], count: 6))
+    #expect(PlanningCall.decode(name: "set_player_count", arguments: #"{"count":3}"#) == .setPlayerCount(3))
+    #expect(PlanningCall.decode(name: "set_player_count", arguments: #"{"count":20}"#) == .setPlayerCount(Players.max))
+    #expect(PlanningCall.decode(name: "set_players", arguments: #"{"names":["Mia"],"count":1}"#) == nil)   // no name capture anymore
     if case .showGameIdeas(let ideas)? = PlanningCall.decode(name: "show_game_ideas", arguments:
         #"{"ideas":[{"title":"A","pitch":""},{"title":"B","pitch":""},{"title":"C","pitch":""},{"title":"D","pitch":""}]}"#) {
         #expect(ideas.map(\.title) == ["A", "B", "C"])
     } else { Issue.record("ideas not decoded") }
     #expect(PlanningCall.decode(name: "finish_planning", arguments: "{}") == .finishPlanning)
-    #expect(PlanningCall.decode(name: "show_props", arguments: #"{"props":[{"item_id":"tray","becomes":"cart","for_player":"all","alternates":["books","rocket"]}]}"#)
-            == .showProps([.init(itemID: "tray", becomes: "cart", forPlayer: "all", alternates: ["books"])]))
+    #expect(PlanningCall.decode(name: "show_props", arguments: #"{"props":[{"item_id":"tray","becomes":"cart","for_role":"all","alternates":["books","rocket"]}]}"#)
+            == .showProps([.init(itemID: "tray", becomes: "cart", forRole: "all", alternates: ["books"])]))
     #expect(PlanningCall.decode(name: "skip_prop", arguments: #"{"id":"tray"}"#) == .skipProp("tray"))
     #expect(PlanningCall.decode(name: "unknown", arguments: "{}") == nil)
 }
@@ -52,22 +53,22 @@ import Testing
     store.beginConversation()
     #expect(store.phase == .pickGame)
     _ = await store.apply(.showGameIdeas([GameIdea(id: "a", title: "Zoo", emoji: "", pitch: "")]))
-    #expect(store.presenting == .ideas)
+    #expect(store.presenting == .none)   // ideas are spoken, never carded (Haylee)
     _ = await store.apply(.setGame("Zoo"))
     #expect(store.phase == .players && store.presenting == .none && store.gameTitle == "Zoo")
-    _ = await store.apply(.setPlayers(names: ["Mia", "Sam"], count: 2))
-    #expect(store.players.map(\.name) == ["Mia", "Sam"])
-    _ = await store.apply(.setRoles([.init(playerName: "sam", roleName: "Zookeeper", job: "Feed Mia's lion"),
-                                     .init(playerName: "Mia", roleName: "Lion", job: "Roar")]))
-    #expect(store.plan?.role(for: .P2)?.roleName == "Zookeeper")
-    #expect(store.plan?.role(for: .P2)?.job == "Feed {P1}'s lion")   // names tokenized before Claude ever sees them
-    #expect(store.presenting == .roles)
-    _ = await store.apply(.showProps([.init(itemID: "pillow", becomes: "Lion bed", forPlayer: "Mia", alternates: ["cushion"]),
-                                      .init(itemID: "kitchen knife", becomes: "Sword", forPlayer: "all"),
-                                      .init(itemID: "tray", becomes: "Feeding tray", forPlayer: "all"),
-                                      .init(itemID: "paper crown", becomes: "Lion crown", forPlayer: "all")]))
+    _ = await store.apply(.setPlayerCount(2))
+    #expect(store.playerCount == 2)
+    _ = await store.apply(.setRoles([.init(roleName: "Zookeeper", job: "Feed the lion"),
+                                     .init(roleName: "Lion", job: "Roar")]))
+    #expect(store.plan?.roles.map(\.roleName) == ["Zookeeper", "Lion"])
+    #expect(store.plan?.role(for: .R2)?.roleName == "Lion")
+    #expect(store.presenting == .none)   // no role cards (Haylee): roles are spoken, then printed on badges
+    _ = await store.apply(.showProps([.init(itemID: "pillow", becomes: "Lion bed", forRole: "lion", alternates: ["cushion"]),
+                                      .init(itemID: "kitchen knife", becomes: "Sword", forRole: "all"),
+                                      .init(itemID: "tray", becomes: "Feeding tray", forRole: "all"),
+                                      .init(itemID: "paper crown", becomes: "Lion crown", forRole: "all")]))
     #expect(store.props?.props.map(\.householdItem) == ["Pillow", "Tray", "paper crown"])   // unsafe off-list item dropped
-    #expect(store.props?.props.first?.forRole == .P1)
+    #expect(store.props?.props.first?.forRole == .R2)
     #expect(store.props?.props.first?.libraryID == "pillow")
     #expect(store.props?.props.last?.libraryID == nil)          // off-list: generated art fallback
     _ = await store.apply(.swapProp(oldID: "tray", newID: "books", becomes: "Snack tray"))
@@ -77,21 +78,31 @@ import Testing
     _ = await store.apply(.finishPlanning)
     for _ in 0..<50 where store.phase != .kitReady { try? await Task.sleep(for: .milliseconds(20)) }
     #expect(store.phase == .kitReady)
-    #expect(!llm.users.joined().contains("Mia"))
+    #expect(!llm.users.joined().contains("{P"))
 }
 
-@Test @MainActor func directorModeFromConversation() async {
+@Test @MainActor func sevenKidsShareFourRoles() async {
     let store = AdventureStore(service: nil)
     store.beginConversation()
-    _ = await store.apply(.setPlayers(names: [], count: 7))
-    #expect(store.directorMode && store.players.count == 4)
+    _ = await store.apply(.setPlayerCount(7))
+    _ = await store.apply(.setRoles(["Captain", "Flight Attendant", "Co-Pilot", "Passenger", "Passenger", "Passenger", "Passenger"]
+        .map { .init(roleName: $0, job: "") }))
+    #expect(store.plan?.roles.map(\.roleName) == ["Captain", "Flight Attendant", "Co-Pilot", "Passenger"])
+    #expect(store.plan?.roles.map(\.count) == [1, 1, 1, 4])
+}
+
+@Test func toolsNeverAskForNames() {
+    let tools = Realtime.json(["t": Realtime.tools])
+    #expect(!tools.contains("set_players") && !tools.contains("player_name") && !tools.contains("for_player") && !tools.contains("\"names\""))
+    #expect(tools.contains("set_player_count"))
+    #expect(Realtime.instructions.contains("NEVER ask for names"))
 }
 
 @Test @MainActor func stepRailJumpsBackWithoutLosingState() async {
-    let store = await storeWithKit(owners: [.P1, .all, .all, .all], players: 2)
+    let store = await storeWithKit(owners: [.R1, .all, .all, .all], players: 2)
     #expect(store.reachedStep == .print)
     store.beginPlay()
-    if case .handoff = store.phase { store.badgeTapped(.P1) }
+    if case .handoff = store.phase { store.badgeTapped(.R1) }
     #expect(store.reachedStep == .play)
     let playPhase = store.phase
     store.goTo(.getReady)

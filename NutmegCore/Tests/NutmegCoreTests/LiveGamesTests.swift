@@ -6,20 +6,20 @@ import Testing
 /// For each game: ideas → plan → props → kit on the raw client, then asserts the model already met every limit
 /// (the Sanitizer would change nothing). Writes each result to /tmp/nutmeg-kits/<game>.json.
 struct LiveCase: Sendable, CustomStringConvertible {
-    let game: String; let players: Int; let director: Bool
-    var description: String { "\(game) (\(director ? "director" : "\(players)p"))" }
+    let game: String; let players: Int
+    var description: String { "\(game) (\(players)p)" }
 }
 
 let liveEnabled = ProcessInfo.processInfo.environment["LIVE_GAMES"] == "1"
     && ProcessInfo.processInfo.environment["ANTHROPIC_API_KEY"]?.isEmpty == false
 
 let liveCases: [LiveCase] = {
-    let all = [LiveCase(game: "restaurant", players: 2, director: false),
-               LiveCase(game: "vet clinic", players: 3, director: false),
-               LiveCase(game: "underwater bakery", players: 2, director: false),
-               LiveCase(game: "hotel", players: 1, director: false),
-               LiveCase(game: "space station", players: 5, director: true),
-               LiveCase(game: "grocery store", players: 4, director: false)]
+    let all = [LiveCase(game: "restaurant", players: 2),
+               LiveCase(game: "vet clinic", players: 3),
+               LiveCase(game: "underwater bakery", players: 2),
+               LiveCase(game: "hotel", players: 1),
+               LiveCase(game: "space station", players: 5),
+               LiveCase(game: "grocery store", players: 4)]
     guard let only = ProcessInfo.processInfo.environment["LIVE_ONLY"] else { return all }
     return all.filter { only.split(separator: ",").contains(Substring($0.game)) }
 }()
@@ -37,27 +37,25 @@ final class CountingLLM: LLM, @unchecked Sendable {
 
 struct LiveProblems { var list: [String] = []; mutating func check(_ ok: Bool, _ msg: String) { if !ok { list.append(msg) } } }
 
-func tokenProblems(_ text: String, count: Int) -> Bool {
-    let used = PlayerToken.allCases.filter { text.contains($0.placeholder) }
-    return used.allSatisfy { $0.index < count }
-}
+/// No names and no name placeholders anywhere (roles-not-names.md).
+func hasNamePlaceholder(_ text: String) -> Bool { text.contains("{P") || text.contains("{R") }
 
 @Test(.enabled(if: liveEnabled), .timeLimit(.minutes(5)), arguments: liveCases)
 func liveGame(_ c: LiveCase) async throws {
     let key = ProcessInfo.processInfo.environment["ANTHROPIC_API_KEY"]!
     let llm = ClaudeClient(config: .init(mode: .direct(apiKey: key)))
-    let count = c.director ? 4 : c.players
+    let count = min(4, c.players)
     var p = LiveProblems()
     let started = Date()
 
     let ideas = try await llm.structured(GameIdeas.self, system: Prompts.system, user: Prompts.ideas(kidSaid: "I want to play \(c.game)"), schema: JSONSchema(Schemas.gameIdeas()), effort: .medium)
     p.check(ideas.ideas.count == 3, "ideas=\(ideas.ideas.count)")
 
-    var ctx = AdventureContext(gameTitle: c.game, playerCount: c.players, directorMode: c.director)
+    var ctx = AdventureContext(gameTitle: c.game, playerCount: c.players)
     let plan = try await llm.structured(GamePlan.self, system: Prompts.system, user: Prompts.plan(game: c.game, ctx: ctx), schema: JSONSchema(Schemas.plan()), effort: .medium)
     // Unknown symbols becoming "star" is by design, so only role/token problems count here.
     var symbolFree = plan; symbolFree.roles = symbolFree.roles.map { var r = $0; r.symbol = PrintSymbols.safe(r.symbol); return r }
-    p.check(symbolFree == Sanitizer.clean(plan, playerCount: count), "plan roles needed sanitizing: \(plan.roles.map(\.player.rawValue))")
+    p.check(symbolFree == Sanitizer.clean(plan, playerCount: c.players), "plan roles needed sanitizing: \(plan.roles.map { "\($0.id.rawValue) \($0.roleName) x\($0.count)" })")
     let swapped = plan.roles.map(\.symbol).filter { PrintSymbols.safe($0) != $0 }
     if !swapped.isEmpty { print("NOTE \(c): symbols shown as star: \(swapped)") }
     p.check(plan.roles.count == count, "roles=\(plan.roles.count) want \(count)")
@@ -66,7 +64,7 @@ func liveGame(_ c: LiveCase) async throws {
     let props = try await llm.structured(Props.self, system: Prompts.system, user: Prompts.props(ctx: ctx), schema: JSONSchema(Schemas.props()), effort: .medium)
     p.check((3...5).contains(props.props.count), "props=\(props.props.count)")
     p.check(props.props.allSatisfy(\.safetyOK), "unsafe props: \(props.props.filter { !$0.safetyOK }.map(\.householdItem))")
-    p.check(props.props.allSatisfy { ($0.forRole.token?.index ?? 0) < count }, "prop forRole beyond players")
+    p.check(props.props.allSatisfy { ($0.forRole.role?.index ?? 0) < count }, "prop forRole beyond players")
     let words = { (s: String) in s.split(separator: " ").count }
     p.check(props.props.allSatisfy { words($0.householdItem) <= 4 && words($0.becomes) <= 5 }, "long prop text: \(props.props.map { "\($0.householdItem) → \($0.becomes)" })")
     ctx.props = props
@@ -79,10 +77,10 @@ func liveGame(_ c: LiveCase) async throws {
     p.check(kit.items.map(\.recipe) == KitRecipe.allCases.map { Optional($0) }, "recipe=\(kit.items.map { $0.recipe?.rawValue ?? "-" })")
     p.check((4...6).contains(kit.scenes.count), "scenes=\(kit.scenes.count)")
     p.check(kit.scenes.allSatisfy { (3...5).contains($0.steps.count) }, "steps=\(kit.scenes.map(\.steps.count))")
-    let pages = KitLayout.pages(for: kit, players: Array(PlayerToken.allCases.prefix(count)), directorMode: c.director)
+    let pages = KitLayout.pages(for: kit, roles: plan.roles, playerCount: c.players)
     p.check(pages.count <= KitLayout.maxPages, "pages=\(pages.count)")
     let allText = [plan.nutmegSays, props.nutmegSays, kit.nutmegSays] + kit.scenes.map(\.nutmegSays) + kit.items.flatMap(\.lines)
-    p.check(allText.allSatisfy { tokenProblems($0, count: count) }, "token beyond player count")
+    p.check(!allText.contains(where: hasNamePlaceholder), "name placeholder in output")
 
     let secs = Int(Date().timeIntervalSince(started))
     let out: [String: Any] = ["case": c.description, "seconds": secs, "kitCalls": kitCalls, "problems": p.list,

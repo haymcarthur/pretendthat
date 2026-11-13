@@ -5,12 +5,13 @@ public enum Sanitizer {
         public static let copies = 1...8
     }
 
-    static func allowed(_ owner: SceneOwner, playerCount: Int) -> SceneOwner {
-        guard let t = owner.token else { return .all }
-        return t.index < max(1, min(playerCount, 4)) ? owner : .all
+    static func allowed(_ owner: SceneOwner, roleCount: Int) -> SceneOwner {
+        guard let r = owner.role else { return .all }
+        return r.index < max(1, min(roleCount, 4)) ? owner : .all
     }
 
-    public static func clean(_ k: Kit, playerCount: Int) -> Kit {
+    /// `roleCount`: distinct roles in the plan (scene owners past it become "all").
+    public static func clean(_ k: Kit, roleCount: Int) -> Kit {
         var k = k
         k.items = recipeOrdered(k.items).map { item in
             var i = item
@@ -21,7 +22,7 @@ public enum Sanitizer {
         k.scenes = Array(k.scenes.prefix(Limits.scenesMax)).map { scene in
             var s = scene
             s.steps = Array(s.steps.prefix(Limits.stepsMax)).map { Step(emoji: EmojiMatch.fix($0.emoji, for: $0.text), text: $0.text) }
-            s.owner = allowed(s.owner, playerCount: playerCount)
+            s.owner = allowed(s.owner, roleCount: roleCount)
             return s
         }
         return k
@@ -72,12 +73,7 @@ public enum Sanitizer {
 
     public static func clean(_ plan: GamePlan, playerCount: Int) -> GamePlan {
         var plan = plan
-        var seen = Set<PlayerToken>()
-        plan.roles = plan.roles.filter { r in
-            guard r.player.index < max(1, min(playerCount, 4)), !seen.contains(r.player) else { return false }
-            seen.insert(r.player); return true
-        }.map { var r = $0; r.symbol = PrintSymbols.safe(r.symbol); return r }
-        .sorted { $0.player.index < $1.player.index }
+        plan.roles = RoleCast.normalize(plan.roles, kids: playerCount).map { var r = $0; r.symbol = PrintSymbols.safe(r.symbol); return r }
         return plan
     }
 
@@ -87,5 +83,27 @@ public enum Sanitizer {
 
     public static func clean(_ t: NutmegTurn) -> NutmegTurn {
         var t = t; t.choices = Array(t.choices.prefix(Limits.choicesMax)); return t
+    }
+}
+
+/// Turns the roles Nutmeg proposed into the cast for N kids (decision roles-not-names.md): same titles merge
+/// ("Passenger" twice → one Passenger role played by 2), at most 4 distinct roles (R1…R4, which also pick the color),
+/// and the counts add up to exactly the number of kids (the last role takes any extra kids, e.g. more Passengers).
+public enum RoleCast {
+    public static func normalize(_ roles: [Role], kids: Int) -> [Role] {
+        let kids = max(1, min(kids, Players.max))
+        var merged: [Role] = []
+        for r in roles where !r.roleName.trimmingCharacters(in: .whitespaces).isEmpty {
+            if let i = merged.firstIndex(where: { $0.roleName.caseInsensitiveCompare(r.roleName) == .orderedSame }) {
+                merged[i].count += max(1, r.count)
+            } else { var r = r; r.count = max(1, r.count); merged.append(r) }
+        }
+        merged = Array(merged.prefix(min(kids, RoleID.allCases.count)))
+        guard !merged.isEmpty else { return [] }
+        for i in merged.indices { merged[i].id = RoleID.allCases[i] }
+        var total = merged.map(\.count).reduce(0, +)
+        while total > kids, let i = merged.lastIndex(where: { $0.count > 1 }) { merged[i].count -= 1; total -= 1 }
+        if total < kids { merged[merged.count - 1].count += kids - total }
+        return merged
     }
 }

@@ -1,28 +1,35 @@
 import Testing
 @testable import NutmegCore
 
+func cast(_ n: Int) -> [Role] {
+    RoleCast.normalize(["Captain", "Flight Attendant", "Co-Pilot", "Passenger"].enumerated().map {
+        Role(id: RoleID.allCases[$0.offset], roleName: $0.element, emoji: "", symbol: "star", job: "")
+    }, kids: n)
+}
+
 func kitItem(_ id: String, size: KitSize, perPlayer: Bool = false, copies: Int = 1) -> KitItem {
     KitItem(id: id, kind: size == .fullPage ? .sheet : .card, size: size, title: id, symbol: "star", lines: [], bigNumber: nil, perPlayer: perPlayer, copies: copies, colorMe: true)
 }
 
-@Test func perPlayerTickets3Players() {
+@Test func perKidTicketsHaveBlankNamesAndFillTheSheet() {
     let kit = Kit(nutmegSays: "", items: [kitItem("t", size: .ticket, perPlayer: true)], scenes: [])
-    let pages = KitLayout.pages(for: kit, players: [.P1, .P2, .P3], directorMode: false)
+    let pages = KitLayout.pages(for: kit, roles: cast(3), playerCount: 3)
     #expect(pages.count == 1)
-    // Fills the sheet: every player, then spares cycling the players; each keeps their seat index.
-    #expect(pages[0].slots.map(\.player) == [.P1, .P2, .P3, .P1, .P2, .P3, .P1, .P2])
-    #expect(pages[0].slots.map(\.index) == [0, 1, 2, 0, 1, 2, 0, 1])
+    // Tickets belong to no one (kids write their own names); seats keep counting into the spares.
+    #expect(pages[0].slots.allSatisfy { $0.roleID == nil && $0.role == nil })
+    #expect(pages[0].slots.map(\.index) == Array(0..<8))
 }
 
 @Test func smallItemsFillEveryPage() {
     for r in KitRecipe.allCases {
         var item = kitItem(r.rawValue, size: r.size, perPlayer: r.perPlayer, copies: r == .money ? 8 : 1)
         item.recipe = r
-        for players in [[PlayerToken.P1], [.P1, .P2], [.P1, .P2, .P3], [.P1, .P2, .P3, .P4]] {
-            let pages = KitLayout.pages(for: Kit(nutmegSays: "", items: [item], scenes: []), players: players, directorMode: false)
+        for n in 1...Players.max {
+            let roles = cast(n)
+            let pages = KitLayout.pages(for: Kit(nutmegSays: "", items: [item], scenes: []), roles: roles, playerCount: n)
             let cap = KitLayout.grid(for: r.size).capacity
-            #expect(pages.allSatisfy { $0.slots.count == cap }, "\(r) with \(players.count) players")
-            if r.perPlayer { #expect(Set(pages.flatMap(\.slots).compactMap(\.player)) == Set(players)) }
+            #expect(pages.allSatisfy { $0.slots.count == cap }, "\(r) with \(n) kids")
+            if r == .badges { #expect(Set(pages.flatMap(\.slots).compactMap(\.roleID)) == Set(roles.map(\.id))) }
         }
     }
 }
@@ -36,28 +43,30 @@ func kitItem(_ id: String, size: KitSize, perPlayer: Bool = false, copies: Int =
 
 @Test func badgesSixPerPage() {
     let kit = Kit(nutmegSays: "", items: [kitItem("b", size: .badge, copies: 8)], scenes: [])
-    let pages = KitLayout.pages(for: kit, players: [.P1], directorMode: false)
+    let pages = KitLayout.pages(for: kit, roles: cast(1), playerCount: 1)
     #expect(pages.map(\.slots.count) == [6, 6])
 }
 
 @Test func capsAtSevenPages() {
     let items = [kitItem("a", size: .ticket, copies: 20), kitItem("b", size: .badge, copies: 20),
                  kitItem("c", size: .bill, copies: 20), kitItem("d", size: .keycard, copies: 20)]
-    let pages = KitLayout.pages(for: Kit(nutmegSays: "", items: items, scenes: []), players: [.P1], directorMode: false)
+    let pages = KitLayout.pages(for: Kit(nutmegSays: "", items: items, scenes: []), roles: cast(1), playerCount: 1)
     #expect(pages.count == KitLayout.maxPages && KitLayout.maxPages == 7)
     #expect(Set(pages.map(\.item.id)) == ["a", "b", "c", "d"])
 }
 
-@Test func directorModeBlankSlots() {
-    let kit = Kit(nutmegSays: "", items: [kitItem("t", size: .ticket, perPlayer: true, copies: 8)], scenes: [])
-    let pages = KitLayout.pages(for: kit, players: [.P1, .P2, .P3, .P4], directorMode: true)
-    #expect(pages.flatMap(\.slots).count == 8)
-    #expect(pages.flatMap(\.slots).allSatisfy { $0.player == nil })
+@Test func fiveOrMoreKidsShareRolesOnBadges() {
+    var badge = kitItem("badge", size: .badge, perPlayer: true); badge.recipe = .badges
+    let roles = cast(6)
+    #expect(roles.map(\.roleName) == ["Captain", "Flight Attendant", "Co-Pilot", "Passenger"])
+    #expect(roles.map(\.count) == [1, 1, 1, 3])
+    let slots = KitLayout.pages(for: Kit(nutmegSays: "", items: [badge], scenes: []), roles: roles, playerCount: 6).flatMap(\.slots)
+    #expect(slots.prefix(6).compactMap(\.role) == ["Captain", "Flight Attendant", "Co-Pilot", "Passenger", "Passenger", "Passenger"])
 }
 
 @Test func fullPageSheetIsOnePageEach() {
     let kit = Kit(nutmegSays: "", items: [kitItem("m", size: .fullPage, copies: 2)], scenes: [])
-    #expect(KitLayout.pages(for: kit, players: [.P1], directorMode: false).count == 2)
+    #expect(KitLayout.pages(for: kit, roles: cast(1), playerCount: 1).count == 2)
 }
 
 @Test func gridShapes() {
@@ -68,7 +77,7 @@ func kitItem(_ id: String, size: KitSize, perPlayer: Bool = false, copies: Int =
 
 @Test func fallbackKitFitsSixPages() {
     let a = Fallback.airplane
-    #expect(KitLayout.pages(for: a.kit, players: [.P1, .P2, .P3, .P4], directorMode: false).count <= 6)
+    #expect(KitLayout.pages(for: a.kit, roles: cast(4), playerCount: 4).count <= 6)
 }
 
 @Test func artPromptNeverCarriesTokensOrNames() {
@@ -84,10 +93,10 @@ func kitItem(_ id: String, size: KitSize, perPlayer: Bool = false, copies: Int =
     var item = kitItem("pass", size: .ticket, perPlayer: true)
     item.bigNumber = "1A"
     let kit = Kit(nutmegSays: "", items: [item], scenes: [])
-    let slots = KitLayout.pages(for: kit, players: [.P1, .P2, .P3], directorMode: false)[0].slots
+    let slots = KitLayout.pages(for: kit, roles: cast(3), playerCount: 3)[0].slots
     #expect(slots.prefix(3).map { KitLayout.bigNumber(for: item, slot: $0) } == ["1A", "1B", "1C"])
     var shared = kitItem("money", size: .bill, copies: 3); shared.bigNumber = "5"
-    #expect(KitLayout.bigNumber(for: shared, slot: KitSlot(player: nil, index: 2)) == "5")
+    #expect(KitLayout.bigNumber(for: shared, slot: KitSlot(index: 2)) == "5")
 }
 
 @Test func nameLinesAreNotRepeatedOnCards() {
@@ -96,34 +105,20 @@ func kitItem(_ id: String, size: KitSize, perPlayer: Bool = false, copies: Int =
     #expect(KitLayout.printedLines(for: item) == ["Flight: Ocean Express"])
 }
 
-@Test func directorModeFillsAPageOfBlankPerPlayerItems() {
-    var badge = Fixture.item("badge"); badge.size = .badge; badge.perPlayer = true; badge.copies = 1
-    let kit = Kit(nutmegSays: "", items: [badge], scenes: [])
-    let pages = KitLayout.pages(for: kit, players: [.P1, .P2, .P3, .P4], directorMode: true)
-    #expect(pages.count == 1)
-    #expect(pages[0].slots.count == KitLayout.grid(for: .badge).capacity)
-    #expect(pages[0].slots.allSatisfy { $0.player == nil })
-}
-
 @Test func recipeKitFitsSevenPages() {
-    let pages = KitLayout.pages(for: Fallback.airplane.kit, players: [.P1, .P2, .P3, .P4], directorMode: false)
+    let pages = KitLayout.pages(for: Fallback.airplane.kit, roles: cast(4), playerCount: 4)
     #expect(pages.count <= 7)
     #expect(pages.map(\.item.recipe) == KitRecipe.allCases.map { Optional($0) })   // one page each, in recipe order
 }
 
-@Test func eachPlayersBadgeShowsTheirOwnRole() {
+@Test func oneBadgePerRoleWithItsTitle() {
     var badge = kitItem("badge", size: .badge, perPlayer: true); badge.recipe = .badges
-    let roles: [PlayerToken: String] = [.P1: "Captain", .P2: "Flight Attendant", .P3: "Passenger", .P4: "Pilot"]
     for n in 1...4 {
-        let players = Array(PlayerToken.allCases.prefix(n))
-        let pages = KitLayout.pages(for: Kit(nutmegSays: "", items: [badge], scenes: []), players: players,
-                                    directorMode: false, roles: roles)
-        let slots = pages.flatMap(\.slots)
-        // The first N badges are the N players, each with a distinct role that is their own.
-        let firstN = Array(slots.prefix(n))
-        #expect(firstN.map(\.player) == players.map(Optional.init))
-        #expect(Set(firstN.compactMap(\.role)).count == n)
-        #expect(slots.allSatisfy { $0.role == $0.player.flatMap { roles[$0] } })
+        let roles = cast(n)
+        let slots = KitLayout.pages(for: Kit(nutmegSays: "", items: [badge], scenes: []), roles: roles, playerCount: n).flatMap(\.slots)
+        // The first N badges are the N roles, each printed with its own title; spares repeat roles, never blank names.
+        #expect(slots.prefix(n).map(\.role) == roles.map { Optional($0.roleName) })
+        #expect(slots.allSatisfy { s in s.role == roles.first { $0.id == s.roleID }?.roleName })
     }
 }
 

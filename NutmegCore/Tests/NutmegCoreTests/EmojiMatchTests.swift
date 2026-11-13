@@ -31,7 +31,7 @@ import Testing
     @Test func sanitizerFixesStepsAndProps() {
         var kit = Fallback.airplane.kit
         kit.scenes[0].steps[0] = Step(emoji: "🪑", text: "Put the blanket on the table")
-        #expect(Sanitizer.clean(kit, playerCount: 2).scenes[0].steps[0].emoji == "🛏️")
+        #expect(Sanitizer.clean(kit, roleCount: 2).scenes[0].steps[0].emoji == "🛏️")
         var props = Fallback.airplane.props
         props.props[0].emoji = "📦"; props.props[0].householdItem = "Pillows"
         #expect(Sanitizer.clean(props).props[0].emoji == "🛋️")

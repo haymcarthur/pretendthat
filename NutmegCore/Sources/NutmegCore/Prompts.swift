@@ -1,6 +1,6 @@
 import Foundation
 
-/// The system prompt is byte-stable so it can be cached. Per-phase prompts carry only tokenized context.
+/// The system prompt is byte-stable so it can be cached. We never ask for kids' names, so no prompt contains one.
 public enum Prompts {
     public static let system = """
     You are Nutmeg, a bouncy, excitable stage-manager mouse (she/her) with a headset and a clipboard. \
@@ -11,7 +11,8 @@ public enum Prompts {
     scene-by-scene play), then step back so the play happens off the screen. You lead; the app decides what \
     phase comes next. You only fill in the content asked for, in the JSON shape asked for.
 
-    Players are written as tokens {P1}, {P2}, {P3}, {P4}. Always refer to kids by token, never invent names.
+    We never ask for kids' names. Refer to kids only by their role ("the Captain", "a Passenger"). Never invent or ask for names. \
+    Roles have ids R1, R2, R3, R4; scenes and props belong to a role id or "all".
 
     Voice rules for every nutmegSays line and every choice label:
     - At most 2 sentences, each at most 20 words. Words a 4-year-old knows. Enthusiastic and kind.
@@ -45,10 +46,11 @@ public enum Prompts {
                          "a farm", "a train ride", "a library", "an ice cream truck", "a dinosaur museum"]
 
     public static func plan(game: String, ctx: AdventureContext) -> String {
-        let who = ctx.directorMode
-            ? "There are 5 or more kids. One kid is the Director who runs the show; make 4 roles for P1..P4 (names are written in later)."
-            : "There are \(ctx.playerCount) players: \(tokens(ctx.playerCount)). Give exactly one role per player."
-        return "Phase: roles. Game: \"\(game)\". \(who) If there is 1 player, stuffed animals can play the other parts. Return GamePlan.\n\(contextJSON(ctx))"
+        let n = max(1, ctx.playerCount)
+        let who = n <= 4
+            ? "There are \(n) kids. Make exactly \(n) different roles (ids \(ids(n))), each with count 1."
+            : "There are \(n) kids. Make 4 different roles (ids R1, R2, R3, R4) and set count so the counts add up to \(n); give the extra kids a role that makes sense to share (e.g. 2 Passengers)."
+        return "Phase: roles. Game: \"\(game)\". \(who) Kids pick their own badge after printing, so don't assign roles to anyone. If there is 1 kid, stuffed animals can play the other parts. Return GamePlan.\n\(contextJSON(ctx))"
     }
 
     public static func props(ctx: AdventureContext) -> String {
@@ -61,8 +63,8 @@ public enum Prompts {
         Phase: printable kit and scenes. Every kit has exactly these 6 items, in this order (set recipe on each; \
         you choose the titles, wording, numbers and what goes on each, themed to THIS game):
         \(recipe)
-        Use {P1}.. tokens only on badges and tickets. Keep wording short (lines 1 to 5 words each).
-        Then write 4 to 6 scenes for the play guide (never fewer than 4), each with 3 to 5 steps. Each scene belongs to the role that leads it (owner) or "all". \
+        Never put names or name placeholders anywhere: the app prints each badge's role title and a blank "Name: ____" line on badges and tickets for kids to write on. Keep wording short (lines 1 to 5 words each).
+        Then write 4 to 6 scenes for the play guide (never fewer than 4), each with 3 to 5 steps. Each scene belongs to the role id that leads it (owner) or "all"; call kids by their role ("Captain, check the plane!"). \
         Return Kit.
         \(contextJSON(ctx))
         """
@@ -76,7 +78,7 @@ public enum Prompts {
         "Phase: help during play. The kids are in scene \"\(scene.title)\" and asked for help. Give ONE fun idea for what to do right now, in one short line, plus 2 choices. Return NutmegTurn.\n\(contextJSON(ctx))"
     }
 
-    static func tokens(_ n: Int) -> String { PlayerToken.allCases.prefix(max(1, min(n, 4))).map(\.placeholder).joined(separator: ", ") }
+    static func ids(_ n: Int) -> String { RoleID.allCases.prefix(max(1, min(n, 4))).map(\.rawValue).joined(separator: ", ") }
 
     static func contextJSON(_ ctx: AdventureContext) -> String {
         let enc = JSONEncoder(); enc.outputFormatting = [.sortedKeys]

@@ -23,7 +23,7 @@ final class FakeLLM: LLM, @unchecked Sendable {
         if shouldFail { throw ClaudeError.transport }
         if let v = lock.withLock({ responses[String(describing: T.self)] }) as? T { return v }
         let a = Fallback.airplane
-        let all: [Any] = [a.ideas, a.plan, a.props, a.kit, NutmegTurn(nutmegSays: "Ready, Captain {P1}?", choices: [], understood: true)]
+        let all: [Any] = [a.ideas, a.plan, a.props, a.kit, NutmegTurn(nutmegSays: "Ready, Captain?", choices: [], understood: true)]
         guard let v = all.compactMap({ $0 as? T }).first else { throw ClaudeError.decoding("no fake for \(T.self)") }
         return v
     }
@@ -36,22 +36,21 @@ final class FakeLLM: LLM, @unchecked Sendable {
     #expect(kit.scenes.count <= 6)
 }
 
-@Test func userPromptHasNoRealNames() async throws {
-    let players = [Player(token: .P1, name: "Mia", colorIndex: 0, emoji: "💙")]
-    let tokens = NameTokens(players: players)
+@Test func promptsNeverAskForOrCarryNames() async throws {
     let llm = FakeLLM()
     let svc = PhaseService(llm: llm)
     let plan = Sanitizer.clean(Fallback.airplane.plan, playerCount: 1)
     let ctx = AdventureContext(gameTitle: "Airplane", plan: plan, playerCount: 1)
-    _ = try await svc.turn(kidSaid: tokens.tokenize("Mia wants to fly"), phase: "players", ctx: ctx)
+    _ = try await svc.turn(kidSaid: "I want to fly", phase: "players", ctx: ctx)
     _ = try await svc.kit(ctx: ctx)
-    #expect(llm.users.allSatisfy { !$0.contains("Mia") })
-    #expect(llm.users[0].contains("{P1}"))
+    #expect(llm.users.allSatisfy { !$0.contains("{P") })
+    #expect(llm.users[1].contains("Name: ____"))
 }
 
 @Test func systemPromptCarriesPersonalityAndLimits() {
     #expect(Prompts.system.contains("Nutmeg"))
-    #expect(Prompts.system.contains("{P1}"))
+    #expect(Prompts.system.contains("We never ask for kids' names"))
+    #expect(!Prompts.system.contains("{P"))
     #expect(Prompts.system.contains("20 words"))
 }
 
@@ -63,13 +62,23 @@ final class FakeLLM: LLM, @unchecked Sendable {
     #expect(a.kit.items.map(\.recipe) == KitRecipe.allCases.map { Optional($0) })
     #expect((4...6).contains(a.kit.scenes.count))
     #expect(a.kit.scenes.allSatisfy { (3...5).contains($0.steps.count) })
-    #expect(Sanitizer.clean(a.kit, playerCount: 4) == a.kit)   // already within limits
+    #expect(Sanitizer.clean(a.kit, roleCount: 4) == a.kit)   // already within limits
 }
 
 @Test func fallbackTrimsToPlayerCount() {
-    let a = Fallback.airplane(playerCount: 2, directorMode: false)
-    #expect(a.plan.roles.map(\.player) == [.P1, .P2])
-    #expect(a.kit.scenes.allSatisfy { $0.owner != .P3 && $0.owner != .P4 })
+    let a = Fallback.airplane(playerCount: 2)
+    #expect(a.plan.roles.map(\.id) == [.R1, .R2])
+    #expect(a.kit.scenes.allSatisfy { $0.owner != .R3 && $0.owner != .R4 })
+}
+
+@Test func fallbackForSixKidsAddsPassengers() {
+    let a = Fallback.airplane(playerCount: 6)
+    #expect(a.plan.roles.map(\.roleName) == ["Captain", "Flight Attendant", "Co-Pilot", "Passenger"])
+    #expect(a.plan.roles.map(\.count) == [1, 1, 1, 3])
+    // Scenes still belong to the same roles after Passenger moved last.
+    let owners = Set(a.kit.scenes.compactMap(\.owner.role).compactMap { a.plan.role(for: $0)?.roleName })
+    #expect(owners.isSubset(of: ["Captain", "Flight Attendant", "Co-Pilot", "Passenger"]) && !owners.isEmpty)
+    #expect(a.kit.scenes.first?.owner.role.flatMap { a.plan.role(for: $0)?.roleName } == "Captain")
 }
 
 @Test func shortKitAsksOnceMoreThenKeepsIt() async throws {

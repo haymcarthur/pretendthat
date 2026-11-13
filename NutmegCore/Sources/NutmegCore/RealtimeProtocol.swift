@@ -42,14 +42,19 @@ public enum Realtime {
     scary or unsafe, cheerfully steer to a gentle idea without repeating the unsafe words.
     - Only talk about the pretend game. If they wander off, giggle and bring them back to the show.
 
+    You only need three things before props: what game to play, its theme or twist (a pancake restaurant ON THE \
+    MOON), and how many kids are playing. Riff and react, but don't ask for anything else. \
     What you're quietly steering toward (in your own words, in this order, never announced as steps). \
-    The screen shows what you pick, so ALWAYS use the tool when something is decided:
+    ALWAYS use the tool when something is decided:
     - The game. If they have an idea, run with it and call set_game. If they're stuck or bored, call show_game_ideas \
-    with 3 fun, different pretend games for home, then tease them playfully. Call set_game once they choose.
-    - Who's playing: how many kids and their first names (one question at a time). Call set_players. \
-    If 5 or more kids are playing, call set_players with the count and no names (one kid becomes the Director).
-    - Roles: invent one fun role per player that fits THEIR game and details, call set_roles, and tell each kid \
-    their part with excitement. Check they like it; if not, call set_roles again with new ideas.
+    with 3 fun, different pretend games for home, then say them out loud in a fun way (there are no idea cards on screen). Call set_game once they choose, with the \
+    theme in the title ("Pancake Restaurant on the Moon").
+    - How many kids are playing (just the number). Call set_player_count. NEVER ask for names, and if a kid says \
+    their name, don't repeat it or use it: call everyone by their role.
+    - Roles: the number of kids decides the roles. Invent exactly that many roles that fit THEIR game and theme \
+    (3 kids on an airplane: Captain, Flight Attendant, Passenger) and call set_roles. With more than 4 kids, repeat \
+    a role that makes sense to share (2 Passengers). Tell them the roles with excitement; kids pick their own badge \
+    after printing, so never assign a role to a particular kid.
     - Props: call show_props with 3 to 5 household items from the item list that become props (each with 1 or 2 \
     alternates), and send them on a hunt. Props are always optional and never block the game. If a kid doesn't have \
     something or can't find it, react kindly, then either offer ONE alternate that could become the same thing \
@@ -104,17 +109,18 @@ public enum Realtime {
     }
 
     public static var tools: [[String: Any]] { [
-        fn("show_game_ideas", "Show exactly 3 pretend game ideas on the screen.",
+        fn("show_game_ideas", "Note exactly 3 pretend game ideas you are suggesting out loud (there are no idea cards; say them).",
            ["ideas": array(object(["title": str, "pitch": str]))], required: ["ideas"]),
         fn("set_game", "The kids picked a game.", ["title": str], required: ["title"]),
-        fn("set_players", "Who is playing. names: first names in order (empty if 5 or more kids). count: how many kids.",
-           ["names": array(str), "count": ["type": "integer"]], required: ["names", "count"]),
-        fn("set_roles", "One role per player for the chosen game.",
-           ["roles": array(object(["player_name": str, "role_name": str, "job": str]))], required: ["roles"]),
+        fn("set_player_count", "How many kids are playing (a number only; we never ask for names).",
+           ["count": ["type": "integer"]], required: ["count"]),
+        fn("set_roles", "Exactly one role per kid for the chosen game (as many entries as kids). With more than 4 kids, "
+           + "repeat a role title that makes sense to share (e.g. Passenger twice).",
+           ["roles": array(object(["role_name": str, "job": str]))], required: ["roles"]),
         fn("show_props", "Show 3 to 5 household items that become props. item_id MUST come from the list. "
            + "alternates: 1 or 2 other list IDs that could become the same thing if the kids don't have it. "
-           + "for_player is a player's name or \"all\".",
-           ["props": array(object(["item_id": propID, "becomes": str, "for_player": str, "alternates": array(propID)]))],
+           + "for_role is a role title from set_roles or \"all\".",
+           ["props": array(object(["item_id": propID, "becomes": str, "for_role": str, "alternates": array(propID)]))],
            required: ["props"]),
         fn("swap_prop", "The kids don't have a prop: replace it with another list item that becomes the same (or a new) thing.",
            ["old_id": str, "new_id": propID, "becomes": str], required: ["old_id", "new_id", "becomes"]),
@@ -190,19 +196,19 @@ public enum Realtime {
 
 /// A planning step the Realtime model asked for (decoded from a function call).
 public enum PlanningCall: Equatable, Sendable {
-    public struct RoleDraft: Equatable, Sendable { public var playerName: String; public var roleName: String; public var job: String
-        public init(playerName: String, roleName: String, job: String) { self.playerName = playerName; self.roleName = roleName; self.job = job } }
+    public struct RoleDraft: Equatable, Sendable { public var roleName: String; public var job: String
+        public init(roleName: String, job: String) { self.roleName = roleName; self.job = job } }
     public struct PropDraft: Equatable, Sendable {
         /// A PropLibrary ID, or free text when the model went off the list (fallback: generated art).
-        public var itemID: String; public var becomes: String; public var forPlayer: String; public var alternates: [String]
-        public init(itemID: String, becomes: String, forPlayer: String, alternates: [String] = []) {
-            self.itemID = itemID; self.becomes = becomes; self.forPlayer = forPlayer; self.alternates = alternates
+        public var itemID: String; public var becomes: String; public var forRole: String; public var alternates: [String]
+        public init(itemID: String, becomes: String, forRole: String, alternates: [String] = []) {
+            self.itemID = itemID; self.becomes = becomes; self.forRole = forRole; self.alternates = alternates
         }
         public var inLibrary: Bool { PropLibrary.contains(itemID) }
     }
     case showGameIdeas([GameIdea])
     case setGame(String)
-    case setPlayers(names: [String], count: Int)
+    case setPlayerCount(Int)
     case setRoles([RoleDraft])
     case showProps([PropDraft])
     case swapProp(oldID: String, newID: String, becomes: String)
@@ -221,18 +227,17 @@ public enum PlanningCall: Equatable, Sendable {
             return ideas.isEmpty ? nil : .showGameIdeas(Array(ideas.prefix(Sanitizer.Limits.ideas)))
         case "set_game":
             let t = s(a, "title"); return t.isEmpty ? nil : .setGame(t)
-        case "set_players":
-            let names = (a["names"] as? [String] ?? []).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
-            let count = (a["count"] as? Int) ?? (a["count"] as? Double).map(Int.init) ?? names.count
-            return .setPlayers(names: names, count: max(1, max(count, names.count)))
+        case "set_player_count":
+            guard let count = (a["count"] as? Int) ?? (a["count"] as? Double).map(Int.init) else { return nil }
+            return .setPlayerCount(max(1, min(count, Players.max)))
         case "set_roles":
-            let roles = list("roles").map { RoleDraft(playerName: s($0, "player_name"), roleName: s($0, "role_name"), job: s($0, "job")) }
+            let roles = list("roles").map { RoleDraft(roleName: s($0, "role_name"), job: s($0, "job")) }
                 .filter { !$0.roleName.isEmpty }
             return roles.isEmpty ? nil : .setRoles(roles)
         case "show_props":
             let props = list("props").map {
                 PropDraft(itemID: s($0, "item_id").isEmpty ? s($0, "household_item") : s($0, "item_id"), becomes: s($0, "becomes"),
-                          forPlayer: s($0, "for_player"),
+                          forRole: s($0, "for_role"),
                           alternates: ($0["alternates"] as? [String] ?? []).filter(PropLibrary.contains).prefix(2).map { $0 })
             }.filter { !$0.itemID.isEmpty }
             return props.isEmpty ? nil : .showProps(props)

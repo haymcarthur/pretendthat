@@ -26,7 +26,7 @@ public enum JourneyStep: Int, CaseIterable, Sendable {
 }
 
 /// The app-side state machine (spec C4): Nutmeg leads, the LLM fills in each phase.
-/// Holds real names only in memory; everything sent out goes through `tokens`.
+/// There are no kids' names anywhere (roles-not-names.md): only how many kids, and the roles that number decides.
 @Observable @MainActor
 public final class AdventureStore {
     public private(set) var phase: Phase = .hello {
@@ -38,14 +38,14 @@ public final class AdventureStore {
     /// The furthest journey step reached this adventure (the step rail lets kids jump back up to here).
     public private(set) var reachedStep: JourneyStep?
     @ObservationIgnored private var lastPlayPhase: Phase?
-    public private(set) var players: [Player] = []
-    public private(set) var directorMode = false
+    /// How many kids are playing (0 = not asked yet). Decides the number of roles and badges.
+    public private(set) var playerCount = 0
     public private(set) var gameTitle: String?
     public private(set) var ideas: GameIdeas?
     public private(set) var plan: GamePlan?
     public private(set) var props: Props?
     public private(set) var kit: Kit?
-    /// What Nutmeg says next, always with real names (for TTS and display).
+    /// What Nutmeg says next (for TTS and display).
     public private(set) var nutmegLine = ""
     /// Tap choices from the last free-speech turn.
     public private(set) var choices: [Choice] = []
@@ -57,23 +57,22 @@ public final class AdventureStore {
     /// Checked steps for the current scene.
     public var checkedSteps: Set<Int> = []
     /// What Nutmeg is showing around her in the voice conversation (D4): the camera zooms out while this isn't `.none`.
+    /// Only prop cards are ever shown (Haylee): ideas and roles are spoken, not carded.
     public private(set) var presenting: Presentation = .none
 
-    public enum Presentation: Equatable, Sendable { case none, ideas, roles, props }
-
-    public var tokens: NameTokens { NameTokens(players: players) }
+    public enum Presentation: Equatable, Sendable { case none, props }
 
     @ObservationIgnored private let service: PhaseService?
     @ObservationIgnored private var failures: [String: Int] = [:]
     @ObservationIgnored private var retryAction: (() async -> Void)?
-    @ObservationIgnored private var holder: PlayerToken?
+    @ObservationIgnored private var holder: RoleID?
 
     public static let oops = "Oops, my clipboard got mixed up! Let's try that again."
 
     public init(service: PhaseService?) { self.service = service }
 
     var context: AdventureContext {
-        AdventureContext(gameTitle: gameTitle, plan: plan, props: props, playerCount: players.count, directorMode: directorMode)
+        AdventureContext(gameTitle: gameTitle, plan: plan, props: props, playerCount: max(1, playerCount))
     }
 
     // MARK: Setup flow
@@ -89,7 +88,7 @@ public final class AdventureStore {
     /// Kid asked for something specific ("I'm bored", "dinosaurs!") on the pick-game screen.
     public func askForIdeas(_ kidSaid: String) async {
         await run("ideas", kidSaid: nil) { [self] svc in
-            ideas = try await svc.ideas(kidSaid: tokens.tokenize(kidSaid))
+            ideas = try await svc.ideas(kidSaid: kidSaid)
         } fallback: { [self] in ideas = Fallback.airplane.ideas }
         if let ideas { say(ideas.nutmegSays) }
     }
@@ -101,29 +100,15 @@ public final class AdventureStore {
     }
 
     public func setPlayerCount(_ n: Int) {
-        directorMode = n >= 5
-        let count = directorMode ? 4 : max(1, min(n, 4))
-        players = PlayerToken.allCases.prefix(count).map {
-            Player(token: $0, name: "", colorIndex: $0.index, emoji: Player.defaultEmojis[$0.index])
-        }
+        playerCount = max(1, min(n, Players.max))
         plan = nil
-        say(directorMode ? "A big crew! One of you is the Director and holds the iPad." : "Yay! What's your name, player one?")
+        say(playerCount == 1 ? "Just you? Yay! Let's find your job!" : "\(playerCount) friends! Yay! Let's find your jobs!")
     }
 
     /// Back to the player-count question.
     public func resetPlayers() {
-        players = []; directorMode = false; plan = nil
+        playerCount = 0; plan = nil
         say("How many friends are playing?")
-    }
-
-    public func setName(_ name: String, for token: PlayerToken) {
-        guard let i = players.firstIndex(where: { $0.token == token }) else { return }
-        players[i].name = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let next = players.first(where: { $0.name.isEmpty }), !directorMode {
-            say("Hi \(players[i].displayName)! And what's your name, player \(next.token.index + 1)?")
-        } else {
-            say("Hi \(players[i].displayName)! Let's find your jobs!")
-        }
     }
 
     public func confirmPlayers() async {
@@ -132,18 +117,6 @@ public final class AdventureStore {
             plan = try await svc.plan(game: game, ctx: context)
         } fallback: { [self] in useFallbackGame() }
         if let plan { say(plan.nutmegSays) }
-    }
-
-    /// Rotates roles between players (the "swap" button).
-    public func swapRoles() {
-        guard var p = plan, p.roles.count > 1 else { return }
-        let tokens = p.roles.map(\.player)
-        let rotated = Array(p.roles[1...] + p.roles[..<1])
-        p.roles = zip(tokens, rotated).map { t, r in var r = r; r.player = t; return r }
-        plan = p
-        if let first = p.roles.first, let name = players.first(where: { $0.token == first.player })?.displayName {
-            say("Swap! Now \(name) is the \(first.roleName)!")
-        }
     }
 
     public func confirmRoles() async {
@@ -186,8 +159,8 @@ public final class AdventureStore {
         goToScene(0)
     }
 
-    public func badgeTapped(_ t: PlayerToken) {
-        guard case .handoff(let i) = phase, kit?.scenes[i].owner.token == t else { return }
+    public func badgeTapped(_ t: RoleID) {
+        guard case .handoff(let i) = phase, kit?.scenes[i].owner.role == t else { return }
         holder = t
         enterScene(i)
     }
@@ -213,7 +186,7 @@ public final class AdventureStore {
         var line = Self.offlineHelp[i % Self.offlineHelp.count]
         if let service, !usingFallback {
             isWorking = true
-            if let turn = try? await service.help(scene: scene, ctx: context) { line = tokens.untokenize(turn.nutmegSays) }
+            if let turn = try? await service.help(scene: scene, ctx: context) { line = turn.nutmegSays }
             isWorking = false
         }
         nutmegLine = line
@@ -227,7 +200,7 @@ public final class AdventureStore {
 
     public func newGame() {
         phase = .hello
-        players = []; directorMode = false; gameTitle = nil
+        playerCount = 0; gameTitle = nil
         ideas = nil; plan = nil; props = nil; kit = nil
         choices = []; lastError = nil; usingFallback = false
         foundProps = []; checkedSteps = []; failures = [:]; retryAction = nil; holder = nil
@@ -241,8 +214,8 @@ public final class AdventureStore {
         guard let reached = reachedStep, step.rawValue <= reached.rawValue, step != phase.step else { return }
         switch step {
         case .game:
-            phase = plan != nil || !players.isEmpty ? .players : .pickGame
-            presenting = plan != nil ? .roles : (ideas != nil && gameTitle == nil ? .ideas : .none)
+            phase = plan != nil || playerCount > 0 ? .players : .pickGame
+            presenting = .none
         case .getReady:
             guard props != nil else { return }
             phase = .props; presenting = .props
@@ -270,48 +243,39 @@ public final class AdventureStore {
         switch call {
         case .showGameIdeas(let list):
             ideas = GameIdeas(nutmegSays: "", ideas: list)
-            phase = .pickGame; presenting = .ideas
-            return "The 3 ideas are on screen now. Tease one or two of them in your own words and let the kids choose."
+            phase = .pickGame; presenting = .none
+            return "Noted (there are no idea cards; the chat shows your words). Tell the kids the ideas in a fun way and let them choose."
         case .setGame(let title):
             gameTitle = title; plan = nil; props = nil
             phase = .players; presenting = .none
-            return "Game set: \(title). React to it, then find out who is playing."
-        case .setPlayers(let names, let count):
-            directorMode = count >= 5
-            let n = directorMode ? 4 : max(1, min(max(count, names.count), 4))
-            players = PlayerToken.allCases.prefix(n).map {
-                Player(token: $0, name: directorMode ? "" : (names.indices.contains($0.index) ? names[$0.index] : ""),
-                       colorIndex: $0.index, emoji: Player.defaultEmojis[$0.index])
-            }
+            return "Game set: \(title). React to it, then ask how many kids are playing (just the number, never names)."
+        case .setPlayerCount(let count):
+            playerCount = max(1, min(count, Players.max))
             plan = nil; props = nil
             phase = .players; presenting = .none
-            if directorMode { return "Director mode: 5 or more kids, one Director holds the iPad. When ready, call set_roles with 4 roles (player_name empty)." }
-            return "Players: \(players.map(\.displayName).joined(separator: ", ")). Greet them by name, then invent their roles with set_roles."
+            let shared = playerCount > RoleID.allCases.count ? " With more than 4 kids, repeat a role that makes sense to share." : ""
+            return "\(playerCount) kid\(playerCount == 1 ? "" : "s"). Invent exactly \(playerCount) role\(playerCount == 1 ? "" : "s") for this game and call set_roles.\(shared) Never ask for names."
         case .setRoles(let drafts):
-            if players.isEmpty { players = [Player(token: .P1, name: "", colorIndex: 0, emoji: Player.defaultEmojis[0])] }
-            var free = players.map(\.token)
-            var roles: [Role] = []
-            for d in drafts {
-                let match = players.first { !d.playerName.isEmpty && $0.name.localizedCaseInsensitiveCompare(d.playerName) == .orderedSame && free.contains($0.token) }?.token
-                guard let token = match ?? free.first else { break }
-                free.removeAll { $0 == token }
-                roles.append(Role(player: token, roleName: tokens.tokenize(d.roleName), emoji: "", symbol: "star", job: tokens.tokenize(d.job)))
+            if playerCount == 0 { playerCount = max(1, min(drafts.count, Players.max)) }
+            let roles = drafts.enumerated().map { i, d in
+                Role(id: RoleID.allCases[min(i, RoleID.allCases.count - 1)], roleName: d.roleName, emoji: "", symbol: "star", job: d.job)
             }
             let title = gameTitle ?? "Pretend"
-            plan = Sanitizer.clean(GamePlan(gameTitle: title, gameEmoji: "", setting: title, roles: roles, nutmegSays: ""), playerCount: players.count)
-            phase = .players; presenting = .roles
-            let missing = free.isEmpty ? "" : " Still missing a role for: \(free.compactMap { t in players.first { $0.token == t }?.displayName }.joined(separator: ", "))."
-            return "Roles are on screen.\(missing) Tell each kid their part with excitement and check they like it. Wait for their answer before show_props."
+            plan = Sanitizer.clean(GamePlan(gameTitle: title, gameEmoji: "", setting: title, roles: roles, nutmegSays: ""), playerCount: playerCount)
+            phase = .players; presenting = .none
+            let cast = plan!.roles.map { $0.count > 1 ? "\($0.count) \($0.roleName)s" : $0.roleName }.joined(separator: ", ")
+            let short = drafts.count < playerCount ? " You gave \(drafts.count) roles for \(playerCount) kids, so the last role is shared." : ""
+            return "Roles set: \(cast).\(short) Tell the kids the roles with excitement (there are no role cards; kids pick their own badge after printing). Then show_props."
         case .showProps(let drafts):
             var used = Set<String>()
             let list: [Prop] = drafts.enumerated().compactMap { i, d in
                 if !d.inLibrary && PropLibrary.looksUnsafe(d.itemID) { return nil }
-                let owner = players.first { $0.name.localizedCaseInsensitiveCompare(d.forPlayer) == .orderedSame }
-                    .map { SceneOwner(rawValue: $0.token.rawValue) ?? .all } ?? .all
+                let owner = plan?.roles.first { $0.roleName.localizedCaseInsensitiveCompare(d.forRole) == .orderedSame }
+                    .map { SceneOwner(rawValue: $0.id.rawValue) ?? .all } ?? .all
                 var id = d.inLibrary ? d.itemID : "custom\(i)"
                 if used.contains(id) { id += "-\(i)" }
                 used.insert(id)
-                return Prop(id: id, householdItem: PropLibrary.name(d.itemID) ?? d.itemID, becomes: tokens.tokenize(d.becomes),
+                return Prop(id: id, householdItem: PropLibrary.name(d.itemID) ?? d.itemID, becomes: d.becomes,
                             emoji: "", forRole: owner, safetyOK: true,
                             libraryID: d.inLibrary ? d.itemID : nil, alternates: d.alternates, skipped: false)
             }
@@ -326,7 +290,7 @@ public final class AdventureStore {
             guard PropLibrary.contains(newID) else { return "\(newID) isn't on the list. Pick another list item or skip_prop." }
             p.props[i].libraryID = newID
             p.props[i].householdItem = PropLibrary.name(newID) ?? newID
-            if !becomes.isEmpty { p.props[i].becomes = tokens.tokenize(becomes) }
+            if !becomes.isEmpty { p.props[i].becomes = becomes }
             p.props[i].skipped = false
             p.props[i].swapped = true
             p.props[i].alternates = p.props[i].alternates?.filter { $0 != newID }
@@ -342,14 +306,10 @@ public final class AdventureStore {
         case .finishPlanning:
             presenting = .none
             if gameTitle == nil { gameTitle = "Airplane" }
-            if players.isEmpty { setPlayerCountQuietly(1) }
+            if playerCount == 0 { playerCount = max(1, plan?.kidCount ?? 1) }
             Task { await self.makeKit() }
             return "Making the kit now. Say nothing."
         }
-    }
-
-    private func setPlayerCountQuietly(_ n: Int) {
-        players = PlayerToken.allCases.prefix(n).map { Player(token: $0, name: "", colorIndex: $0.index, emoji: Player.defaultEmojis[$0.index]) }
     }
 
     #if DEBUG
@@ -368,8 +328,8 @@ public final class AdventureStore {
         isWorking = true
         defer { isWorking = false }
         do {
-            let turn = try await service.turn(kidSaid: tokens.tokenize(text), phase: phaseName, ctx: context)
-            choices = turn.choices.map { Choice(id: $0.id, label: tokens.untokenize($0.label), emoji: $0.emoji) }
+            let turn = try await service.turn(kidSaid: text, phase: phaseName, ctx: context)
+            choices = turn.choices
             say(turn.nutmegSays)
         } catch {
             say("Hmm, I didn't catch that. Tap a picture instead!")
@@ -398,7 +358,7 @@ public final class AdventureStore {
     }
 
     private func useFallbackGame() {
-        let a = Fallback.airplane(playerCount: players.count, directorMode: directorMode)
+        let a = Fallback.airplane(playerCount: max(1, playerCount))
         usingFallback = true
         lastError = nil
         retryAction = nil
@@ -452,12 +412,11 @@ public final class AdventureStore {
 
     private func goToScene(_ i: Int) {
         guard let kit, i < kit.scenes.count else { phase = .end; say("The end! What a show! Take a bow!"); return }
-        let owner = kit.scenes[i].owner.token
-        if !directorMode, players.count > 1, let owner, owner != holder {
+        // Hand-offs are by role: "Pass the tablet to the Captain!" (kids wear the badges they picked).
+        let owner = kit.scenes[i].owner.role
+        if playerCount > 1, let owner, owner != holder, let role = plan?.role(for: owner) {
             phase = .handoff(sceneIndex: i)
-            let role = plan?.role(for: owner)?.roleName ?? ""
-            let name = players.first { $0.token == owner }?.displayName ?? ""
-            say("Pass the iPad to \(role) \(name)!".replacingOccurrences(of: "  ", with: " "))
+            say("Pass the tablet to \(role.spoken)!")
         } else {
             enterScene(i)
         }
@@ -469,14 +428,14 @@ public final class AdventureStore {
         if let s = kit?.scenes[i] { say(s.nutmegSays) }
     }
 
-    private func say(_ tokenized: String) {
-        nutmegLine = tokens.untokenize(tokenized)
+    private func say(_ line: String) {
+        nutmegLine = line
     }
 
     private var phaseName: String {
         switch phase {
         case .hello, .pickGame: "pick a game"
-        case .players: "who's playing"
+        case .players: "how many kids and their roles"
         case .props: "props hunt"
         case .makingKit, .kitReady: "printable kit"
         case .handoff, .scene, .stepBack: "playing"

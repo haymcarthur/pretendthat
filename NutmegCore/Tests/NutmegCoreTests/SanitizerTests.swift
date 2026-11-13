@@ -2,14 +2,14 @@ import Testing
 @testable import NutmegCore
 
 @Test func sanitizerClampsKit() {
-    let k = Sanitizer.clean(Fixture.oversizedKit, playerCount: 2)
+    let k = Sanitizer.clean(Fixture.oversizedKit, roleCount: 2)
     #expect(k.items.count == 1)   // six ticket-sized items fill only the one tickets slot of the recipe
     #expect(k.items[0].recipe == .tickets)
     #expect(k.scenes.count == 6)
     #expect(k.scenes.allSatisfy { $0.steps.count <= 5 })
     #expect(k.items.allSatisfy { (1...8).contains($0.copies) })
     #expect(k.items[0].symbol == "star")
-    #expect(k.scenes.allSatisfy { $0.owner == .all || $0.owner == .P1 || $0.owner == .P2 })
+    #expect(k.scenes.allSatisfy { $0.owner == .all || $0.owner == .R1 || $0.owner == .R2 })
 }
 
 @Test func propsDropUnsafe() {
@@ -18,11 +18,26 @@ import Testing
     #expect(p.props.count == 2)
 }
 
-@Test func planKeepsOneRolePerPlayer() {
-    let roles = PlayerToken.allCases.map { Role(player: $0, roleName: "R", emoji: "⭐️", symbol: "bogus", job: "j") }
+@Test func planGivesExactlyOneRolePerKid() {
+    let roles = ["A", "B", "C", "D"].enumerated().map { Role(id: RoleID.allCases[$0.offset], roleName: $0.element, emoji: "⭐️", symbol: "bogus", job: "j") }
     let plan = Sanitizer.clean(GamePlan(gameTitle: "Airplane", gameEmoji: "✈️", setting: "sky", roles: roles + roles, nutmegSays: "Hi"), playerCount: 3)
-    #expect(plan.roles.map(\.player) == [.P1, .P2, .P3])
+    #expect(plan.roles.map(\.id) == [.R1, .R2, .R3])
+    #expect(plan.roles.map(\.roleName) == ["A", "B", "C"])
+    #expect(plan.kidCount == 3)
     #expect(plan.roles.allSatisfy { $0.symbol == "star" })
+}
+
+@Test func sameTitlesMergeAndCountsAddUp() {
+    let titles = ["Captain", "Passenger", "passenger", "Pilot", "Cook", "Waiter"]
+    let roles = titles.map { Role(id: .R1, roleName: $0, emoji: "", symbol: "star", job: "") }
+    let five = RoleCast.normalize(roles, kids: 5)
+    #expect(five.map(\.roleName) == ["Captain", "Passenger", "Pilot", "Cook"])
+    #expect(five.map(\.id) == RoleID.allCases)
+    #expect(five.map(\.count).reduce(0, +) == 5)
+    #expect(five[1].count == 2)
+    // Fewer roles than kids: the last role is shared.
+    let two = RoleCast.normalize(Array(roles.prefix(2)), kids: 3)
+    #expect(two.map(\.count) == [1, 2])
 }
 
 @Test func ideasCappedAtThree() {
@@ -41,7 +56,7 @@ import Testing
     }
     let shuffled = [item("cut", .cutouts), item("menu", .menu), item("money", .money), item("money2", .money),
                     item("badge", .badges), item("sign", .sign), item("ticket", .tickets, size: .keycard)]
-    let k = Sanitizer.clean(Kit(nutmegSays: "", items: shuffled, scenes: []), playerCount: 2)
+    let k = Sanitizer.clean(Kit(nutmegSays: "", items: shuffled, scenes: []), roleCount: 2)
     #expect(k.items.map(\.id) == ["badge", "sign", "money", "ticket", "menu", "cut"])
     #expect(k.items[0].size == .badge && k.items[0].perPlayer && k.items[0].bigNumber == nil)
     #expect(k.items[2].size == .bill && k.items[2].copies == 8)

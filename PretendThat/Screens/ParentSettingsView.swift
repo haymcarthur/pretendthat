@@ -45,9 +45,9 @@ struct ParentSettingsView: View {
                 }
                 Section("Printing") {
                     Button("Print a test page") {
-                        let a = Fallback.airplane
-                        let pages = Array(KitLayout.pages(for: a.kit, players: [.P1, .P2], directorMode: false).prefix(1))
-                        KitPrinter.print(KitPrinter.pdf(pages: pages, tokens: NameTokens(players: []), art: [:]), jobName: "PretendThat test page")
+                        let a = Fallback.airplane(playerCount: 2)
+                        let pages = Array(KitLayout.pages(for: a.kit, roles: a.plan.roles, playerCount: 2).prefix(1))
+                        KitPrinter.print(KitPrinter.pdf(pages: pages, art: [:]), jobName: "PretendThat test page")
                     }
                 }
                 Section("Nutmeg debug") {
@@ -82,9 +82,9 @@ struct ParentSettingsView: View {
     }
 
     static let privacy = """
+    We never ask for kids' names. Nutmeg only asks how many kids are playing; badges and tickets print a blank name line kids fill in themselves.
     PretendThat stores nothing: no accounts, no recordings, no transcripts. Audio is processed live by OpenAI under its API terms.
     When the app closes, the adventure is gone. No database, no analytics.
-    Kids' names are never sent to Claude: the app swaps them for {P1}…{P4}. Picture prompts never contain names; the app writes names onto the printables itself.
     Story requests go to Anthropic and picture requests to OpenAI, handled under their commercial API terms.
     """
 }

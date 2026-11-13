@@ -101,7 +101,7 @@ struct RootView: View {
         #if DEBUG
         if let forced = DemoDriver.forcedShot { return forced }
         #endif
-        if store.presenting != .none { return .wide }
+        if !stageItems.isEmpty { return .wide }
         if model.realtime.isSpeaking || model.realtime.kidIsTalking { return .closeUp }
         return .medium
     }
@@ -109,25 +109,12 @@ struct RootView: View {
     private var stageItems: [PTStageItem] {
         switch store.presenting {
         case .none: return []
-        case .ideas:
-            return (store.ideas?.ideas ?? []).enumerated().map { i, idea in
-                PTStageItem(id: "idea-\(idea.title)", title: idea.title,
-                            image: model.stickers.art(.idea, idea.title), tint: Theme.playerColor(i), tag: "Game \(i + 1)")
-            }
-        case .roles:
-            return (store.plan?.roles ?? []).map { r in
-                let p = store.players.first { $0.token == r.player }
-                return PTStageItem(id: "role-\(r.player.rawValue)-\(r.roleName)", title: store.tokens.untokenize(r.roleName),
-                                   subtitle: store.directorMode ? nil : p?.displayName,
-                                   image: model.stickers.art(.role, r.roleName), tint: Theme.playerColor(r.player.index),
-                                   tag: store.directorMode ? "Role" : (p?.displayName ?? "Role"))
-            }
         case .props:
             return (store.props?.props ?? []).enumerated().map { i, prop in
                 // Library props use the hand-drawn art (prop-<id>); off-list props fall back to a generated sticker.
                 let art = prop.libraryID.flatMap { UIImage(named: PropLibrary.asset($0)) } ?? model.stickers.art(.prop, prop.householdItem)
                 return PTStageItem(id: "prop-\(prop.id)", title: prop.householdItem,
-                                   subtitle: store.tokens.untokenize(prop.becomes),
+                                   subtitle: prop.becomes,
                                    image: art, tint: Theme.playerColor(i),
                                    flipKey: prop.libraryID ?? prop.householdItem, isPretend: prop.isSkipped,
                                    tag: "Prop",
@@ -138,27 +125,22 @@ struct RootView: View {
 
     /// Subjects on stage right now; a change starts their illustrations.
     private var presentedSubjects: [String] {
-        (store.ideas?.ideas.map(\.title) ?? []) + (store.plan?.roles.map(\.roleName) ?? []) + (store.props?.props.map(\.householdItem) ?? [])
+        store.props?.props.map(\.householdItem) ?? []
     }
 
     private func requestStickers() {
         let game = store.gameTitle
         var jobs: [(kind: StickerPrompt.Kind, subject: String, detail: String)] = []
-        jobs += (store.ideas?.ideas ?? []).map { (.idea, $0.title, $0.pitch) }
-        // Roles and props: role/prop text only (names are tokenized out and never sent).
-        jobs += (store.plan?.roles ?? []).map { (.role, $0.roleName, "") }
+        // No idea or role cards (Haylee): ideas are spoken and roles are printed on badges, so only props get art.
         // Props: only off-list ones get generated art (library props are hand-drawn).
         let offList = (store.props?.props ?? []).filter { $0.libraryID == nil }
         if !offList.isEmpty { rtLog("off-list props (generated art): \(offList.count)") }
-        jobs += offList.map { (.prop, $0.householdItem, $0.becomes.replacingOccurrences(of: #"\{P\d\}"#, with: "a kid", options: .regularExpression)) }
+        jobs += offList.map { (.prop, $0.householdItem, $0.becomes) }
         model.stickers.request(jobs, game: game)
     }
 
-    /// Silent backup: tapping an idea picks it, as if the kid had said it.
-    private func silentTap(_ id: String) {
-        guard store.presenting == .ideas, let title = store.ideas?.ideas.first(where: { "idea-\($0.title)" == id })?.title else { return }
-        model.realtime.sendText("Let's play \(title)!")
-    }
+    /// Prop cards are display-only (D3: kids tap only to print and to play).
+    private func silentTap(_ id: String) {}
 
     // MARK: Classic stage (setup fallback, kit and play)
 

@@ -84,37 +84,38 @@ struct TileButtonStyle: ButtonStyle {
     }
 }
 
-/// A player's role badge: colored circle with the role symbol, plus name and role.
+/// A role's badge: circle in the role's color with its emoji (or symbol), and the role title. No kids' names
+/// anywhere (roles-not-names.md); a role played by several kids shows "×2".
 struct PTRoleBadge: View {
-    let player: Player
-    var role: Role?
+    let role: Role
     var size: CGFloat = Theme.Size.badge
     var onTap: (() -> Void)?
 
     var body: some View {
+        let color = role.id.index
         let content = VStack(spacing: Theme.Space.xs) {
             ZStack {
-                Circle().fill(Theme.playerShade(player.colorIndex)).offset(y: Theme.cardDepth)
-                Circle().fill(Theme.playerColor(player.colorIndex))
+                Circle().fill(Theme.playerShade(color)).offset(y: Theme.cardDepth)
+                Circle().fill(Theme.playerColor(color))
                 Circle().strokeBorder(Theme.white.opacity(0.9), lineWidth: Theme.borderWidth * 2).padding(Theme.borderWidth)
-                if let role {
+                if role.emoji.isEmpty {
+                    Image(systemName: role.symbol).font(Theme.displayFont(size * 0.4)).foregroundStyle(Theme.white)
+                } else {
                     Text(role.emoji).font(Theme.emojiFont(size * 0.45))
-                    Image(systemName: role.symbol).font(Theme.displayFont(size * 0.15)).foregroundStyle(Theme.playerColor(player.colorIndex))
+                    Image(systemName: role.symbol).font(Theme.displayFont(size * 0.15)).foregroundStyle(Theme.playerColor(color))
                         .padding(size * 0.06).background(Circle().fill(Theme.white))
                         .offset(x: size * 0.32, y: size * 0.32)
-                } else {
-                    Text(player.emoji).font(Theme.emojiFont(size * 0.45))
                 }
             }
             .frame(width: size, height: size)
-            PTText(player.displayName, .headline)
-            if let role { PTText(role.roleName, .caption, tone: .muted) }
+            PTText(role.roleName, .headline).multilineTextAlignment(.center)
+            if role.count > 1 { PTText("×\(role.count)", .caption, tone: .muted) }
         }
         Group {
             if let onTap { Button(action: onTap) { content }.buttonStyle(TileButtonStyle()) } else { content }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel([player.displayName, role?.roleName].compactMap { $0 }.joined(separator: ", "))
+        .accessibilityLabel(role.roleName)
     }
 }
 
@@ -164,22 +165,21 @@ struct PTPropCard: View {
     }
 }
 
-/// "Pass the iPad to Captain Mia!" card with the badge to tap.
+/// "Pass the tablet to the Captain!" card with the role's badge to tap.
 struct PTHandoffCard: View {
-    let player: Player
-    let role: Role?
+    let role: Role
     let onTap: () -> Void
     @State private var shown = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: Theme.Space.l) {
-            PTText("Pass the iPad to", .headline, tone: .muted)
-            PTRoleBadge(player: player, role: role, size: Theme.Size.badge * 1.6, onTap: onTap)
+            PTText("Pass the tablet to \(role.spoken)!", .headline, tone: .muted)
+            PTRoleBadge(role: role, size: Theme.Size.badge * 1.6, onTap: onTap)
                 .ptBounce(trigger: shown)
             PTText("Tap your badge!", .headline)
         }
-        .ptCard(fill: Theme.white, edge: Theme.playerColor(player.colorIndex), padding: Theme.Space.xl)
+        .ptCard(fill: Theme.white, edge: Theme.playerColor(role.id.index), padding: Theme.Space.xl)
         .offset(x: shown || reduceMotion ? 0 : 700)
         .rotationEffect(.degrees(shown || reduceMotion ? 0 : 8))
         .opacity(shown || !reduceMotion ? 1 : 0)
@@ -398,13 +398,13 @@ struct PTStageLayout<Nutmeg: View, Stage: View, Bottom: View>: View {
 
 /// A row of big count buttons (1 2 3 4 5+).
 struct PTCountPicker: View {
-    static let emoji = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "🎬"]
+    static let emoji = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣"]
     let selected: Int?
     let onPick: (Int) -> Void
     var body: some View {
         HStack(spacing: Theme.Space.m) {
-            ForEach(1...5, id: \.self) { n in
-                PTChoiceTile(emoji: Self.emoji[n - 1], label: n == 5 ? "5 or more" : "\(n)",
+            ForEach(1...6, id: \.self) { n in
+                PTChoiceTile(emoji: Self.emoji[n - 1], label: n == 6 ? "6 or more" : "\(n)",
                              isSelected: selected == n, size: Theme.Size.countTile) { onPick(n) }
             }
         }

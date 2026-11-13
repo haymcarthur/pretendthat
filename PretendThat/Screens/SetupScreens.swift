@@ -45,13 +45,15 @@ struct PlayersView: View {
     var body: some View {
         VStack(spacing: Theme.Space.l) {
             PTSpeechBubble(text: store.nutmegLine)
-            if store.players.isEmpty {
+            // Only the number of kids: we never ask for names. The number decides the roles (roles-not-names.md).
+            if store.playerCount == 0 {
                 PTCountPicker(selected: nil) { store.setPlayerCount($0) }
             } else {
-                HStack(spacing: Theme.Space.l) {
-                    ForEach(Array(store.players.enumerated()), id: \.element.id) { i, p in
-                        PTRoleBadge(player: p, role: store.plan?.role(for: p.token))
-                            .ptPopIn(index: i)
+                if let roles = store.plan?.roles {
+                    HStack(spacing: Theme.Space.l) {
+                        ForEach(Array(roles.enumerated()), id: \.element.id) { i, r in
+                            PTRoleBadge(role: r).ptPopIn(index: i)
+                        }
                     }
                 }
                 if store.isWorking {
@@ -61,17 +63,9 @@ struct PlayersView: View {
                         Button("Change") { store.resetPlayers() }.buttonStyle(.ptQuiet)
                         Button("Pick our jobs!") { Task { await store.confirmPlayers() } }.buttonStyle(.ptPrimary)
                     }
-                    if !model.listener.available && !store.directorMode {
-                        PTText("No mic? That's OK, we'll use player numbers.", .caption, tone: .muted)
-                    }
                 } else {
-                    HStack(spacing: Theme.Space.m) {
-                        if (store.plan?.roles.count ?? 0) > 1 {
-                            Button { store.swapRoles() } label: { Label("Swap", systemImage: "arrow.triangle.2.circlepath") }
-                                .buttonStyle(.ptSecondary)
-                        }
-                        Button("Let's go!") { Task { await store.confirmRoles() } }.buttonStyle(.ptPrimary)
-                    }
+                    PTText("Pick your badge after printing!", .caption, tone: .muted)
+                    Button("Let's go!") { Task { await store.confirmRoles() } }.buttonStyle(.ptPrimary)
                 }
             }
         }

@@ -2,15 +2,16 @@ import Foundation
 
 // Data shapes from spec §6. Field names match the JSON the model returns.
 
-public enum PlayerToken: String, Codable, Sendable, CaseIterable, Hashable {
-    case P1, P2, P3, P4
-    public var index: Int { PlayerToken.allCases.firstIndex(of: self)! }
-    public var placeholder: String { "{\(rawValue)}" }
+/// A role slot (decision roles-not-names.md): we never ask for kids' names, so everything that used to belong
+/// to a player belongs to a ROLE. R1…R4 also pick the role's color. At most 4 distinct roles; more kids share roles.
+public enum RoleID: String, Codable, Sendable, CaseIterable, Hashable {
+    case R1, R2, R3, R4
+    public var index: Int { RoleID.allCases.firstIndex(of: self)! }
 }
 
 public enum SceneOwner: String, Codable, Sendable, Hashable {
-    case P1, P2, P3, P4, all
-    public var token: PlayerToken? { PlayerToken(rawValue: rawValue) }
+    case R1, R2, R3, R4, all
+    public var role: RoleID? { RoleID(rawValue: rawValue) }
 }
 
 public enum KitKind: String, Codable, Sendable { case card, sheet }
@@ -28,12 +29,12 @@ public enum KitRecipe: String, Codable, Sendable, CaseIterable {
         case .sign, .menu, .cutouts: .fullPage
         }
     }
-    /// One per player (name banner the app fills in).
+    /// One per kid (each prints a blank "Name: ____" line the kids write on themselves).
     public var perPlayer: Bool { self == .badges || self == .tickets }
     public var copies: Int { self == .money ? 8 : 1 }
     public var guide: String {
         switch self {
-        case .badges: "role name badges, one per player (the app writes each name on a blank banner)"
+        case .badges: "role badges, one per kid (the app prints each role title and a blank Name line the kids write on)"
         case .sign: "a sign to hang up with the place's name, e.g. \"Cozy Café\" or \"Sky Airlines Gate 3\""
         case .money: "play money: one design of bills themed to the game, with a bigNumber value"
         case .tickets: "tickets or passes that fit the game (boarding passes, appointment cards, room keycards, order tickets, admission tickets)"
@@ -53,18 +54,30 @@ public struct GameIdeas: Codable, Equatable, Sendable {
     public init(nutmegSays: String, ideas: [GameIdea]) { self.nutmegSays = nutmegSays; self.ideas = ideas }
 }
 
-public struct Role: Codable, Equatable, Sendable {
-    public var player: PlayerToken; public var roleName: String; public var emoji: String; public var symbol: String; public var job: String
-    public init(player: PlayerToken, roleName: String, emoji: String, symbol: String, job: String) {
-        self.player = player; self.roleName = roleName; self.emoji = emoji; self.symbol = symbol; self.job = job
+public struct Role: Codable, Equatable, Sendable, Identifiable {
+    public var id: RoleID; public var roleName: String; public var emoji: String; public var symbol: String; public var job: String
+    /// How many kids play this role (more than 1 only when there are more kids than distinct roles: "2 Passengers").
+    public var count: Int
+    public init(id: RoleID, roleName: String, emoji: String, symbol: String, job: String, count: Int = 1) {
+        self.id = id; self.roleName = roleName; self.emoji = emoji; self.symbol = symbol; self.job = job; self.count = count
     }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(RoleID.self, forKey: .id); roleName = try c.decode(String.self, forKey: .roleName)
+        emoji = try c.decode(String.self, forKey: .emoji); symbol = try c.decode(String.self, forKey: .symbol)
+        job = try c.decode(String.self, forKey: .job); count = max(1, try c.decodeIfPresent(Int.self, forKey: .count) ?? 1)
+    }
+    /// "the Captain" / "a Passenger" (hand-off lines).
+    public var spoken: String { (count > 1 ? "a " : "the ") + roleName }
 }
 public struct GamePlan: Codable, Equatable, Sendable {
     public var gameTitle: String; public var gameEmoji: String; public var setting: String; public var roles: [Role]; public var nutmegSays: String
     public init(gameTitle: String, gameEmoji: String, setting: String, roles: [Role], nutmegSays: String) {
         self.gameTitle = gameTitle; self.gameEmoji = gameEmoji; self.setting = setting; self.roles = roles; self.nutmegSays = nutmegSays
     }
-    public func role(for t: PlayerToken) -> Role? { roles.first { $0.player == t } }
+    public func role(for id: RoleID) -> Role? { roles.first { $0.id == id } }
+    /// Kids covered by the roles (badges printed).
+    public var kidCount: Int { roles.map(\.count).reduce(0, +) }
 }
 
 public struct Prop: Codable, Equatable, Sendable, Identifiable {
@@ -128,14 +141,5 @@ public struct NutmegTurn: Codable, Equatable, Sendable {
     public init(nutmegSays: String, choices: [Choice], understood: Bool) { self.nutmegSays = nutmegSays; self.choices = choices; self.understood = understood }
 }
 
-public struct Player: Equatable, Sendable, Identifiable {
-    public var token: PlayerToken; public var name: String; public var colorIndex: Int; public var emoji: String
-    public var id: PlayerToken { token }
-    public init(token: PlayerToken, name: String, colorIndex: Int, emoji: String) { self.token = token; self.name = name; self.colorIndex = colorIndex; self.emoji = emoji }
-    /// Display name, never empty ("Player 2" when no name was captured).
-    public var displayName: String {
-        let n = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        return n.isEmpty ? "Player \(token.index + 1)" : n
-    }
-    public static let defaultEmojis = ["💙", "🧡", "💚", "💜"]
-}
+/// Most kids one game supports (more share roles).
+public enum Players { public static let max = 8 }
