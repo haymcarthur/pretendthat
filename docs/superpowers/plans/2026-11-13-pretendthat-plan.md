@@ -374,3 +374,27 @@ relay/worker.js, relay/wrangler.toml
 - [ ] **Team profile (competition rule): list libraries and services:** Apple SwiftUI/AVFoundation/Speech/UIKit, Anthropic Claude API (`claude-opus-5-5`), OpenAI Images API (`gpt-image-2`), Cloudflare Workers, XcodeGen (dev tool), SF Symbols, and any font or art sources.
 - [ ] Push the repo. Have the source ready to show the judges (open `PhaseService.swift`, `AdventureStore.swift`, `NutmegCharacter.swift`).
 - [ ] Code freeze 07:59:59: final commit and tag `v1.0-codecamp`.
+
+---
+
+## M9 · Voice conversation redesign (Haylee, 2026-11-13; spec "Change: voice conversation")
+
+### Task 18: Record decisions D1–D7
+- [x] Decision files, INDEX, spec section, these tasks. Commit `docs: voice conversation decisions`.
+
+### Task 19: Realtime conversation (NutmegCore + Voice/)
+- [ ] Verify the current Realtime API (model ID, events, session shape, voices, speed) against OpenAI's docs.
+- [ ] `RealtimeProtocol` (NutmegCore): session.update JSON (instructions, tools, server VAD, PCM 24 kHz, voice, speed), event parsing, tool-call decoding into store actions. Unit tests.
+- [ ] `AdventureStore`: `showIdeas`, `setGame`, `setPlayers`, `setRoles`, `showProps`, `finishPlanning`, `presenting`. Unit tests.
+- [ ] `RealtimeSession` (app): URLSessionWebSocketTask + AVAudioEngine (voice processing, 24 kHz PCM16 in/out, mic gated while Nutmeg plays), `AVAudioUnitTimePitch`, RMS mouth level, mute, typed turns, error → fallback screens.
+- [ ] Grown-ups: voice picker and pitch slider (stored in UserDefaults; settings only, nothing about kids).
+- [ ] Live test the connection (typed turn → audio plays, a function call lands). Commit and push.
+
+### Task 20: PTConversationStage
+- [ ] Nutmeg centered, floating props, bottom bar (mute, leave), camera zoom spring keyed to talking/listening vs presenting, items arranged around her. Screenshots. Commit and push.
+
+### Task 21: Generated item illustrations
+- [ ] `ItemArtService`: one sticker per idea/role/prop via `ImageClient` (transparent background, quality low), parallel, cached per adventure, shimmer placeholder. Commit and push.
+
+### Task 22: Loading states
+- [ ] Placeholder art `nutmeg-body-coloring`, `nutmeg-clipboard-back`, `nutmeg-clipboard-front`, `nutmeg-peek`. `PTColoringLoader` and `PTClipboardReveal` (rotation3DEffect) for the kit and the scene checklist. Screenshots. Commit and push.

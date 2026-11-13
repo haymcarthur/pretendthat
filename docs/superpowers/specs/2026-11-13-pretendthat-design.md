@@ -185,3 +185,27 @@ NutmegTurn   { nutmegSays: string, choices: [{ id: string, label: string, emoji:
 ## 12. Left to the builder
 
 File layout inside the folders in the plan, prompt wording (within §9), animation timing curves, exact page layout of each block size, the placeholder art, and test granularity.
+
+---
+
+## Change: voice conversation (Haylee, 2026-11-13)
+
+Decisions D1–D7 in `thinking/decisions/` (voice-conversation, realtime-api, kid-taps-only-print-and-checklists, camera-zoom, generated-item-illustrations, loading-coloring-clipboard, nutmeg-voice-squeaky). Where this section conflicts with the sections above, this section wins.
+
+**Planning becomes a conversation (D1, D3).** Hello → pick a game → players → roles → props is one screen, `PTConversationStage`: Nutmeg large in the center of a solid-color screen, a few floating theater props around her, and a ChatGPT-style bottom bar with only **mute** and **leave**. No tap choices, no hold-to-talk. Presented items (ideas, roles, props) appear as illustrated cards arranged around her; they may be tappable only as a silent backup. Kids tap again only for the grown-up print gate and the play checklists / hand-off.
+
+**Transport (D2).** OpenAI Realtime API, speech-to-speech, over a WebSocket (`wss://api.openai.com/v1/realtime?model=…`) with `AVAudioEngine` (no third-party code). PCM16 mono 24 kHz both ways. Server VAD gives hands-free turns. Echo control: voice processing on the input node, and the mic is not sent while Nutmeg's audio is playing (barge-in off unless it proves reliable). Supersedes C5 and C7 **for planning only**: kids' audio and spoken names go to OpenAI live; PretendThat stores nothing. Claude (C3) still writes the kit and scenes, with names tokenized.
+
+**Function calls drive the state machine (C4 still holds).** The Realtime model calls `show_game_ideas`, `set_game`, `set_players` (names, count; 5+ → Director mode), `set_roles`, `show_props`, `finish_planning`. Each updates `AdventureStore`; the app still owns which phases exist and their limits (3 ideas, roles = players, 3–5 safe props via the Sanitizer). `finish_planning` starts the Claude kit call. Persona and safety rules (§9) go in the session instructions.
+
+**Voice (D7).** A playful Realtime voice, steered by instructions ("bouncy, excited, full of wonder"), then pitched up on the device with `AVAudioUnitTimePitch` (default +350 cents). Voice and pitch are in Grown-ups. The mouth follows the output audio's RMS; ears perk while the kid speaks.
+
+**Camera (D4).** Talking or listening: the frame springs in toward Nutmeg's face. Presenting: it zooms out and the items fan out around her.
+
+**Illustrations (D5).** Every idea, role and prop gets a flat sticker illustration from the OpenAI image model (transparent background, brand palette, white outline, no text), generated in parallel, cached per adventure, with a soft shimmer until ready. No emoji or SF Symbols for these items on screen.
+
+**Loading and reveal (D6).** Kit generation shows Nutmeg coloring on her clipboard (`nutmeg-body-coloring`); when ready, the clipboard (`nutmeg-clipboard-back` → `nutmeg-clipboard-front`) flips with `rotation3DEffect` to reveal the kit. Checklists reveal the same way with `nutmeg-peek` at the side. Placeholder art ships under those names.
+
+**Fallbacks.** Mute long-press (and the simulator) opens the typing sheet; typed text goes into the same Realtime session. If the Realtime connection fails, the app drops to the existing tap screens with the bundled airplane fallback.
+
+**Privacy wording (replaces §8 for the demo):** "PretendThat stores nothing: no accounts, no recordings, no transcripts. Audio is processed live by OpenAI under its API terms." Do not claim OpenAI keeps nothing.
