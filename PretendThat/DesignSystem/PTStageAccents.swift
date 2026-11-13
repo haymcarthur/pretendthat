@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Theater props placed AROUND Nutmeg as accents (brand rule: clean light base, brand color only on accents).
+/// A couple of static stars placed AROUND Nutmeg (Haylee fix round 1: no ticket stub) as accents (brand rule: clean light base, brand color only on accents).
 /// Crisp and flat (decision motion-and-surface.md): no glows, no gradients, and STATIC by default. They pop in once
 /// when they appear and do a single bounce when `celebrate` changes (e.g. the kit is ready). Art: `stage-*`
 /// placeholders until Haylee's vectors arrive (reference design/nutmeg/stage-props-v1.webp).
@@ -17,7 +17,7 @@ struct PTStageAccents: View {
     private let spots = [
         Spot(asset: "stage-star", x: 0.42, y: -0.36, size: 0.13, tilt: 12),
         Spot(asset: "stage-sparkle", x: -0.42, y: -0.2, size: 0.08, tilt: 0),
-        Spot(asset: "stage-ticket", x: 0.43, y: 0.3, size: 0.15, tilt: -18)
+        Spot(asset: "stage-sparkle", x: 0.44, y: 0.3, size: 0.06, tilt: 0)
     ]
 
     var body: some View {

@@ -12,6 +12,13 @@ enum DemoDriver {
         return args[i + 1]
     }
 
+    /// `-PTShot closeUp|medium|wide`: hold the conversation camera on one shot (screenshots).
+    static var forcedShot: PTCameraShot? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-PTShot"), i + 1 < args.count else { return nil }
+        switch args[i + 1] { case "closeUp": return .closeUp; case "medium": return .medium; case "wide": return .wide; default: return nil }
+    }
+
     /// `-PTLive [-PTSay "text"]...`: start the real voice conversation at launch and send typed turns
     /// (one per -PTSay, each after Nutmeg finishes talking). For live tests in the simulator.
     static var liveTurns: [String]? {
