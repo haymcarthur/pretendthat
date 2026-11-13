@@ -76,7 +76,7 @@ relay/worker.js, relay/wrangler.toml
 **Files:** Create `project.yml`, `NutmegCore/Package.swift`, `PretendThat/App/PretendThatApp.swift`, `PretendThat/App/RootView.swift`, `PretendThat/Theme/Theme.swift`, `Secrets.example.xcconfig`, `.gitignore`, `PretendThat/Resources/Info.plist`
 
 **Interfaces:**
-- Produces: `enum Theme` with static `background, surface, ink, primary, accent, success: Color`, `playerColors: [Color]` (4), `displayFont(_ size: CGFloat) -> Font` (rounded, bold), `bodyFont(_:) -> Font`, `cornerRadius: CGFloat = 28`, `nutmegNeckPivot = UnitPoint(x: 0.5, y: 0.62)`. Values are placeholders.
+- Produces: `enum Theme` with static `background, surface, ink, primary, accent, success: Color`, `playerColors: [Color]` (4), `displayFont(_ size: CGFloat) -> Font` (rounded, bold), `bodyFont(_:) -> Font`, `cornerRadius: CGFloat = 28`, `nutmegHeadNeck = UnitPoint(x: 0.5, y: 0.80)` (see spec §7 head-on-body contract). Values are placeholders.
 - Produces: Info.plist keys `NSMicrophoneUsageDescription`, `NSSpeechRecognitionUsageDescription`, `ANTHROPIC_API_KEY = $(ANTHROPIC_API_KEY)`, `RELAY_URL = $(RELAY_URL)`, `RELAY_TOKEN = $(RELAY_TOKEN)`. Landscape-only orientations.
 
 - [ ] **Step 1:** `git init`. `.gitignore` covers `Secrets.xcconfig`, `*.xcodeproj` (it's generated), `.build/`, `DerivedData/`, `.superpowers/`.
@@ -185,7 +185,7 @@ relay/worker.js, relay/wrangler.toml
 - Produces: `struct NutmegCharacter: View { var state: NutmegState; var mouthLevel: Float; var costume: String? /* gameKey */ }`. A `ZStack` of full-frame layers in §7 order. A `TimelineView(.animation)` drives:
   - breathing: body scaleY ±1.5 %, 3 s period
   - blinks: random 2.5–5 s, 120 ms closed
-  - talking: mouth picks by level, <0.08 closed, <0.25 small, <0.5 open, else wide; "ooh" every ~7th switch for variety. Head bob ±2° around `Theme.nutmegNeckPivot`.
+  - talking: mouth picks by level, <0.08 closed, <0.25 small, <0.5 open, else wide; "ooh" every ~7th switch for variety. Head bob ±2° around `Theme.nutmegHeadNeck`. (Layer structure: spec §7 head-on-body contract.)
   - listening: head tilt 6°, ears scale 1.08
   - thinking: eyes look up (offset −8 pt), small sparkle
   - excited: 2 hops
@@ -331,7 +331,7 @@ relay/worker.js, relay/wrangler.toml
 
 ### Task 15: Brand drop-in (Haylee's Figma)
 
-- [ ] Replace the placeholder `nutmeg-*` assets with the Figma exports (§7 contract: same names, 1024² full-frame, Preserve Vector Data). Confirm the layers line up in the debug state screen. Adjust `Theme.nutmegNeckPivot` if the head turns around the wrong point.
+- [ ] Replace the placeholder `nutmeg-*` assets with the Figma exports (§7 contract: same names, 1024² full-frame, Preserve Vector Data). Confirm the layers line up in the debug state screen. Tune `NutmegPose` neck anchors/rotation/scale and `Theme.nutmegHeadNeck` so the head sits right on each pose.
 - [ ] Put the brand tokens into `Theme.swift`: colors, the 4 player colors (colorblind-safe check), fonts (add the font file plus `UIAppFonts` if it's custom), radius, shadow.
 - [ ] App icon and launch screen. Display name: PretendThat.
 - [ ] Grep for hard-coded colors/fonts outside `Theme` (`grep -rn "Color(red\|Color(\.\|\.font(.system" Nutmeg/ | grep -v Theme`) → none.

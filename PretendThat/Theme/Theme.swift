@@ -71,7 +71,8 @@ enum Theme {
     static let shadow = Shadow(color: Color.black.opacity(0.18), radius: 0, y: 6)   // flat "sticker" drop
 
     // MARK: Nutmeg
-    static let nutmegNeckPivot = UnitPoint(x: 0.5, y: 0.62)
+    /// Neck point on the HEAD canvas (where the head meets the body; also its rotation pivot).
+    static let nutmegHeadNeck = UnitPoint(x: 0.5, y: 0.80)
 
     // MARK: Motion (bouncy: Nutmeg is excitable)
     static let springy = Animation.spring(response: 0.35, dampingFraction: 0.55)
