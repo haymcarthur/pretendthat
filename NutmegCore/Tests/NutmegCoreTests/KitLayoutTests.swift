@@ -1,0 +1,59 @@
+import Testing
+@testable import NutmegCore
+
+func kitItem(_ id: String, size: KitSize, perPlayer: Bool = false, copies: Int = 1) -> KitItem {
+    KitItem(id: id, kind: size == .fullPage ? .sheet : .card, size: size, title: id, symbol: "star", lines: [], bigNumber: nil, perPlayer: perPlayer, copies: copies, colorMe: true)
+}
+
+@Test func perPlayerTickets3Players() {
+    let kit = Kit(nutmegSays: "", items: [kitItem("t", size: .ticket, perPlayer: true)], scenes: [])
+    let pages = KitLayout.pages(for: kit, players: [.P1, .P2, .P3], directorMode: false)
+    #expect(pages.count == 1)
+    #expect(pages[0].slots.map(\.player) == [.P1, .P2, .P3])
+}
+
+@Test func badgesSixPerPage() {
+    let kit = Kit(nutmegSays: "", items: [kitItem("b", size: .badge, copies: 8)], scenes: [])
+    let pages = KitLayout.pages(for: kit, players: [.P1], directorMode: false)
+    #expect(pages.map(\.slots.count) == [6, 2])
+}
+
+@Test func capsAtSixPages() {
+    let items = [kitItem("a", size: .ticket, copies: 20), kitItem("b", size: .badge, copies: 20),
+                 kitItem("c", size: .bill, copies: 20), kitItem("d", size: .keycard, copies: 20)]
+    let pages = KitLayout.pages(for: Kit(nutmegSays: "", items: items, scenes: []), players: [.P1], directorMode: false)
+    #expect(pages.count == 6)
+    #expect(Set(pages.map(\.item.id)) == ["a", "b", "c", "d"])
+}
+
+@Test func directorModeBlankSlots() {
+    let kit = Kit(nutmegSays: "", items: [kitItem("t", size: .ticket, perPlayer: true, copies: 8)], scenes: [])
+    let pages = KitLayout.pages(for: kit, players: [.P1, .P2, .P3, .P4], directorMode: true)
+    #expect(pages.flatMap(\.slots).count == 8)
+    #expect(pages.flatMap(\.slots).allSatisfy { $0.player == nil })
+}
+
+@Test func fullPageSheetIsOnePageEach() {
+    let kit = Kit(nutmegSays: "", items: [kitItem("m", size: .fullPage, copies: 2)], scenes: [])
+    #expect(KitLayout.pages(for: kit, players: [.P1], directorMode: false).count == 2)
+}
+
+@Test func gridShapes() {
+    #expect(KitLayout.grid(for: .ticket) == .init(columns: 2, rows: 4))
+    #expect(KitLayout.grid(for: .badge) == .init(columns: 2, rows: 3))
+    #expect(KitLayout.grid(for: .fullPage) == .init(columns: 1, rows: 1))
+}
+
+@Test func fallbackKitFitsSixPages() {
+    let a = Fallback.airplane
+    #expect(KitLayout.pages(for: a.kit, players: [.P1, .P2, .P3, .P4], directorMode: false).count <= 6)
+}
+
+@Test func artPromptNeverCarriesTokensOrNames() {
+    var item = kitItem("pass", size: .ticket, perPlayer: true)
+    item.lines = ["Passenger: {P1}", "Flight: Ocean Express"]
+    let p = KitArtPrompt.prompt(for: item, gameTitle: "Airplane")
+    #expect(!p.contains("{P"))
+    #expect(p.contains("Ocean Express"))
+    #expect(p.lowercased().contains("blank"))
+}
