@@ -14,7 +14,11 @@ final class AppModel {
     init(info: [String: Any] = Bundle.main.infoDictionary ?? [:]) {
         let config = ClaudeConfig.from(info: info)
         hasClaude = config != nil
-        store = AdventureStore(service: config.map { PhaseService(llm: ClaudeClient(config: $0)) })
+        var service = config.map { PhaseService(llm: ClaudeClient(config: $0)) }
+        #if DEBUG
+        if DemoDriver.requestedPhase != nil { service = nil }   // demo screens use the bundled game, no network
+        #endif
+        store = AdventureStore(service: service)
         let images = ImageClient.from(info: info)
         hasImages = images != nil
         art = KitArtService(client: images)

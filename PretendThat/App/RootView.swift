@@ -23,7 +23,12 @@ struct RootView: View {
         .animation(Theme.springy, value: stageID)
         .environment(\.speak, SpeakAction { model.speak($0) })
         .onChange(of: store.nutmegLine) { _, line in model.speak(line) }
-        .task { await model.listener.requestAuth() }
+        .task {
+            #if DEBUG
+            if let demo = DemoDriver.requestedPhase { await DemoDriver.drive(store, to: demo) }
+            #endif
+            await model.listener.requestAuth()
+        }
         .sheet(isPresented: $showSettings) { ParentSettingsView(model: model) }
         .preferredColorScheme(.light)
         .statusBarHidden()
