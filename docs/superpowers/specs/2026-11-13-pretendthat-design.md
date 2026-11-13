@@ -77,7 +77,7 @@ Each of these pulls a parent in, and the parent often says "not right now."
 
 All kid-facing screens share one layout: Nutmeg on the left third, a content stage on the right, a big mic button at bottom center, and a small "🔊 again" button to replay Nutmeg's last line.
 
-0. **Hello.** Nutmeg idles. Big "Talk to Nutmeg" mic. A small gear (behind the parent gate) opens settings: voice test, print test, privacy note, relay/dev mode.
+0. **Hello.** Nutmeg idles. Big "Talk to Nutmeg" mic. A small gear (behind the parent gate) opens settings: voice test, print test, privacy note, key mode (demo: direct keys).
 1. **Pick a game.** Nutmeg: "What should we play?" Shows 3 LLM-suggested games plus "🎤 my own idea." Saying "I'm bored" brings the suggestions. Output: `gameIdea`.
 2. **Who's playing.** Tap 1–4 finger icons or "5+" (sets Director mode). For each player, Nutmeg asks "What's your name?" The kid holds the mic, STT runs locally, and the player gets a color and an emoji. Nutmeg proposes **roles** (LLM), one per player (Director mode: roles for 4, plus the Director). Kids can tap "swap" to shuffle roles. Output: `GamePlan`.
 3. **Props hunt.** 3–5 prop cards (emoji, household item, what it becomes, e.g. "🍽️ plate → steering wheel"). Each card has tap-to-hear and a big check when found. Nutmeg cheers as cards are checked. "All set!" moves on (kids can also skip).
@@ -153,7 +153,7 @@ NutmegTurn   { nutmegSays: string, choices: [{ id: string, label: string, emoji:
 - No accounts, no database, no analytics. When the app closes, the adventure is gone.
 - Kids' voices are transcribed **on the iPad**; no audio is sent anywhere.
 - Kids' names are **never sent** to Claude; tokens stand in for them. (Image generation: depends on the open question in C8. If the app overlays names, this claim holds for OpenAI too.)
-- The relay passes requests through to Anthropic and OpenAI and keeps nothing. Don't claim more than that about Anthropic's own data retention. Say "handled under Anthropic's commercial API terms."
+- **Demo build:** the iPad calls Anthropic and OpenAI directly with a developer key; there is no server of ours in between, so nothing is stored by us. Don't claim a relay is live. Don't claim more than that about Anthropic's own data retention. Say "handled under Anthropic's commercial API terms." For the shipped app, say the plan is a stateless relay (keys off the device, nothing logged or stored); see `relay/README.md`.
 
 ## 9. Safety rules (system prompt + code)
 
