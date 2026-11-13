@@ -2,7 +2,7 @@ import SwiftUI
 import NutmegCore
 
 /// Print step. While the kit is made Nutmeg colors on her clipboard (coloring pose); when it's ready the pages fly
-/// off her clipboard one after another and settle in a neat grid (PTPaperReveal, PTPageGrid). The black Print pill appears once
+/// off her clipboard one after another and settle in a slightly overlapped fan (PTPaperReveal, PTPageFan). The black Print pill appears once
 /// they've all landed. Tap a page to preview it full-size (PTPagePreview).
 struct KitView: View {
     let model: AppModel
@@ -13,19 +13,20 @@ struct KitView: View {
 
     private var pages: [KitPage] {
         guard let kit = store.kit else { return [] }
-        return KitLayout.pages(for: kit, players: store.players.map(\.token), directorMode: store.directorMode)
+        let roles = Dictionary((store.plan?.roles ?? []).map { ($0.player, store.tokens.untokenize($0.roleName)) }, uniquingKeysWith: { a, _ in a })
+        return KitLayout.pages(for: kit, players: store.players.map(\.token), directorMode: store.directorMode, roles: roles)
     }
 
     var body: some View {
         VStack(spacing: Theme.Space.l) {
             PTSpeechBubble(text: store.nutmegLine)
-            // Every page fully visible as a neat thumbnail grid (Haylee fix round 1), sized to the space beside Nutmeg.
+            // Pages in a slightly overlapped fan (Haylee fix round 1): every title visible, nothing clipped, sized to fit.
             GeometryReader { geo in
                 let n = pages.count
-                let g = PTPageGrid(count: n, in: geo.size)
+                let g = PTPageFan(count: n, in: geo.size)
                 PTPaperReveal(count: revealed ? n : 0, isRevealed: revealed,
                               origin: CGPoint(x: -geo.size.width / 2 - 150, y: 40),
-                              slot: { i in (g.center(i), 0) },
+                              slot: { i in g.slot(i) },
                               paperSize: g.paper,
                               onLanded: { landed = true; model.gesture(.celebrate) },
                               onTap: { i in

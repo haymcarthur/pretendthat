@@ -375,7 +375,7 @@ struct PTStageLayout<Nutmeg: View, Stage: View, Bottom: View>: View {
                 HStack(alignment: .center, spacing: Theme.Space.l) {
                     nutmeg
                         .padding(Theme.Space.m)
-                        .background { PTStageAccents() }
+                        .background { PTStageAccents(showsGround: false) }
                         .frame(width: nutmegWidth)
                     // Long AI content (5 steps, 2-line props) scrolls instead of pushing the mic off screen.
                     ViewThatFits(in: .vertical) {

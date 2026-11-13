@@ -56,6 +56,10 @@ struct KitCardView: View {
                 ZStack(alignment: .top) {
                     Image(uiImage: art).resizable().scaledToFit()
                     if showsName { nameBanner(height: fit.height * 0.17).padding(.top, fit.height * 0.05) }
+                    if let role = roleText {   // each player's own role, on the shared badge art's bottom banner
+                        roleBanner(role, height: fit.height * 0.13)
+                            .frame(maxHeight: .infinity, alignment: .bottom).padding(.bottom, fit.height * 0.06)
+                    }
                 }
                 .frame(width: fit.width, height: fit.height)
                 .clipShape(RoundedRectangle(cornerRadius: fullPage ? 0 : 12))
@@ -73,6 +77,23 @@ struct KitCardView: View {
         guard image.width > 0, image.height > 0 else { return box }
         let s = min(box.width / image.width, box.height / image.height)
         return CGSize(width: image.width * s, height: image.height * s)
+    }
+
+    /// Badges print the player's role (the art is shared and role-neutral). Blank line in Director mode.
+    private var roleText: String? {
+        guard item.recipe == .badges || (item.recipe == nil && item.size == .badge) else { return nil }
+        return slot.role.map { tokens.untokenize($0) } ?? (slot.player == nil ? "Role: ______" : nil)
+    }
+
+    private func roleBanner(_ text: String, height: CGFloat) -> some View {
+        Text(text)
+            .font(Theme.printFont(height * 0.6)).minimumScaleFactor(0.4).lineLimit(1)
+            .foregroundStyle(Theme.printInk)
+            .padding(.horizontal, 12)
+            .frame(height: height)
+            .background(RoundedRectangle(cornerRadius: height * 0.3).fill(Theme.printPaper))
+            .overlay(RoundedRectangle(cornerRadius: height * 0.3).strokeBorder(Theme.printInk, lineWidth: 2))
+            .padding(.horizontal, 10)
     }
 
     private func nameBanner(height: CGFloat) -> some View {
@@ -101,6 +122,7 @@ struct KitCardView: View {
                 }
             }
             if showsName { nameBanner(height: h * 0.16) }
+            if let role = roleText { roleBanner(role, height: h * 0.1) }
             ForEach(Array((fullPage ? item.lines : KitLayout.printedLines(for: item)).enumerated()), id: \.offset) { _, line in
                 Text(fill(line)).font(Theme.printFont(h * 0.075 / (fullPage ? 1.8 : 1))).foregroundStyle(Theme.printInk)
                     .lineLimit(1).minimumScaleFactor(0.5)

@@ -91,7 +91,7 @@ struct RootView: View {
                             leadingInset: chromeVisible ? 132 : 0, bottomInset: chromeVisible ? 108 : 0,
                             onTapItem: { id in silentTap(id) }) {
             NutmegCharacter(state: model.nutmegState, mouthLevel: model.mouthLevel,
-                            isSpeaking: model.isSpeaking, cue: model.cue)
+                            isSpeaking: model.isSpeaking, cue: model.cue, showsGround: true)
         } bar: {
             EmptyView()
         }
@@ -165,7 +165,7 @@ struct RootView: View {
     private var classic: some View {
         PTStageLayout(backdrop: .clear, nutmegColumn: nutmegIsHero ? Theme.nutmegHeroColumn : Theme.nutmegColumn) {
             NutmegCharacter(state: model.nutmegState, mouthLevel: model.mouthLevel,
-                            isSpeaking: model.isSpeaking, cue: model.cue)
+                            isSpeaking: model.isSpeaking, cue: model.cue, showsGround: true)
                 .onTapGesture { if case .stepBack = store.phase { Task { _ = await store.helpRequested() } } }
         } stage: {
             stage.transition(.ptStage)

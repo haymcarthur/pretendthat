@@ -7,6 +7,8 @@ import SwiftUI
 /// Place it behind Nutmeg: `nutmeg.background { PTStageAccents() }`.
 struct PTStageAccents: View {
     var showsCurtain = true
+    /// Off when the character draws its own ground (NutmegCharacter(showsGround: true)).
+    var showsGround = true
     /// Changes make the props do one quick bounce (set app-wide with `.environment(\.ptCelebrate, n)`).
     @Environment(\.ptCelebrate) private var celebrate
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -25,9 +27,9 @@ struct PTStageAccents: View {
             let side = min(geo.size.width, geo.size.height)
             ZStack {
                 // Flat ground oval she stands on (crisp, no blur).
-                PTGround()
+                if showsGround { PTGround()
                     .frame(width: side * 0.62, height: side * 0.1)
-                    .position(x: geo.size.width / 2, y: geo.size.height / 2 + side * 0.43)
+                    .position(x: geo.size.width / 2, y: geo.size.height / 2 + side * 0.43) }
                 ForEach(Array(spots.enumerated()), id: \.offset) { i, spot in
                     Image(spot.asset).resizable().scaledToFit()
                         .frame(width: side * spot.size, height: side * spot.size)

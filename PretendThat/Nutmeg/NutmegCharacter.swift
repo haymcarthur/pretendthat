@@ -20,6 +20,9 @@ struct NutmegCharacter: View {
     /// Debug only: hold this pose.
     var forcedPose: NutmegPose? = nil
     var costume: String? = nil
+    /// Draw the flat ground oval under her feet INSIDE the figure, so it shares every transform and timing with her
+    /// (zoom, position, squash, hop): nothing trails (Haylee fix round 1).
+    var showsGround = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var shown: NutmegPose = .idle
@@ -40,7 +43,8 @@ struct NutmegCharacter: View {
             }
             .aspectRatio(NutmegPose.canvas.width / NutmegPose.canvas.height, contentMode: .fit)
         }
-        .animation(Theme.springy, value: state)
+        // No view-wide animation here: a separate spring on the figure made her inner layers trail the stage camera's
+        // spring on zoom. Only the intentional head tilt eases on its own (scoped below).
         .onAppear { shown = basePose }
         .onChange(of: basePose) { _, new in
             gestureTask?.cancel()
@@ -103,6 +107,11 @@ struct NutmegCharacter: View {
         let unit = h / 1024
 
         ZStack(alignment: .topLeading) {
+            if showsGround {
+                PTGround()
+                    .frame(width: 640 * px, height: 90 * px)
+                    .position(x: 590 * px, y: 1290 * px)
+            }
             ZStack {
                 layer(pose.asset).id(pose).transition(.opacity)
             }
@@ -110,10 +119,11 @@ struct NutmegCharacter: View {
             .scaleEffect(x: 1, y: m.breathe, anchor: .bottom)
             head(look: l, motion: m)
                 .frame(width: w, height: h)
+                // Pose rotation/offset change in the SAME transaction as the body swap (no separate spring, so the
+                // head never trails the body). Only the small intentional state tilt eases, scoped to the rotation.
+                .animation(reduceMotion ? nil : .easeOut(duration: 0.25)) { $0.rotationEffect(.degrees(m.stateTilt), anchor: pose.neckAnchor) }
                 .rotationEffect(.degrees(pose.headRotation + m.headTilt), anchor: pose.neckAnchor)
                 .offset(x: pose.headOffset.width * px, y: pose.headOffset.height * px + (1 - m.breathe) * h * 0.4)
-                // The head is continuous through a body swap: it springs to the new pose's offset and rotation.
-                .animation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.34, dampingFraction: 0.62), value: pose)
             if state == .napping { zzz(t: t, unit: unit) }
         }
         .frame(width: w, height: h, alignment: .topLeading)
@@ -133,7 +143,10 @@ struct NutmegCharacter: View {
     }
 
     private func layer(_ name: String) -> some View {
+        // A layer swap (face, mouth, blink) is instant: never a crossfade riding a camera or pose animation
+        // (that showed double eyes during zooms).
         Image(name).resizable().scaledToFit().accessibilityHidden(true)
+            .transaction(value: name) { $0.animation = nil }
     }
 
     private func zzz(t: Double, unit: CGFloat) -> some View {
@@ -155,7 +168,7 @@ struct NutmegCharacter: View {
 /// subtle breathing, a slow small tail sway, and a blink / ear twitch at pseudo-random moments several seconds apart.
 /// Bigger motion only while talking (head bob with the voice) or listening (perked, tilted).
 private struct Motion {
-    var bob: CGFloat = 0, breathe: CGFloat = 1, headTilt: Double = 0, earScale: CGFloat = 1, earTwitch: Double = 0
+    var bob: CGFloat = 0, breathe: CGFloat = 1, headTilt: Double = 0, stateTilt: Double = 0, earScale: CGFloat = 1, earTwitch: Double = 0
     var tailSwing: Double = 0, blink = false, oohBeat = false
 
     /// Deterministic 0…1 noise per integer cycle.
@@ -179,15 +192,15 @@ private struct Motion {
 
         switch state {
         case .listening:
-            headTilt += 5
+            stateTilt = 5
         case .thinking:
-            headTilt += -4
+            stateTilt = -4
         case .talking:
             headTilt += 2 * sin(t * 5) * k; bob = CGFloat(-abs(sin(t * 4.5)) * 6 * k)
         case .excited:
             break
         case .oops:
-            headTilt += -5
+            stateTilt = -5
         case .coloring:
             headTilt += 3 * sin(t * 1.2) * k   // looking down at the page, a little busy
         case .idle, .napping:

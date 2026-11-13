@@ -110,3 +110,27 @@ func kitItem(_ id: String, size: KitSize, perPlayer: Bool = false, copies: Int =
     #expect(pages.count <= 7)
     #expect(pages.map(\.item.recipe) == KitRecipe.allCases.map { Optional($0) })   // one page each, in recipe order
 }
+
+@Test func eachPlayersBadgeShowsTheirOwnRole() {
+    var badge = kitItem("badge", size: .badge, perPlayer: true); badge.recipe = .badges
+    let roles: [PlayerToken: String] = [.P1: "Captain", .P2: "Flight Attendant", .P3: "Passenger", .P4: "Pilot"]
+    for n in 1...4 {
+        let players = Array(PlayerToken.allCases.prefix(n))
+        let pages = KitLayout.pages(for: Kit(nutmegSays: "", items: [badge], scenes: []), players: players,
+                                    directorMode: false, roles: roles)
+        let slots = pages.flatMap(\.slots)
+        // The first N badges are the N players, each with a distinct role that is their own.
+        let firstN = Array(slots.prefix(n))
+        #expect(firstN.map(\.player) == players.map(Optional.init))
+        #expect(Set(firstN.compactMap(\.role)).count == n)
+        #expect(slots.allSatisfy { $0.role == $0.player.flatMap { roles[$0] } })
+    }
+}
+
+@Test func badgeArtIsRoleNeutral() {
+    var badge = kitItem("badge", size: .badge, perPlayer: true); badge.recipe = .badges
+    badge.lines = ["Crew", "Sky Crew"]
+    let p = KitArtPrompt.prompt(for: badge, gameTitle: "Airplane")
+    #expect(!p.contains("Sky Crew"))
+    #expect(p.contains("no words"))
+}

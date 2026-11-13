@@ -4,6 +4,8 @@ public struct KitSlot: Equatable, Sendable {
     /// The player this copy is for; nil = blank "Name: ____" (shared item, or Director mode).
     public var player: PlayerToken?
     public var index: Int
+    /// The player's role ("Captain"), from their assignment; the app prints it on badges and tickets.
+    public var role: String? = nil
 }
 
 public struct KitPage: Equatable, Sendable, Identifiable {
@@ -52,7 +54,10 @@ public enum KitLayout {
         return slots + (slots.count..<target).map(extra)
     }
 
-    public static func pages(for kit: Kit, players: [PlayerToken], directorMode: Bool) -> [KitPage] {
+    /// `roles`: each player's role name (from the plan), printed by the app on their badge/ticket so every badge
+    /// shows the right role (the art is role-neutral and shared).
+    public static func pages(for kit: Kit, players: [PlayerToken], directorMode: Bool,
+                             roles: [PlayerToken: String] = [:]) -> [KitPage] {
         // 1. Slots per item.
         var perItem: [[KitSlot]] = kit.items.map { item in
             if item.perPlayer {
@@ -64,7 +69,7 @@ public enum KitLayout {
                 let who = players.isEmpty ? [PlayerToken.P1] : players
                 // Every player gets their copies; then the page is filled by cycling the players again (spares),
                 // each copy keeping its player's seat/number (index = the player's position).
-                let base = who.enumerated().flatMap { n, p in (0..<item.copies).map { _ in KitSlot(player: p, index: n) } }
+                let base = who.enumerated().flatMap { n, p in (0..<item.copies).map { _ in KitSlot(player: p, index: n, role: roles[p]) } }
                 return filled(base, capacity: grid(for: item.size).capacity) { k in base[k % base.count] }
             }
             let base = (0..<item.copies).map { KitSlot(player: nil, index: $0) }
@@ -99,7 +104,7 @@ public enum KitArtPrompt {
         case .money?: shape = "a single play-money bill (landscape, about 2 by 1) with an ornate border and a big value in the corners"
         case .menu?: shape = "a full-page menu or price list (portrait, US Letter) with a little picture next to each line"
         case .cutouts?: shape = "a full page (portrait, US Letter) of 6 to 8 separate cut-out props, each a simple object with a thick cut-around outline and space between them"
-        case .badges?: shape = "a single role name badge (portrait) with a clip hole at the top"
+        case .badges?: shape = "a single name badge (portrait) with a clip hole at the top and one cute themed picture in the middle"
         case .tickets?: shape = item.size == .keycard ? "a single key card (landscape, about 2 by 1)" : "a single ticket or pass (landscape, about 2 by 1)"
         case nil:
             switch item.size {
@@ -120,11 +125,16 @@ public enum KitArtPrompt {
         } else if item.size != .fullPage {
             p += " Leave a BLANK white rounded banner across the top quarter of the card with no text in it (a name is written there later)."
         }
-        if item.recipe == .cutouts, !text.isEmpty {
+        let isBadge = item.recipe == .badges || (item.recipe == nil && item.size == .badge)
+        if isBadge {
+            // One shared, role-neutral badge: the app writes each player's NAME and ROLE on it, so it's always right.
+            p += " Also leave a second BLANK white rounded banner across the bottom fifth (a role is written there later)."
+            p += " Write no words or letters anywhere on the badge."
+        } else if item.recipe == .cutouts, !text.isEmpty {
             p += " Draw these items, one each, with no words: " + text.joined(separator: ", ") + "."
             p += " Title at the top in big rounded letters: \"\(item.title)\"."
         } else if !text.isEmpty { p += " Spell these words exactly, in big rounded letters: " + text.map { "\"\($0)\"" }.joined(separator: ", ") + "." }
-        if let n = item.bigNumber, !n.isEmpty { p += " Show the big number or code \"\(n)\"." }
+        if let n = item.bigNumber, !n.isEmpty, !isBadge { p += " Show the big number or code \"\(n)\"." }
         p += " Do not add any other words. No real brands, no logos, nothing scary."
         return p
     }

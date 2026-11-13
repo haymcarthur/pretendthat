@@ -30,7 +30,8 @@ enum PTCameraShot: Equatable { case closeUp, medium, wide }
 /// height in points; the focal point lands exactly on the stage center. Default (medium): her whole body, about 70% of
 /// the screen height, her visual center (not the tail-skewed bounding box) centered. Close-up (talking/listening): her
 /// head fills most of the screen, the head's center centered. Wide (presenting): zoomed out so the cards fit beside her.
-/// Nutmeg is re-laid out at each size (not scaleEffect), so her vector art stays crisp at any zoom.
+/// Nutmeg is laid out once at the close-up size and moved/scaled by ONE render transform per shot, so every layer
+/// (body, head, face, tail, ground) moves as a unit and the vectors stay crisp.
 struct PTConversationStage<Character: View, Bar: View>: View {
     var backdrop: PTBackdrop = .white
     var shot: PTCameraShot
@@ -48,10 +49,7 @@ struct PTConversationStage<Character: View, Bar: View>: View {
             let L = PTStageCamera.layout(shot: shot, itemCount: items.count, size: geo.size,
                                          leadingInset: leadingInset, bottomInset: bottomInset)
             ZStack(alignment: .topLeading) {
-                // Ground oval under her feet (crisp, flat).
-                PTGround()
-                    .frame(width: 640 * L.k, height: 90 * L.k)
-                    .position(L.screen(CGPoint(x: 590, y: 1290)))
+                // (Her ground oval is drawn inside NutmegCharacter(showsGround:) so it moves with her as one unit.)
                 // 2–3 static stars around her, never over her face (positions in art-canvas px).
                 ForEach(Array(PTStageCamera.stars.enumerated()), id: \.offset) { i, star in
                     let side = min(star.size * L.k, star.maxPoints)
@@ -61,8 +59,13 @@ struct PTConversationStage<Character: View, Bar: View>: View {
                         .position(p)
                         .opacity(L.starFits(p, side: side, in: geo.size, leadingInset: leadingInset, bottomInset: bottomInset) ? 1 : 0)
                 }
+                // One render transform for all of her (no per-layer layout animation, so nothing trails): she is laid
+                // out once at the largest (close-up) size and scaled down per shot, which keeps the vectors crisp.
+                let big = PTStageCamera.layout(shot: .closeUp, itemCount: 0, size: geo.size,
+                                               leadingInset: leadingInset, bottomInset: bottomInset)
                 character
-                    .frame(width: L.canvas.width, height: L.canvas.height)
+                    .frame(width: big.canvas.width, height: big.canvas.height)
+                    .scaleEffect(L.k / big.k)
                     .position(L.canvasCenter)
 
                 // Presented items in two columns beside her (no overlap; every label readable).

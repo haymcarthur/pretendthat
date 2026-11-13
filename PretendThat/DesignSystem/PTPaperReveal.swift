@@ -87,33 +87,35 @@ private struct ArcFlight: @MainActor ViewModifier, @MainActor Animatable {
     }
 }
 
-/// A neat grid for page thumbnails (letter-paper aspect): 1 row for up to 4 pages, else 2 (or 3) rows, as big as
-/// fits the box with even gaps, centered. Slot centers are relative to the box center (for PTPaperReveal).
-struct PTPageGrid {
+/// Page thumbnails as a slightly overlapped fan (Haylee prefers it to a grid): 1 row for up to 4 pages, else 2 rows,
+/// each page overlapping its neighbor by ~22% with a small tilt and a gentle arc, as big as fits the box with room for
+/// the tilt (nothing clipped). Later pages sit on top, so every page's title area (top center) stays visible.
+/// Slot centers are relative to the box center (for PTPaperReveal).
+struct PTPageFan {
     let columns: Int, rows: Int
     let paper: CGSize
-    let gap: CGFloat
     let count: Int
+    /// Horizontal step between neighbors as a fraction of the page width (1 - overlap).
+    static let step: CGFloat = 0.78
+    /// Vertical step between rows as a fraction of the page height (the next row overlaps the bottom of the first).
+    static let rowStep: CGFloat = 0.86
 
-    init(count n: Int, in box: CGSize, gap: CGFloat = 20, aspect: CGFloat = 8.5 / 11) {
-        count = max(1, n); self.gap = gap
-        // Try 1–3 rows; keep the layout whose thumbnails come out biggest.
-        var best = (cols: 1, rows: 1, w: CGFloat(0))
-        for r in 1...3 {
-            let c = Int(ceil(Double(count) / Double(r)))
-            let w = min((box.width - CGFloat(c - 1) * gap) / CGFloat(c), ((box.height - CGFloat(r - 1) * gap) / CGFloat(r)) * aspect)
-            if w > best.w + 1 { best = (c, r, w) }
-        }
-        columns = best.cols; rows = best.rows
-        let w = max(40, min(best.w, 220))
+    init(count n: Int, in box: CGSize, aspect: CGFloat = 8.5 / 11) {
+        count = max(1, n)
+        rows = count > 4 ? 2 : 1
+        columns = Int(ceil(Double(count) / Double(rows)))
+        let usableW = box.width * 0.92, usableH = box.height * 0.9          // room for tilt and arc
+        let byW = usableW / (1 + CGFloat(columns - 1) * Self.step)
+        let byH = usableH / (1 + CGFloat(rows - 1) * Self.rowStep) * aspect
+        let w = max(40, min(byW, byH, 240))
         paper = CGSize(width: w, height: w / aspect)
     }
 
-    func center(_ i: Int) -> CGPoint {
+    func slot(_ i: Int) -> (point: CGPoint, tilt: Double) {
         let r = i / columns
-        let inRow = r == rows - 1 ? count - r * columns : columns   // last row centered
+        let inRow = r == rows - 1 ? count - r * columns : columns
         let c = CGFloat(i % columns) - CGFloat(inRow - 1) / 2
-        let y = CGFloat(r) - CGFloat(rows - 1) / 2
-        return CGPoint(x: c * (paper.width + gap), y: y * (paper.height + gap))
+        let y = (CGFloat(r) - CGFloat(rows - 1) / 2) * paper.height * Self.rowStep
+        return (CGPoint(x: c * paper.width * Self.step, y: y + abs(c) * paper.height * 0.03), Double(c) * 3)
     }
 }
