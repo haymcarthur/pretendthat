@@ -9,3 +9,5 @@
 - **Domain:** `pretendthat.app` looked free; the `.com` is parked. Register?
 - **Font:** SF Rounded until a heavy rounded brand font is chosen.
 - **Names without a mic:** if speech is unavailable (denied, or the simulator), players stay "Player 1…". Add a grown-up keyboard entry behind the parent gate?
+- **Keys rejected (2026-11-13 PM):** both keys in `Secrets.xcconfig` return 401 (Anthropic "invalid x-api-key", OpenAI "Incorrect API key provided"). They look a few characters short (105 and 163 chars). Re-copy both, then rebuild. The app falls back to the bundled airplane game and app-drawn pages meanwhile.
+- **Names said before the players screen** (e.g. on pick-game) go to Claude untokenized, since names aren't known yet. Acceptable, or strip capitalized words there?

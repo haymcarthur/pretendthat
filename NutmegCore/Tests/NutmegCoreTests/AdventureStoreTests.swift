@@ -134,3 +134,17 @@ func walk(_ store: AdventureStore) -> [Phase] {
     #expect(store.phase == .scene(0))
     #expect(store.kit != nil)
 }
+
+struct AuthFailLLM: LLM {
+    func structured<T: Decodable & Sendable>(_ type: T.Type, system: String, user: String, schema: JSONSchema, effort: Effort) async throws -> T {
+        throw ClaudeError.http(401)
+    }
+}
+
+@Test @MainActor func badKeyGoesStraightToFallback() async {
+    let store = AdventureStore(service: PhaseService(llm: AuthFailLLM()))
+    await store.start()
+    #expect(store.usingFallback)
+    #expect(store.lastError == nil)
+    #expect(store.ideas == Fallback.airplane.ideas)
+}
