@@ -16,7 +16,7 @@ struct ParentSettingsView: View {
                     LabeledContent("Story brain (Claude)", value: model.hasClaude ? "Key set ✓" : "Not set: using the built-in airplane game")
                     LabeledContent("Kit pictures (OpenAI)", value: !model.hasImages ? "Not set: app-drawn pages"
                         : model.art.unavailableReason.map { "Off (\($0)): app-drawn pages" } ?? "Key set ✓")
-                    LabeledContent("Speech", value: model.listener.available ? "On-device ✓" : "Unavailable: tap pictures instead")
+                    LabeledContent("Speech", value: model.listener.status)
                 }
                 Section("Voice") {
                     Button("Play a test line") { model.speak("Ooh! Pretend that we're flying over the ocean!") }

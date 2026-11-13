@@ -26,7 +26,7 @@ struct KitView: View {
                         .ptPopIn(index: i)
                     }
                 }
-                if model.art.isGenerating { PTWorkingIndicator(caption: "Drawing your pictures...") }
+                if model.art.isGenerating { PTWorkingIndicator(caption: "Drawing your pictures...", progress: model.art.progress) }
                 HStack(spacing: Theme.Space.l) {
                     PTParentGate(label: "Grown-up: hold to print") {
                         let pdf = KitPrinter.pdf(pages: pages, tokens: store.tokens, art: model.art.images)
@@ -36,6 +36,8 @@ struct KitView: View {
                 }
             }
         }
+        .overlay { if store.phase == .kitReady { PTConfetti().ignoresSafeArea() } }
+        .sensoryFeedback(.success, trigger: store.phase == .kitReady)
         .task(id: store.kit) {
             guard let kit = store.kit else { return }
             await model.art.generate(kit: kit, gameTitle: store.plan?.gameTitle ?? store.gameTitle ?? "Pretend")

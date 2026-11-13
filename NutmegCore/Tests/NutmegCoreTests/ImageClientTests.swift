@@ -51,9 +51,11 @@ func liveImage() async throws {
                        bigNumber: nil, perPlayer: true, copies: 1, colorMe: true)
     let prompt = KitArtPrompt.prompt(for: item, gameTitle: "Cozy Café")
     do {
+        let started = Date()
         let png = try await c.generate(prompt: prompt, size: KitArtPrompt.size(for: item))
+        try? FileManager.default.createDirectory(atPath: "/tmp/pt-shots2/img", withIntermediateDirectories: true)
         try png.write(to: URL(fileURLWithPath: "/tmp/pt-shots2/img/live-image.png"))
-        print("LIVE image OK, bytes:", png.count)
+        print("LIVE image OK, bytes:", png.count, "model:", c.workingModel ?? "?", "seconds:", Int(Date().timeIntervalSince(started)))
     } catch {
         print("LIVE image FAILED:", error, "reason:", c.unavailableReason ?? "-")
         throw error

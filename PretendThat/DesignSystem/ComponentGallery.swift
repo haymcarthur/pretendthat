@@ -7,6 +7,9 @@ struct ComponentGallery: View {
     @State private var checked = false
     @State private var found = true
     @State private var listening = false
+    @State private var bounces = 0
+    @State private var confetti = 0
+    @State private var typing = false
 
     private let mia = Player(token: .P1, name: "Mia", colorIndex: 0, emoji: "💙")
     private let sam = Player(token: .P2, name: "Sam", colorIndex: 1, emoji: "🧡")
@@ -19,15 +22,41 @@ struct ComponentGallery: View {
             VStack(alignment: .leading, spacing: Theme.Space.xl) {
                 section("Text styles") {
                     PTText("Hero", .hero); PTText("Title", .title); PTText("Headline", .headline)
-                    PTText("Body text for kids", .body); PTText("Caption", .caption, color: Theme.inkMuted)
+                    PTText("Body text for kids", .body); PTText("Caption", .caption, tone: .muted)
                 }
                 section("Colors") {
                     HStack {
-                        ForEach(Array([Theme.coral, Theme.purple, Theme.yellow, Theme.lime, Theme.surface, Theme.ink].enumerated()), id: \.offset) { _, c in
-                            Circle().fill(c).frame(width: 60, height: 60).overlay(Circle().strokeBorder(Theme.outline, lineWidth: 2))
+                        ForEach(Array([Theme.coral, Theme.coralStrong, Theme.purple, Theme.yellow, Theme.lime, Theme.nutmeg, Theme.cream, Theme.ink].enumerated()), id: \.offset) { _, c in
+                            Circle().fill(c).frame(width: 60, height: 60).overlay(Circle().strokeBorder(Theme.line, lineWidth: 2))
                         }
                         ForEach(0..<4, id: \.self) { i in Circle().fill(Theme.playerColor(i)).frame(width: 60, height: 60) }
                     }
+                }
+                section("Backdrops + PTStageAccents (props around Nutmeg) + PTCurtainCorner") {
+                    HStack(spacing: Theme.Space.m) {
+                        ForEach(PTBackdrop.allCases, id: \.self) { b in
+                            ZStack(alignment: .topLeading) {
+                                NutmegCharacter(state: .idle).padding(Theme.Space.l).background { PTStageAccents() }
+                                PTCurtainCorner(width: 70)
+                            }
+                            .frame(width: 230, height: 230)
+                            .background(b.color)
+                            .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius))
+                            .environment(\.ptBackdrop, b)
+                        }
+                    }
+                }
+                section("Motion: bounce, check burst, confetti") {
+                    HStack(spacing: Theme.Space.l) {
+                        PTChoiceTile(emoji: "🦕", label: "Tap me", size: Theme.Size.countTile) { bounces += 1 }
+                        PTChecklistRow(emoji: "⭐", text: "Tap to check", isChecked: $checked).frame(width: 320)
+                        Button("Confetti!") { confetti += 1 }.buttonStyle(.ptSecondary)
+                    }
+                    .overlay { PTConfetti().id(confetti) }
+                }
+                section("PTTypeSheet (typing when the mic is off)") {
+                    Button { typing = true } label: { Label("Open", systemImage: "keyboard") }.buttonStyle(.ptQuiet)
+                        .sheet(isPresented: $typing) { PTTypeSheet { _ in } }
                 }
                 section("Buttons (native Button + PTButtonStyle)") {
                     HStack(spacing: Theme.Space.m) {
@@ -67,11 +96,11 @@ struct ComponentGallery: View {
                     PTChecklistRow(emoji: "🪑", text: "Show everyone a seat", isChecked: .constant(true))
                 }
                 section("PTHandoffCard") { PTHandoffCard(player: mia, role: plan.roles[0]) {} }
-                section("PTMicButton (idle / listening / unavailable)") {
+                section("PTMicButton (idle / listening / unavailable = type instead)") {
                     HStack(spacing: Theme.Space.l) {
                         PTMicButton(isListening: false, isAvailable: true, onPress: {}, onRelease: {})
                         PTMicButton(isListening: true, isAvailable: true, onPress: {}, onRelease: {})
-                        PTMicButton(isListening: false, isAvailable: false, onPress: {}, onRelease: {})
+                        PTMicButton(isListening: false, isAvailable: false, onPress: {}, onRelease: {}, onTypeInstead: { typing = true })
                     }
                 }
                 section("PTParentGate / PTReplayButton") {
@@ -119,7 +148,7 @@ struct ComponentGallery: View {
 
     private func section<C: View>(_ title: String, @ViewBuilder _ content: () -> C) -> some View {
         VStack(alignment: .leading, spacing: Theme.Space.m) {
-            PTText(title, .headline, color: Theme.inkMuted)
+            PTText(title, .headline, tone: .muted)
             content()
         }
     }

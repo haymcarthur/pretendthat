@@ -19,11 +19,28 @@ struct PTSpeechBubble: View {
                 .minimumScaleFactor(0.6)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity)
-                .ptCard(fill: Theme.background)
+                .ptCard(fill: Theme.white)
+                .overlay(alignment: .leading) { BubbleTail().offset(x: -Theme.Space.m + 2, y: -Theme.cardDepth / 2) }
         }
         .buttonStyle(.plain)
         .accessibilityLabel(text)
         .accessibilityHint("Tap to hear Nutmeg again")
+    }
+}
+
+/// Little triangle on the speech bubble pointing back at Nutmeg.
+private struct BubbleTail: View {
+    @Environment(\.ptBackdrop) private var backdrop
+    var body: some View {
+        Triangle().fill(Theme.white)
+            .overlay(Triangle().stroke(backdrop.cardEdge, lineWidth: Theme.borderWidth).mask(Rectangle().padding(.trailing, 4)))
+            .frame(width: Theme.Space.m, height: Theme.Space.l)
+            .accessibilityHidden(true)
+    }
+    private struct Triangle: Shape {
+        func path(in r: CGRect) -> Path {
+            Path { p in p.move(to: CGPoint(x: r.maxX, y: r.minY)); p.addLine(to: CGPoint(x: r.minX, y: r.midY)); p.addLine(to: CGPoint(x: r.maxX, y: r.maxY)) }
+        }
     }
 }
 
@@ -35,27 +52,34 @@ struct PTChoiceTile: View {
     var tint: Color = Theme.surface
     var size: CGFloat = Theme.Size.choiceTile
     let action: () -> Void
+    @State private var picks = 0
 
     var body: some View {
-        Button(action: action) {
+        Button {
+            picks += 1
+            action()
+        } label: {
             Label { Text(label) } icon: { Text(emoji) }
                 .labelStyle(PTEmojiLabelStyle(emojiSize: size * 0.36))
                 .frame(width: size - Theme.Space.m * 2, height: size - Theme.Space.m * 2)
-                .ptCard(fill: isSelected ? Theme.accent : tint, stroke: isSelected ? Theme.ink : Theme.outline)
+                .ptCard(fill: isSelected ? Theme.accent : tint, edge: isSelected ? Theme.yellowShade : nil)
         }
         .buttonStyle(TileButtonStyle())
+        .ptBounce(trigger: picks)
+        .sensoryFeedback(.selection, trigger: picks)
         .ptSpeakOnLongPress(label)
         .accessibilityLabel(label)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 
-/// Squish feedback for tiles (the tile draws its own card).
+/// Press feedback for tiles (the tile draws its own card): the card sinks onto its edge.
 struct TileButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.93 : 1)
-            .animation(Theme.springy, value: configuration.isPressed)
+            .offset(y: configuration.isPressed ? Theme.cardDepth * 0.6 : 0)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .animation(Theme.press, value: configuration.isPressed)
     }
 }
 
@@ -69,12 +93,13 @@ struct PTRoleBadge: View {
     var body: some View {
         let content = VStack(spacing: Theme.Space.xs) {
             ZStack {
+                Circle().fill(Theme.playerShade(player.colorIndex)).offset(y: Theme.cardDepth)
                 Circle().fill(Theme.playerColor(player.colorIndex))
-                Circle().strokeBorder(Theme.ink, lineWidth: Theme.outlineWidth)
+                Circle().strokeBorder(Theme.white.opacity(0.9), lineWidth: Theme.borderWidth * 2).padding(Theme.borderWidth)
                 if let role {
                     Text(role.emoji).font(Theme.emojiFont(size * 0.45))
-                    Image(systemName: role.symbol).font(Theme.displayFont(size * 0.16)).foregroundStyle(Theme.inkOnBrand)
-                        .padding(Theme.Space.xs).background(Circle().fill(Theme.ink))
+                    Image(systemName: role.symbol).font(Theme.displayFont(size * 0.15)).foregroundStyle(Theme.playerColor(player.colorIndex))
+                        .padding(size * 0.06).background(Circle().fill(Theme.white))
                         .offset(x: size * 0.32, y: size * 0.32)
                 } else {
                     Text(player.emoji).font(Theme.emojiFont(size * 0.45))
@@ -82,7 +107,7 @@ struct PTRoleBadge: View {
             }
             .frame(width: size, height: size)
             PTText(player.displayName, .headline)
-            if let role { PTText(role.roleName, .caption, color: Theme.inkMuted) }
+            if let role { PTText(role.roleName, .caption, tone: .muted) }
         }
         Group {
             if let onTap { Button(action: onTap) { content }.buttonStyle(TileButtonStyle()) } else { content }
@@ -104,7 +129,9 @@ struct PTChecklistRow: View {
                 .labelStyle(.ptRow)
         }
         .toggleStyle(.ptCheck)
-        .ptCard(fill: isChecked ? Theme.success.opacity(0.25) : Theme.background)
+        .ptCard(fill: isChecked ? Theme.limeTint : Theme.white,
+                edge: isChecked ? Theme.limeShade : nil, padding: Theme.Space.s)
+        .animation(Theme.springy, value: isChecked)
         .ptSpeakOnLongPress(text)
     }
 }
@@ -123,13 +150,15 @@ struct PTPropCard: View {
                     .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
                 Label { Text(prop.becomes) } icon: { Image(systemName: "arrow.right") }
                     .font(Theme.bodyFont(Theme.TextSize.body)).foregroundStyle(Theme.inkMuted)
+                    .labelStyle(.titleAndIcon)
                     .lineLimit(2).minimumScaleFactor(0.7)
                     .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity)
         }
         .toggleStyle(.ptCheckCorner)
-        .ptCard(fill: found ? Theme.success.opacity(0.3) : Theme.surface)
+        .ptCard(fill: found ? Theme.limeTint : Theme.white, edge: found ? Theme.limeShade : nil)
+        .animation(Theme.springy, value: found)
         .ptSpeakOnLongPress("\(prop.householdItem) becomes \(prop.becomes)")
     }
 }
@@ -140,17 +169,21 @@ struct PTHandoffCard: View {
     let role: Role?
     let onTap: () -> Void
     @State private var shown = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: Theme.Space.l) {
-            PTText("Pass the iPad to", .headline, color: Theme.inkMuted)
+            PTText("Pass the iPad to", .headline, tone: .muted)
             PTRoleBadge(player: player, role: role, size: Theme.Size.badge * 1.6, onTap: onTap)
+                .ptBounce(trigger: shown)
             PTText("Tap your badge!", .headline)
         }
-        .ptCard(fill: Theme.playerColor(player.colorIndex).opacity(0.18), padding: Theme.Space.xl)
-        .offset(x: shown ? 0 : 600)
-        .onAppear { withAnimation(Theme.springy) { shown = true } }
-        .sensoryFeedback(.impact, trigger: shown)
+        .ptCard(fill: Theme.white, edge: Theme.playerColor(player.colorIndex), padding: Theme.Space.xl)
+        .offset(x: shown || reduceMotion ? 0 : 700)
+        .rotationEffect(.degrees(shown || reduceMotion ? 0 : 8))
+        .opacity(shown || !reduceMotion ? 1 : 0)
+        .onAppear { withAnimation(reduceMotion ? Theme.gentle : Theme.bouncy) { shown = true } }
+        .sensoryFeedback(.impact(weight: .medium), trigger: shown)
     }
 }
 
@@ -164,9 +197,9 @@ struct PTPageThumbnail<Page: View>: View {
                 .frame(width: Theme.Size.thumbnail, height: Theme.Size.thumbnail * 11 / 8.5)
                 .background(Theme.white)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.smallRadius / 2))
-                .overlay(RoundedRectangle(cornerRadius: Theme.smallRadius / 2).strokeBorder(Theme.outline, lineWidth: 2))
-                .shadow(color: Theme.shadow.color, radius: Theme.shadow.radius, y: Theme.shadow.y)
-            PTText("Page \(number)", .caption, color: Theme.inkMuted)
+                .overlay(RoundedRectangle(cornerRadius: Theme.smallRadius / 2).strokeBorder(Theme.line, lineWidth: 2))
+                .background(RoundedRectangle(cornerRadius: Theme.smallRadius / 2).fill(Theme.shadow.color).offset(y: Theme.shadow.y))
+            PTText("Page \(number)", .caption, tone: .muted)
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Page \(number)")
@@ -191,10 +224,14 @@ struct PTParentGate: View {
             .frame(width: 56, height: 56)
             PTText(label, .headline)
         }
-        .padding(.horizontal, Theme.Space.l).padding(.vertical, Theme.Space.s)
-        .frame(minHeight: Theme.Size.minHit)
-        .background(Capsule().fill(Theme.accent))
-        .scaleEffect(pressing ? 0.96 : 1)
+        .environment(\.ptInk, Theme.ink)
+        .padding(.horizontal, Theme.Space.l).padding(.vertical, Theme.Space.xs)
+        .frame(minHeight: Theme.Size.minHit - Theme.depth)
+        .background(RoundedRectangle(cornerRadius: Theme.buttonRadius, style: .continuous).fill(Theme.accent))
+        .offset(y: pressing ? Theme.depth : 0)
+        .background(RoundedRectangle(cornerRadius: Theme.buttonRadius, style: .continuous).fill(Theme.yellowShade).offset(y: Theme.depth))
+        .padding(.bottom, Theme.depth)
+        .animation(Theme.press, value: pressing)
         .onLongPressGesture(minimumDuration: seconds, maximumDistance: 60) {
             progress = 1
             onComplete()
@@ -221,53 +258,128 @@ struct PTReplayButton: View {
     }
 }
 
-/// Hold-to-talk microphone. Pulses while listening. Dimmed (but still visible) when speech isn't available.
+/// Hold-to-talk microphone: a chunky coral button that sinks while held and pulses rings while listening.
+/// When speech isn't available it becomes a keyboard button: tap to type instead (`onTypeInstead`).
 struct PTMicButton: View {
     let isListening: Bool
     let isAvailable: Bool
     let onPress: () -> Void
     let onRelease: () -> Void
+    var onTypeInstead: (() -> Void)? = nil
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        TimelineView(.animation(paused: !isListening)) { ctx in
-            let pulse = isListening ? 1 + 0.08 * sin(ctx.date.timeIntervalSinceReferenceDate * 8) : 1
-            ZStack {
-                Circle().fill(Theme.primary.opacity(0.25)).scaleEffect(isListening ? pulse * 1.25 : 1)
-                Circle().fill(isListening ? Theme.accent : Theme.primary)
-                Circle().strokeBorder(Theme.ink, lineWidth: Theme.outlineWidth)
-                Image(systemName: isListening ? "waveform" : "mic.fill")
-                    .font(Theme.displayFont(48)).foregroundStyle(isListening ? Theme.ink : Theme.inkOnBrand)
+        if isAvailable {
+            face(symbol: isListening ? "waveform" : "mic.fill", fill: isListening ? Theme.accent : Theme.primary,
+                 edge: isListening ? Theme.yellowShade : Theme.coralShade, ink: isListening ? Theme.ink : Theme.inkOnBrand,
+                 sunk: isListening)
+                .onLongPressGesture(minimumDuration: 600, maximumDistance: 200, perform: {}) { pressing in
+                    pressing ? onPress() : onRelease()
+                }
+                .sensoryFeedback(.impact(weight: .medium), trigger: isListening)
+                .accessibilityLabel(isListening ? "Listening" : "Hold to talk to Nutmeg")
+                .accessibilityAddTraits(.isButton)
+        } else {
+            Button { onTypeInstead?() } label: {
+                face(symbol: "keyboard.fill", fill: Theme.white, edge: Theme.line, ink: Theme.ink, sunk: false)
             }
-            .scaleEffect(pulse)
+            .buttonStyle(TileButtonStyle())
+            .disabled(onTypeInstead == nil)
+            .accessibilityLabel("Type to Nutmeg")
+        }
+    }
+
+    private func face(symbol: String, fill: Color, edge: Color, ink: Color, sunk: Bool) -> some View {
+        TimelineView(.animation(paused: !isListening || reduceMotion)) { ctx in
+            let t = ctx.date.timeIntervalSinceReferenceDate
+            ZStack {
+                if isListening && !reduceMotion {
+                    ForEach(0..<2, id: \.self) { i in
+                        let phase = (t / 1.2 + Double(i) / 2).truncatingRemainder(dividingBy: 1)
+                        Circle().stroke(Theme.accent, lineWidth: 6)
+                            .scaleEffect(1 + phase * 0.5).opacity(1 - phase)
+                    }
+                }
+                Circle().fill(edge).offset(y: Theme.depth)
+                ZStack {
+                    Circle().fill(fill)
+                    Circle().strokeBorder(fill == Theme.white ? Theme.line : .clear, lineWidth: Theme.borderWidth)
+                    Image(systemName: symbol).font(Theme.displayFont(44)).foregroundStyle(ink)
+                        .symbolEffect(.variableColor.iterative, isActive: isListening && !reduceMotion)
+                }
+                .offset(y: sunk ? Theme.depth : 0)
+            }
         }
         .frame(width: Theme.Size.mic, height: Theme.Size.mic)
-        .opacity(isAvailable ? 1 : 0.4)
-        .onLongPressGesture(minimumDuration: 600, maximumDistance: 200, perform: {}) { pressing in
-            pressing ? onPress() : onRelease()
-        }
-        .sensoryFeedback(.impact(weight: .medium), trigger: isListening)
-        .accessibilityLabel(isListening ? "Listening" : "Hold to talk to Nutmeg")
-        .accessibilityAddTraits(.isButton)
+        .padding(.bottom, Theme.depth)
+        .animation(Theme.press, value: sunk)
     }
 }
 
-/// The shared kid-screen layout: Nutmeg on the left third, the stage on the right, controls along the bottom.
+/// "Type instead": a native sheet with a TextField, for when the mic is off (permission, simulator) or a grown-up
+/// wants to type what a kid said.
+struct PTTypeSheet: View {
+    let onSend: (String) -> Void
+    @State private var text = ""
+    @FocusState private var focused: Bool
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: Theme.Space.l) {
+                PTText("What do you want to tell Nutmeg?", .headline)
+                TextField("Type here", text: $text)
+                    .font(Theme.bodyFont(Theme.TextSize.headline))
+                    .foregroundStyle(Theme.ink)
+                    .padding(Theme.Space.m)
+                    .background(RoundedRectangle(cornerRadius: Theme.smallRadius, style: .continuous).fill(Theme.cream))
+                    .focused($focused)
+                    .submitLabel(.send)
+                    .onSubmit(send)
+                Button { send() } label: { Label("Tell Nutmeg", systemImage: "paperplane.fill") }
+                    .buttonStyle(.ptPrimary)
+                    .disabled(text.trimmingCharacters(in: .whitespaces).isEmpty)
+                Spacer(minLength: 0)
+            }
+            .padding(Theme.Space.l)
+            .background(Theme.white)
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
+        }
+        .presentationDetents([.medium])
+        .onAppear { focused = true }
+    }
+
+    private func send() {
+        let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !t.isEmpty else { return }
+        onSend(t)
+        dismiss()
+    }
+}
+
+/// The shared kid-screen layout: Nutmeg (the hero) on the left with stage props around her, the stage on the right,
+/// controls along the bottom. One solid backdrop per phase.
 struct PTStageLayout<Nutmeg: View, Stage: View, Bottom: View>: View {
-    var background: Color = Theme.background
+    var backdrop: PTBackdrop = .white
+    /// Share of the width Nutmeg gets (`Theme.nutmegHeroColumn` when she's the star of the screen).
+    var nutmegColumn: CGFloat = Theme.nutmegColumn
     @ViewBuilder var nutmeg: Nutmeg
     @ViewBuilder var stage: Stage
     @ViewBuilder var bottom: Bottom
 
     var body: some View {
         GeometryReader { geo in
-            let nutmegWidth = geo.size.width * 0.3
+            let nutmegWidth = geo.size.width * nutmegColumn
             VStack(spacing: Theme.Space.m) {
                 HStack(alignment: .center, spacing: Theme.Space.l) {
-                    nutmeg.frame(width: nutmegWidth)
+                    nutmeg
+                        .padding(Theme.Space.m)
+                        .background { PTStageAccents() }
+                        .frame(width: nutmegWidth)
                     // Long AI content (5 steps, 2-line props) scrolls instead of pushing the mic off screen.
                     ViewThatFits(in: .vertical) {
-                        stage
-                        ScrollView(.vertical) { stage.padding(.vertical, Theme.Space.s) }
+                        stage.padding(.vertical, Theme.Space.s)
+                        ScrollView(.vertical) { stage.padding(.vertical, Theme.Space.m) }
                             .scrollIndicators(.visible)
                     }
                     .frame(width: max(0, geo.size.width - nutmegWidth - Theme.Space.l))
@@ -278,7 +390,9 @@ struct PTStageLayout<Nutmeg: View, Stage: View, Bottom: View>: View {
                     .layoutPriority(1)
             }
         }
-        .ptScreen(background)
+        .ptScreen(backdrop)
+        .overlay(alignment: .topLeading) { PTCurtainCorner(width: 150).ignoresSafeArea() }
+        .animation(Theme.bouncy, value: nutmegColumn)
     }
 }
 
@@ -300,10 +414,13 @@ struct PTCountPicker: View {
 /// Inline "thinking" indicator with a short caption.
 struct PTWorkingIndicator: View {
     var caption = "Nutmeg is thinking..."
+    /// 0...1 shows a chunky progress bar under the dots.
+    var progress: Double? = nil
     var body: some View {
         VStack(spacing: Theme.Space.m) {
-            ProgressView().progressViewStyle(.ptDots)
-            PTText(caption, .body, color: Theme.inkMuted)
+            if let progress { ProgressView(value: progress).progressViewStyle(.ptDots) }
+            else { ProgressView().progressViewStyle(.ptDots) }
+            PTText(caption, .body, tone: .muted)
         }
     }
 }

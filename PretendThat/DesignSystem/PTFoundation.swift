@@ -1,6 +1,6 @@
 import SwiftUI
 
-// Foundation of the component library: speech action, text styles, and view modifiers.
+// Foundation of the component library: speech action, text styles, backdrop-aware ink, and view modifiers.
 // Every value comes from Theme; screens never style things directly.
 
 /// Lets any component read its words aloud (long-press to hear). Injected once at the root.
@@ -11,6 +11,11 @@ struct SpeakAction {
 
 extension EnvironmentValues {
     @Entry var speak = SpeakAction { _ in }
+    /// Text colors for whatever surface the view sits on (set by `ptScreen` and reset inside cards).
+    @Entry var ptInk = Theme.ink
+    @Entry var ptInkMuted = Theme.inkMuted
+    /// The phase backdrop, so accents and cards can pick matching colors.
+    @Entry var ptBackdrop = PTBackdrop.white
 }
 
 enum PTTextStyle {
@@ -20,7 +25,7 @@ enum PTTextStyle {
         switch self {
         case .hero: Theme.displayFont(Theme.TextSize.hero)
         case .title: Theme.displayFont(Theme.TextSize.title)
-        case .headline: Theme.displayFont(Theme.TextSize.headline)
+        case .headline: Theme.headlineFont(Theme.TextSize.headline)
         case .body: Theme.bodyFont(Theme.TextSize.body)
         case .caption: Theme.bodyFont(Theme.TextSize.caption)
         case .emoji(let size): Theme.emojiFont(size)
@@ -28,48 +33,68 @@ enum PTTextStyle {
     }
 }
 
-/// Text in one of the theme's styles.
+enum PTTone { case primary, muted }
+
+/// Text in one of the theme's styles. Its color follows the surface it sits on unless `color` is given.
 struct PTText: View {
     let text: String
     var style: PTTextStyle = .body
-    var color: Color = Theme.ink
-    init(_ text: String, _ style: PTTextStyle = .body, color: Color = Theme.ink) {
-        self.text = text; self.style = style; self.color = color
+    var tone: PTTone = .primary
+    var color: Color?
+    @Environment(\.ptInk) private var ink
+    @Environment(\.ptInkMuted) private var inkMuted
+
+    init(_ text: String, _ style: PTTextStyle = .body, tone: PTTone = .primary, color: Color? = nil) {
+        self.text = text; self.style = style; self.tone = tone; self.color = color
     }
     var body: some View {
-        Text(text).font(style.font).foregroundStyle(color).multilineTextAlignment(.center)
+        Text(text).font(style.font).foregroundStyle(color ?? (tone == .muted ? inkMuted : ink))
+            .multilineTextAlignment(.center)
     }
 }
 
+/// Flat chunky card: solid fill, soft border, and a solid bottom edge (no blur shadows, no dark outlines).
 struct PTCardModifier: ViewModifier {
     var fill: Color = Theme.surface
-    var stroke: Color = Theme.outline
+    /// Border and bottom-edge color. nil = the backdrop's matching edge.
+    var edge: Color?
     var padding: CGFloat = Theme.Space.m
+    var depth: CGFloat = Theme.cardDepth
+    @Environment(\.ptBackdrop) private var backdrop
+
     func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous)
+        let edgeColor = edge ?? backdrop.cardEdge
         content
+            .environment(\.ptInk, Theme.ink)
+            .environment(\.ptInkMuted, Theme.inkMuted)
             .padding(padding)
-            .background(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous).fill(fill))
-            .overlay(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous).strokeBorder(stroke, lineWidth: Theme.outlineWidth))
-            .compositingGroup()
-            .shadow(color: Theme.shadow.color, radius: Theme.shadow.radius, y: Theme.shadow.y)
+            .background(shape.fill(fill))
+            .overlay(shape.strokeBorder(edgeColor, lineWidth: Theme.borderWidth))
+            .background(shape.fill(edgeColor).offset(y: depth))
+            .padding(.bottom, depth)
     }
 }
 
 struct PTScreenModifier: ViewModifier {
-    var background: Color
+    var backdrop: PTBackdrop
     func body(content: Content) -> some View {
         content
+            .environment(\.ptBackdrop, backdrop)
+            .environment(\.ptInk, backdrop.ink)
+            .environment(\.ptInkMuted, backdrop.inkMuted)
             .padding(Theme.Space.l)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(background.ignoresSafeArea())
+            .background(backdrop.color.ignoresSafeArea())
+            .animation(Theme.gentle, value: backdrop)
     }
 }
 
 extension View {
-    func ptCard(fill: Color = Theme.surface, stroke: Color = Theme.outline, padding: CGFloat = Theme.Space.m) -> some View {
-        modifier(PTCardModifier(fill: fill, stroke: stroke, padding: padding))
+    func ptCard(fill: Color = Theme.surface, edge: Color? = nil, padding: CGFloat = Theme.Space.m) -> some View {
+        modifier(PTCardModifier(fill: fill, edge: edge, padding: padding))
     }
-    func ptScreen(_ background: Color = Theme.background) -> some View { modifier(PTScreenModifier(background: background)) }
+    func ptScreen(_ backdrop: PTBackdrop = .white) -> some View { modifier(PTScreenModifier(backdrop: backdrop)) }
     /// Long-press anywhere on the view to hear `text`.
     func ptSpeakOnLongPress(_ text: String) -> some View { modifier(SpeakOnLongPress(text: text)) }
     /// Pops in with a springy stagger (index-based delay).
@@ -93,7 +118,10 @@ private struct PopIn: ViewModifier {
     func body(content: Content) -> some View {
         content
             .scaleEffect(shown || reduceMotion ? 1 : 0.6)
+            .offset(y: shown || reduceMotion ? 0 : 24)
             .opacity(shown ? 1 : 0)
-            .onAppear { withAnimation(Theme.springy.delay(Double(index) * 0.08)) { shown = true } }
+            .onAppear {
+                withAnimation(reduceMotion ? Theme.gentle : Theme.springy.delay(Double(index) * Theme.stagger)) { shown = true }
+            }
     }
 }

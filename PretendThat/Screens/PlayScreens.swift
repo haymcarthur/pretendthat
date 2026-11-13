@@ -43,7 +43,7 @@ struct StepBackView: View {
     private var store: AdventureStore { model.store }
     var body: some View {
         VStack(spacing: Theme.Space.l) {
-            PTText("Go play!", .hero, color: Theme.inkOnBrand)
+            PTText("Go play!", .hero)
             PTSpeechBubble(text: store.nutmegLine)
             HStack(spacing: Theme.Space.l) {
                 Button { Task { _ = await store.helpRequested() } } label: { Label("Help, Nutmeg!", systemImage: "questionmark.bubble.fill") }

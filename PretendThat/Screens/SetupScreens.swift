@@ -7,7 +7,7 @@ struct HelloView: View {
     let model: AppModel
     var body: some View {
         VStack(spacing: Theme.Space.l) {
-            PTText("PretendThat", .hero, color: Theme.inkOnBrand)
+            PTText("PretendThat", .hero)
             PTSpeechBubble(text: "Hi! I'm Nutmeg! Let's put on a show!")
             Button("Let's play!") { Task { await model.store.start() } }
                 .buttonStyle(.ptSecondary)
@@ -33,7 +33,7 @@ struct PickGameView: View {
             } else {
                 PTWorkingIndicator()
             }
-            PTText("Hold the mic and say your own idea!", .caption, color: Theme.inkMuted)
+            PTText("Hold the mic and say your own idea!", .caption, tone: .muted)
         }
     }
 }
@@ -62,7 +62,7 @@ struct PlayersView: View {
                         Button("Pick our jobs!") { Task { await store.confirmPlayers() } }.buttonStyle(.ptPrimary)
                     }
                     if !model.listener.available && !store.directorMode {
-                        PTText("No mic? That's OK, we'll use player numbers.", .caption, color: Theme.inkMuted)
+                        PTText("No mic? That's OK, we'll use player numbers.", .caption, tone: .muted)
                     }
                 } else {
                     HStack(spacing: Theme.Space.m) {

@@ -7,8 +7,13 @@ import Speech
 final class Listener {
     private(set) var transcript = ""
     private(set) var isListening = false
-    /// False when permission is denied or on-device recognition isn't supported (choices still work).
+    /// False when permission is denied or recognition isn't usable (choices and typing still work).
     private(set) var available = false
+    /// Why the mic is off, or which recognizer it uses, in words for the Grown-ups screen.
+    private(set) var status = "Checking..."
+    /// True only in a DEBUG simulator build where on-device recognition is missing: Apple's server
+    /// recognizer is used instead so the demo mic works. Never true on a real iPad.
+    private(set) var usesServerRecognition = false
 
     @ObservationIgnored private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
     @ObservationIgnored private let engine = AVAudioEngine()
@@ -19,7 +24,42 @@ final class Listener {
     func requestAuth() async {
         let speech = await Self.speechAuth()
         let mic = await AVAudioApplication.requestRecordPermission()
-        available = speech == .authorized && mic && (recognizer?.supportsOnDeviceRecognition ?? false)
+        let decision = Self.decide(speech: speech, mic: mic, recognizerExists: recognizer != nil,
+                                   recognizerAvailable: recognizer?.isAvailable ?? false,
+                                   onDevice: recognizer?.supportsOnDeviceRecognition ?? false,
+                                   allowServerFallback: Self.isDebugSimulator)
+        available = decision.available
+        usesServerRecognition = decision.server
+        status = decision.status
+    }
+
+    /// Simulators report no on-device speech model, so on-device-only recognition is never available there.
+    static var isDebugSimulator: Bool {
+        #if DEBUG && targetEnvironment(simulator)
+        true
+        #else
+        false
+        #endif
+    }
+
+    /// Pure decision so each case is easy to reason about (see thinking/decisions/mic-simulator-fallback.md).
+    nonisolated static func decide(speech: SFSpeechRecognizerAuthorizationStatus, mic: Bool, recognizerExists: Bool,
+                                   recognizerAvailable: Bool, onDevice: Bool, allowServerFallback: Bool)
+        -> (available: Bool, server: Bool, status: String) {
+        switch speech {
+        case .denied: return (false, false, "Off: speech permission denied (Settings > Privacy > Speech Recognition)")
+        case .restricted: return (false, false, "Off: speech recognition is restricted on this iPad")
+        case .notDetermined: return (false, false, "Off: speech permission not answered yet")
+        case .authorized: break
+        @unknown default: return (false, false, "Off: unknown speech permission")
+        }
+        guard mic else { return (false, false, "Off: microphone permission denied") }
+        guard recognizerExists else { return (false, false, "Off: no English speech recognizer") }
+        if onDevice { return (true, false, "On-device ✓ (audio never leaves the iPad)") }
+        if allowServerFallback && recognizerAvailable {
+            return (true, true, "Simulator demo: Apple server speech (no on-device model in the simulator)")
+        }
+        return (false, false, "Off: on-device speech isn't supported here. Typing works instead.")
     }
 
     func startListening(stopping voice: NutmegVoice) {
@@ -28,7 +68,7 @@ final class Listener {
         transcript = ""; isFinal = false
         AudioSessionSetup.activate()
         let req = SFSpeechAudioBufferRecognitionRequest()
-        req.requiresOnDeviceRecognition = true
+        req.requiresOnDeviceRecognition = !usesServerRecognition
         req.shouldReportPartialResults = true
         request = req
         let input = engine.inputNode

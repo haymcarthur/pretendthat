@@ -19,7 +19,11 @@ final class AppModel {
         if DemoDriver.requestedPhase != nil { service = nil }   // demo screens use the bundled game, no network
         #endif
         store = AdventureStore(service: service)
-        let images = ImageClient.from(info: info)
+        var images = ImageClient.from(info: info)
+        #if DEBUG
+        // Demo screens skip paid image calls unless asked: -PTDemoArt 1
+        if DemoDriver.requestedPhase != nil, !ProcessInfo.processInfo.arguments.contains("-PTDemoArt") { images = nil }
+        #endif
         hasImages = images != nil
         art = KitArtService(client: images)
     }

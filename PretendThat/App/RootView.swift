@@ -6,21 +6,23 @@ import NutmegCore
 struct RootView: View {
     @State private var model = AppModel()
     @State private var showSettings = false
+    @State private var showTyping = false
 
     private var store: AdventureStore { model.store }
 
     var body: some View {
-        PTStageLayout(background: background) {
+        PTStageLayout(backdrop: backdrop, nutmegColumn: nutmegIsHero ? Theme.nutmegHeroColumn : Theme.nutmegColumn) {
             NutmegCharacter(state: model.nutmegState, mouthLevel: model.voice.level,
                             isSpeaking: model.voice.isSpeaking, pose: model.nutmegPose)
                 .onTapGesture { if case .stepBack = store.phase { Task { _ = await store.helpRequested() } } }
         } stage: {
-            stage.transition(.asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity), removal: .opacity))
+            stage.transition(.ptStage)
                 .id(stageID)
         } bottom: {
             bottomBar
         }
-        .animation(Theme.springy, value: stageID)
+        .animation(Theme.bouncy, value: stageID)
+        .sensoryFeedback(.impact(flexibility: .soft), trigger: stageID)
         .environment(\.speak, SpeakAction { model.speak($0) })
         .onChange(of: store.nutmegLine) { _, line in model.speak(line) }
         .task {
@@ -30,6 +32,7 @@ struct RootView: View {
             await model.listener.requestAuth()
         }
         .sheet(isPresented: $showSettings) { ParentSettingsView(model: model) }
+        .sheet(isPresented: $showTyping) { PTTypeSheet { text in Task { await model.handleSpeech(text) } } }
         .preferredColorScheme(.light)
         .statusBarHidden()
     }
@@ -58,7 +61,7 @@ struct RootView: View {
             Button { store.useFallback() } label: { Label("Play airplane", systemImage: "airplane") }.buttonStyle(.ptQuiet)
         }
         PTMicButton(isListening: model.listener.isListening, isAvailable: model.listener.available,
-                    onPress: model.micPressed, onRelease: model.micReleased)
+                    onPress: model.micPressed, onRelease: model.micReleased, onTypeInstead: { showTyping = true })
         PTReplayButton { if let line = model.voice.lastLine ?? store.nutmegLine.nilIfEmpty { model.speak(line) } }
         Spacer()
         if store.phase != .hello {
@@ -76,12 +79,20 @@ struct RootView: View {
         }
     }
 
-    private var background: Color {
+    private var backdrop: PTBackdrop {
         switch store.phase {
-        case .hello, .stepBack: Theme.backgroundBrand
-        case .end: Theme.accent
-        case .handoff: Theme.surface
-        default: Theme.background
+        case .hello, .scene, .stepBack: .backstage      // the theater: purple for play mode
+        case .kitReady, .end: .spotlight                // celebration moments
+        case .handoff: .cream
+        default: .white
+        }
+    }
+
+    /// Nutmeg gets the big column when the stage has little else on it.
+    private var nutmegIsHero: Bool {
+        switch store.phase {
+        case .hello, .stepBack, .end, .handoff: true
+        default: false
         }
     }
 }

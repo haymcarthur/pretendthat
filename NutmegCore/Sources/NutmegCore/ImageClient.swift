@@ -1,10 +1,9 @@
 import Foundation
 
 /// OpenAI Images API client for kit artwork. POST /v1/images/generations, response data[0].b64_json.
-/// Model IDs checked live 2026-11-13 against GET /v1/models with Haylee's key: gpt-image-2.6-flare,
-/// gpt-image-2.5-flare and gpt-image-2 are all listed. A generation call could not be completed yet
-/// (account had no credits: 429 credit_balance_exhausted), so we try newest first and fall through
-/// only when OpenAI says the model itself is unknown. The first model that works is remembered.
+/// Model IDs checked live 2026-11-13: gpt-image-2.6-flare generates successfully (about 6 s per image at
+/// quality medium) and is pinned first. The older IDs stay as fall-throughs, used only when OpenAI says the
+/// model itself is unknown. The first model that works is remembered for the run.
 public final class ImageClient: @unchecked Sendable {
     public enum Mode: Sendable { case direct(apiKey: String), relay(url: URL, token: String) }
     public static let models = ["gpt-image-2.6-flare", "gpt-image-2.5-flare", "gpt-image-2"]
@@ -13,6 +12,8 @@ public final class ImageClient: @unchecked Sendable {
     /// Why images are off for this run (bad key, unverified org, no credits). Nil while they may work.
     private var _unavailable: String?
     public var unavailableReason: String? { lock.withLock { _unavailable } }
+    /// The model ID that last produced an image this run.
+    public var workingModel: String? { lock.withLock { working } }
 
     let mode: Mode
     let transport: HTTPTransport
