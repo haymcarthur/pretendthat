@@ -110,3 +110,24 @@ public enum KitArtPrompt {
         }
     }
 }
+
+/// On-screen sticker illustrations for ideas, roles and props in the voice conversation (D5). Never contains names.
+public enum StickerPrompt {
+    public enum Kind: Sendable { case idea, role, prop }
+
+    public static func prompt(_ kind: Kind, subject: String, detail: String = "", game: String?) -> String {
+        let what: String
+        switch kind {
+        case .idea: what = "a scene icon for a kids' pretend-play game: \(subject)" + (detail.isEmpty ? "" : " (\(detail))")
+        case .role: what = "a cute cartoon animal character dressed up as the \(subject)" + (detail.isEmpty ? "" : ", \(detail)")
+                    + (game.map { ", in a pretend game of \($0)" } ?? "")
+        case .prop: what = "\(subject)" + (detail.isEmpty ? "" : " pretending to be \(detail)") + ", a household item for pretend play"
+        }
+        return """
+        Flat vector sticker illustration of \(what). Bold simple rounded shapes, thick dark purple outlines, \
+        a thick white sticker border around the whole shape, brand palette: coral red, deep purple, sunny yellow, \
+        lime green, cream. Cheerful and friendly for kids ages 4 to 8. Centered, one subject, no drop shadow, \
+        transparent background. No text, no letters, no numbers, no logos, no real brands, nothing scary.
+        """
+    }
+}

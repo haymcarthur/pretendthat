@@ -12,7 +12,28 @@ enum DemoDriver {
         return args[i + 1]
     }
 
-    @MainActor static func drive(_ store: AdventureStore, to target: String) async {
+    /// `-PTLive [-PTSay "text"]...`: start the real voice conversation at launch and send typed turns
+    /// (one per -PTSay, each after Nutmeg finishes talking). For live tests in the simulator.
+    static var liveTurns: [String]? {
+        let args = ProcessInfo.processInfo.arguments
+        guard args.contains("-PTLive") else { return nil }
+        return args.indices.filter { args[$0] == "-PTSay" && $0 + 1 < args.count }.map { args[$0 + 1] }
+    }
+
+    @MainActor static func live(_ model: AppModel, turns: [String]) async {
+        await model.startConversation()
+        for turn in turns {
+            // Wait for Nutmeg to start and then finish her line.
+            for _ in 0..<100 where !model.realtime.isSpeaking { try? await Task.sleep(for: .milliseconds(100)) }
+            for _ in 0..<300 where model.realtime.isSpeaking { try? await Task.sleep(for: .milliseconds(100)) }
+            try? await Task.sleep(for: .milliseconds(600))
+            model.realtime.sendText(turn)
+        }
+    }
+
+    @MainActor static func drive(_ store: AdventureStore, model: AppModel, to target: String) async {
+        if target.hasPrefix("conv") { await conversation(store, model: model, to: target); return }
+        _ = model
         let order = ["hello", "pickGame", "players", "roles", "props", "kitReady", "handoff", "scene", "stepBack", "end"]
         guard let stop = order.firstIndex(of: target), stop > 0 else { return }
         func reached(_ name: String) -> Bool { order.firstIndex(of: name)! >= stop }
@@ -46,6 +67,27 @@ enum DemoDriver {
             if case .handoff(let i) = store.phase, let t = store.kit?.scenes[i].owner.token { store.badgeTapped(t) }
             if case .scene = store.phase { store.sceneDone() }
         }
+    }
+
+    /// Conversation stage shots: convClose (close-up), convIdeas, convRoles, convProps.
+    @MainActor static func conversation(_ store: AdventureStore, model: AppModel, to target: String) async {
+        model.forceConversation = true
+        store.beginConversation()
+        if target == "convClose" { return }
+        _ = await store.apply(.showGameIdeas([GameIdea(id: "a", title: "Airplane", emoji: "", pitch: "fly to the beach"),
+                                              GameIdea(id: "b", title: "Cozy Café", emoji: "", pitch: "serve yummy snacks"),
+                                              GameIdea(id: "c", title: "Pet Vet", emoji: "", pitch: "help sick puppies")]))
+        if target == "convIdeas" { return }
+        _ = await store.apply(.setGame("Airplane"))
+        _ = await store.apply(.setPlayers(names: ["Mia", "Sam", "Ollie"], count: 3))
+        _ = await store.apply(.setRoles([.init(playerName: "Mia", roleName: "Captain", job: "Fly the plane"),
+                                         .init(playerName: "Sam", roleName: "Flight Attendant", job: "Serve snacks"),
+                                         .init(playerName: "Ollie", roleName: "Passenger", job: "Enjoy the trip")]))
+        if target == "convRoles" { return }
+        _ = await store.apply(.showProps([.init(householdItem: "Chairs", becomes: "Plane seats", forPlayer: "all", safe: true),
+                                          .init(householdItem: "Paper plate", becomes: "Steering wheel", forPlayer: "Mia", safe: true),
+                                          .init(householdItem: "Tray", becomes: "Snack cart", forPlayer: "Sam", safe: true),
+                                          .init(householdItem: "Backpack", becomes: "Suitcase", forPlayer: "Ollie", safe: true)]))
     }
 }
 #endif

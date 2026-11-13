@@ -8,8 +8,13 @@ final class AppModel {
     let voice = NutmegVoice()
     let listener = Listener()
     let art: KitArtService
+    let stickers: ItemArtService
     let hasClaude: Bool
     let hasImages: Bool
+    /// Hands-free planning conversation (D1, D2) and its Grown-ups tuning (D7).
+    let realtime = RealtimeSession()
+    let voiceSettings = VoiceSettings()
+    @ObservationIgnored private let openAIKey: String?
 
     init(info: [String: Any] = Bundle.main.infoDictionary ?? [:]) {
         let config = ClaudeConfig.from(info: info)
@@ -26,10 +31,80 @@ final class AppModel {
         #endif
         hasImages = images != nil
         art = KitArtService(client: images)
+        stickers = ItemArtService(client: images)
+        openAIKey = (info["OPENAI_API_KEY"] as? String).flatMap { k in
+            let k = k.trimmingCharacters(in: .whitespaces); return k.isEmpty || k.hasPrefix("$(") ? nil : k
+        }
+        realtime.onCall = { [weak self] name, args in
+            guard let self else { return ("ok", true) }
+            return await self.handleCall(name: name, arguments: args)
+        }
+    }
+
+    // MARK: Voice conversation
+
+    var hasRealtime: Bool { openAIKey != nil }
+    /// DEBUG screenshots: show the conversation stage without a live session.
+    var forceConversation = false
+
+    /// The planning phases run as a voice conversation while the Realtime session is up.
+    var inConversation: Bool {
+        if forceConversation { return Self.isPlanning(store.phase) }
+        guard realtime.status == .live || realtime.status == .connecting else { return false }
+        return Self.isPlanning(store.phase)
+    }
+
+    static func isPlanning(_ phase: Phase) -> Bool {
+        switch phase { case .pickGame, .players, .props: true; default: false }
+    }
+
+    /// "Let's play!": start the conversation; if Realtime can't connect, fall back to the tap screens.
+    func startConversation() async {
+        store.beginConversation()
+        guard let key = openAIKey else { await store.start(); return }
+        let ok = await realtime.connect(apiKey: key, voice: voiceSettings.voice,
+                                        pitchCents: voiceSettings.pitchCents, speed: voiceSettings.speed)
+        guard store.phase == .pickGame else { return }   // left while connecting
+        if ok {
+            realtime.micWanted = true
+            realtime.kickOff()
+        } else {
+            await store.start()   // tap screens (and the bundled airplane game if Claude is off too)
+        }
+    }
+
+    /// Leave activity: hang up and go home. Nothing is kept.
+    func leave() {
+        realtime.disconnect()
+        voice.stop()
+        art.reset()
+        stickers.reset()
+        store.newGame()
+    }
+
+    /// Typed fallback goes into the live conversation when there is one.
+    func typed(_ text: String) async {
+        if realtime.isLive && Self.isPlanning(store.phase) { realtime.sendText(text) } else { await handleSpeech(text) }
+    }
+
+    func phaseChanged() {
+        realtime.micWanted = Self.isPlanning(store.phase)
+    }
+
+    private func handleCall(name: String, arguments: String) async -> (output: String, respond: Bool) {
+        guard let call = PlanningCall.decode(name: name, arguments: arguments) else {
+            return ("I couldn't use that. Try again with the right fields.", true)
+        }
+        let output = await store.apply(call)
+        return (output, call != .finishPlanning)
     }
 
     /// Nutmeg's on-screen state, derived from everything that's happening.
     var nutmegState: NutmegState {
+        if realtime.isLive {
+            if realtime.kidIsTalking { return .listening }
+            if realtime.isSpeaking { return .talking }
+        }
         if listener.isListening { return .listening }
         if store.isWorking { return .thinking }
         if voice.isSpeaking { return .talking }
@@ -49,7 +124,18 @@ final class AppModel {
         }
     }
 
-    func speak(_ text: String) { Task { await voice.say(text) } }
+    /// Nutmeg's voice for app-written lines. With a live Realtime session she keeps her conversation voice;
+    /// during planning she speaks for herself, so app lines are skipped there.
+    func speak(_ text: String) {
+        if realtime.isLive {
+            if !Self.isPlanning(store.phase) { realtime.say(text) }
+            return
+        }
+        Task { await voice.say(text) }
+    }
+
+    var mouthLevel: Float { realtime.isLive ? realtime.level : voice.level }
+    var isSpeaking: Bool { realtime.isLive ? realtime.isSpeaking : voice.isSpeaking }
 
     func micPressed() { listener.startListening(stopping: voice) }
 

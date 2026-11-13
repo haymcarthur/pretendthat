@@ -31,7 +31,7 @@ public final class ImageClient: @unchecked Sendable {
         return nil
     }
 
-    func request(prompt: String, size: String, model: String) throws -> URLRequest {
+    func request(prompt: String, size: String, model: String, quality: String = "medium", background: String? = nil) throws -> URLRequest {
         var req: URLRequest
         switch mode {
         case .direct(let key):
@@ -44,18 +44,19 @@ public final class ImageClient: @unchecked Sendable {
         req.httpMethod = "POST"
         req.timeoutInterval = 120
         req.setValue("application/json", forHTTPHeaderField: "content-type")
-        let body: [String: Any] = ["model": model, "prompt": prompt, "size": size, "n": 1, "quality": "medium", "output_format": "png"]
+        var body: [String: Any] = ["model": model, "prompt": prompt, "size": size, "n": 1, "quality": quality, "output_format": "png"]
+        if let background { body["background"] = background }
         req.httpBody = try JSONSerialization.data(withJSONObject: body, options: [.sortedKeys])
         return req
     }
 
     /// Returns PNG data. Throws fast once the account is known to be unusable this run (no retries per item).
-    public func generate(prompt: String, size: String) async throws -> Data {
+    public func generate(prompt: String, size: String, quality: String = "medium", background: String? = nil) async throws -> Data {
         if let reason = unavailableReason { throw ClaudeError.decoding("images unavailable: \(reason)") }
         let candidates = lock.withLock { working.map { [$0] } } ?? Self.models
         var lastError: Error = ClaudeError.transport
         for model in candidates {
-            let (data, http) = try await transport.send(try request(prompt: prompt, size: size, model: model))
+            let (data, http) = try await transport.send(try request(prompt: prompt, size: size, model: model, quality: quality, background: background))
             let err = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["error"] as? [String: Any]
             let code = err?["code"] as? String ?? "", message = (err?["message"] as? String ?? "").lowercased()
             let verification = message.contains("verif")

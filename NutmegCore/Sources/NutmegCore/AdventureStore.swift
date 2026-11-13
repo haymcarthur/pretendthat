@@ -29,6 +29,10 @@ public final class AdventureStore {
     public var foundProps: Set<String> = []
     /// Checked steps for the current scene.
     public var checkedSteps: Set<Int> = []
+    /// What Nutmeg is showing around her in the voice conversation (D4): the camera zooms out while this isn't `.none`.
+    public private(set) var presenting: Presentation = .none
+
+    public enum Presentation: Equatable, Sendable { case none, ideas, roles, props }
 
     public var tokens: NameTokens { NameTokens(players: players) }
 
@@ -200,7 +204,77 @@ public final class AdventureStore {
         ideas = nil; plan = nil; props = nil; kit = nil
         choices = []; lastError = nil; usingFallback = false
         foundProps = []; checkedSteps = []; failures = [:]; retryAction = nil; holder = nil
-        nutmegLine = ""
+        nutmegLine = ""; presenting = .none
+    }
+
+    // MARK: Voice conversation (D1, D2): the Realtime model's function calls drive the same state machine.
+    // Nutmeg speaks for herself in the conversation, so these never set `nutmegLine` (no second voice).
+    // Each returns a short note for the model (the function output).
+
+    /// The voice conversation starts (Hello → planning).
+    public func beginConversation() {
+        newGame()
+        phase = .pickGame
+    }
+
+    public func apply(_ call: PlanningCall) async -> String {
+        switch call {
+        case .showGameIdeas(let list):
+            ideas = GameIdeas(nutmegSays: "", ideas: list)
+            phase = .pickGame; presenting = .ideas
+            return "The 3 ideas are on screen now. Tease one or two of them in your own words and let the kids choose."
+        case .setGame(let title):
+            gameTitle = title; plan = nil; props = nil
+            phase = .players; presenting = .none
+            return "Game set: \(title). React to it, then find out who is playing."
+        case .setPlayers(let names, let count):
+            directorMode = count >= 5
+            let n = directorMode ? 4 : max(1, min(max(count, names.count), 4))
+            players = PlayerToken.allCases.prefix(n).map {
+                Player(token: $0, name: directorMode ? "" : (names.indices.contains($0.index) ? names[$0.index] : ""),
+                       colorIndex: $0.index, emoji: Player.defaultEmojis[$0.index])
+            }
+            plan = nil; props = nil
+            phase = .players; presenting = .none
+            if directorMode { return "Director mode: 5 or more kids, one Director holds the iPad. When ready, call set_roles with 4 roles (player_name empty)." }
+            return "Players: \(players.map(\.displayName).joined(separator: ", ")). Greet them by name, then invent their roles with set_roles."
+        case .setRoles(let drafts):
+            if players.isEmpty { players = [Player(token: .P1, name: "", colorIndex: 0, emoji: Player.defaultEmojis[0])] }
+            var free = players.map(\.token)
+            var roles: [Role] = []
+            for d in drafts {
+                let match = players.first { !d.playerName.isEmpty && $0.name.localizedCaseInsensitiveCompare(d.playerName) == .orderedSame && free.contains($0.token) }?.token
+                guard let token = match ?? free.first else { break }
+                free.removeAll { $0 == token }
+                roles.append(Role(player: token, roleName: tokens.tokenize(d.roleName), emoji: "", symbol: "star", job: tokens.tokenize(d.job)))
+            }
+            let title = gameTitle ?? "Pretend"
+            plan = Sanitizer.clean(GamePlan(gameTitle: title, gameEmoji: "", setting: title, roles: roles, nutmegSays: ""), playerCount: players.count)
+            phase = .players; presenting = .roles
+            let missing = free.isEmpty ? "" : " Still missing a role for: \(free.compactMap { t in players.first { $0.token == t }?.displayName }.joined(separator: ", "))."
+            return "Roles are on screen.\(missing) Tell each kid their part with excitement and check they like it. Wait for their answer before show_props."
+        case .showProps(let drafts):
+            let list = drafts.enumerated().map { i, d in
+                let owner = players.first { $0.name.localizedCaseInsensitiveCompare(d.forPlayer) == .orderedSame }.map { SceneOwner(rawValue: $0.token.rawValue) ?? .all } ?? .all
+                return Prop(id: "prop\(i)", householdItem: d.householdItem, becomes: tokens.tokenize(d.becomes), emoji: "", forRole: owner, safetyOK: d.safe)
+            }
+            var cleaned = Sanitizer.clean(Props(nutmegSays: "", props: list))
+            cleaned.props = cleaned.props.map { var p = $0; p.emoji = ""; return p }   // D5: illustrations, not emoji
+            props = cleaned; foundProps = []
+            phase = .props; presenting = .props
+            let dropped = list.count - cleaned.props.count
+            return dropped > 0 ? "Showing \(cleaned.props.count) props (\(dropped) unsafe one(s) removed, don't mention them)." : "Props are on screen. Send them on a fun hunt and wait until they say they found things."
+        case .finishPlanning:
+            presenting = .none
+            if gameTitle == nil { gameTitle = "Airplane" }
+            if players.isEmpty { setPlayerCountQuietly(1) }
+            Task { await self.makeKit() }
+            return "Making the kit now. Say nothing."
+        }
+    }
+
+    private func setPlayerCountQuietly(_ n: Int) {
+        players = PlayerToken.allCases.prefix(n).map { Player(token: $0, name: "", colorIndex: $0.index, emoji: Player.defaultEmojis[$0.index]) }
     }
 
     // MARK: Free speech

@@ -21,8 +21,25 @@ struct ParentSettingsView: View {
                         Link("Open Settings to allow the mic", destination: url)
                     }
                 }
-                Section("Voice") {
+                Section {
+                    @Bindable var vs = model.voiceSettings
+                    LabeledContent("Conversation (OpenAI Realtime)", value: realtimeStatus)
+                    Picker("Nutmeg's voice", selection: $vs.voice) {
+                        ForEach(Realtime.voices, id: \.self) { Text($0.capitalized).tag($0) }
+                    }
+                    LabeledContent("Squeak (pitch)") {
+                        Slider(value: $vs.pitchCents, in: 0...800, step: 25) { Text("Pitch") }
+                            .onChange(of: vs.pitchCents) { _, c in model.realtime.setPitch(cents: c) }
+                        Text("+\(Int(vs.pitchCents)) cents").monospacedDigit().frame(width: 110, alignment: .trailing)
+                    }
+                    LabeledContent("Speed") {
+                        Slider(value: $vs.speed, in: 0.8...1.5, step: 0.05) { Text("Speed") }
+                        Text(String(format: "%.2f×", vs.speed)).monospacedDigit().frame(width: 110, alignment: .trailing)
+                    }
+                    Button("Reset voice to default") { model.voiceSettings.reset(); model.realtime.setPitch(cents: Realtime.defaultPitchCents) }
                     Button("Play a test line") { model.speak("Ooh! Pretend that we're flying over the ocean!") }
+                } header: { Text("Voice") } footer: {
+                    Text("Model \(Realtime.model). Pitch changes apply right away; voice and speed apply to the next conversation.")
                 }
                 Section("Printing") {
                     Button("Print a test page") {
@@ -52,10 +69,20 @@ struct ParentSettingsView: View {
         }
     }
 
+    private var realtimeStatus: String {
+        guard model.hasRealtime else { return "Not set: tap screens" }
+        switch model.realtime.status {
+        case .idle: return "Ready ✓"
+        case .connecting: return "Connecting…"
+        case .live: return "Live ✓"
+        case .failed(let r): return "Off (\(r)): tap screens"
+        }
+    }
+
     static let privacy = """
-    No accounts, no database, no analytics. When the app closes, the adventure is gone.
-    Kids' voices are turned into words on this iPad; no audio is sent anywhere.
-    Kids' names are never sent to Claude or OpenAI: the app swaps them for {P1}…{P4} and writes names onto the printables itself.
+    PretendThat stores nothing: no accounts, no recordings, no transcripts. Audio is processed live by OpenAI under its API terms.
+    When the app closes, the adventure is gone. No database, no analytics.
+    Kids' names are never sent to Claude: the app swaps them for {P1}…{P4}. Picture prompts never contain names; the app writes names onto the printables itself.
     Story requests go to Anthropic and picture requests to OpenAI, handled under their commercial API terms.
     """
 }

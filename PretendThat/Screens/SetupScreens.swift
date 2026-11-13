@@ -9,7 +9,7 @@ struct HelloView: View {
         VStack(spacing: Theme.Space.l) {
             PTText("PretendThat", .hero)
             PTSpeechBubble(text: "Hi! I'm Nutmeg! Let's put on a show!")
-            Button("Let's play!") { Task { await model.store.start() } }
+            Button("Let's play!") { Task { await model.startConversation() } }
                 .buttonStyle(.ptSecondary)
                 .ptPopIn(index: 1)
         }

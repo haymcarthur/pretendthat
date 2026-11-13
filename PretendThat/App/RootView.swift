@@ -11,9 +11,99 @@ struct RootView: View {
     private var store: AdventureStore { model.store }
 
     var body: some View {
+        Group {
+            if model.inConversation { conversation.transition(.opacity) } else { classic.transition(.opacity) }
+        }
+        .animation(.easeInOut(duration: 0.4), value: model.inConversation)
+        .environment(\.speak, SpeakAction { model.speak($0) })
+        .onChange(of: store.nutmegLine) { _, line in model.speak(line) }
+        .onChange(of: store.phase) { _, _ in model.phaseChanged() }
+        .onChange(of: presentedSubjects) { _, _ in requestStickers() }
+        .task {
+            #if DEBUG
+            if let demo = DemoDriver.requestedPhase { await DemoDriver.drive(store, model: model, to: demo) }
+            if let turns = DemoDriver.liveTurns { await DemoDriver.live(model, turns: turns) }
+            #endif
+            await model.listener.requestAuth()
+        }
+        .sheet(isPresented: $showSettings) { ParentSettingsView(model: model) }
+        .sheet(isPresented: $showTyping) { PTTypeSheet { text in Task { await model.typed(text) } } }
+        .preferredColorScheme(.light)
+        .statusBarHidden()
+    }
+
+    // MARK: Voice conversation (D1, D4, D5)
+
+    private var conversation: some View {
+        PTConversationStage(backdrop: .backstage, shot: shot, items: stageItems,
+                            onTapItem: { id in silentTap(id) }) {
+            NutmegCharacter(state: model.nutmegState, mouthLevel: model.mouthLevel,
+                            isSpeaking: model.isSpeaking, pose: store.presenting == .none ? nil : .point)
+        } bar: {
+            PTVoiceBar(isMuted: model.realtime.isMuted, isListening: model.realtime.kidIsTalking,
+                       onMute: { model.realtime.isMuted.toggle() },
+                       onLeave: { model.leave() },
+                       onType: { showTyping = true })
+        }
+    }
+
+    private var shot: PTCameraShot {
+        if store.presenting != .none { return .wide }
+        if model.realtime.isSpeaking || model.realtime.kidIsTalking { return .closeUp }
+        return .medium
+    }
+
+    private var stageItems: [PTStageItem] {
+        switch store.presenting {
+        case .none: return []
+        case .ideas:
+            return (store.ideas?.ideas ?? []).enumerated().map { i, idea in
+                PTStageItem(id: "idea-\(idea.title)", title: idea.title,
+                            image: model.stickers.image(.idea, idea.title), tint: Theme.playerColor(i))
+            }
+        case .roles:
+            return (store.plan?.roles ?? []).map { r in
+                let p = store.players.first { $0.token == r.player }
+                return PTStageItem(id: "role-\(r.player.rawValue)-\(r.roleName)", title: store.tokens.untokenize(r.roleName),
+                                   subtitle: store.directorMode ? nil : p?.displayName,
+                                   image: model.stickers.image(.role, r.roleName), tint: Theme.playerColor(r.player.index))
+            }
+        case .props:
+            return (store.props?.props ?? []).enumerated().map { i, prop in
+                PTStageItem(id: "prop-\(prop.id)-\(prop.householdItem)", title: prop.householdItem,
+                            subtitle: store.tokens.untokenize(prop.becomes),
+                            image: model.stickers.image(.prop, prop.householdItem), tint: Theme.playerColor(i))
+            }
+        }
+    }
+
+    /// Subjects on stage right now; a change starts their illustrations.
+    private var presentedSubjects: [String] {
+        (store.ideas?.ideas.map(\.title) ?? []) + (store.plan?.roles.map(\.roleName) ?? []) + (store.props?.props.map(\.householdItem) ?? [])
+    }
+
+    private func requestStickers() {
+        let game = store.gameTitle
+        var jobs: [(kind: StickerPrompt.Kind, subject: String, detail: String)] = []
+        jobs += (store.ideas?.ideas ?? []).map { (.idea, $0.title, $0.pitch) }
+        // Roles and props: role/prop text only (names are tokenized out and never sent).
+        jobs += (store.plan?.roles ?? []).map { (.role, $0.roleName, "") }
+        jobs += (store.props?.props ?? []).map { (.prop, $0.householdItem, store.tokens.tokenize($0.becomes).replacingOccurrences(of: #"\{P\d\}"#, with: "a kid", options: .regularExpression)) }
+        model.stickers.request(jobs, game: game)
+    }
+
+    /// Silent backup: tapping an idea picks it, as if the kid had said it.
+    private func silentTap(_ id: String) {
+        guard store.presenting == .ideas, let title = store.ideas?.ideas.first(where: { "idea-\($0.title)" == id })?.title else { return }
+        model.realtime.sendText("Let's play \(title)!")
+    }
+
+    // MARK: Classic stage (setup fallback, kit and play)
+
+    private var classic: some View {
         PTStageLayout(backdrop: backdrop, nutmegColumn: nutmegIsHero ? Theme.nutmegHeroColumn : Theme.nutmegColumn) {
-            NutmegCharacter(state: model.nutmegState, mouthLevel: model.voice.level,
-                            isSpeaking: model.voice.isSpeaking, pose: model.nutmegPose)
+            NutmegCharacter(state: model.nutmegState, mouthLevel: model.mouthLevel,
+                            isSpeaking: model.isSpeaking, pose: model.nutmegPose)
                 .onTapGesture { if case .stepBack = store.phase { Task { _ = await store.helpRequested() } } }
         } stage: {
             stage.transition(.ptStage)
@@ -23,18 +113,6 @@ struct RootView: View {
         }
         .animation(Theme.bouncy, value: stageID)
         .sensoryFeedback(.impact(flexibility: .soft), trigger: stageID)
-        .environment(\.speak, SpeakAction { model.speak($0) })
-        .onChange(of: store.nutmegLine) { _, line in model.speak(line) }
-        .task {
-            #if DEBUG
-            if let demo = DemoDriver.requestedPhase { await DemoDriver.drive(store, to: demo) }
-            #endif
-            await model.listener.requestAuth()
-        }
-        .sheet(isPresented: $showSettings) { ParentSettingsView(model: model) }
-        .sheet(isPresented: $showTyping) { PTTypeSheet { text in Task { await model.handleSpeech(text) } } }
-        .preferredColorScheme(.light)
-        .statusBarHidden()
     }
 
     @ViewBuilder private var stage: some View {
@@ -65,7 +143,7 @@ struct RootView: View {
         PTReplayButton { if let line = model.voice.lastLine ?? store.nutmegLine.nilIfEmpty { model.speak(line) } }
         Spacer()
         if store.phase != .hello {
-            Button { model.art.reset(); store.newGame() } label: { Label("Home", systemImage: "house.fill") }.buttonStyle(.ptQuiet)
+            Button { model.leave() } label: { Label("Home", systemImage: "house.fill") }.buttonStyle(.ptQuiet)
         }
     }
 
