@@ -1,12 +1,18 @@
 import Foundation
 
-/// OpenAI Images API client for kit artwork.
-/// Verified 2026-11-13 against developers.openai.com image-generation guide: POST /v1/images/generations,
-/// response data[0].b64_json, portrait 1024x1536. The guide's code examples use `gpt-image-2.5-flare`
-/// (captions mention 2.6 Flare); `gpt-image-2` is the earlier, widely reported ID. We try them in order.
-public final class ImageClient: Sendable {
+/// OpenAI Images API client for kit artwork. POST /v1/images/generations, response data[0].b64_json.
+/// Model IDs checked live 2026-11-13 against GET /v1/models with Haylee's key: gpt-image-2.6-flare,
+/// gpt-image-2.5-flare and gpt-image-2 are all listed. A generation call could not be completed yet
+/// (account had no credits: 429 credit_balance_exhausted), so we try newest first and fall through
+/// only when OpenAI says the model itself is unknown. The first model that works is remembered.
+public final class ImageClient: @unchecked Sendable {
     public enum Mode: Sendable { case direct(apiKey: String), relay(url: URL, token: String) }
-    public static let models = ["gpt-image-2.5-flare", "gpt-image-2"]
+    public static let models = ["gpt-image-2.6-flare", "gpt-image-2.5-flare", "gpt-image-2"]
+    private let lock = NSLock()
+    private var working: String?
+    /// Why images are off for this run (bad key, unverified org, no credits). Nil while they may work.
+    private var _unavailable: String?
+    public var unavailableReason: String? { lock.withLock { _unavailable } }
 
     let mode: Mode
     let transport: HTTPTransport
@@ -42,16 +48,29 @@ public final class ImageClient: Sendable {
         return req
     }
 
-    /// Returns PNG data. Falls through the model list on 400/404 (unknown model).
+    /// Returns PNG data. Throws fast once the account is known to be unusable this run (no retries per item).
     public func generate(prompt: String, size: String) async throws -> Data {
+        if let reason = unavailableReason { throw ClaudeError.decoding("images unavailable: \(reason)") }
+        let candidates = lock.withLock { working.map { [$0] } } ?? Self.models
         var lastError: Error = ClaudeError.transport
-        for model in Self.models {
+        for model in candidates {
             let (data, http) = try await transport.send(try request(prompt: prompt, size: size, model: model))
-            if http.statusCode == 400 || http.statusCode == 404 { lastError = ClaudeError.http(http.statusCode); continue }
+            let err = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["error"] as? [String: Any]
+            let code = err?["code"] as? String ?? "", message = (err?["message"] as? String ?? "").lowercased()
+            let verification = message.contains("verif")
+            if !verification && (http.statusCode == 404 || (http.statusCode == 400 && (code == "model_not_found" || message.contains("model")))) {
+                lastError = ClaudeError.http(http.statusCode); continue
+            }
+            if verification || [401, 403].contains(http.statusCode) || (http.statusCode == 429 && code.contains("credit") || code == "insufficient_quota" || code == "billing_hard_limit_reached") {
+                let reason = message.contains("verif") ? "organization not verified" : http.statusCode == 429 || code.contains("quota") ? "no OpenAI credits" : "key rejected (\(http.statusCode))"
+                lock.withLock { _unavailable = reason }
+                throw ClaudeError.http(http.statusCode)
+            }
             guard (200..<300).contains(http.statusCode) else { throw ClaudeError.http(http.statusCode) }
             guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let b64 = ((obj["data"] as? [[String: Any]])?.first?["b64_json"]) as? String,
                   let png = Data(base64Encoded: b64) else { throw ClaudeError.decoding("no b64_json") }
+            lock.withLock { working = model }
             return png
         }
         throw lastError

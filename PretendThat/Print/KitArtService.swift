@@ -13,6 +13,8 @@ final class KitArtService {
     init(client: ImageClient?) { self.client = client }
 
     var isAvailable: Bool { client != nil }
+    /// Set after OpenAI says this account can't make images this run (no credits, unverified org, bad key).
+    var unavailableReason: String? { client?.unavailableReason }
 
     func reset() { images = [:]; isGenerating = false }
 
