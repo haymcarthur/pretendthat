@@ -47,7 +47,11 @@ public enum KitLayout {
         // 1. Slots per item.
         var perItem: [[KitSlot]] = kit.items.map { item in
             if item.perPlayer {
-                if directorMode { return (0..<item.copies).map { KitSlot(player: nil, index: $0) } }
+                // Director mode: 5+ kids and no names, so print a full page of blank ones (copies is "per player").
+                if directorMode {
+                    let n = max(item.copies, grid(for: item.size).capacity)
+                    return (0..<n).map { KitSlot(player: nil, index: $0) }
+                }
                 let who = players.isEmpty ? [PlayerToken.P1] : players
                 return who.flatMap { p in (0..<item.copies).map { _ in p } }.enumerated().map { KitSlot(player: $0.element, index: $0.offset) }
             }

@@ -24,6 +24,17 @@ let liveCases: [LiveCase] = {
     return all.filter { only.split(separator: ",").contains(Substring($0.game)) }
 }()
 
+/// Wraps the real client and counts calls, so the PhaseService path shows how often a corrective retry ran.
+final class CountingLLM: LLM, @unchecked Sendable {
+    let inner: LLM; private let lock = NSLock(); private var n = 0
+    var calls: Int { lock.withLock { n } }
+    init(_ inner: LLM) { self.inner = inner }
+    func structured<T: Decodable & Sendable>(_ type: T.Type, system: String, user: String, schema: JSONSchema, effort: Effort) async throws -> T {
+        lock.withLock { n += 1 }
+        return try await inner.structured(type, system: system, user: user, schema: schema, effort: effort)
+    }
+}
+
 struct LiveProblems { var list: [String] = []; mutating func check(_ ok: Bool, _ msg: String) { if !ok { list.append(msg) } } }
 
 func tokenProblems(_ text: String, count: Int) -> Bool {
@@ -44,7 +55,11 @@ func liveGame(_ c: LiveCase) async throws {
 
     var ctx = AdventureContext(gameTitle: c.game, playerCount: c.players, directorMode: c.director)
     let plan = try await llm.structured(GamePlan.self, system: Prompts.system, user: Prompts.plan(game: c.game, ctx: ctx), schema: JSONSchema(Schemas.plan()), effort: .medium)
-    p.check(plan == Sanitizer.clean(plan, playerCount: count), "plan needed sanitizing: roles=\(plan.roles.map { "\($0.player.rawValue):\($0.symbol)" })")
+    // Unknown symbols becoming "star" is by design, so only role/token problems count here.
+    var symbolFree = plan; symbolFree.roles = symbolFree.roles.map { var r = $0; r.symbol = PrintSymbols.safe(r.symbol); return r }
+    p.check(symbolFree == Sanitizer.clean(plan, playerCount: count), "plan roles needed sanitizing: \(plan.roles.map(\.player.rawValue))")
+    let swapped = plan.roles.map(\.symbol).filter { PrintSymbols.safe($0) != $0 }
+    if !swapped.isEmpty { print("NOTE \(c): symbols shown as star: \(swapped)") }
     p.check(plan.roles.count == count, "roles=\(plan.roles.count) want \(count)")
     ctx.plan = plan
 
@@ -56,8 +71,11 @@ func liveGame(_ c: LiveCase) async throws {
     p.check(props.props.allSatisfy { words($0.householdItem) <= 4 && words($0.becomes) <= 5 }, "long prop text: \(props.props.map { "\($0.householdItem) → \($0.becomes)" })")
     ctx.props = props
 
-    let kit = try await llm.structured(Kit.self, system: Prompts.system, user: Prompts.kit(ctx: ctx), schema: JSONSchema(Schemas.kit()), effort: .medium)
-    p.check(kit == Sanitizer.clean(kit, playerCount: count), "kit needed sanitizing: symbols=\(kit.items.map(\.symbol)) copies=\(kit.items.map(\.copies)) owners=\(kit.scenes.map(\.owner.rawValue))")
+    // The kit goes through PhaseService (sanitize + one corrective retry), as in the app.
+    let counting = CountingLLM(llm)
+    let kit = try await PhaseService(llm: counting).kit(ctx: ctx)
+    let kitCalls = counting.calls
+    p.check(Validate.kit(kit) == nil, "kit still short after retry: \(Validate.kit(kit)?.message ?? "")")
     p.check((2...4).contains(kit.items.count), "items=\(kit.items.count)")
     p.check((4...6).contains(kit.scenes.count), "scenes=\(kit.scenes.count)")
     p.check(kit.scenes.allSatisfy { (3...5).contains($0.steps.count) }, "steps=\(kit.scenes.map(\.steps.count))")
@@ -67,13 +85,13 @@ func liveGame(_ c: LiveCase) async throws {
     p.check(allText.allSatisfy { tokenProblems($0, count: count) }, "token beyond player count")
 
     let secs = Int(Date().timeIntervalSince(started))
-    let out: [String: Any] = ["case": c.description, "seconds": secs, "problems": p.list,
+    let out: [String: Any] = ["case": c.description, "seconds": secs, "kitCalls": kitCalls, "problems": p.list,
         "ideas": try JSONSerialization.jsonObject(with: JSONEncoder().encode(ideas)),
         "plan": try JSONSerialization.jsonObject(with: JSONEncoder().encode(plan)),
         "props": try JSONSerialization.jsonObject(with: JSONEncoder().encode(props)),
         "kit": try JSONSerialization.jsonObject(with: JSONEncoder().encode(kit))]
     let dir = URL(fileURLWithPath: "/tmp/nutmeg-kits"); try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     try JSONSerialization.data(withJSONObject: out, options: [.prettyPrinted, .sortedKeys]).write(to: dir.appendingPathComponent("\(c.game.replacingOccurrences(of: " ", with: "-")).json"))
-    print("LIVE \(c): \(secs)s, pages=\(pages.count), problems=\(p.list)")
+    print("LIVE \(c): \(secs)s, kitCalls=\(kitCalls), pages=\(pages.count), problems=\(p.list)")
     #expect(p.list.isEmpty, "\(c): \(p.list)")
 }

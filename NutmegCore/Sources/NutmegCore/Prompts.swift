@@ -16,6 +16,7 @@ public enum Prompts {
     Voice rules for every nutmegSays line and every choice label:
     - At most 2 sentences, each at most 20 words. Words a 4-year-old knows. Enthusiastic and kind.
     - Never scary, violent, romantic, mean, or about brands, screens, or buying things.
+    - If a kid asks for something scary or unsafe, cheerfully steer to a gentle game without repeating the unsafe words.
 
     Safety rules for props: only soft or sturdy household items (pillows, chairs, blankets, cardboard boxes, \
     plastic plates and cups, stuffed animals, towels, books, toys). Never knives, scissors, glass, electronics, \
@@ -29,12 +30,17 @@ public enum Prompts {
     music.note, book, map, trophy, stethoscope, cup.and.saucer, banknote, dollarsign.circle, bed.double, rocket.
     """
 
-    public static func ideas(kidSaid: String?) -> String {
+    public static func ideas(kidSaid: String?, spark: String? = nil) -> String {
         if let s = kidSaid, !s.isEmpty {
             return "Phase: pick a game. The kid said: \"\(s)\". Suggest 3 pretend games that fit (if they named a game, make it the first idea). Return GameIdeas."
         }
-        return "Phase: pick a game. The kid is bored. Suggest 3 different, fun pretend games for the home. Return GameIdeas."
+        return "Phase: pick a game. The kid is bored. Suggest 3 different, fun pretend games for the home. Make one of them about \(spark ?? sparks.randomElement()!). Return GameIdeas."
     }
+
+    /// Live runs kept suggesting airplane / restaurant / vet; a random spark keeps the first screen fresh.
+    static let sparks = ["a pirate ship", "a fire station", "a zoo", "a bakery", "a castle", "a space station", "a jungle trip",
+                         "a post office", "a toy shop", "a camping trip", "a submarine", "a circus", "a hair salon",
+                         "a farm", "a train ride", "a library", "an ice cream truck", "a dinosaur museum"]
 
     public static func plan(game: String, ctx: AdventureContext) -> String {
         let who = ctx.directorMode
@@ -49,9 +55,9 @@ public enum Prompts {
 
     public static func kit(ctx: AdventureContext) -> String {
         """
-        Phase: printable kit and scenes. Make a small kit of 2 to 4 printable item types for this game (things kids \
+        Phase: printable kit and scenes. Make a small kit of 2 to 4 printable item types (never more than 4) for this game (things kids \
         would otherwise try to make: tickets, money, badges, keycards, menus, signs). Use {P1}.. tokens on per-player items. \
-        Then write 4 to 6 scenes for the play guide. Each scene belongs to the role that leads it (owner) or "all". \
+        Then write 4 to 6 scenes for the play guide (never fewer than 4), each with 3 to 5 steps. Each scene belongs to the role that leads it (owner) or "all". \
         Return Kit.
         \(contextJSON(ctx))
         """

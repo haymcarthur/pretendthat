@@ -116,8 +116,9 @@ struct PTPropCard: View {
 
     var body: some View {
         Toggle(isOn: $found) {
-            VStack(spacing: Theme.Space.s) {
-                PTText(prop.emoji, .emoji(64))
+            // Compact so two rows of 2-line cards still leave room for the bottom controls.
+            VStack(spacing: Theme.Space.xs) {
+                PTText(prop.emoji, .emoji(48))
                 PTText(prop.householdItem, .headline).lineLimit(2).minimumScaleFactor(0.7)
                     .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
                 Label { Text(prop.becomes) } icon: { Image(systemName: "arrow.right") }
@@ -263,11 +264,18 @@ struct PTStageLayout<Nutmeg: View, Stage: View, Bottom: View>: View {
             VStack(spacing: Theme.Space.m) {
                 HStack(alignment: .center, spacing: Theme.Space.l) {
                     nutmeg.frame(width: nutmegWidth)
-                    stage.frame(width: max(0, geo.size.width - nutmegWidth - Theme.Space.l))
-                        .frame(maxHeight: .infinity)
+                    // Long AI content (5 steps, 2-line props) scrolls instead of pushing the mic off screen.
+                    ViewThatFits(in: .vertical) {
+                        stage
+                        ScrollView(.vertical) { stage.padding(.vertical, Theme.Space.s) }
+                            .scrollIndicators(.visible)
+                    }
+                    .frame(width: max(0, geo.size.width - nutmegWidth - Theme.Space.l))
+                    .frame(maxHeight: .infinity)
                 }
                 HStack(spacing: Theme.Space.l) { bottom }
                     .frame(maxWidth: .infinity)
+                    .layoutPriority(1)
             }
         }
         .ptScreen(background)

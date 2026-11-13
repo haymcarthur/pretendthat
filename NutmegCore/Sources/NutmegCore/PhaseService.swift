@@ -78,6 +78,9 @@ public enum Validate {
     public static func kit(_ k: Kit) -> Problem? {
         if k.items.count < 2 { return short("kit items", k.items.count, want: "2 to 4 kit items", fatal: k.items.isEmpty) }
         if k.scenes.count < 4 { return short("scenes", k.scenes.count, want: "4 to 6 scenes", fatal: k.scenes.isEmpty) }
+        if let s = k.scenes.first(where: { $0.title.trimmingCharacters(in: .whitespaces).count < 3 }) {
+            return Problem(message: "scene \"\(s.id)\" had no real title", fatal: false)
+        }
         if let s = k.scenes.first(where: { $0.steps.count < 3 }) {
             return short("steps in scene \"\(s.title)\"", s.steps.count, want: "3 to 5 steps in every scene", fatal: s.steps.isEmpty)
         }

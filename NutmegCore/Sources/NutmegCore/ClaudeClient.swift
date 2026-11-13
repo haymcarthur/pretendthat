@@ -80,7 +80,7 @@ public final class ClaudeClient: LLM {
             req.setValue(token, forHTTPHeaderField: "x-nutmeg-token")
         }
         req.httpMethod = "POST"
-        req.timeoutInterval = 60
+        req.timeoutInterval = 90  // live kit calls took 15–25 s; leave room for a slow day
         req.setValue("application/json", forHTTPHeaderField: "content-type")
         req.setValue(Self.apiVersion, forHTTPHeaderField: "anthropic-version")
         req.setValue(Self.fallbackBeta, forHTTPHeaderField: "anthropic-beta")

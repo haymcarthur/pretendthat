@@ -73,3 +73,12 @@ func kitItem(_ id: String, size: KitSize, perPlayer: Bool = false, copies: Int =
     item.lines = ["Passenger: {P1}", "{P1}", "Flight: Ocean Express"]
     #expect(KitLayout.printedLines(for: item) == ["Flight: Ocean Express"])
 }
+
+@Test func directorModeFillsAPageOfBlankPerPlayerItems() {
+    var badge = Fixture.item("badge"); badge.size = .badge; badge.perPlayer = true; badge.copies = 1
+    let kit = Kit(nutmegSays: "", items: [badge], scenes: [])
+    let pages = KitLayout.pages(for: kit, players: [.P1, .P2, .P3, .P4], directorMode: true)
+    #expect(pages.count == 1)
+    #expect(pages[0].slots.count == KitLayout.grid(for: .badge).capacity)
+    #expect(pages[0].slots.allSatisfy { $0.player == nil })
+}

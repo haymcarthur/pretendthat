@@ -66,8 +66,10 @@ struct PlayersView: View {
                     }
                 } else {
                     HStack(spacing: Theme.Space.m) {
-                        Button { store.swapRoles() } label: { Label("Swap", systemImage: "arrow.triangle.2.circlepath") }
-                            .buttonStyle(.ptSecondary)
+                        if (store.plan?.roles.count ?? 0) > 1 {
+                            Button { store.swapRoles() } label: { Label("Swap", systemImage: "arrow.triangle.2.circlepath") }
+                                .buttonStyle(.ptSecondary)
+                        }
                         Button("Let's go!") { Task { await store.confirmRoles() } }.buttonStyle(.ptPrimary)
                     }
                 }

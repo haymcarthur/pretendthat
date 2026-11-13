@@ -269,8 +269,9 @@ public final class AdventureStore {
             retryAction = nil
         } catch {
             failures[key, default: 0] += 1
-            // A bad or unverified key will not fix itself on retry: go straight to the bundled game.
-            let notRetryable = (error as? ClaudeError).map { [.http(401), .http(403)].contains($0) } ?? false
+            // A bad key or a refusal (after the server-side fallback already tried) won't fix itself on retry:
+            // go straight to the bundled game.
+            let notRetryable = (error as? ClaudeError).map { [.http(401), .http(403), .refusal].contains($0) } ?? false
             if notRetryable || failures[key, default: 0] >= 2 {
                 usingFallback = true; lastError = nil; retryAction = nil
                 fallback()

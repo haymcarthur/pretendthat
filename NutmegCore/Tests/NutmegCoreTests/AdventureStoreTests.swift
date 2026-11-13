@@ -148,3 +148,15 @@ struct AuthFailLLM: LLM {
     #expect(store.lastError == nil)
     #expect(store.ideas == Fallback.airplane.ideas)
 }
+
+struct RefusingLLM: LLM {
+    func structured<T: Decodable & Sendable>(_ type: T.Type, system: String, user: String, schema: JSONSchema, effort: Effort) async throws -> T {
+        throw ClaudeError.refusal
+    }
+}
+
+@Test @MainActor func refusalGoesStraightToFallback() async {
+    let store = AdventureStore(service: PhaseService(llm: RefusingLLM()))
+    await store.start()
+    #expect(store.usingFallback && store.lastError == nil)
+}
