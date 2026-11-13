@@ -1,0 +1,50 @@
+{
+  "ideas": {
+    "nutmegSays": "Ooh! Let's put on a show! Which one?",
+    "ideas": [
+      {"id": "airplane", "title": "Airplane", "emoji": "✈️", "pitch": "Fly the sky with snacks and tickets!"},
+      {"id": "restaurant", "title": "Restaurant", "emoji": "🍝", "pitch": "Cook silly food for hungry guests!"},
+      {"id": "vet", "title": "Animal Doctor", "emoji": "🐶", "pitch": "Help sick stuffies feel all better!"}
+    ]
+  },
+  "plan": {
+    "gameTitle": "Airplane", "gameEmoji": "✈️", "setting": "A big blue airplane flying over the ocean",
+    "nutmegSays": "Pretend that we're flying over the ocean! Here are your jobs!",
+    "roles": [
+      {"player": "P1", "roleName": "Captain", "emoji": "🧑‍✈️", "symbol": "airplane", "job": "Fly the plane and talk to the passengers"},
+      {"player": "P2", "roleName": "Flight Attendant", "emoji": "🧃", "symbol": "cup.and.saucer", "job": "Check tickets and bring snacks"},
+      {"player": "P3", "roleName": "Passenger", "emoji": "🧳", "symbol": "ticket", "job": "Find your seat and enjoy the trip"},
+      {"player": "P4", "roleName": "Co-Pilot", "emoji": "🗺️", "symbol": "map", "job": "Read the map and help the captain"}
+    ]
+  },
+  "props": {
+    "nutmegSays": "Let's find things to make our plane! Ready, set, go!",
+    "props": [
+      {"id": "seats", "householdItem": "chairs in a row", "becomes": "airplane seats", "emoji": "🪑", "forRole": "all", "safetyOK": true},
+      {"id": "wheel", "householdItem": "a plastic plate", "becomes": "steering wheel", "emoji": "🍽️", "forRole": "P1", "safetyOK": true},
+      {"id": "cart", "householdItem": "a tray or box", "becomes": "snack cart", "emoji": "📦", "forRole": "P2", "safetyOK": true},
+      {"id": "bag", "householdItem": "a backpack", "becomes": "suitcase", "emoji": "🎒", "forRole": "P3", "safetyOK": true}
+    ]
+  },
+  "kit": {
+    "nutmegSays": "Wow! Your kit is ready! Grown-ups, time to print!",
+    "items": [
+      {"id": "pass", "kind": "card", "size": "ticket", "title": "Boarding Pass", "symbol": "airplane", "lines": ["Passenger: {P1}", "Flight: Ocean Express"], "bigNumber": "1A", "perPlayer": true, "copies": 1, "colorMe": true},
+      {"id": "badge", "kind": "card", "size": "badge", "title": "Crew Badge", "symbol": "star", "lines": ["{P1}", "Sky Crew"], "bigNumber": null, "perPlayer": true, "copies": 1, "colorMe": true},
+      {"id": "money", "kind": "card", "size": "bill", "title": "Sky Dollars", "symbol": "dollarsign.circle", "lines": ["Good for one snack"], "bigNumber": "5", "perPlayer": false, "copies": 8, "colorMe": true},
+      {"id": "menu", "kind": "sheet", "size": "fullPage", "title": "Snack Menu", "symbol": "cup.and.saucer", "lines": ["Juice box  2", "Crackers  3", "Cloud cookies  5"], "bigNumber": null, "perPlayer": false, "copies": 1, "colorMe": true}
+    ],
+    "scenes": [
+      {"id": "s1", "owner": "P1", "title": "Get the plane ready", "emoji": "🧑‍✈️", "nutmegSays": "Captain {P1}, let's check the plane!", "steps": [
+        {"emoji": "🪑", "text": "Line up the seats"}, {"emoji": "🍽️", "text": "Hold the steering wheel"}, {"emoji": "📣", "text": "Say: Welcome aboard!"}]},
+      {"id": "s2", "owner": "P2", "title": "Boarding time", "emoji": "🎫", "nutmegSays": "Ooh, passengers are here! Check their tickets!", "steps": [
+        {"emoji": "🎫", "text": "Check each ticket"}, {"emoji": "🪑", "text": "Show everyone a seat"}, {"emoji": "🔒", "text": "Buckle up!"}]},
+      {"id": "s3", "owner": "all", "title": "Takeoff!", "emoji": "🛫", "nutmegSays": "Pretend that we're zooming up into the clouds!", "steps": [
+        {"emoji": "🔢", "text": "Count down from 5"}, {"emoji": "🙌", "text": "Lean back and say whoosh"}, {"emoji": "☁️", "text": "Wave at the clouds"}]},
+      {"id": "s4", "owner": "P2", "title": "Snack cart", "emoji": "🧃", "nutmegSays": "Snack time in the sky! Yum yum!", "steps": [
+        {"emoji": "📦", "text": "Push the snack cart"}, {"emoji": "💵", "text": "Pay with Sky Dollars"}, {"emoji": "🧃", "text": "Hand out pretend snacks"}]},
+      {"id": "s5", "owner": "P1", "title": "Landing", "emoji": "🛬", "nutmegSays": "Wow, I see the beach! Time to land, Captain!", "steps": [
+        {"emoji": "📣", "text": "Say: Get ready to land!"}, {"emoji": "🙆", "text": "Everyone lean forward"}, {"emoji": "👏", "text": "Clap for a soft landing"}]}
+    ]
+  }
+}
