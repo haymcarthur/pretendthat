@@ -36,13 +36,12 @@ struct ComponentGallery: View {
                     }
                     .padding().background(Theme.canvas)
                 }
-                section("PTItemCard states (tag, found, swapped, pretend, loading)") {
+                section("PTItemCard states (plain, found, swapped, pretend)") {
                     HStack(spacing: Theme.Space.m) {
-                        PTItemCard(item: PTStageItem(id: "a", title: "Chair", subtitle: "Plane seats", image: UIImage(named: "prop-chair"), tint: Theme.playerColor(0)), tag: "Prop")
-                        PTItemCard(item: PTStageItem(id: "b", title: "Tray", subtitle: "Snack cart", image: UIImage(named: "prop-tray"), tint: Theme.playerColor(1)), tag: "Prop", chip: .found)
-                        PTItemCard(item: PTStageItem(id: "c", title: "Books", subtitle: "Snack cart", image: UIImage(named: "prop-books"), tint: Theme.playerColor(2)), tag: "Prop", chip: .swapped)
-                        PTItemCard(item: PTStageItem(id: "d", title: "Backpack", image: UIImage(named: "prop-backpack"), tint: Theme.playerColor(3), isPretend: true), tag: "Prop", chip: .pretend)
-                        PTItemCard(item: PTStageItem(id: "e", title: "Captain", subtitle: "Fly the plane", tint: Theme.playerColor(0)), tag: "Role")
+                        PTItemCard(item: PTStageItem(id: "a", title: "Chair", subtitle: "Plane seats", image: UIImage(named: "prop-chair"), tint: Theme.playerColor(0)))
+                        PTItemCard(item: PTStageItem(id: "b", title: "Tray", subtitle: "Snack cart", image: UIImage(named: "prop-tray"), tint: Theme.playerColor(1)), chip: .found)
+                        PTItemCard(item: PTStageItem(id: "c", title: "Books", subtitle: "Snack cart", image: UIImage(named: "prop-books"), tint: Theme.playerColor(2)), chip: .swapped)
+                        PTItemCard(item: PTStageItem(id: "d", title: "Backpack", image: UIImage(named: "prop-backpack"), tint: Theme.playerColor(3), isPretend: true), chip: .pretend)
                     }
                     .padding().background(Theme.canvas)
                 }

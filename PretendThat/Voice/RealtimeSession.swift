@@ -7,7 +7,11 @@ import NutmegCore
 /// - Mic: input node with voice processing (echo cancellation) → 24 kHz PCM16 mono → `input_audio_buffer.append`.
 ///   The mic is NOT sent while Nutmeg's audio plays (plus a short tail), so she never hears herself. Server VAD
 ///   decides when the kid has finished talking.
-/// - Speaker: PCM16 deltas → player node → AVAudioUnitTimePitch (squeak) → mixer, with an RMS tap for the mouth.
+/// - Speaker: PCM16 deltas (24 kHz float, same rate as the Realtime output, so nothing is resampled before the
+///   mixer's one high-quality conversion to the hardware rate) → player node → pitch unit (Varispeed by default,
+///   TimePitch or none for comparison) → mixer, with an RMS tap for the mouth.
+/// - Voice-processing IO (echo cancellation) is OFF by default: on iOS it runs on the whole IO unit, so it also
+///   processes (and dulls/ducks) the OUTPUT. The mic is gated while Nutmeg talks, so she never hears herself anyway.
 /// Nothing is recorded or stored: audio buffers are sent and dropped.
 @Observable @MainActor
 final class RealtimeSession {
@@ -34,7 +38,10 @@ final class RealtimeSession {
     @ObservationIgnored private var socket: RealtimeSocket?
     @ObservationIgnored private var engine: AVAudioEngine?
     @ObservationIgnored private var player = AVAudioPlayerNode()
-    @ObservationIgnored private var pitch = AVAudioUnitTimePitch()
+    @ObservationIgnored private var pitchUnit: AVAudioUnit?
+    @ObservationIgnored private var shape = VoiceShape()
+    /// Playback rate of the queued audio (Varispeed plays it faster), for timing when she stops talking.
+    private var playbackRate: Double { shape.method == .varispeed ? shape.rate : 1 }
     @ObservationIgnored private let mic = MicPump()
     @ObservationIgnored private var speakingUntil = Date.distantPast
     @ObservationIgnored private var peak: Float = 0
@@ -51,7 +58,7 @@ final class RealtimeSession {
     // MARK: Lifecycle
 
     /// Connects, configures the session and starts the audio. Returns false (with `status = .failed`) on any problem.
-    func connect(apiKey: String, voice: String, pitchCents: Double, speed: Double) async -> Bool {
+    func connect(apiKey: String, voice: String, shape: VoiceShape, speed: Double, echoCancel: Bool = false) async -> Bool {
         disconnect()
         status = .connecting
         lastError = nil
@@ -74,7 +81,8 @@ final class RealtimeSession {
         }
         guard ready else { return fail(socket.firstError ?? "Couldn't reach OpenAI Realtime") }
 
-        do { try startAudio(pitchCents: pitchCents) } catch { return fail("Audio: \(error.localizedDescription)") }
+        self.shape = shape
+        do { try startAudio(echoCancel: echoCancel) } catch { return fail("Audio: \(error.localizedDescription)") }
         status = .live
         #if DEBUG
         rtLog("live; voice processing: \(engine?.inputNode.isVoiceProcessingEnabled ?? false) input: \(engine?.inputNode.outputFormat(forBus: 0).description ?? "-")")
@@ -134,7 +142,27 @@ final class RealtimeSession {
         socket.send(Realtime.sayExactly(line))
     }
 
-    func setPitch(cents: Double) { pitch.pitch = Float(cents) }
+    /// Applies pitch changes right away (a method change takes effect on the next conversation).
+    func setShape(_ s: VoiceShape) {
+        let methodChanged = s.method != shape.method
+        shape = s
+        if methodChanged { return }
+        if let tp = pitchUnit as? AVAudioUnitTimePitch { tp.pitch = Float(s.cents) }
+        if let vs = pitchUnit as? AVAudioUnitVarispeed { vs.rate = Float(s.rate) }
+    }
+
+    /// Grown-ups voice audition: a short session with `voice` that plays the fixed sample line through the same
+    /// audio path and pitch settings, then hangs up. (The Realtime voice can't change inside a session.)
+    func audition(apiKey: String, voice: String, shape: VoiceShape, speed: Double) async {
+        guard status != .live, status != .connecting else { return }
+        micWanted = false
+        guard await connect(apiKey: apiKey, voice: voice, shape: shape, speed: speed) else { return }
+        socket?.send(Realtime.sayExactly(Realtime.auditionLine))
+        for _ in 0..<80 where !isSpeaking { try? await Task.sleep(for: .milliseconds(100)) }
+        for _ in 0..<300 where isSpeaking { try? await Task.sleep(for: .milliseconds(100)) }
+        disconnect()
+        micWanted = true
+    }
 
     private func fail(_ reason: String) -> Bool {
         rtLog("failed: \(reason)")
@@ -152,23 +180,40 @@ final class RealtimeSession {
 
     // MARK: Audio
 
-    private func startAudio(pitchCents: Double) throws {
+    private func makePitchUnit() -> AVAudioUnit? {
+        switch shape.method {
+        case .off: return nil
+        case .varispeed: let u = AVAudioUnitVarispeed(); u.rate = Float(shape.rate); return u
+        case .timePitch: let u = AVAudioUnitTimePitch(); u.pitch = Float(shape.cents); u.rate = 1; return u
+        }
+    }
+
+    /// player → [pitch unit] → mixer, all at the 24 kHz mono play format.
+    private func wireOutput(_ engine: AVAudioEngine) {
+        if let pitchUnit {
+            engine.connect(player, to: pitchUnit, format: playFormat)
+            engine.connect(pitchUnit, to: engine.mainMixerNode, format: playFormat)
+        } else {
+            engine.connect(player, to: engine.mainMixerNode, format: playFormat)
+        }
+    }
+
+    private func startAudio(echoCancel: Bool) throws {
         let session = AVAudioSession.sharedInstance()
         try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothA2DP])
         try session.setActive(true)
 
         let engine = AVAudioEngine()
         let input = engine.inputNode
-        // Echo cancellation. Can fail on some simulators; the mic gate below still keeps Nutmeg from hearing herself.
-        try? input.setVoiceProcessingEnabled(true)
+        // Echo cancellation is optional (Grown-ups): voice processing also degrades the output path. The mic gate
+        // below keeps Nutmeg from hearing herself either way.
+        if echoCancel { try? input.setVoiceProcessingEnabled(true) }
         player = AVAudioPlayerNode()
-        pitch = AVAudioUnitTimePitch()
+        pitchUnit = makePitchUnit()
         engine.attach(player)
-        engine.attach(pitch)
-        pitch.pitch = Float(pitchCents)
-        pitch.rate = 1
-        engine.connect(player, to: pitch, format: playFormat)
-        engine.connect(pitch, to: engine.mainMixerNode, format: playFormat)
+        if let pitchUnit { engine.attach(pitchUnit) }
+        wireOutput(engine)
+        engine.mainMixerNode.outputVolume = 1   // unity gain: PCM16 → float is already within ±1, no clipping
         installLevelTap(engine)
 
         let inFormat = input.outputFormat(forBus: 0)
@@ -185,8 +230,7 @@ final class RealtimeSession {
                 rtLog("engine configuration changed")
                 guard let self, let engine = self.engine else { return }
                 // Re-wire the output chain at our format; a reconfiguration can leave it disconnected.
-                engine.connect(self.player, to: self.pitch, format: self.playFormat)
-                engine.connect(self.pitch, to: engine.mainMixerNode, format: self.playFormat)
+                self.wireOutput(engine)
                 self.installLevelTap(engine)
                 self.ensureRunning()
                 self.player.play()
@@ -223,7 +267,7 @@ final class RealtimeSession {
         // Track when the queued audio will end from the clock, not completion callbacks (an engine
         // reconfiguration can drop scheduled buffers without calling them back).
         let now = Date()
-        speakingUntil = max(now, speakingUntil).addingTimeInterval(Double(buffer.frameLength) / Realtime.sampleRate)
+        speakingUntil = max(now, speakingUntil).addingTimeInterval(Double(buffer.frameLength) / Realtime.sampleRate / playbackRate)
         player.scheduleBuffer(buffer, completionHandler: nil)
         if !player.isPlaying { player.play() }
         scheduleEndCheck()
@@ -442,4 +486,11 @@ func rtLog(_ message: @autoclosure () -> String) {
     #if DEBUG
     NSLog("[RT] %@", message())
     #endif
+}
+
+/// Nutmeg's on-device pitch shaping (D7, revised in conversation-voice.md).
+struct VoiceShape: Equatable {
+    var method: Realtime.PitchMethod = Realtime.defaultPitchMethod
+    var cents: Double = Realtime.defaultPitchCents
+    var rate: Double = Realtime.defaultVarispeedRate
 }

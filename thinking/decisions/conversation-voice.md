@@ -9,3 +9,11 @@
 - Temperature: the GA Realtime session no longer exposes a `temperature` field (checked against OpenAI's session reference, 2026-11-13), so variety comes from the instructions.
 
 **Why:** Kids light up when they're heard; a form-like script loses them in seconds.
+
+## Voice choice and pitch processing (Haylee, 2026-11-13 evening)
+- **Problem:** Nutmeg sounded robotic. Cause: the +350-cent `AVAudioUnitTimePitch` (time-stretching pitch shift adds a phasey, robotic artifact).
+- **Voice:** default **`marin`** (OpenAI's Realtime docs list alloy, ash, ballad, coral, echo, sage, shimmer, verse, marin, cedar and recommend marin or cedar for best quality). Marin is the natural, expressive female voice; shimmer and coral stay one tap away in the audition. The squeak comes from the voice and delivery, not heavy processing.
+- **Delivery instructions:** "Speak like an excited, bubbly young girl cartoon character: bright and high, lively intonation, playful giggles, natural pauses; never flat or monotone."
+- **Pitch method:** default **Varispeed** (resampling, pitch and speed together, artifact-free) at **1.06×**, server speed 1.0. Grown-ups can switch Off / Varispeed / TimePitch (TimePitch default +100 cents) to compare.
+- **Voice audition (Grown-ups):** pick a voice, play a fixed sample line in a short Realtime session through the same audio path and pitch settings. The voice applies to the next conversation (Realtime can't change voice mid-session).
+- **Pipeline check (Claude):** Realtime output is 24 kHz PCM16 and the player/pitch nodes run at 24 kHz float, so the only resample is the mixer's single conversion to the hardware rate; no 8/16 kHz anywhere; PCM16→float stays within ±1 at unity mixer gain (no clipping). Voice-processing IO (echo cancellation) also processes the output on iOS, so it is now **off by default** (a Grown-ups toggle); the mic is gated while Nutmeg talks, so she still never hears herself.

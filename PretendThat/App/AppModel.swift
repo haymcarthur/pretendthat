@@ -44,6 +44,12 @@ final class AppModel {
     // MARK: Voice conversation
 
     var hasRealtime: Bool { openAIKey != nil }
+
+    /// Grown-ups: hear `voice` say the sample line through the conversation's audio path and pitch settings.
+    func auditionVoice(_ voice: String) async {
+        guard let key = openAIKey else { return }
+        await realtime.audition(apiKey: key, voice: voice, shape: voiceSettings.shape, speed: voiceSettings.speed)
+    }
     /// DEBUG screenshots: show the conversation stage without a live session.
     var forceConversation = false
 
@@ -62,8 +68,8 @@ final class AppModel {
     func startConversation() async {
         store.beginConversation()
         guard let key = openAIKey else { await store.start(); return }
-        let ok = await realtime.connect(apiKey: key, voice: voiceSettings.voice,
-                                        pitchCents: voiceSettings.pitchCents, speed: voiceSettings.speed)
+        let ok = await realtime.connect(apiKey: key, voice: voiceSettings.voice, shape: voiceSettings.shape,
+                                        speed: voiceSettings.speed, echoCancel: voiceSettings.echoCancel)
         guard store.phase == .pickGame else { return }   // left while connecting
         if ok {
             realtime.micWanted = true

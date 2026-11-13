@@ -13,8 +13,6 @@ struct PTStageItem: Identifiable, Equatable {
     var flipKey: String = ""
     /// A skipped prop: stays on stage in a soft "we'll pretend" state (never removed like a failure).
     var isPretend = false
-    /// Card pill tag (top-left), e.g. the player's name or "Prop".
-    var tag: String? = nil
     /// Card state chip (top-right).
     var chip: PTItemCard.Chip = .none
 }
@@ -71,7 +69,7 @@ struct PTConversationStage<Character: View, Bar: View>: View {
                 // Presented items in two columns beside her (no overlap; every label readable).
                 ForEach(Array(items.enumerated()), id: \.element.id) { i, item in
                     let slot = L.slot(i, fallback: CGPoint(x: geo.size.width / 2, y: geo.size.height / 2))
-                    PTItemCard(item: item, tag: item.tag, chip: item.chip, width: L.cardWidth)
+                    PTItemCard(item: item, chip: item.chip, width: L.cardWidth)
                         .rotationEffect(.degrees(slot.tilt))
                         .onTapGesture { onTapItem?(item.id) }
                         .position(slot.point)

@@ -245,7 +245,6 @@ struct PTChatPanel: View {
 struct PTItemCard: View {
     enum Chip: Equatable { case none, found, swapped, pretend }
     let item: PTStageItem
-    var tag: String? = nil
     var chip: Chip = .none
     var width: CGFloat = 210
     @State private var flip: Double = 0
@@ -262,8 +261,9 @@ struct PTItemCard: View {
                     PTShimmer(tint: item.tint)
                 }
             }
-            .frame(width: width * 0.72, height: width * 0.72)
-            .padding(.top, 34)
+            // No tag pill (Haylee): the card is just the art, the name and the "becomes" line; art sits a bit higher.
+            .frame(width: width * 0.76, height: width * 0.76)
+            .padding(.top, Theme.Space.m)
             .animation(.easeOut(duration: 0.3), value: item.image != nil)
             // Wraps to 2 lines and shrinks a long single word instead of truncating it ("Airplan…").
             Text(item.title).font(Theme.uiFont(18)).foregroundStyle(Theme.ink)
@@ -278,16 +278,6 @@ struct PTItemCard: View {
         .ptPanel(radius: 26)
         .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous)
             .strokeBorder(Theme.line, style: StrokeStyle(lineWidth: 1.5, dash: [8, 6])).opacity(item.isPretend ? 1 : 0))
-        .overlay(alignment: .topLeading) {
-            if let tag {
-                HStack(spacing: 5) {
-                    Circle().fill(item.tint).frame(width: 8, height: 8)
-                    Text(tag).font(Theme.uiFont(12, .medium)).foregroundStyle(Theme.ink)
-                }
-                .padding(.horizontal, 10).padding(.vertical, 5)
-                .background(Capsule().fill(Theme.chipGray)).padding(12)
-            }
-        }
         .overlay(alignment: .topTrailing) { chipView.padding(10) }
         .rotation3DEffect(.degrees(flip), axis: (x: 0, y: 1, z: 0), perspective: 0.5)
         .animation(.easeInOut(duration: 0.3), value: item.isPretend)
@@ -296,7 +286,7 @@ struct PTItemCard: View {
             withAnimation(.spring(response: 0.6, dampingFraction: 0.75)) { flip += 360 }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel([tag, item.title, item.isPretend ? "pretend" : item.subtitle].compactMap { $0 }.joined(separator: ", "))
+        .accessibilityLabel([item.title, item.isPretend ? "pretend" : item.subtitle].compactMap { $0 }.joined(separator: ", "))
     }
 
     @ViewBuilder private var chipView: some View {

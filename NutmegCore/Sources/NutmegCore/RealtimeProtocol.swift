@@ -10,12 +10,25 @@ import Foundation
 public enum Realtime {
     public static let model = "gpt-realtime-2.1"
     public static let sampleRate: Double = 24_000
-    /// Built-in voices (OpenAI docs, 2026-11). Coral is the brightest, most playful default for a little mouse.
-    public static let voices = ["coral", "shimmer", "marin", "sage", "ballad", "alloy", "verse", "ash", "echo", "cedar"]
-    public static let defaultVoice = "coral"
-    /// On-device pitch raise (AVAudioUnitTimePitch cents) that turns the voice into a squeak (D7).
-    public static let defaultPitchCents: Double = 350
-    public static let defaultSpeed: Double = 1.1
+    /// Built-in voices (OpenAI Realtime docs, checked 2026-11-13: alloy, ash, ballad, coral, echo, sage, shimmer, verse,
+    /// marin, cedar; "for best quality, we recommend marin or cedar"). Marin is the natural, expressive female voice;
+    /// the squeak now comes from the voice and the delivery instructions, not heavy processing (conversation-voice.md).
+    public static let voices = ["marin", "shimmer", "coral", "cedar", "sage", "ballad", "alloy", "verse", "ash", "echo"]
+    public static let defaultVoice = "marin"
+    /// How the app raises Nutmeg's pitch on the device. TimePitch (time-stretching) sounded phasey/robotic at +350
+    /// cents; Varispeed resamples (pitch and speed together), which is artifact-free.
+    public enum PitchMethod: String, CaseIterable, Sendable { case off, varispeed, timePitch
+        public var label: String { switch self { case .off: "Off"; case .varispeed: "Varispeed"; case .timePitch: "TimePitch" } }
+    }
+    public static let defaultPitchMethod = PitchMethod.varispeed
+    /// Varispeed playback rate: 1.06 ≈ one semitone up and 6% quicker.
+    public static let defaultVarispeedRate: Double = 1.06
+    /// TimePitch cents (only used with the TimePitch method; kept subtle).
+    public static let defaultPitchCents: Double = 100
+    /// Server-side speech speed (Varispeed already adds 6%).
+    public static let defaultSpeed: Double = 1.0
+    /// The fixed line the Grown-ups voice audition plays.
+    public static let auditionLine = "Ooh, hi! I'm Nutmeg! Pretend that we're flying over the ocean... wheee! What should we play?"
 
     public static func url(model: String = model) -> URL {
         URL(string: "wss://api.openai.com/v1/realtime?model=\(model)")!
@@ -26,7 +39,10 @@ public enum Realtime {
     public static let instructions = """
     You are Nutmeg, a little stage-manager mouse (she/her) with a headset and a clipboard. You're talking out loud \
     with kids ages 4 to 8 to set up a pretend-play game in their real room. You are their warm, curious friend: \
-    bouncy, giggly, full of wonder. Your voice is high, quick and squeaky, like an excited cartoon mouse.
+    bouncy, giggly, full of wonder.
+
+    Your voice: speak like an excited, bubbly young girl cartoon character: bright and high, lively intonation, \
+    playful giggles, natural pauses; never flat or monotone.
 
     How you talk (this matters most):
     - React to what the kids ACTUALLY said. Pick up their specific words and details, get excited about them, and \
@@ -146,7 +162,7 @@ public enum Realtime {
     public static func sayExactly(_ line: String) -> [String: Any] {
         ["type": "response.create",
          "response": ["conversation": "none", "output_modalities": ["audio"],
-                      "instructions": "Say exactly this, in your excited squeaky mouse voice, and nothing else: \"\(line)\""] as [String: Any]]
+                      "instructions": "Say exactly this like an excited, bubbly young girl cartoon character (bright and high, lively, a little giggle), and nothing else: \"\(line)\""] as [String: Any]]
     }
 
     public static func json(_ obj: [String: Any]) -> String {

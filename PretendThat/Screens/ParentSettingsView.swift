@@ -29,19 +29,39 @@ struct ParentSettingsView: View {
                     Picker("Nutmeg's voice", selection: $vs.voice) {
                         ForEach(Realtime.voices, id: \.self) { Text($0.capitalized).tag($0) }
                     }
-                    LabeledContent("Squeak (pitch)") {
-                        Slider(value: $vs.pitchCents, in: 0...800, step: 25) { Text("Pitch") }
-                            .onChange(of: vs.pitchCents) { _, c in model.realtime.setPitch(cents: c) }
-                        Text("+\(Int(vs.pitchCents)) cents").monospacedDigit().frame(width: 110, alignment: .trailing)
+                    Picker("Pitch method", selection: $vs.method) {
+                        ForEach(Realtime.PitchMethod.allCases, id: \.self) { Text($0.label).tag($0) }
                     }
+                    .pickerStyle(.segmented)
+                    if vs.method == .varispeed {
+                        LabeledContent("Varispeed rate") {
+                            Slider(value: $vs.rate, in: 1.0...1.25, step: 0.01) { Text("Rate") }
+                                .onChange(of: vs.rate) { _, _ in model.realtime.setShape(vs.shape) }
+                            Text(String(format: "%.2f×", vs.rate)).monospacedDigit().frame(width: 110, alignment: .trailing)
+                        }
+                    }
+                    if vs.method == .timePitch {
+                        LabeledContent("TimePitch") {
+                            Slider(value: $vs.pitchCents, in: 0...600, step: 25) { Text("Pitch") }
+                                .onChange(of: vs.pitchCents) { _, _ in model.realtime.setShape(vs.shape) }
+                            Text("+\(Int(vs.pitchCents)) cents").monospacedDigit().frame(width: 110, alignment: .trailing)
+                        }
+                    }
+                    Toggle("Echo cancellation (dulls her voice a little)", isOn: $vs.echoCancel)
                     LabeledContent("Speed") {
                         Slider(value: $vs.speed, in: 0.8...1.5, step: 0.05) { Text("Speed") }
                         Text(String(format: "%.2f×", vs.speed)).monospacedDigit().frame(width: 110, alignment: .trailing)
                     }
-                    Button("Reset voice to default") { model.voiceSettings.reset(); model.realtime.setPitch(cents: Realtime.defaultPitchCents) }
-                    Button("Play a test line") { model.speak("Ooh! Pretend that we're flying over the ocean!") }
+                    Button("Reset voice to default") { model.voiceSettings.reset(); model.realtime.setShape(model.voiceSettings.shape) }
+                    Button {
+                        Task { await model.auditionVoice(vs.voice) }
+                    } label: {
+                        Label(model.realtime.status == .connecting || model.realtime.isLive ? "Playing…" : "Voice audition: play the sample line",
+                              systemImage: "play.circle")
+                    }
+                    .disabled(!model.hasRealtime || model.realtime.isLive || model.realtime.status == .connecting)
                 } header: { Text("Voice") } footer: {
-                    Text("Model \(Realtime.model). Pitch changes apply right away; voice and speed apply to the next conversation.")
+                    Text("Model \(Realtime.model). Pick a voice, then play the sample to compare by ear. Rate and cents apply right away; voice, method, speed and echo cancellation apply to the next conversation.")
                 }
                 Section("Printing") {
                     Button("Print a test page") {

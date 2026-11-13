@@ -117,7 +117,6 @@ struct RootView: View {
                                    subtitle: prop.becomes,
                                    image: art, tint: Theme.playerColor(i),
                                    flipKey: prop.libraryID ?? prop.householdItem, isPretend: prop.isSkipped,
-                                   tag: "Prop",
                                    chip: prop.isSkipped ? .pretend : (store.foundProps.contains(prop.id) ? .found : (prop.swapped == true ? .swapped : .none)))
             }
         }
