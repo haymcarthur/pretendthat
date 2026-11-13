@@ -36,7 +36,7 @@
     ],
     "scenes": [
       {"id": "s1", "owner": "P1", "title": "Get the plane ready", "emoji": "🧑‍✈️", "nutmegSays": "Captain {P1}, let's check the plane!", "steps": [
-        {"emoji": "🪑", "text": "Line up the seats"}, {"emoji": "🍽️", "text": "Hold the steering wheel"}, {"emoji": "📣", "text": "Say: Welcome aboard!"}]},
+        {"emoji": "🪑", "text": "Line up the seats"}, {"emoji": "🛞", "text": "Hold the steering wheel"}, {"emoji": "📣", "text": "Say: Welcome aboard!"}]},
       {"id": "s2", "owner": "P2", "title": "Boarding time", "emoji": "🎫", "nutmegSays": "Ooh, passengers are here! Check their tickets!", "steps": [
         {"emoji": "🎫", "text": "Check each ticket"}, {"emoji": "🪑", "text": "Show everyone a seat"}, {"emoji": "🔒", "text": "Buckle up!"}]},
       {"id": "s3", "owner": "all", "title": "Takeoff!", "emoji": "🛫", "nutmegSays": "Pretend that we're zooming up into the clouds!", "steps": [

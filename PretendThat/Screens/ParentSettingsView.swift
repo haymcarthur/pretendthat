@@ -17,6 +17,9 @@ struct ParentSettingsView: View {
                     LabeledContent("Kit pictures (OpenAI)", value: !model.hasImages ? "Not set: app-drawn pages"
                         : model.art.unavailableReason.map { "Off (\($0)): app-drawn pages" } ?? "Key set ✓")
                     LabeledContent("Speech", value: model.listener.status)
+                    if !model.listener.available, let url = URL(string: UIApplication.openSettingsURLString) {
+                        Link("Open Settings to allow the mic", destination: url)
+                    }
                 }
                 Section("Voice") {
                     Button("Play a test line") { model.speak("Ooh! Pretend that we're flying over the ocean!") }

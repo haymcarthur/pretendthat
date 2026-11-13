@@ -20,7 +20,7 @@ public enum Sanitizer {
         }
         k.scenes = Array(k.scenes.prefix(Limits.scenesMax)).map { scene in
             var s = scene
-            s.steps = Array(s.steps.prefix(Limits.stepsMax))
+            s.steps = Array(s.steps.prefix(Limits.stepsMax)).map { Step(emoji: EmojiMatch.fix($0.emoji, for: $0.text), text: $0.text) }
             s.owner = allowed(s.owner, playerCount: playerCount)
             return s
         }
@@ -29,7 +29,12 @@ public enum Sanitizer {
 
     public static func clean(_ p: Props) -> Props {
         var p = p
-        p.props = Array(p.props.filter(\.safetyOK).prefix(Limits.propsMax))
+        p.props = Array(p.props.filter(\.safetyOK).prefix(Limits.propsMax)).map { prop in
+            var prop = prop
+            // The card's emoji shows the household item the kid hunts for.
+            prop.emoji = EmojiMatch.fix(prop.emoji, for: prop.householdItem, fallback: EmojiMatch.fix(prop.emoji, for: prop.becomes))
+            return prop
+        }
         return p
     }
 

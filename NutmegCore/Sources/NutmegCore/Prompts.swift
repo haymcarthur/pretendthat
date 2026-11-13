@@ -25,7 +25,10 @@ public enum Prompts {
     Limits: game ideas exactly 3; props 3 to 5; kit items 2 to 4 with at most 6 printed pages in total \
     (tickets, bills and keycards fit 8 per page, badges 6 per page, a fullPage sheet is 1 page); copies 1 to 8; \
     scenes 4 to 6; checklist steps 3 to 5 per scene, each step a short action a kid can do; choices 2 to 4. \
-    Use emoji for every idea, role, prop, scene, step and choice. Symbols must be simple SF Symbols such as \
+    Use emoji for every idea, role, prop, scene, step and choice. Kids read the emoji before the words, so each \
+    emoji must picture the main object or action named in its OWN text, never another item from the game: \
+    "Put the blanket on the table" → 🛏️ (the blanket), not 🪑; "Hold the steering wheel" → 🛞; "Count down from 5" → 🔢. \
+    A prop's emoji shows the household item to find (pillows → 🛋️, a plastic plate → 🍽️), not what it becomes. Symbols must be simple SF Symbols such as \
     airplane, ticket, fork.knife, pawprint, star, heart, crown, key, cart, gift, house, car, fish, leaf, sun.max, \
     music.note, book, map, trophy, stethoscope, cup.and.saucer, banknote, dollarsign.circle, bed.double, rocket.
     """

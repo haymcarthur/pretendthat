@@ -25,6 +25,8 @@ The map. Read this first, then open only what you need.
 - [App name: PretendThat](decisions/app-name-pretendthat.md): Haylee
 - [Mascot name: Nutmeg (she/her)](decisions/mascot-nutmeg.md): Haylee
 - [Components first, native controls first](decisions/components-first.md): Haylee
+- [Mic: simulator finding and typing fallback](decisions/mic-simulator-fallback.md): Claude's call
+- [Brand tokens and component look](decisions/brand-tokens-and-components.md): Claude's call, from Haylee's style decision
 
 ## Research
 - [Competitor analysis](research/competitor-analysis.md): competitors, white space, novelty angles, pricing

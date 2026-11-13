@@ -9,6 +9,8 @@ public enum Schemas {
     static func nonEmpty(_ items: [String: Any]) -> [String: Any] { ["type": "array", "items": items, "minItems": 1] }
     static var str: [String: Any] { ["type": "string"] }
     static var bool: [String: Any] { ["type": "boolean"] }
+    /// Emoji field with guidance the model sees in the schema itself.
+    static func emoji(_ of: String) -> [String: Any] { ["type": "string", "description": "One emoji that pictures \(of)."] }
     static var int: [String: Any] { ["type": "integer"] }
     static func enumStr(_ v: [String]) -> [String: Any] { ["type": "string", "enum": v] }
     static let tokens = PlayerToken.allCases.map(\.rawValue)
@@ -21,7 +23,7 @@ public enum Schemas {
              "roles": nonEmpty(obj(["player": enumStr(tokens), "roleName": str, "emoji": str, "symbol": str, "job": str]))])
     }
     public static func props() -> [String: Any] {
-        obj(["nutmegSays": str, "props": nonEmpty(obj(["id": str, "householdItem": str, "becomes": str, "emoji": str,
+        obj(["nutmegSays": str, "props": nonEmpty(obj(["id": str, "householdItem": str, "becomes": str, "emoji": emoji("the householdItem itself"),
                                                    "forRole": enumStr(tokens + ["all"]), "safetyOK": bool]))])
     }
     public static func kit() -> [String: Any] {
@@ -31,7 +33,7 @@ public enum Schemas {
                                "title": str, "symbol": str, "lines": arr(str), "bigNumber": ["type": ["string", "null"]],
                                "perPlayer": bool, "copies": int, "colorMe": bool])),
              "scenes": nonEmpty(obj(["id": str, "owner": enumStr(tokens + ["all"]), "title": str, "emoji": str, "nutmegSays": str,
-                                "steps": nonEmpty(obj(["emoji": str, "text": str]))]))])
+                                "steps": nonEmpty(obj(["emoji": emoji("the main object or action named in this step's text"), "text": str]))]))])
     }
     public static func turn() -> [String: Any] {
         obj(["nutmegSays": str, "understood": bool, "choices": arr(obj(["id": str, "label": str, "emoji": str]))])
