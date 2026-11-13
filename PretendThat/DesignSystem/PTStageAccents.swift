@@ -1,80 +1,79 @@
 import SwiftUI
 
-/// Theater props placed AROUND Nutmeg as accents (brand rule: solid backdrop, props around the mascot, no scene art):
-/// a spotlight glow behind her, a curtain corner, a ticket stub and a twinkling star.
-/// Simple shapes and SF Symbols, with slow ambient motion (curtain sway, spotlight pulse) that stops with Reduce Motion.
+/// Theater props placed AROUND Nutmeg as accents (brand rule: clean light base, brand color only on accents).
+/// Crisp and flat (decision motion-and-surface.md): no glows, no gradients, and STATIC by default. They pop in once
+/// when they appear and do a single bounce when `celebrate` changes (e.g. the kit is ready). Art: `stage-*`
+/// placeholders until Haylee's vectors arrive (reference design/nutmeg/stage-props-v1.webp).
 /// Place it behind Nutmeg: `nutmeg.background { PTStageAccents() }`.
 struct PTStageAccents: View {
     var showsCurtain = true
-    @Environment(\.ptBackdrop) private var backdrop
+    /// Changes make the props do one quick bounce (set app-wide with `.environment(\.ptCelebrate, n)`).
+    @Environment(\.ptCelebrate) private var celebrate
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var appeared = false
+    @State private var bounce = false
+
+    private struct Spot { let asset: String; let x: CGFloat; let y: CGFloat; let size: CGFloat; let tilt: Double }
+    private let spots = [
+        Spot(asset: "stage-star", x: 0.42, y: -0.36, size: 0.13, tilt: 12),
+        Spot(asset: "stage-sparkle", x: -0.42, y: -0.2, size: 0.08, tilt: 0),
+        Spot(asset: "stage-ticket", x: 0.43, y: 0.3, size: 0.15, tilt: -18)
+    ]
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion)) { ctx in
-            let t = reduceMotion ? 0 : ctx.date.timeIntervalSinceReferenceDate
-            GeometryReader { geo in
-                let side = min(geo.size.width, geo.size.height)
-                let pulse = 1 + 0.06 * sin(t * 2 * .pi / Theme.pulsePeriod)
-                ZStack {
-                    // Spotlight glow behind her.
-                    Circle()
-                        .fill(RadialGradient(colors: [backdrop.glow.opacity(backdrop.glowOpacity), backdrop.glow.opacity(0)],
-                                             center: .center, startRadius: side * 0.05, endRadius: side * 0.55))
-                        .frame(width: side * 1.1, height: side * 1.1)
-                        .scaleEffect(pulse)
-                        .position(x: geo.size.width / 2, y: geo.size.height * 0.52)
-                    // Floor ellipse she stands on.
-                    Ellipse().fill(backdrop.glow.opacity(backdrop.glowOpacity * 0.6))
-                        .frame(width: side * 0.7, height: side * 0.1)
-                        .position(x: geo.size.width / 2, y: geo.size.height / 2 + side * 0.44)
-                    // Ticket stub, bobbing gently.
-                    Image(systemName: "ticket.fill")
-                        .font(.system(size: side * 0.13, weight: .black))
-                        .foregroundStyle(Theme.coral)
-                        .rotationEffect(.degrees(-18 + 4 * sin(t * 1.3)))
-                        .position(x: geo.size.width / 2 + side * 0.42, y: geo.size.height / 2 + side * 0.3 + 4 * sin(t * 1.7))
-                    // Twinkling star.
-                    Image(systemName: "star.fill")
-                        .font(.system(size: side * 0.1, weight: .black))
-                        .foregroundStyle(backdrop == .spotlight ? Theme.coral : Theme.yellow)
-                        .scaleEffect(1 + 0.18 * sin(t * 2.4))
-                        .rotationEffect(.degrees(12 * sin(t * 0.8)))
-                        .position(x: geo.size.width / 2 + side * 0.4, y: geo.size.height / 2 - side * 0.38)
-                    Image(systemName: "sparkle")
-                        .font(.system(size: side * 0.06, weight: .black))
-                        .foregroundStyle(backdrop == .spotlight ? Theme.white : Theme.lime)
-                        .opacity(0.6 + 0.4 * sin(t * 3.1))
-                        .position(x: geo.size.width / 2 - side * 0.42, y: geo.size.height / 2 - side * 0.2)
+        GeometryReader { geo in
+            let side = min(geo.size.width, geo.size.height)
+            ZStack {
+                ForEach(Array(spots.enumerated()), id: \.offset) { i, spot in
+                    Image(spot.asset).resizable().scaledToFit()
+                        .frame(width: side * spot.size, height: side * spot.size)
+                        .rotationEffect(.degrees(spot.tilt))
+                        .scaleEffect(appeared ? (bounce ? 1.18 : 1) : 0.2)
+                        .opacity(appeared ? 1 : 0)
+                        .animation(reduceMotion ? .easeOut(duration: 0.2)
+                                   : .spring(response: 0.42, dampingFraction: 0.55).delay(Double(i) * 0.08), value: appeared)
+                        .animation(.spring(response: 0.25, dampingFraction: 0.4), value: bounce)
+                        .position(x: geo.size.width / 2 + side * spot.x, y: geo.size.height / 2 + side * spot.y)
                 }
             }
+        }
+        .onAppear { appeared = true }
+        .onChange(of: celebrate) { _, _ in
+            guard !reduceMotion else { return }
+            bounce = true
+            Task { try? await Task.sleep(for: .milliseconds(180)); bounce = false }
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }
 }
 
-/// A coral curtain swag tied back in the top-leading corner of the screen. Sways slowly.
+/// A coral curtain swag tied back in the top-leading corner of the screen. Static; one quick bounce on `celebrate`.
 struct PTCurtainCorner: View {
     var width: CGFloat = 220
+    @Environment(\.ptCelebrate) private var celebrate
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var swing: Double = 0
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion)) { ctx in
-            let t = reduceMotion ? 0 : ctx.date.timeIntervalSinceReferenceDate
-            let sway = 2.2 * sin(t * 2 * .pi / Theme.swayPeriod)
-            ZStack(alignment: .topLeading) {
-                CurtainDrape().fill(Theme.coral)
-                CurtainFolds().stroke(Theme.coralShade, style: StrokeStyle(lineWidth: width * 0.035, lineCap: .round))
-                // Valance across the top.
-                Valance().fill(Theme.coralShade).frame(height: width * 0.16)
-                // Gold tie-back.
-                Capsule().fill(Theme.yellow)
-                    .frame(width: width * 0.22, height: width * 0.07)
-                    .rotationEffect(.degrees(-35))
-                    .offset(x: width * 0.12, y: width * 0.95)
+        ZStack(alignment: .topLeading) {
+            CurtainDrape().fill(Theme.coral)
+            CurtainFolds().stroke(Theme.coralShade, style: StrokeStyle(lineWidth: width * 0.035, lineCap: .round))
+            Valance().fill(Theme.coralShade).frame(height: width * 0.16)
+            Capsule().fill(Theme.yellow)
+                .frame(width: width * 0.22, height: width * 0.07)
+                .rotationEffect(.degrees(-35))
+                .offset(x: width * 0.12, y: width * 0.95)
+        }
+        .frame(width: width, height: width * 1.5)
+        .rotationEffect(.degrees(swing), anchor: .topLeading)
+        .onChange(of: celebrate) { _, _ in
+            guard !reduceMotion else { return }
+            withAnimation(.spring(response: 0.2, dampingFraction: 0.5)) { swing = 5 }
+            Task {
+                try? await Task.sleep(for: .milliseconds(160))
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.45)) { swing = 0 }
             }
-            .frame(width: width, height: width * 1.5)
-            .rotationEffect(.degrees(sway), anchor: .topLeading)
         }
         .allowsHitTesting(false)
         .accessibilityHidden(true)

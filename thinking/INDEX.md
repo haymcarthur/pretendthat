@@ -36,6 +36,10 @@ The map. Read this first, then open only what you need.
 - [D5: Generated sticker illustrations, no icons or emoji](decisions/generated-item-illustrations.md): Haylee
 - [D6: Loading = Nutmeg coloring; clipboard flip reveal](decisions/loading-coloring-clipboard.md): Haylee
 - [D7: Nutmeg voice: higher and squeakier](decisions/nutmeg-voice-squeaky.md): Haylee
+- [Motion and surface: crisp, calm, event-driven](decisions/motion-and-surface.md): Haylee (supersedes colored backdrops and ambient sway)
+- [Conversation voice: a friend, not a script](decisions/conversation-voice.md): Haylee
+- [Prop art library + missing props](decisions/prop-art-library.md): Claude's call pending Haylee's OK; missing-prop behavior Haylee
+- Mascot update (rest pose, brief gestures, pop swaps) in [Mascot: Nutmeg](decisions/mascot-nutmeg.md): Haylee
 
 ## Research
 - [Competitor analysis](research/competitor-analysis.md): competitors, white space, novelty angles, pricing

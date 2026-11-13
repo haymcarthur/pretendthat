@@ -1,18 +1,35 @@
 import SwiftUI
 import UIKit
+import NutmegCore
 
 /// Nutmeg, drawn from layered art (spec §7): one shared head placed on a headless body pose.
 /// BODY canvas: tail, body-<pose>. HEAD canvas: ears, head-base, face, mouth (all full-frame, so they stack).
-/// Personality: bouncy and excitable, so the defaults are springy (idle bob, happy hops, quick ear perks).
+///
+/// Motion (decisions motion-and-surface.md, mascot-nutmeg.md): she mostly RESTS in the idle pose with subtle
+/// breathing, a blink or an ear twitch every few seconds, and lively motion only on events. Body poses have no
+/// joints, so a pose change is a cartoon "pop": squash (anticipation) → small hop with the body crossfading at the
+/// peak → spring landing. The head is one continuous view that springs to the new neck anchor, so the eye follows
+/// the face and the swap reads as motion. Swaps are throttled (`PoseRules.minSwapInterval`). Reduce Motion: crossfade.
 struct NutmegCharacter: View {
     var state: NutmegState
     var mouthLevel: Float = 0
     /// While speaking, the amplitude mouth overrides the face's default mouth.
     var isSpeaking = false
-    var pose: NutmegPose? = nil
+    /// One-shot gesture (wave on hello/goodbye, point when presenting, celebrate when something's ready).
+    var cue: NutmegCue? = nil
+    /// Debug only: hold this pose.
+    var forcedPose: NutmegPose? = nil
     var costume: String? = nil
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var shown: NutmegPose = .idle
+    @State private var squash = CGSize(width: 1, height: 1)
+    @State private var hop: CGFloat = 0
+    @State private var lastSwap: Date?
+    @State private var gestureTask: Task<Void, Never>?
+    @State private var swapTask: Task<Void, Never>?
+
+    private var basePose: NutmegPose { forcedPose ?? state.basePose }
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30, paused: false)) { context in
@@ -24,46 +41,94 @@ struct NutmegCharacter: View {
             .aspectRatio(1, contentMode: .fit)
         }
         .animation(Theme.springy, value: state)
+        .onAppear { shown = basePose }
+        .onChange(of: basePose) { _, new in
+            gestureTask?.cancel()
+            requestSwap(to: new)
+        }
+        .onChange(of: cue) { _, cue in if let cue { play(cue.gesture) } }
         .accessibilityElement()
         .accessibilityLabel("Nutmeg the mouse")
     }
 
-    private var look: NutmegLook {
-        var l = state.look(talkingPose: pose ?? .wave)
-        if let pose, state != .napping, state != .excited { l.pose = pose }
-        return l
+    // MARK: Pose swaps
+
+    private func play(_ gesture: NutmegGesture) {
+        guard forcedPose == nil, PoseRules.allowsGesture(over: PoseName(rawValue: basePose.rawValue) ?? .idle) else { return }
+        gestureTask?.cancel()
+        gestureTask = Task { @MainActor in
+            await swap(to: NutmegPose(gesture.pose))
+            try? await Task.sleep(for: .seconds(PoseRules.hold(gesture)))
+            guard !Task.isCancelled else { return }
+            await swap(to: basePose)
+        }
     }
+
+    private func requestSwap(to pose: NutmegPose) {
+        swapTask?.cancel()
+        swapTask = Task { @MainActor in await swap(to: pose) }
+    }
+
+    private func swap(to pose: NutmegPose) async {
+        let wait = PoseRules.delay(lastSwap: lastSwap, now: Date())
+        if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
+        guard !Task.isCancelled, pose != shown else { return }
+        lastSwap = Date()
+        if reduceMotion {
+            withAnimation(.easeInOut(duration: 0.2)) { shown = pose }
+            return
+        }
+        // 1. Anticipation: quick squash.
+        withAnimation(.easeOut(duration: 0.09)) { squash = CGSize(width: 1.05, height: 0.92) }
+        try? await Task.sleep(for: .milliseconds(90))
+        // 2. Small hop with stretch; swap the body at the peak (100 ms crossfade). The head springs on its own.
+        withAnimation(.easeOut(duration: 0.12)) { squash = CGSize(width: 0.97, height: 1.06); hop = -12 }
+        try? await Task.sleep(for: .milliseconds(70))
+        withAnimation(.linear(duration: 0.1)) { shown = pose }
+        try? await Task.sleep(for: .milliseconds(60))
+        // 3. Land with a spring overshoot.
+        withAnimation(.spring(response: 0.32, dampingFraction: 0.45)) { squash = CGSize(width: 1, height: 1); hop = 0 }
+    }
+
+    // MARK: Drawing
 
     @ViewBuilder
     private func figure(t: Double, side: CGFloat) -> some View {
-        let l = look
+        let l = state.look
+        let pose = shown
         let m = Motion(state: state, t: t, reduced: reduceMotion)
         let unit = side / 1024
-        let headSide = side * l.pose.headScale
+        let headSide = side * pose.headScale
         // Place the head canvas so its neck point lands on the pose's neck anchor.
-        let headX = l.pose.neckAnchor.x * side - Theme.nutmegHeadNeck.x * headSide
-        let headY = l.pose.neckAnchor.y * side - Theme.nutmegHeadNeck.y * headSide
+        let headX = pose.neckAnchor.x * side - Theme.nutmegHeadNeck.x * headSide
+        let headY = pose.neckAnchor.y * side - Theme.nutmegHeadNeck.y * headSide
 
         ZStack(alignment: .topLeading) {
             layer("nutmeg-tail").frame(width: side, height: side)
                 .rotationEffect(.degrees(m.tailSwing), anchor: UnitPoint(x: 0.62, y: 0.88))
-            layer(l.pose.asset).frame(width: side, height: side)
-                .scaleEffect(x: 1, y: m.breathe, anchor: .bottom)
+            ZStack {
+                layer(pose.asset).id(pose).transition(.opacity)
+            }
+            .frame(width: side, height: side)
+            .scaleEffect(x: 1, y: m.breathe, anchor: .bottom)
             head(look: l, motion: m)
                 .frame(width: headSide, height: headSide)
-                .rotationEffect(.degrees(l.pose.headRotation + m.headTilt), anchor: Theme.nutmegHeadNeck)
+                .rotationEffect(.degrees(pose.headRotation + m.headTilt), anchor: Theme.nutmegHeadNeck)
                 .offset(x: headX, y: headY + (1 - m.breathe) * side * 0.4)
+                // The head is continuous through a body swap: it springs to the new neck anchor and rotation.
+                .animation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.34, dampingFraction: 0.62), value: pose)
             if state == .napping { zzz(t: t, unit: unit) }
-            if state == .thinking { sparkle(t: t, unit: unit) }
         }
         .frame(width: side, height: side, alignment: .topLeading)
-        .offset(y: m.bob * unit)
+        .scaleEffect(x: squash.width, y: squash.height, anchor: .bottom)
+        .offset(y: hop * unit * 4 + m.bob * unit)
     }
 
     private func head(look l: NutmegLook, motion m: Motion) -> some View {
         ZStack {
             layer(l.ears.asset)
                 .scaleEffect(m.earScale, anchor: UnitPoint(x: 0.5, y: 0.4))
+                .rotationEffect(.degrees(m.earTwitch), anchor: UnitPoint(x: 0.5, y: 0.5))
                 .animation(.spring(response: 0.18, dampingFraction: 0.45), value: l.ears)   // ears perk quickly
             layer("nutmeg-head-base")
             layer(m.blink && l.face != .nap && l.face != .yay ? NutmegFace.nap.asset : l.face.asset)
@@ -86,57 +151,56 @@ struct NutmegCharacter: View {
                 let phase = (t / 2.4 + Double(i) / 3).truncatingRemainder(dividingBy: 1)
                 Text("z")
                     .font(Theme.displayFont(CGFloat(60 + i * 20) * unit * 2))
-                    .foregroundStyle(Theme.backgroundBrand)
+                    .foregroundStyle(Theme.purple)
                     .opacity(1 - phase)
                     .position(x: (720 + phase * 120) * unit, y: (240 - phase * 200) * unit)
             }
         }
         .accessibilityHidden(true)
     }
-
-    private func sparkle(t: Double, unit: CGFloat) -> some View {
-        Image(systemName: "sparkles")
-            .font(.system(size: 140 * unit))
-            .foregroundStyle(Theme.accent)
-            .scaleEffect(1 + 0.15 * sin(t * 6))
-            .position(x: 830 * unit, y: 150 * unit)
-            .accessibilityHidden(true)
-    }
 }
 
-/// All the time-based motion, as plain numbers (degrees, scale, 1024-space points).
+/// Time-based motion, as plain numbers (degrees, scale, 1024-space points). Resting is nearly still:
+/// subtle breathing, a slow small tail sway, and a blink / ear twitch at pseudo-random moments several seconds apart.
+/// Bigger motion only while talking (head bob with the voice) or listening (perked, tilted).
 private struct Motion {
-    var bob: CGFloat = 0, breathe: CGFloat = 1, headTilt: Double = 0, earScale: CGFloat = 1
+    var bob: CGFloat = 0, breathe: CGFloat = 1, headTilt: Double = 0, earScale: CGFloat = 1, earTwitch: Double = 0
     var tailSwing: Double = 0, blink = false, oohBeat = false
 
+    /// Deterministic 0…1 noise per integer cycle.
+    static func noise(_ n: Double, _ salt: Double) -> Double {
+        abs((sin(n * 12.9898 + salt * 78.233) * 43758.5453).truncatingRemainder(dividingBy: 1))
+    }
+
     init(state: NutmegState, t: Double, reduced: Bool) {
-        let k: Double = reduced ? 0.25 : 1
-        let breathPeriod = state == .napping ? 4.5 : 1.6
-        breathe = 1 + 0.015 * CGFloat(sin(t * 2 * .pi / breathPeriod) * k)
-        tailSwing = 6 * sin(t * 2.2) * k
-        // Blink: once per ~3.6 s cycle at a jittered moment, 120 ms long.
-        let cycle = floor(t / 3.6)
-        let jitter = abs((sin(cycle * 12.9898) * 43758.5453).truncatingRemainder(dividingBy: 1))
-        blink = abs(t - cycle * 3.6 - (1.0 + jitter * 2.4)) < 0.06
+        let k: Double = reduced ? 0 : 1
+        let breathPeriod = state == .napping ? 4.5 : 3.2
+        breathe = 1 + 0.012 * CGFloat(sin(t * 2 * .pi / breathPeriod))
+        tailSwing = 2.5 * sin(t * 0.9) * k
+        // Blink: once per 4–7 s window at a random moment, 130 ms long.
+        let bCycle = floor(t / 5.5)
+        blink = abs(t - bCycle * 5.5 - (0.5 + Self.noise(bCycle, 1) * 4.5)) < 0.065
+        // Ear twitch: about every 9 s, a quick 160 ms flick (not while napping).
+        let eCycle = floor(t / 9)
+        let eAt = eCycle * 9 + 1 + Self.noise(eCycle, 2) * 7
+        if state != .napping, t >= eAt, t - eAt < 0.16 { earTwitch = 4 * sin((t - eAt) / 0.16 * .pi) * k }
         oohBeat = Int(t * 7) % 7 == 0
 
         switch state {
-        case .idle:
-            bob = CGFloat(-abs(sin(t * 2.4)) * 14 * k)            // springy little bounce
-            headTilt = 2 * sin(t * 1.3) * k
         case .listening:
-            headTilt = 6; earScale = 1.06; bob = CGFloat(-4 * abs(sin(t * 3)) * k)
+            headTilt = 6; earScale = 1.06
         case .thinking:
-            headTilt = -4 + 1.5 * sin(t * 2) * k
+            headTilt = -4
         case .talking:
-            headTilt = 2 * sin(t * 5) * k; bob = CGFloat(-abs(sin(t * 4.5)) * 8 * k)
+            headTilt = 2 * sin(t * 5) * k; bob = CGFloat(-abs(sin(t * 4.5)) * 6 * k)
         case .excited:
-            let hop = abs(sin(t * .pi * 1.6))                       // happy hops
-            bob = CGFloat(-hop * 70 * k); earScale = 1 + 0.05 * CGFloat(hop); headTilt = 4 * sin(t * 5) * k
+            earScale = 1.04
         case .oops:
-            headTilt = -5 + sin(t * 9) * 1.5 * k
-        case .napping:
-            headTilt = 0
+            headTilt = -5
+        case .coloring:
+            headTilt = 3 * sin(t * 1.2) * k   // looking down at the page, a little busy
+        case .idle, .napping:
+            break
         }
     }
 }

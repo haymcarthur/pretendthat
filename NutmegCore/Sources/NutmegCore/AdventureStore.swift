@@ -254,16 +254,41 @@ public final class AdventureStore {
             let missing = free.isEmpty ? "" : " Still missing a role for: \(free.compactMap { t in players.first { $0.token == t }?.displayName }.joined(separator: ", "))."
             return "Roles are on screen.\(missing) Tell each kid their part with excitement and check they like it. Wait for their answer before show_props."
         case .showProps(let drafts):
-            let list = drafts.enumerated().map { i, d in
-                let owner = players.first { $0.name.localizedCaseInsensitiveCompare(d.forPlayer) == .orderedSame }.map { SceneOwner(rawValue: $0.token.rawValue) ?? .all } ?? .all
-                return Prop(id: "prop\(i)", householdItem: d.householdItem, becomes: tokens.tokenize(d.becomes), emoji: "", forRole: owner, safetyOK: d.safe)
+            var used = Set<String>()
+            let list: [Prop] = drafts.enumerated().compactMap { i, d in
+                if !d.inLibrary && PropLibrary.looksUnsafe(d.itemID) { return nil }
+                let owner = players.first { $0.name.localizedCaseInsensitiveCompare(d.forPlayer) == .orderedSame }
+                    .map { SceneOwner(rawValue: $0.token.rawValue) ?? .all } ?? .all
+                var id = d.inLibrary ? d.itemID : "custom\(i)"
+                if used.contains(id) { id += "-\(i)" }
+                used.insert(id)
+                return Prop(id: id, householdItem: PropLibrary.name(d.itemID) ?? d.itemID, becomes: tokens.tokenize(d.becomes),
+                            emoji: "", forRole: owner, safetyOK: true,
+                            libraryID: d.inLibrary ? d.itemID : nil, alternates: d.alternates, skipped: false)
             }
-            var cleaned = Sanitizer.clean(Props(nutmegSays: "", props: list))
-            cleaned.props = cleaned.props.map { var p = $0; p.emoji = ""; return p }   // D5: illustrations, not emoji
-            props = cleaned; foundProps = []
+            props = Props(nutmegSays: "", props: Array(list.prefix(Sanitizer.Limits.propsMax))); foundProps = []
             phase = .props; presenting = .props
-            let dropped = list.count - cleaned.props.count
-            return dropped > 0 ? "Showing \(cleaned.props.count) props (\(dropped) unsafe one(s) removed, don't mention them)." : "Props are on screen. Send them on a fun hunt and wait until they say they found things."
+            let ids = props!.props.map(\.id).joined(separator: ", ")
+            return "Props are on screen (ids: \(ids)). Send them on a fun hunt. If they lack one, use swap_prop or skip_prop."
+        case .swapProp(let oldID, let newID, let becomes):
+            guard var p = props, let i = p.props.firstIndex(where: { $0.id == oldID || $0.libraryID == oldID }) else {
+                return "No prop with id \(oldID). Ids: \(props?.props.map(\.id).joined(separator: ", ") ?? "none")."
+            }
+            guard PropLibrary.contains(newID) else { return "\(newID) isn't on the list. Pick another list item or skip_prop." }
+            p.props[i].libraryID = newID
+            p.props[i].householdItem = PropLibrary.name(newID) ?? newID
+            if !becomes.isEmpty { p.props[i].becomes = tokens.tokenize(becomes) }
+            p.props[i].skipped = false
+            p.props[i].alternates = p.props[i].alternates?.filter { $0 != newID }
+            props = p; presenting = .props
+            return "Swapped (the card still uses id \(p.props[i].id))."
+        case .skipProp(let id):
+            guard var p = props, let i = p.props.firstIndex(where: { $0.id == id || $0.libraryID == id }) else {
+                return "No prop with id \(id)."
+            }
+            p.props[i].skipped = true
+            props = p; presenting = .props
+            return "Marked as pretend. Keep going cheerfully."
         case .finishPlanning:
             presenting = .none
             if gameTitle == nil { gameTitle = "Airplane" }

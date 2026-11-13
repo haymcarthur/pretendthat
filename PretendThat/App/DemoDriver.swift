@@ -84,10 +84,14 @@ enum DemoDriver {
                                          .init(playerName: "Sam", roleName: "Flight Attendant", job: "Serve snacks"),
                                          .init(playerName: "Ollie", roleName: "Passenger", job: "Enjoy the trip")]))
         if target == "convRoles" { return }
-        _ = await store.apply(.showProps([.init(householdItem: "Chairs", becomes: "Plane seats", forPlayer: "all", safe: true),
-                                          .init(householdItem: "Paper plate", becomes: "Steering wheel", forPlayer: "Mia", safe: true),
-                                          .init(householdItem: "Tray", becomes: "Snack cart", forPlayer: "Sam", safe: true),
-                                          .init(householdItem: "Backpack", becomes: "Suitcase", forPlayer: "Ollie", safe: true)]))
+        _ = await store.apply(.showProps([.init(itemID: "chair", becomes: "Plane seats", forPlayer: "all", alternates: ["cushion"]),
+                                          .init(itemID: "plate", becomes: "Steering wheel", forPlayer: "Mia", alternates: ["bowl"]),
+                                          .init(itemID: "tray", becomes: "Snack cart", forPlayer: "Sam", alternates: ["books"]),
+                                          .init(itemID: "backpack", becomes: "Suitcase", forPlayer: "Ollie", alternates: ["bag"])]))
+        if target == "convPropsEdit" {
+            _ = await store.apply(.swapProp(oldID: "tray", newID: "books", becomes: "Snack cart"))
+            _ = await store.apply(.skipProp("backpack"))
+        }
     }
 }
 #endif

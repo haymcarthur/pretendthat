@@ -16,6 +16,8 @@ extension EnvironmentValues {
     @Entry var ptInkMuted = Theme.inkMuted
     /// The phase backdrop, so accents and cards can pick matching colors.
     @Entry var ptBackdrop = PTBackdrop.white
+    /// Bumped on celebration moments (kit ready, the end): stage props bounce once.
+    @Entry var ptCelebrate = 0
 }
 
 enum PTTextStyle {

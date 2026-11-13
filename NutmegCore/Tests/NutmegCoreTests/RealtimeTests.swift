@@ -13,7 +13,8 @@ import Testing
     let input = try #require(audio["input"] as? [String: Any])
     #expect((input["turn_detection"] as? [String: Any])?["type"] as? String == "server_vad")
     let names = (session["tools"] as? [[String: Any]])?.compactMap { $0["name"] as? String }
-    #expect(names == ["show_game_ideas", "set_game", "set_players", "set_roles", "show_props", "finish_planning"])
+    #expect(names == ["show_game_ideas", "set_game", "set_players", "set_roles", "show_props", "swap_prop", "skip_prop", "finish_planning"])
+    #expect(Realtime.json(s).contains("\"laundry-basket\""))   // the prop library is an enum in the schema
     // Serializes cleanly.
     #expect(Realtime.json(s).contains("\"server_vad\""))
     #expect(Realtime.json(s).contains("\"threshold\":0.6"))   // no 0.59999999999999998
@@ -38,6 +39,9 @@ import Testing
         #expect(ideas.map(\.title) == ["A", "B", "C"])
     } else { Issue.record("ideas not decoded") }
     #expect(PlanningCall.decode(name: "finish_planning", arguments: "{}") == .finishPlanning)
+    #expect(PlanningCall.decode(name: "show_props", arguments: #"{"props":[{"item_id":"tray","becomes":"cart","for_player":"all","alternates":["books","rocket"]}]}"#)
+            == .showProps([.init(itemID: "tray", becomes: "cart", forPlayer: "all", alternates: ["books"])]))
+    #expect(PlanningCall.decode(name: "skip_prop", arguments: #"{"id":"tray"}"#) == .skipProp("tray"))
     #expect(PlanningCall.decode(name: "unknown", arguments: "{}") == nil)
 }
 
@@ -57,11 +61,18 @@ import Testing
     #expect(store.plan?.role(for: .P2)?.roleName == "Zookeeper")
     #expect(store.plan?.role(for: .P2)?.job == "Feed {P1}'s lion")   // names tokenized before Claude ever sees them
     #expect(store.presenting == .roles)
-    _ = await store.apply(.showProps([.init(householdItem: "Pillow", becomes: "Lion bed", forPlayer: "Mia", safe: true),
-                                      .init(householdItem: "Knife", becomes: "Sword", forPlayer: "all", safe: false)]))
-    #expect(store.props?.props.map(\.householdItem) == ["Pillow"])
+    _ = await store.apply(.showProps([.init(itemID: "pillow", becomes: "Lion bed", forPlayer: "Mia", alternates: ["cushion"]),
+                                      .init(itemID: "kitchen knife", becomes: "Sword", forPlayer: "all"),
+                                      .init(itemID: "tray", becomes: "Feeding tray", forPlayer: "all"),
+                                      .init(itemID: "paper crown", becomes: "Lion crown", forPlayer: "all")]))
+    #expect(store.props?.props.map(\.householdItem) == ["Pillow", "Tray", "paper crown"])   // unsafe off-list item dropped
     #expect(store.props?.props.first?.forRole == .P1)
-    #expect(store.props?.props.first?.emoji == "")
+    #expect(store.props?.props.first?.libraryID == "pillow")
+    #expect(store.props?.props.last?.libraryID == nil)          // off-list: generated art fallback
+    _ = await store.apply(.swapProp(oldID: "tray", newID: "books", becomes: "Snack tray"))
+    #expect(store.props?.props[1].id == "tray" && store.props?.props[1].libraryID == "books" && store.props?.props[1].becomes == "Snack tray")
+    _ = await store.apply(.skipProp("pillow"))
+    #expect(store.props?.props.first?.isSkipped == true && store.props?.props.count == 3)   // stays on screen
     _ = await store.apply(.finishPlanning)
     for _ in 0..<50 where store.phase != .kitReady { try? await Task.sleep(for: .milliseconds(20)) }
     #expect(store.phase == .kitReady)

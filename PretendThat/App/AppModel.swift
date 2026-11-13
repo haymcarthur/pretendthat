@@ -67,6 +67,7 @@ final class AppModel {
         guard store.phase == .pickGame else { return }   // left while connecting
         if ok {
             realtime.micWanted = true
+            gesture(.wave)
             realtime.kickOff()
         } else {
             await store.start()   // tap screens (and the bundled airplane game if Claude is off too)
@@ -115,23 +116,23 @@ final class AppModel {
             if realtime.isSpeaking { return .talking }
         }
         if listener.isListening { return .listening }
+        if store.phase == .makingKit { return .coloring }
         if store.isWorking { return .thinking }
         if voice.isSpeaking { return .talking }
         if store.lastError != nil { return .oops }
         switch store.phase {
+        case .makingKit: return .coloring
         case .stepBack: return .napping
         case .kitReady, .end: return .excited
         default: return .idle
         }
     }
 
-    var nutmegPose: NutmegPose? {
-        switch store.phase {
-        case .pickGame, .props, .players: .point
-        case .stepBack: .sit
-        default: nil
-        }
-    }
+    /// One-shot body gesture (wave, point, celebrate). Poses rest on idle otherwise.
+    var cue: NutmegCue?
+    /// Bumped on celebration moments; stage props bounce once.
+    var celebrations = 0
+    func gesture(_ g: NutmegGesture) { cue = NutmegCue(gesture: g) }
 
     /// Nutmeg's voice for app-written lines. With a live Realtime session she keeps her conversation voice;
     /// during planning she speaks for herself, so app lines are skipped there.

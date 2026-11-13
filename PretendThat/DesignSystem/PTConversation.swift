@@ -9,6 +9,10 @@ struct PTStageItem: Identifiable, Equatable {
     var subtitle: String? = nil
     var image: UIImage? = nil
     var tint: Color = Theme.coral
+    /// Changing this flips the card over to the new picture (a swapped prop).
+    var flipKey: String = ""
+    /// A skipped prop: stays on stage in a soft "we'll pretend" state (never removed like a failure).
+    var isPretend = false
 }
 
 /// Where the "camera" is (D4): close on Nutmeg's face while she talks or listens, wide while she presents.
@@ -18,7 +22,7 @@ enum PTCameraShot: Equatable { case closeUp, medium, wide }
 /// props, the presented items arranged around her, and a ChatGPT-style bottom bar. No tap targets during planning;
 /// items accept a tap only as a silent backup (`onTapItem`).
 struct PTConversationStage<Character: View, Bar: View>: View {
-    var backdrop: PTBackdrop = .backstage
+    var backdrop: PTBackdrop = .white
     var shot: PTCameraShot
     var items: [PTStageItem] = []
     var onTapItem: ((String) -> Void)? = nil
@@ -89,51 +93,59 @@ struct PTConversationStage<Character: View, Bar: View>: View {
 struct PTStageItemCard: View {
     let item: PTStageItem
     var width: CGFloat = 200
-    @Environment(\.ptBackdrop) private var backdrop
+    @State private var flip: Double = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    // Neutral on purpose (white, crisp light border): Haylee restyles this component in Figma.
     var body: some View {
         VStack(spacing: Theme.Space.xs) {
             Group {
                 if let image = item.image {
                     Image(uiImage: image).resizable().scaledToFit()
-                        .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                        .saturation(item.isPretend ? 0 : 1)
+                        .opacity(item.isPretend ? 0.45 : 1)
+                        .transition(.opacity)
                 } else {
                     PTShimmer(tint: item.tint)
                 }
             }
             .frame(width: width - Theme.Space.m * 2, height: width - Theme.Space.m * 2)
-            .animation(.easeOut(duration: 0.35), value: item.image != nil)
+            .animation(.easeOut(duration: 0.3), value: item.image != nil)
             PTText(item.title, .headline)
                 .lineLimit(2).minimumScaleFactor(0.7).multilineTextAlignment(.center)
-            if let subtitle = item.subtitle {
+            if let subtitle = item.isPretend ? "We'll pretend!" : item.subtitle {
                 PTText(subtitle, .caption, tone: .muted).lineLimit(1).minimumScaleFactor(0.7)
             }
         }
+        .padding(Theme.Space.s)
         .frame(width: width - Theme.Space.s * 2)
-        .ptCard(edge: item.tint, padding: Theme.Space.s)
+        .background(RoundedRectangle(cornerRadius: Theme.smallRadius, style: .continuous).fill(Theme.white))
+        .overlay(RoundedRectangle(cornerRadius: Theme.smallRadius, style: .continuous)
+            .strokeBorder(Theme.line, style: StrokeStyle(lineWidth: 2, dash: item.isPretend ? [8, 6] : [])))
+        .rotation3DEffect(.degrees(flip), axis: (x: 0, y: 1, z: 0), perspective: 0.5)
+        .animation(.easeInOut(duration: 0.3), value: item.isPretend)
+        .onChange(of: item.flipKey) { _, _ in
+            guard !reduceMotion else { return }
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.75)) { flip += 360 }
+        }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel([item.title, item.subtitle].compactMap { $0 }.joined(separator: ", "))
+        .accessibilityLabel([item.title, item.isPretend ? "pretend" : item.subtitle].compactMap { $0 }.joined(separator: ", "))
     }
 }
 
-/// A soft loading shimmer for an illustration that's still being drawn (not an icon).
+/// Loading placeholder for an illustration that's still being drawn (not an icon): a flat tinted tile that
+/// breathes softly while waiting. Crisp and flat, no gradients.
 struct PTShimmer: View {
     var tint: Color = Theme.coral
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var on = false
 
     var body: some View {
-        TimelineView(.animation(paused: reduceMotion)) { ctx in
-            let t = ctx.date.timeIntervalSinceReferenceDate
-            let x = CGFloat((t / 1.4).truncatingRemainder(dividingBy: 1)) * 2.4 - 1.2
-            RoundedRectangle(cornerRadius: Theme.smallRadius, style: .continuous)
-                .fill(tint.opacity(0.14))
-                .overlay {
-                    LinearGradient(colors: [.clear, Theme.white.opacity(0.75), .clear],
-                                   startPoint: UnitPoint(x: x, y: 0), endPoint: UnitPoint(x: x + 0.6, y: 1))
-                        .clipShape(RoundedRectangle(cornerRadius: Theme.smallRadius, style: .continuous))
-                }
-        }
-        .accessibilityHidden(true)
+        RoundedRectangle(cornerRadius: Theme.smallRadius, style: .continuous)
+            .fill(tint.opacity(on ? 0.22 : 0.1))
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.9).repeatForever(autoreverses: true), value: on)
+            .onAppear { on = true }
+            .accessibilityHidden(true)
     }
 }
 
@@ -158,7 +170,8 @@ struct PTVoiceBar: View {
                            label: "Leave", action: onLeave)
         }
         .padding(Theme.Space.s)
-        .background(Capsule().fill(Theme.purpleShade.opacity(0.85)))
+        .background(Capsule().fill(Theme.white))
+        .overlay(Capsule().strokeBorder(Theme.line, lineWidth: 2))
     }
 }
 
@@ -175,11 +188,8 @@ struct PTRoundControl: View {
     var body: some View {
         Button(action: action) {
             ZStack {
-                if pulsing && !reduceMotion {
-                    TimelineView(.animation) { ctx in
-                        let phase = (ctx.date.timeIntervalSinceReferenceDate / 1.4).truncatingRemainder(dividingBy: 1)
-                        Circle().stroke(Theme.yellow, lineWidth: 5).scaleEffect(1 + phase * 0.4).opacity(1 - phase)
-                    }
+                if pulsing {   // the kid is talking: a crisp ring (event, not a loop)
+                    Circle().stroke(Theme.yellow, lineWidth: 5).padding(-6)
                 }
                 Circle().fill(fill)
                 Circle().strokeBorder(Theme.line, lineWidth: fill == Theme.white ? Theme.borderWidth : 0)

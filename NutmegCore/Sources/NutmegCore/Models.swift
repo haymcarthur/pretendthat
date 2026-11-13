@@ -42,9 +42,17 @@ public struct GamePlan: Codable, Equatable, Sendable {
 public struct Prop: Codable, Equatable, Sendable, Identifiable {
     public var id: String; public var householdItem: String; public var becomes: String; public var emoji: String
     public var forRole: SceneOwner; public var safetyOK: Bool
-    public init(id: String, householdItem: String, becomes: String, emoji: String, forRole: SceneOwner, safetyOK: Bool) {
+    /// Voice conversation only: the PropLibrary ID (nil = free text, generated art), 1–2 ready alternates,
+    /// and "we'll pretend" when the kids skip it (props never block progress).
+    public var libraryID: String?
+    public var alternates: [String]?
+    public var skipped: Bool?
+    public init(id: String, householdItem: String, becomes: String, emoji: String, forRole: SceneOwner, safetyOK: Bool,
+                libraryID: String? = nil, alternates: [String]? = nil, skipped: Bool? = nil) {
         self.id = id; self.householdItem = householdItem; self.becomes = becomes; self.emoji = emoji; self.forRole = forRole; self.safetyOK = safetyOK
+        self.libraryID = libraryID; self.alternates = alternates; self.skipped = skipped
     }
+    public var isSkipped: Bool { skipped ?? false }
 }
 public struct Props: Codable, Equatable, Sendable {
     public var nutmegSays: String; public var props: [Prop]

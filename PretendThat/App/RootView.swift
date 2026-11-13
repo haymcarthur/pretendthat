@@ -16,8 +16,17 @@ struct RootView: View {
         }
         .animation(.easeInOut(duration: 0.4), value: model.inConversation)
         .environment(\.speak, SpeakAction { model.speak($0) })
+        .environment(\.ptCelebrate, model.celebrations)
         .onChange(of: store.nutmegLine) { _, line in model.speak(line) }
-        .onChange(of: store.phase) { _, _ in model.phaseChanged() }
+        .onChange(of: store.phase) { _, phase in
+            model.phaseChanged()
+            switch phase {
+            case .kitReady, .end: model.gesture(.celebrate); model.celebrations += 1
+            case .hello: model.gesture(.wave)
+            default: break
+            }
+        }
+        .onChange(of: store.presenting) { _, p in if p != .none { model.gesture(.point) } }
         .onChange(of: store.kit) { _, _ in model.kitChanged() }
         .onChange(of: presentedSubjects) { _, _ in requestStickers() }
         .task {
@@ -36,10 +45,10 @@ struct RootView: View {
     // MARK: Voice conversation (D1, D4, D5)
 
     private var conversation: some View {
-        PTConversationStage(backdrop: .backstage, shot: shot, items: stageItems,
+        PTConversationStage(backdrop: .white, shot: shot, items: stageItems,
                             onTapItem: { id in silentTap(id) }) {
             NutmegCharacter(state: model.nutmegState, mouthLevel: model.mouthLevel,
-                            isSpeaking: model.isSpeaking, pose: store.presenting == .none ? nil : .point)
+                            isSpeaking: model.isSpeaking, cue: model.cue)
         } bar: {
             PTVoiceBar(isMuted: model.realtime.isMuted, isListening: model.realtime.kidIsTalking,
                        onMute: { model.realtime.isMuted.toggle() },
@@ -71,9 +80,12 @@ struct RootView: View {
             }
         case .props:
             return (store.props?.props ?? []).enumerated().map { i, prop in
-                PTStageItem(id: "prop-\(prop.id)-\(prop.householdItem)", title: prop.householdItem,
-                            subtitle: store.tokens.untokenize(prop.becomes),
-                            image: model.stickers.image(.prop, prop.householdItem), tint: Theme.playerColor(i))
+                // Library props use the hand-drawn art (prop-<id>); off-list props fall back to a generated sticker.
+                let art = prop.libraryID.flatMap { UIImage(named: PropLibrary.asset($0)) } ?? model.stickers.image(.prop, prop.householdItem)
+                return PTStageItem(id: "prop-\(prop.id)", title: prop.householdItem,
+                                   subtitle: store.tokens.untokenize(prop.becomes),
+                                   image: art, tint: Theme.playerColor(i),
+                                   flipKey: prop.libraryID ?? prop.householdItem, isPretend: prop.isSkipped)
             }
         }
     }
@@ -89,7 +101,10 @@ struct RootView: View {
         jobs += (store.ideas?.ideas ?? []).map { (.idea, $0.title, $0.pitch) }
         // Roles and props: role/prop text only (names are tokenized out and never sent).
         jobs += (store.plan?.roles ?? []).map { (.role, $0.roleName, "") }
-        jobs += (store.props?.props ?? []).map { (.prop, $0.householdItem, store.tokens.tokenize($0.becomes).replacingOccurrences(of: #"\{P\d\}"#, with: "a kid", options: .regularExpression)) }
+        // Props: only off-list ones get generated art (library props are hand-drawn).
+        let offList = (store.props?.props ?? []).filter { $0.libraryID == nil }
+        if !offList.isEmpty { rtLog("off-list props (generated art): \(offList.count)") }
+        jobs += offList.map { (.prop, $0.householdItem, $0.becomes.replacingOccurrences(of: #"\{P\d\}"#, with: "a kid", options: .regularExpression)) }
         model.stickers.request(jobs, game: game)
     }
 
@@ -104,7 +119,7 @@ struct RootView: View {
     private var classic: some View {
         PTStageLayout(backdrop: backdrop, nutmegColumn: nutmegIsHero ? Theme.nutmegHeroColumn : Theme.nutmegColumn) {
             NutmegCharacter(state: model.nutmegState, mouthLevel: model.mouthLevel,
-                            isSpeaking: model.isSpeaking, pose: model.nutmegPose)
+                            isSpeaking: model.isSpeaking, cue: model.cue)
                 .onTapGesture { if case .stepBack = store.phase { Task { _ = await store.helpRequested() } } }
         } stage: {
             stage.transition(.ptStage)
@@ -158,14 +173,8 @@ struct RootView: View {
         }
     }
 
-    private var backdrop: PTBackdrop {
-        switch store.phase {
-        case .hello, .scene, .stepBack: .backstage      // the theater: purple for play mode
-        case .kitReady, .end: .spotlight                // celebration moments
-        case .handoff: .cream
-        default: .white
-        }
-    }
+    /// One clean white base everywhere (Haylee, motion-and-surface.md); brand colors live on accents only.
+    private var backdrop: PTBackdrop { .white }
 
     /// Nutmeg gets the big column when the stage has little else on it.
     private var nutmegIsHero: Bool {

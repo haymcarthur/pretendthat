@@ -7,7 +7,7 @@ struct ParentSettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var debugState: NutmegState = .idle
     @State private var debugLevel: Float = 0
-    @State private var debugPose: NutmegPose = .wave
+    @State private var debugPose: NutmegPose = .idle
 
     var body: some View {
         NavigationStack {
@@ -51,7 +51,7 @@ struct ParentSettingsView: View {
                     }
                 }
                 Section("Nutmeg debug") {
-                    NutmegCharacter(state: debugState, mouthLevel: debugLevel, isSpeaking: debugState == .talking, pose: debugPose)
+                    NutmegCharacter(state: debugState, mouthLevel: debugLevel, isSpeaking: debugState == .talking, forcedPose: debugPose)
                         .frame(height: 280)
                     Picker("State", selection: $debugState) { ForEach(NutmegState.allCases) { Text($0.rawValue).tag($0) } }
                     Picker("Pose", selection: $debugPose) { ForEach(NutmegPose.allCases) { Text($0.rawValue).tag($0) } }

@@ -23,6 +23,8 @@ enum Theme {
 
     // MARK: Semantic tokens
     static let background = white
+    /// Very light warm off-white (alternate base).
+    static let paper = Color(red: 0.996, green: 0.988, blue: 0.976)
     static let backgroundBrand = purple
     static let surface = white
     static let ink = Color(hex: BrandPalette.ink)
@@ -119,24 +121,20 @@ enum PTBackdrop: CaseIterable {
 
     var color: Color {
         switch self {
-        case .white: Theme.white
-        case .cream: Theme.cream
-        case .backstage: Theme.purple
-        case .spotlight: Theme.yellow
+        // Haylee 2026-11-13 (motion-and-surface.md): one clean light base everywhere; brand colors only on accents.
+        case .white, .backstage, .spotlight: Theme.white
+        case .cream: Theme.paper
         }
     }
-    var ink: Color { self == .backstage ? Theme.white : Theme.ink }
-    var inkMuted: Color { self == .backstage ? Theme.cream : (self == .spotlight ? Theme.ink : Theme.inkMuted) }
+    var ink: Color { Theme.ink }
+    var inkMuted: Color { Theme.inkMuted }
     /// Spotlight glow behind Nutmeg.
     var glow: Color { self == .spotlight ? Theme.white : Theme.yellow }
     var glowOpacity: Double { self == .backstage ? 0.42 : 0.55 }
     /// Card edge under white cards on this backdrop.
     var cardEdge: Color {
         switch self {
-        case .backstage: Theme.purpleShade
-        case .spotlight: Theme.yellowShade
-        case .cream: Theme.creamShade
-        case .white: Theme.line
+        case .backstage, .spotlight, .cream, .white: Theme.line
         }
     }
 }

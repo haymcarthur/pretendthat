@@ -50,13 +50,15 @@ public enum Realtime {
     If 5 or more kids are playing, call set_players with the count and no names (one kid becomes the Director).
     - Roles: invent one fun role per player that fits THEIR game and details, call set_roles, and tell each kid \
     their part with excitement. Check they like it; if not, call set_roles again with new ideas.
-    - Props: call show_props with 3 to 5 household items that become props, and send them on a hunt. \
-    Wait for them to say they found things (or want to move on).
+    - Props: call show_props with 3 to 5 household items from the item list that become props (each with 1 or 2 \
+    alternates), and send them on a hunt. Props are always optional and never block the game. If a kid doesn't have \
+    something or can't find it, react kindly, then either offer ONE alternate that could become the same thing \
+    (call swap_prop: "No tray? A big flat book works as a snack tray too!") or happily skip it (call skip_prop: \
+    "No problem, we'll pretend!"). If they're ready before finding everything, go on cheerfully.
     - Then call finish_planning and stop talking: the app makes their printable kit.
 
-    Prop safety: only soft or sturdy household items (pillows, chairs, blankets, cardboard boxes, plastic plates and \
-    cups, stuffed animals, towels, books, toys). Never knives, scissors, glass, electronics, cords, food, medicine, or \
-    anything up high. Set safe to false if an item breaks these rules.
+    Prop safety: only use items from the item list (they're all safe household things). Never suggest knives, \
+    scissors, glass, electronics, cords, food, medicine, or anything up high.
     """
 
     public static func sessionUpdate(voice: String, speed: Double, instructions: String = instructions) -> [String: Any] {
@@ -93,6 +95,7 @@ public enum Realtime {
          "parameters": ["type": "object", "properties": properties, "required": required, "additionalProperties": false] as [String: Any]]
     }
     static var str: [String: Any] { ["type": "string"] }
+    static var propID: [String: Any] { ["type": "string", "enum": PropLibrary.ids] }
     static func array(_ item: [String: Any]) -> [String: Any] { ["type": "array", "items": item] }
     static func object(_ p: [String: Any]) -> [String: Any] {
         ["type": "object", "properties": p, "required": Array(p.keys).sorted(), "additionalProperties": false]
@@ -106,9 +109,15 @@ public enum Realtime {
            ["names": array(str), "count": ["type": "integer"]], required: ["names", "count"]),
         fn("set_roles", "One role per player for the chosen game.",
            ["roles": array(object(["player_name": str, "role_name": str, "job": str]))], required: ["roles"]),
-        fn("show_props", "Show 3 to 5 household items that become props. for_player is a player's name or \"all\".",
-           ["props": array(object(["household_item": str, "becomes": str, "for_player": str, "safe": ["type": "boolean"]]))],
+        fn("show_props", "Show 3 to 5 household items that become props. item_id MUST come from the list. "
+           + "alternates: 1 or 2 other list IDs that could become the same thing if the kids don't have it. "
+           + "for_player is a player's name or \"all\".",
+           ["props": array(object(["item_id": propID, "becomes": str, "for_player": str, "alternates": array(propID)]))],
            required: ["props"]),
+        fn("swap_prop", "The kids don't have a prop: replace it with another list item that becomes the same (or a new) thing.",
+           ["old_id": str, "new_id": propID, "becomes": str], required: ["old_id", "new_id", "becomes"]),
+        fn("skip_prop", "The kids don't have a prop and will just pretend it. It stays on screen as a pretend prop.",
+           ["id": str], required: ["id"]),
         fn("finish_planning", "Planning is done; the app makes the printable kit now.", [:], required: [])
     ] }
 
@@ -180,16 +189,20 @@ public enum PlanningCall: Equatable, Sendable {
     public struct RoleDraft: Equatable, Sendable { public var playerName: String; public var roleName: String; public var job: String
         public init(playerName: String, roleName: String, job: String) { self.playerName = playerName; self.roleName = roleName; self.job = job } }
     public struct PropDraft: Equatable, Sendable {
-        public var householdItem: String; public var becomes: String; public var forPlayer: String; public var safe: Bool
-        public init(householdItem: String, becomes: String, forPlayer: String, safe: Bool) {
-            self.householdItem = householdItem; self.becomes = becomes; self.forPlayer = forPlayer; self.safe = safe
+        /// A PropLibrary ID, or free text when the model went off the list (fallback: generated art).
+        public var itemID: String; public var becomes: String; public var forPlayer: String; public var alternates: [String]
+        public init(itemID: String, becomes: String, forPlayer: String, alternates: [String] = []) {
+            self.itemID = itemID; self.becomes = becomes; self.forPlayer = forPlayer; self.alternates = alternates
         }
+        public var inLibrary: Bool { PropLibrary.contains(itemID) }
     }
     case showGameIdeas([GameIdea])
     case setGame(String)
     case setPlayers(names: [String], count: Int)
     case setRoles([RoleDraft])
     case showProps([PropDraft])
+    case swapProp(oldID: String, newID: String, becomes: String)
+    case skipProp(String)
     case finishPlanning
 
     public static func decode(name: String, arguments: String) -> PlanningCall? {
@@ -214,10 +227,16 @@ public enum PlanningCall: Equatable, Sendable {
             return roles.isEmpty ? nil : .setRoles(roles)
         case "show_props":
             let props = list("props").map {
-                PropDraft(householdItem: s($0, "household_item"), becomes: s($0, "becomes"),
-                          forPlayer: s($0, "for_player"), safe: $0["safe"] as? Bool ?? true)
-            }.filter { !$0.householdItem.isEmpty }
+                PropDraft(itemID: s($0, "item_id").isEmpty ? s($0, "household_item") : s($0, "item_id"), becomes: s($0, "becomes"),
+                          forPlayer: s($0, "for_player"),
+                          alternates: ($0["alternates"] as? [String] ?? []).filter(PropLibrary.contains).prefix(2).map { $0 })
+            }.filter { !$0.itemID.isEmpty }
             return props.isEmpty ? nil : .showProps(props)
+        case "swap_prop":
+            let old = s(a, "old_id"), new = s(a, "new_id")
+            return old.isEmpty || new.isEmpty ? nil : .swapProp(oldID: old, newID: new, becomes: s(a, "becomes"))
+        case "skip_prop":
+            let id = s(a, "id"); return id.isEmpty ? nil : .skipProp(id)
         case "finish_planning": return .finishPlanning
         default: return nil
         }
