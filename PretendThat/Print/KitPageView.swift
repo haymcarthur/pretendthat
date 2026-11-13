@@ -6,15 +6,52 @@ import NutmegCore
 struct KitPageView: View {
     let page: KitPage
     var art: UIImage? = nil
+    /// Cut-outs page: one image per cut-out (checklist-pictures.md), tiled 2×4 under the title.
+    var cutouts: [UIImage?] = []
 
     static let size = CGSize(width: 612, height: 792)
     private let margin: CGFloat = 24
 
-    var body: some View {
+    @ViewBuilder var body: some View {
+        if page.item.recipe == .cutouts, cutouts.contains(where: { $0 != nil }) {
+            cutoutSheet
+        } else {
+            cards
+        }
+    }
+
+    /// Title, then each cut-out in its own cell (dashed cut lines), like tickets.
+    private var cutoutSheet: some View {
+        let labels = KitLayout.printedLines(for: page.item)
+        let cols = 2, rows = max(1, Int(ceil(Double(cutouts.count) / 2)))
+        let top: CGFloat = 96
+        let cellW = (Self.size.width - margin * 2) / CGFloat(cols)
+        let cellH = (Self.size.height - margin - top) / CGFloat(rows)
+        return ZStack(alignment: .topLeading) {
+            Theme.printPaper
+            Text(page.item.title).font(Theme.printFont(40)).foregroundStyle(Theme.printInk)
+                .lineLimit(1).minimumScaleFactor(0.5)
+                .frame(width: Self.size.width - margin * 2, height: top - margin)
+                .offset(x: margin, y: margin)
+            ForEach(Array(cutouts.enumerated()), id: \.offset) { i, img in
+                Group {
+                    if let img { Image(uiImage: img).resizable().scaledToFit().padding(10) }
+                    else { Text(labels.indices.contains(i) ? labels[i] : "").font(Theme.printFont(22)).foregroundStyle(Theme.printInk) }
+                }
+                .frame(width: cellW, height: cellH)
+                .overlay(Rectangle().strokeBorder(Theme.printInk.opacity(0.6), style: StrokeStyle(lineWidth: 1, dash: [6, 5])))
+                .offset(x: margin + CGFloat(i % cols) * cellW, y: top + CGFloat(i / cols) * cellH)
+            }
+        }
+        .frame(width: Self.size.width, height: Self.size.height)
+        .environment(\.colorScheme, .light)
+    }
+
+    private var cards: some View {
         let grid = KitLayout.grid(for: page.item.size)
         let cellW = (Self.size.width - margin * 2) / CGFloat(grid.columns)
         let cellH = (Self.size.height - margin * 2) / CGFloat(grid.rows)
-        ZStack(alignment: .topLeading) {
+        return ZStack(alignment: .topLeading) {
             Theme.printPaper
             ForEach(Array(page.slots.enumerated()), id: \.offset) { i, slot in
                 KitCardView(item: page.item, slot: slot, art: art, fullPage: page.item.size == .fullPage)

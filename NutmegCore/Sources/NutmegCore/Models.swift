@@ -46,8 +46,14 @@ public enum KitRecipe: String, Codable, Sendable, CaseIterable {
 public enum KitSize: String, Codable, Sendable { case ticket, badge, bill, keycard, fullPage }
 
 public struct GameIdea: Codable, Equatable, Sendable, Identifiable {
+    /// `emoji` is legacy and never shown (checklist-pictures.md: no emoji); the schema no longer asks for it.
     public var id: String; public var title: String; public var emoji: String; public var pitch: String
-    public init(id: String, title: String, emoji: String, pitch: String) { self.id = id; self.title = title; self.emoji = emoji; self.pitch = pitch }
+    public init(id: String, title: String, emoji: String = "", pitch: String) { self.id = id; self.title = title; self.emoji = emoji; self.pitch = pitch }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id); title = try c.decode(String.self, forKey: .title)
+        emoji = try c.decodeIfPresent(String.self, forKey: .emoji) ?? ""; pitch = try c.decode(String.self, forKey: .pitch)
+    }
 }
 public struct GameIdeas: Codable, Equatable, Sendable {
     public var nutmegSays: String; public var ideas: [GameIdea]
@@ -64,7 +70,7 @@ public struct Role: Codable, Equatable, Sendable, Identifiable {
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(RoleID.self, forKey: .id); roleName = try c.decode(String.self, forKey: .roleName)
-        emoji = try c.decode(String.self, forKey: .emoji); symbol = try c.decode(String.self, forKey: .symbol)
+        emoji = try c.decodeIfPresent(String.self, forKey: .emoji) ?? ""; symbol = try c.decodeIfPresent(String.self, forKey: .symbol) ?? "star"
         job = try c.decode(String.self, forKey: .job); count = max(1, try c.decodeIfPresent(Int.self, forKey: .count) ?? 1)
     }
     /// "the Captain" / "a Passenger" (hand-off lines).
@@ -72,16 +78,24 @@ public struct Role: Codable, Equatable, Sendable, Identifiable {
 }
 public struct GamePlan: Codable, Equatable, Sendable {
     public var gameTitle: String; public var gameEmoji: String; public var setting: String; public var roles: [Role]; public var nutmegSays: String
-    public init(gameTitle: String, gameEmoji: String, setting: String, roles: [Role], nutmegSays: String) {
+    public init(gameTitle: String, gameEmoji: String = "", setting: String, roles: [Role], nutmegSays: String) {
         self.gameTitle = gameTitle; self.gameEmoji = gameEmoji; self.setting = setting; self.roles = roles; self.nutmegSays = nutmegSays
+    }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        gameTitle = try c.decode(String.self, forKey: .gameTitle); gameEmoji = try c.decodeIfPresent(String.self, forKey: .gameEmoji) ?? ""
+        setting = try c.decode(String.self, forKey: .setting); roles = try c.decode([Role].self, forKey: .roles)
+        nutmegSays = try c.decode(String.self, forKey: .nutmegSays)
     }
     public func role(for id: RoleID) -> Role? { roles.first { $0.id == id } }
     /// Kids covered by the roles (badges printed).
     public var kidCount: Int { roles.map(\.count).reduce(0, +) }
 }
 
+/// A household prop. Props always come from the library (checklist-pictures.md): `id`/`libraryID` is a PropLibrary id
+/// and the card shows its hand-drawn art; `emoji` is legacy and never shown.
 public struct Prop: Codable, Equatable, Sendable, Identifiable {
-    public var id: String; public var householdItem: String; public var becomes: String; public var emoji: String
+    public var id: String; public var householdItem: String; public var becomes: String; public var emoji: String?
     public var forRole: SceneOwner; public var safetyOK: Bool
     /// Voice conversation only: the PropLibrary ID (nil = free text, generated art), 1–2 ready alternates,
     /// and "we'll pretend" when the kids skip it (props never block progress).
@@ -89,7 +103,7 @@ public struct Prop: Codable, Equatable, Sendable, Identifiable {
     public var alternates: [String]?
     public var skipped: Bool?
     public var swapped: Bool?
-    public init(id: String, householdItem: String, becomes: String, emoji: String, forRole: SceneOwner, safetyOK: Bool,
+    public init(id: String, householdItem: String, becomes: String, emoji: String? = nil, forRole: SceneOwner, safetyOK: Bool,
                 libraryID: String? = nil, alternates: [String]? = nil, skipped: Bool? = nil) {
         self.id = id; self.householdItem = householdItem; self.becomes = becomes; self.emoji = emoji; self.forRole = forRole; self.safetyOK = safetyOK
         self.libraryID = libraryID; self.alternates = alternates; self.skipped = skipped
@@ -117,14 +131,25 @@ public struct KitItem: Codable, Equatable, Sendable, Identifiable {
         try c.encode(copies, forKey: .copies); try c.encode(colorMe, forKey: .colorMe)
     }
 }
+/// One checklist step: short text plus exactly ONE picture (prop, action or kit item; checklist-pictures.md).
 public struct Step: Codable, Equatable, Sendable {
-    public var emoji: String; public var text: String
-    public init(emoji: String, text: String) { self.emoji = emoji; self.text = text }
+    public var picture: Picture; public var text: String
+    public init(picture: Picture, text: String) { self.picture = picture; self.text = text }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        picture = try c.decodeIfPresent(Picture.self, forKey: .picture) ?? .point; text = try c.decode(String.self, forKey: .text)
+    }
 }
 public struct Scene: Codable, Equatable, Sendable, Identifiable {
-    public var id: String; public var owner: SceneOwner; public var title: String; public var emoji: String; public var nutmegSays: String; public var steps: [Step]
-    public init(id: String, owner: SceneOwner, title: String, emoji: String, nutmegSays: String, steps: [Step]) {
-        self.id = id; self.owner = owner; self.title = title; self.emoji = emoji; self.nutmegSays = nutmegSays; self.steps = steps
+    public var id: String; public var owner: SceneOwner; public var title: String; public var picture: Picture; public var nutmegSays: String; public var steps: [Step]
+    public init(id: String, owner: SceneOwner, title: String, picture: Picture, nutmegSays: String, steps: [Step]) {
+        self.id = id; self.owner = owner; self.title = title; self.picture = picture; self.nutmegSays = nutmegSays; self.steps = steps
+    }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id); owner = try c.decode(SceneOwner.self, forKey: .owner)
+        title = try c.decode(String.self, forKey: .title); picture = try c.decodeIfPresent(Picture.self, forKey: .picture) ?? .point
+        nutmegSays = try c.decode(String.self, forKey: .nutmegSays); steps = try c.decode([Step].self, forKey: .steps)
     }
 }
 public struct Kit: Codable, Equatable, Sendable {
@@ -134,7 +159,12 @@ public struct Kit: Codable, Equatable, Sendable {
 
 public struct Choice: Codable, Equatable, Sendable, Identifiable {
     public var id: String; public var label: String; public var emoji: String
-    public init(id: String, label: String, emoji: String) { self.id = id; self.label = label; self.emoji = emoji }
+    public init(id: String, label: String, emoji: String = "") { self.id = id; self.label = label; self.emoji = emoji }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id); label = try c.decode(String.self, forKey: .label)
+        emoji = try c.decodeIfPresent(String.self, forKey: .emoji) ?? ""
+    }
 }
 public struct NutmegTurn: Codable, Equatable, Sendable {
     public var nutmegSays: String; public var choices: [Choice]; public var understood: Bool

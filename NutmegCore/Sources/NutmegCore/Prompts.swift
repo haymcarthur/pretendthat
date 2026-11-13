@@ -25,10 +25,13 @@ public enum Prompts {
 
     Limits: game ideas exactly 3; props 3 to 5; the kit is always the same 6 item types (badges, sign, money, tickets, menu, cutouts), at most 7 printed pages; \
     scenes 4 to 6; checklist steps 3 to 5 per scene, each step a short action a kid can do; choices 2 to 4. \
-    Use emoji for every idea, role, prop, scene, step and choice. Kids read the emoji before the words, so each \
-    emoji must picture the main object or action named in its OWN text, never another item from the game: \
-    "Put the blanket on the table" → 🛏️ (the blanket), not 🪑; "Hold the steering wheel" → 🛞; "Count down from 5" → 🔢. \
-    A prop's emoji shows the household item to find (pillows → 🛋️, a plastic plate → 🍽️), not what it becomes. Symbols must be simple SF Symbols such as \
+    Never use emoji anywhere. Props always come from the household-prop list (their id is the list id). \
+    Kids read pictures before words: every checklist step and scene title gets exactly ONE picture showing the main \
+    object or action in its OWN text: kind "kit" when the step hands out or uses a printed item of this kit \
+    (ticket, money, menu, sign, badge:R1..R4 for a role's badge, cutout:N for the Nth cut-out, e.g. "Hand out the \
+    pancakes" → kit cutout:0 if cut-out 0 is a pancake); kind "prop" for a household prop from the list ("Put the \
+    plate on the tray" → prop plate); otherwise kind "action" (wave, clap, point, listen, look, count, give, knock, \
+    write, stir, brush, wash, ring-bell, stamp, measure, cheer). Symbols must be simple SF Symbols such as \
     airplane, ticket, fork.knife, pawprint, star, heart, crown, key, cart, gift, house, car, fish, leaf, sun.max, \
     music.note, book, map, trophy, stethoscope, cup.and.saucer, banknote, dollarsign.circle, bed.double, rocket.
     """
@@ -54,7 +57,7 @@ public enum Prompts {
     }
 
     public static func props(ctx: AdventureContext) -> String {
-        "Phase: props hunt. Suggest 3 to 5 safe household items that become props for this game. Keep them short for a small card: householdItem 1 to 3 words (\"Pillows\", \"Plastic cups\"), becomes 2 to 4 words (\"Cozy café seats\"). Return Props.\n\(contextJSON(ctx))"
+        "Phase: props hunt. Pick 3 to 5 different household items from the prop list (id) that become props for this game. householdItem is the item's name; becomes is 2 to 4 words (\"Cozy café seats\"). Return Props.\n\(contextJSON(ctx))"
     }
 
     public static func kit(ctx: AdventureContext) -> String {
@@ -64,7 +67,8 @@ public enum Prompts {
         you choose the titles, wording, numbers and what goes on each, themed to THIS game):
         \(recipe)
         Never put names or name placeholders anywhere: the app prints each badge's role title and a blank "Name: ____" line on badges and tickets for kids to write on. Keep wording short (lines 1 to 5 words each).
-        Then write 4 to 6 scenes for the play guide (never fewer than 4), each with 3 to 5 steps. Each scene belongs to the role id that leads it (owner) or "all"; call kids by their role ("Captain, check the plane!"). \
+        The cutouts item's lines are the 6 to 8 cut-out items (each is drawn as its own picture), so steps can point at one (cutout:N). \
+        Then write 4 to 6 scenes for the play guide (never fewer than 4), each with 3 to 5 steps, each step and scene with ONE picture. Each scene belongs to the role id that leads it (owner) or "all"; call kids by their role ("Captain, check the plane!"). \
         Return Kit.
         \(contextJSON(ctx))
         """

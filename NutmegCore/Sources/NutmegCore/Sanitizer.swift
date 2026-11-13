@@ -21,7 +21,7 @@ public enum Sanitizer {
         }
         k.scenes = Array(k.scenes.prefix(Limits.scenesMax)).map { scene in
             var s = scene
-            s.steps = Array(s.steps.prefix(Limits.stepsMax)).map { Step(emoji: EmojiMatch.fix($0.emoji, for: $0.text), text: $0.text) }
+            s.steps = Array(s.steps.prefix(Limits.stepsMax))
             s.owner = allowed(s.owner, roleCount: roleCount)
             return s
         }
@@ -62,10 +62,13 @@ public enum Sanitizer {
 
     public static func clean(_ p: Props) -> Props {
         var p = p
-        p.props = Array(p.props.filter(\.safetyOK).prefix(Limits.propsMax)).map { prop in
+        // Props come from the library only (checklist-pictures.md): off-list items are dropped, never shown as emoji.
+        var seen = Set<String>()
+        p.props = Array(p.props.filter { $0.safetyOK && PropLibrary.contains($0.libraryID ?? $0.id) && seen.insert($0.libraryID ?? $0.id).inserted }
+            .prefix(Limits.propsMax)).map { prop in
             var prop = prop
-            // The card's emoji shows the household item the kid hunts for.
-            prop.emoji = EmojiMatch.fix(prop.emoji, for: prop.householdItem, fallback: EmojiMatch.fix(prop.emoji, for: prop.becomes))
+            let id = prop.libraryID ?? prop.id
+            prop.libraryID = id; prop.householdItem = PropLibrary.name(id) ?? prop.householdItem; prop.emoji = nil
             return prop
         }
         return p

@@ -91,8 +91,8 @@ struct ComponentGallery: View {
                 }
                 section("Motion: bounce, check burst, confetti") {
                     HStack(spacing: Theme.Space.l) {
-                        PTChoiceTile(emoji: "🦕", label: "Tap me", size: Theme.Size.countTile) { bounces += 1 }
-                        PTChecklistRow(emoji: "⭐", text: "Tap to check", isChecked: $checked).frame(width: 320)
+                        PTChoiceTile(label: "Tap me", size: Theme.Size.countTile) { bounces += 1 }
+                        PTChecklistRow(text: "Tap to check", isChecked: $checked) { PTPictureTile(image: UIImage(named: "action-clap"), placeholder: "clap") }.frame(width: 320)
                         Button("Confetti!") { confetti += 1 }.buttonStyle(.ptSecondary)
                     }
                     .overlay { PTConfetti().id(confetti) }
@@ -113,9 +113,9 @@ struct ComponentGallery: View {
                 }
                 section("PTChoiceTile") {
                     HStack(spacing: Theme.Space.m) {
-                        PTChoiceTile(emoji: "✈️", label: "Airplane") {}
-                        PTChoiceTile(emoji: "🍝", label: "Restaurant", isSelected: true) {}
-                        PTChoiceTile(emoji: "🐶", label: "Animal Doctor with a long name") {}
+                        PTChoiceTile(image: UIImage(named: "prop-chair"), label: "Airplane") {}
+                        PTChoiceTile(label: "Restaurant", isSelected: true) {}
+                        PTChoiceTile(label: "Animal Doctor with a long name") {}
                     }
                 }
                 section("PTCountPicker") { PTCountPicker(selected: 3) { _ in } }
@@ -132,10 +132,10 @@ struct ComponentGallery: View {
                     }
                 }
                 section("PTChecklistRow") {
-                    PTChecklistRow(emoji: "🎫", text: "Check each ticket", isChecked: $checked)
-                    PTChecklistRow(emoji: "🪑", text: "Show everyone a seat", isChecked: .constant(true))
+                    PTChecklistRow(text: "Check each ticket", isChecked: $checked) { PTPictureTile(image: nil, placeholder: "Boarding Pass") }
+                    PTChecklistRow(text: "Show everyone a seat", isChecked: .constant(true)) { PTPictureTile(image: UIImage(named: "prop-chair")) }
                 }
-                section("PTHandoffCard") { PTHandoffCard(role: plan.roles[0]) {} }
+                section("PTHandoffCard") { PTHandoffCard(role: plan.roles[0], figure: { Image("nutmeg-body-point").resizable().scaledToFit() }, onTap: {}) }
                 section("PTMicButton (idle / listening / unavailable = type instead)") {
                     HStack(spacing: Theme.Space.l) {
                         PTMicButton(isListening: false, isAvailable: true, onPress: {}, onRelease: {})
@@ -168,7 +168,7 @@ struct ComponentGallery: View {
                     }
                 }
                 section("PTStageHeader / PTCard") {
-                    PTStageHeader(emoji: "🛫", title: "Takeoff!")
+                    PTStageHeader(title: "Takeoff!") { PTPictureTile(image: nil, placeholder: "cheer", size: 72) }
                     PTCard { PTText("A plain card", .body) }
                 }
                 section("Nutmeg: every state") {

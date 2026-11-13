@@ -150,6 +150,30 @@ final class AppModel {
         Task { await voice.say(text) }
     }
 
+    // MARK: Checklist and scene pictures (checklist-pictures.md)
+
+    func resolve(_ picture: Picture) -> ResolvedPicture {
+        PictureResolver.resolve(picture, kit: store.kit, roles: store.plan?.roles ?? [])
+    }
+
+    /// The tile for one picture: library/action art, or this game's own kit art (one ticket, one bill, a role's
+    /// badge with its title, one cut-out). Falls back to a placeholder word while art is missing.
+    func pictureTile(_ picture: Picture, size: CGFloat = 56) -> PTPictureTile {
+        let r = resolve(picture)
+        switch r {
+        case .prop(let id):
+            return PTPictureTile(image: UIImage(named: PropLibrary.asset(id)), placeholder: PropLibrary.name(id) ?? id, size: size)
+        case .action(let id):
+            return PTPictureTile(image: UIImage(named: ActionArt.asset(id)), placeholder: id.replacingOccurrences(of: "-", with: " "), size: size)
+        case .kitItem(let itemID, _, let role):
+            let title = store.kit?.items.first { $0.id == itemID }?.title ?? ""
+            return PTPictureTile(image: art.images[itemID], placeholder: title, roleTitle: role?.roleName,
+                                 roleTint: Theme.playerColor(role?.id.index ?? 0), size: size)
+        case .cutout(let itemID, let index, let label):
+            return PTPictureTile(image: art.cutout(itemID, index), placeholder: label, size: size)
+        }
+    }
+
     var mouthLevel: Float { realtime.isLive ? realtime.level : voice.level }
     var isSpeaking: Bool { realtime.isLive ? realtime.isSpeaking : voice.isSpeaking }
 

@@ -9,22 +9,30 @@ public enum Schemas {
     static func nonEmpty(_ items: [String: Any]) -> [String: Any] { ["type": "array", "items": items, "minItems": 1] }
     static var str: [String: Any] { ["type": "string"] }
     static var bool: [String: Any] { ["type": "boolean"] }
-    /// Emoji field with guidance the model sees in the schema itself.
-    static func emoji(_ of: String) -> [String: Any] { ["type": "string", "description": "One emoji that pictures \(of)."] }
+    /// One picture (checklist-pictures.md): kind + id, both enums. Which ids fit which kind is in the description and
+    /// the prompt; `PictureResolver` falls back to action "point" for a mismatch.
+    static func picture(_ of: String) -> [String: Any] {
+        ["type": "object", "description": "The ONE picture for \(of). kind prop: id is a household-prop library id; "
+            + "kind action: id is an action id; kind kit: id is a printed item of THIS kit (ticket, money, menu, sign, "
+            + "badge:R1..R4 for a role's badge, cutout:N for the Nth line of the cutouts item).",
+         "properties": ["kind": enumStr(PictureKind.allCases.map(\.rawValue)), "id": enumStr(PictureResolver.allIDs)],
+         "required": ["id", "kind"], "additionalProperties": false]
+    }
     static var int: [String: Any] { ["type": "integer"] }
     static func enumStr(_ v: [String]) -> [String: Any] { ["type": "string", "enum": v] }
     static let roleIDs = RoleID.allCases.map(\.rawValue)
 
     public static func gameIdeas() -> [String: Any] {
-        obj(["nutmegSays": str, "ideas": nonEmpty(obj(["id": str, "title": str, "emoji": str, "pitch": str]))])
+        obj(["nutmegSays": str, "ideas": nonEmpty(obj(["id": str, "title": str, "pitch": str]))])
     }
     public static func plan() -> [String: Any] {
-        obj(["gameTitle": str, "gameEmoji": str, "setting": str, "nutmegSays": str,
-             "roles": nonEmpty(obj(["id": enumStr(roleIDs), "roleName": str, "emoji": str, "symbol": str, "job": str,
+        obj(["gameTitle": str, "setting": str, "nutmegSays": str,
+             "roles": nonEmpty(obj(["id": enumStr(roleIDs), "roleName": str, "symbol": str, "job": str,
                                      "count": ["type": "integer", "description": "How many kids play this role (1 unless there are more kids than roles)."]]))])
     }
     public static func props() -> [String: Any] {
-        obj(["nutmegSays": str, "props": nonEmpty(obj(["id": str, "householdItem": str, "becomes": str, "emoji": emoji("the householdItem itself"),
+        // Props always come from the library (id is the library id; the app shows its hand-drawn art).
+        obj(["nutmegSays": str, "props": nonEmpty(obj(["id": enumStr(PropLibrary.ids), "householdItem": str, "becomes": str,
                                                    "forRole": enumStr(roleIDs + ["all"]), "safetyOK": bool]))])
     }
     public static func kit() -> [String: Any] {
@@ -37,10 +45,11 @@ public enum Schemas {
                                "size": enumStr(["ticket", "badge", "bill", "keycard", "fullPage"]),
                                "title": str, "symbol": str, "lines": arr(str), "bigNumber": ["type": ["string", "null"]],
                                "perPlayer": bool, "copies": int, "colorMe": bool])),
-             "scenes": nonEmpty(obj(["id": str, "owner": enumStr(roleIDs + ["all"]), "title": str, "emoji": str, "nutmegSays": str,
-                                "steps": nonEmpty(obj(["emoji": emoji("the main object or action named in this step's text"), "text": str]))]))])
+             "scenes": nonEmpty(obj(["id": str, "owner": enumStr(roleIDs + ["all"]), "title": str,
+                                "picture": picture("the scene title"), "nutmegSays": str,
+                                "steps": nonEmpty(obj(["picture": picture("the main object or action named in this step's text"), "text": str]))]))])
     }
     public static func turn() -> [String: Any] {
-        obj(["nutmegSays": str, "understood": bool, "choices": arr(obj(["id": str, "label": str, "emoji": str]))])
+        obj(["nutmegSays": str, "understood": bool, "choices": arr(obj(["id": str, "label": str]))])
     }
 }

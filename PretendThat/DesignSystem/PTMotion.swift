@@ -100,16 +100,16 @@ struct PTConfetti: View {
         GeometryReader { geo in
             if reduceMotion {
                 ForEach(0..<5, id: \.self) { i in
-                    Image(systemName: "star.fill").font(Theme.displayFont(28))
-                        .foregroundStyle([Theme.yellow, Theme.coral, Theme.lime][i % 3])
+                    Image(i % 2 == 0 ? "stage-star" : "stage-sparkle").resizable().scaledToFit().frame(width: 32, height: 32)
                         .position(x: geo.size.width * (0.15 + 0.17 * Double(i)), y: geo.size.height * 0.12)
                 }
             } else {
                 TimelineView(.animation) { ctx in
                     let t = ctx.date.timeIntervalSince(start)
+                    // Haylee's stage-star / stage-sparkle art, not SF Symbols or plain chips (checklist-pictures.md).
                     Canvas { gc, size in
                         guard t < duration else { return }
-                        let colors: [Color] = [Theme.coral, Theme.yellow, Theme.lime, Theme.purple, Theme.cream]
+                        let art = [gc.resolve(Image("stage-star")), gc.resolve(Image("stage-sparkle"))]
                         for i in 0..<pieces {
                             let seed = Double(i) * 12.9898
                             let r1 = abs(sin(seed) * 43758.5453).truncatingRemainder(dividingBy: 1)
@@ -125,8 +125,8 @@ struct PTConfetti: View {
                             piece.opacity = fade
                             piece.translateBy(x: x, y: y)
                             piece.rotate(by: .radians(t * (4 + r2 * 6) + seed))
-                            let rect = CGRect(x: -7, y: -4, width: 14, height: 8)
-                            piece.fill(Path(roundedRect: rect, cornerRadius: 3), with: .color(colors[i % colors.count]))
+                            let side: CGFloat = i % 2 == 0 ? 22 : 16
+                            piece.draw(art[i % 2], in: CGRect(x: -side / 2, y: -side / 2, width: side, height: side))
                         }
                     }
                 }

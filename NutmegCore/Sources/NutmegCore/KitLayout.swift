@@ -142,6 +142,23 @@ public enum KitArtPrompt {
         return p
     }
 
+    /// One cut-out on its own (checklist-pictures.md): the cut-outs page is generated as one image per item so each
+    /// food/tool item can also be a checklist picture; the app tiles them onto the printed page.
+    public static func cutoutPrompt(_ label: String, gameTitle: String) -> String {
+        """
+        Coloring-page line art for a kids' pretend-play game called "\(gameTitle)". Draw ONE cut-out prop: \(label). \
+        A single simple object, centered, filling most of the square, with a thick cut-around outline and white space \
+        around it. Black and white only, thick clean outlines, no shading, no gray fills, plain white background, \
+        friendly and simple, easy for a 5-year-old to color and cut out. No words, letters or numbers. No real brands, \
+        no logos, nothing scary.
+        """
+    }
+
+    /// The cut-out items of a kit (the cutouts item's lines, 6 to 8).
+    public static func cutoutLabels(_ item: KitItem) -> [String] {
+        item.recipe == .cutouts ? Array(item.lines.prefix(PictureResolver.maxCutouts)) : []
+    }
+
     /// Image size to request per item shape.
     public static func size(for item: KitItem) -> String {
         switch item.size {

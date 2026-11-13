@@ -46,8 +46,9 @@ private struct BubbleTail: View {
 }
 
 /// A big picture choice. Tap chooses; long-press reads it aloud.
+/// A big tap tile. Text only (checklist-pictures.md: no emoji stand-ins); an optional picture sits above the label.
 struct PTChoiceTile: View {
-    let emoji: String
+    var image: UIImage? = nil
     let label: String
     var isSelected = false
     var tint: Color = Theme.surface
@@ -60,8 +61,11 @@ struct PTChoiceTile: View {
             picks += 1
             action()
         } label: {
-            Label { Text(label) } icon: { Text(emoji) }
-                .labelStyle(PTEmojiLabelStyle(emojiSize: size * 0.36))
+            VStack(spacing: Theme.Space.s) {
+                if let image { Image(uiImage: image).resizable().scaledToFit().frame(height: size * 0.4) }
+                Text(label).font(Theme.headlineFont(image == nil ? Theme.TextSize.title : Theme.TextSize.body)).foregroundStyle(Theme.ink)
+                    .multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.6)
+            }
                 .frame(width: size - Theme.Space.m * 2, height: size - Theme.Space.m * 2)
                 .ptCard(fill: isSelected ? Theme.accent : tint, edge: isSelected ? Theme.yellowShade : nil)
         }
@@ -93,22 +97,15 @@ struct PTRoleBadge: View {
 
     var body: some View {
         let color = role.id.index
+        // The role title in the role color: no emoji or symbol stand-ins (checklist-pictures.md).
         let content = VStack(spacing: Theme.Space.xs) {
-            ZStack {
-                Circle().fill(Theme.playerShade(color)).offset(y: Theme.cardDepth)
-                Circle().fill(Theme.playerColor(color))
-                Circle().strokeBorder(Theme.white.opacity(0.9), lineWidth: Theme.borderWidth * 2).padding(Theme.borderWidth)
-                if role.emoji.isEmpty {
-                    Image(systemName: role.symbol).font(Theme.displayFont(size * 0.4)).foregroundStyle(Theme.white)
-                } else {
-                    Text(role.emoji).font(Theme.emojiFont(size * 0.45))
-                    Image(systemName: role.symbol).font(Theme.displayFont(size * 0.15)).foregroundStyle(Theme.playerColor(color))
-                        .padding(size * 0.06).background(Circle().fill(Theme.white))
-                        .offset(x: size * 0.32, y: size * 0.32)
-                }
-            }
-            .frame(width: size, height: size)
-            PTText(role.roleName, .headline).multilineTextAlignment(.center)
+            Text(role.roleName)
+                .font(Theme.headlineFont(size * 0.22)).foregroundStyle(Theme.white)
+                .multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.6)
+                .padding(.horizontal, size * 0.18).padding(.vertical, size * 0.1)
+                .frame(minWidth: size * 1.2, minHeight: size * 0.5)
+                .background(Capsule().fill(Theme.playerShade(color)).offset(y: Theme.cardDepth))
+                .background(Capsule().fill(Theme.playerColor(color)))
             if role.count > 1 { PTText("×\(role.count)", .caption, tone: .muted) }
         }
         Group {
@@ -120,15 +117,20 @@ struct PTRoleBadge: View {
 }
 
 /// One checklist step: emoji + short text + a big check. Long-press hears it.
-struct PTChecklistRow: View {
-    let emoji: String
+struct PTChecklistRow<Picture: View>: View {
     let text: String
     @Binding var isChecked: Bool
+    /// Exactly one picture (prop, action or kit art; PTPictureTile).
+    @ViewBuilder var picture: Picture
 
     var body: some View {
         Toggle(isOn: $isChecked) {
-            Label { Text(text).strikethrough(isChecked, color: Theme.inkMuted) } icon: { Text(emoji) }
-                .labelStyle(.ptRow)
+            HStack(spacing: Theme.Space.m) {
+                picture
+                Text(text).strikethrough(isChecked, color: Theme.inkMuted)
+                    .font(Theme.bodyFont(Theme.TextSize.body)).foregroundStyle(Theme.ink).multilineTextAlignment(.leading)
+                Spacer(minLength: 0)
+            }
         }
         .toggleStyle(.ptCheck)
         .ptCard(fill: isChecked ? Theme.limeTint : Theme.white,
@@ -147,7 +149,10 @@ struct PTPropCard: View {
         Toggle(isOn: $found) {
             // Compact so two rows of 2-line cards still leave room for the bottom controls.
             VStack(spacing: Theme.Space.xs) {
-                PTText(prop.emoji, .emoji(48))
+                // Library art only (props come from the library; never an emoji).
+                if let id = prop.libraryID, let art = UIImage(named: PropLibrary.asset(id)) {
+                    Image(uiImage: art).resizable().scaledToFit().frame(height: 64)
+                }
                 PTText(prop.householdItem, .headline).lineLimit(2).minimumScaleFactor(0.7)
                     .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
                 Label { Text(prop.becomes) } icon: { Image(systemName: "arrow.right") }
@@ -165,9 +170,11 @@ struct PTPropCard: View {
     }
 }
 
-/// "Pass the tablet to the Captain!" card with the role's badge to tap.
-struct PTHandoffCard: View {
+/// "Pass the tablet to the Captain!" card: Nutmeg (point pose, passed in) and the role title in the role color to tap.
+/// No role emoji or symbol (checklist-pictures.md).
+struct PTHandoffCard<Figure: View>: View {
     let role: Role
+    @ViewBuilder var figure: Figure
     let onTap: () -> Void
     @State private var shown = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -175,6 +182,7 @@ struct PTHandoffCard: View {
     var body: some View {
         VStack(spacing: Theme.Space.l) {
             PTText("Pass the tablet to \(role.spoken)!", .headline, tone: .muted)
+            figure.frame(height: 200)
             PTRoleBadge(role: role, size: Theme.Size.badge * 1.6, onTap: onTap)
                 .ptBounce(trigger: shown)
             PTText("Tap your badge!", .headline)
@@ -398,13 +406,12 @@ struct PTStageLayout<Nutmeg: View, Stage: View, Bottom: View>: View {
 
 /// A row of big count buttons (1 2 3 4 5+).
 struct PTCountPicker: View {
-    static let emoji = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣"]
     let selected: Int?
     let onPick: (Int) -> Void
     var body: some View {
         HStack(spacing: Theme.Space.m) {
             ForEach(1...6, id: \.self) { n in
-                PTChoiceTile(emoji: Self.emoji[n - 1], label: n == 6 ? "6 or more" : "\(n)",
+                PTChoiceTile(label: n == 6 ? "6+" : "\(n)",
                              isSelected: selected == n, size: Theme.Size.countTile) { onPick(n) }
             }
         }
@@ -426,12 +433,12 @@ struct PTWorkingIndicator: View {
 }
 
 /// Stage title row: big emoji + title.
-struct PTStageHeader: View {
-    let emoji: String
+struct PTStageHeader<Picture: View>: View {
     let title: String
+    @ViewBuilder var picture: Picture
     var body: some View {
         HStack(spacing: Theme.Space.m) {
-            PTText(emoji, .emoji(56))
+            picture
             PTText(title, .title)
         }
         .accessibilityElement(children: .combine)

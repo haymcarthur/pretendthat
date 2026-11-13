@@ -226,3 +226,10 @@ See `thinking/decisions/roles-not-names.md`.
 - **Badges:** one per kid, grouped by role, printed with the role title and a blank "Name: ________" line; kids pick their badge after printing. Same shared badge art; the app overlays the text.
 - **Tickets and passes** get a blank name line. **Hand-offs** say "Pass the tablet to the Captain!" in the role color. Scene ownership and checklists are per role.
 - `{P1}` tokens and the substitution code are gone; role ids `R1`…`R4` replace them in the Claude schemas (`Role.id`, `Scene.owner`, `Prop.forRole`).
+
+## 13. Checklist and scene pictures, no emoji (Haylee, 2026-11-13)
+
+See `thinking/decisions/checklist-pictures.md`. Supersedes every "emoji" field above (ideas, roles, props, scenes, steps, choices).
+- Each step and scene title has ONE `picture: {kind: prop|action|kit, id}`: household-prop art, Haylee's 16 action drawings, or this game's own kit art (`kit:ticket`, `kit:money`, `kit:badge:R1`, `kit:menu`, `kit:sign`, `kit:cutout:N`). Unresolvable → `action-point`.
+- The cut-outs page is generated as one image per cut-out and tiled by the app, so each cut-out can be a checklist picture.
+- Props come only from the library (no off-list props, no emoji). Confetti uses stage-star/stage-sparkle art; the hand-off card is Nutmeg pointing plus the role title in the role color.

@@ -67,14 +67,13 @@ import Testing
                                       .init(itemID: "kitchen knife", becomes: "Sword", forRole: "all"),
                                       .init(itemID: "tray", becomes: "Feeding tray", forRole: "all"),
                                       .init(itemID: "paper crown", becomes: "Lion crown", forRole: "all")]))
-    #expect(store.props?.props.map(\.householdItem) == ["Pillow", "Tray", "paper crown"])   // unsafe off-list item dropped
+    #expect(store.props?.props.map(\.householdItem) == ["Pillow", "Tray"])   // off-list items (unsafe or not) dropped
     #expect(store.props?.props.first?.forRole == .R2)
     #expect(store.props?.props.first?.libraryID == "pillow")
-    #expect(store.props?.props.last?.libraryID == nil)          // off-list: generated art fallback
     _ = await store.apply(.swapProp(oldID: "tray", newID: "books", becomes: "Snack tray"))
     #expect(store.props?.props[1].id == "tray" && store.props?.props[1].libraryID == "books" && store.props?.props[1].becomes == "Snack tray")
     _ = await store.apply(.skipProp("pillow"))
-    #expect(store.props?.props.first?.isSkipped == true && store.props?.props.count == 3)   // stays on screen
+    #expect(store.props?.props.first?.isSkipped == true && store.props?.props.count == 2)   // stays on screen
     _ = await store.apply(.finishPlanning)
     for _ in 0..<50 where store.phase != .kitReady { try? await Task.sleep(for: .milliseconds(20)) }
     #expect(store.phase == .kitReady)

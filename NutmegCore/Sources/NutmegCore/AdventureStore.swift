@@ -269,14 +269,15 @@ public final class AdventureStore {
         case .showProps(let drafts):
             var used = Set<String>()
             let list: [Prop] = drafts.enumerated().compactMap { i, d in
-                if !d.inLibrary && PropLibrary.looksUnsafe(d.itemID) { return nil }
+                // Props come from the library only (checklist-pictures.md): off-list suggestions are dropped.
+                guard d.inLibrary else { return nil }
                 let owner = plan?.roles.first { $0.roleName.localizedCaseInsensitiveCompare(d.forRole) == .orderedSame }
                     .map { SceneOwner(rawValue: $0.id.rawValue) ?? .all } ?? .all
                 var id = d.inLibrary ? d.itemID : "custom\(i)"
                 if used.contains(id) { id += "-\(i)" }
                 used.insert(id)
                 return Prop(id: id, householdItem: PropLibrary.name(d.itemID) ?? d.itemID, becomes: d.becomes,
-                            emoji: "", forRole: owner, safetyOK: true,
+                            forRole: owner, safetyOK: true,
                             libraryID: d.inLibrary ? d.itemID : nil, alternates: d.alternates, skipped: false)
             }
             props = Props(nutmegSays: "", props: Array(list.prefix(Sanitizer.Limits.propsMax))); foundProps = []

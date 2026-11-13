@@ -24,7 +24,7 @@ struct PickGameView: View {
             if let ideas = model.store.ideas {
                 HStack(spacing: Theme.Space.m) {
                     ForEach(Array(ideas.ideas.enumerated()), id: \.element.id) { i, idea in
-                        PTChoiceTile(emoji: idea.emoji, label: idea.title) {
+                        PTChoiceTile(label: idea.title) {
                             Task { await model.store.chooseGame(idea.title) }
                         }
                         .ptPopIn(index: i)

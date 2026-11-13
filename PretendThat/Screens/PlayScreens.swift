@@ -8,7 +8,9 @@ struct HandoffView: View {
 
     var body: some View {
         if let id = store.kit?.scenes[sceneIndex].owner.role, let role = store.plan?.role(for: id) {
-            PTHandoffCard(role: role) { store.badgeTapped(id) }
+            PTHandoffCard(role: role, figure: {
+                NutmegCharacter(state: .idle, forcedPose: .point)
+            }, onTap: { store.badgeTapped(id) })
                 .id(sceneIndex)
         }
     }
@@ -32,10 +34,12 @@ struct SceneView: View {
                                   onLanded: { model.gesture(.celebrate) }) { _ in
                         ScrollView {
                             VStack(spacing: Theme.Space.s) {
-                                PTStageHeader(emoji: scene.emoji, title: scene.title)
+                                PTStageHeader(title: scene.title) { model.pictureTile(scene.picture, size: 72) }
                                 ForEach(Array(scene.steps.enumerated()), id: \.offset) { i, step in
-                                    PTChecklistRow(emoji: step.emoji, text: step.text, isChecked: Binding(
-                                        get: { store.checkedSteps.contains(i) }, set: { _ in store.toggleStep(i) }))
+                                    PTChecklistRow(text: step.text, isChecked: Binding(
+                                        get: { store.checkedSteps.contains(i) }, set: { _ in store.toggleStep(i) })) {
+                                        model.pictureTile(step.picture)
+                                    }
                                 }
                             }
                             .padding(Theme.Space.m)
@@ -77,7 +81,7 @@ struct EndView: View {
     let model: AppModel
     var body: some View {
         VStack(spacing: Theme.Space.l) {
-            PTText("🎉 The End! 🎉", .hero)
+            PTText("The End!", .hero)
             PTSpeechBubble(text: model.store.nutmegLine)
             HStack(spacing: Theme.Space.l) {
                 Button { model.store.playAgain() } label: { Label("Play again", systemImage: "arrow.counterclockwise") }

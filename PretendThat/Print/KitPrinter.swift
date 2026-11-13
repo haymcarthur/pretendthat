@@ -5,13 +5,13 @@ import NutmegCore
 /// Turns kit pages into one PDF and hands it to AirPrint.
 enum KitPrinter {
     @MainActor
-    static func pdf(pages: [KitPage], art: [String: UIImage]) -> Data {
+    static func pdf(pages: [KitPage], art: [String: UIImage], cutouts: [String: [UIImage?]] = [:]) -> Data {
         let data = NSMutableData()
         var box = CGRect(origin: .zero, size: KitPageView.size)
         guard let consumer = CGDataConsumer(data: data as CFMutableData),
               let ctx = CGContext(consumer: consumer, mediaBox: &box, nil) else { return Data() }
         for page in pages {
-            let renderer = ImageRenderer(content: KitPageView(page: page, art: art[page.item.id]))
+            let renderer = ImageRenderer(content: KitPageView(page: page, art: art[page.item.id], cutouts: cutouts[page.item.id] ?? []))
             renderer.render { _, draw in
                 ctx.beginPDFPage(nil)
                 draw(ctx)
