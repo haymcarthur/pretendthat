@@ -22,6 +22,19 @@ public enum KitLayout {
         public var capacity: Int { columns * rows }
     }
 
+    /// Per-copy big number: per-player seats count up (1A, 1B, 1C…); shared items keep theirs.
+    public static func bigNumber(for item: KitItem, slot: KitSlot) -> String? {
+        guard let n = item.bigNumber, !n.isEmpty else { return nil }
+        guard item.perPlayer, let last = n.unicodeScalars.last, CharacterSet.uppercaseLetters.contains(last),
+              let base = UnicodeScalar(last.value + UInt32(slot.index)), base.value <= 90 else { return n }
+        return String(n.dropLast()) + String(Character(base))
+    }
+
+    /// Lines printed on a card. Lines with a player token are dropped: the name banner already shows the name.
+    public static func printedLines(for item: KitItem) -> [String] {
+        item.lines.filter { !$0.contains("{P") }
+    }
+
     public static func grid(for size: KitSize) -> Grid {
         switch size {
         case .ticket, .bill, .keycard: Grid(columns: 2, rows: 4)

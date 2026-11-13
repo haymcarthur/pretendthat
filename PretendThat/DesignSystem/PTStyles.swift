@@ -104,25 +104,37 @@ extension ProgressViewStyle where Self == PTDotsProgressStyle { static var ptDot
 
 /// Native Toggle as a big round check bubble (props found, checklist steps).
 struct PTCheckToggleStyle: ToggleStyle {
+    /// Corner = check bubble overlaid top-trailing (cards); otherwise trailing in a row.
+    var corner = false
     func makeBody(configuration: Configuration) -> some View {
         Button { configuration.isOn.toggle() } label: {
-            HStack(spacing: Theme.Space.m) {
-                configuration.label
-                ZStack {
-                    Circle().fill(configuration.isOn ? Theme.success : Theme.background)
-                    Circle().strokeBorder(Theme.ink.opacity(configuration.isOn ? 0 : 0.25), lineWidth: Theme.outlineWidth)
-                    Image(systemName: "checkmark").font(Theme.displayFont(30)).foregroundStyle(Theme.ink)
-                        .opacity(configuration.isOn ? 1 : 0)
-                        .scaleEffect(configuration.isOn ? 1 : 0.3)
+            Group {
+                if corner {
+                    configuration.label.overlay(alignment: .topTrailing) { bubble(configuration.isOn).offset(x: Theme.Space.s, y: -Theme.Space.s) }
+                } else {
+                    HStack(spacing: Theme.Space.m) { configuration.label; bubble(configuration.isOn) }
                 }
-                .frame(width: 64, height: 64)
-                .animation(Theme.springy, value: configuration.isOn)
             }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .sensoryFeedback(.success, trigger: configuration.isOn) { _, new in new }
     }
+
+    private func bubble(_ isOn: Bool) -> some View {
+                ZStack {
+                    Circle().fill(isOn ? Theme.success : Theme.background)
+                    Circle().strokeBorder(Theme.ink.opacity(isOn ? 0 : 0.25), lineWidth: Theme.outlineWidth)
+                    Image(systemName: "checkmark").font(Theme.displayFont(30)).foregroundStyle(Theme.ink)
+                        .opacity(isOn ? 1 : 0)
+                        .scaleEffect(isOn ? 1 : 0.3)
+                }
+                .frame(width: 64, height: 64)
+                .animation(Theme.springy, value: isOn)
+    }
 }
 
-extension ToggleStyle where Self == PTCheckToggleStyle { static var ptCheck: PTCheckToggleStyle { PTCheckToggleStyle() } }
+extension ToggleStyle where Self == PTCheckToggleStyle {
+    static var ptCheck: PTCheckToggleStyle { PTCheckToggleStyle() }
+    static var ptCheckCorner: PTCheckToggleStyle { PTCheckToggleStyle(corner: true) }
+}

@@ -33,6 +33,11 @@ enum Theme {
     ]
     static func playerColor(_ index: Int) -> Color { playerColors[((index % 4) + 4) % 4] }
 
+    // Printables are black line art on white paper (colorable).
+    static let printInk = Color.black
+    static let printPaper = Color.white
+    static func printFont(_ size: CGFloat) -> Font { .system(size: size, weight: .heavy, design: .rounded) }
+
     // MARK: Type (heavy rounded; SF Rounded until a brand font is chosen)
     static func displayFont(_ size: CGFloat) -> Font { .system(size: size, weight: .heavy, design: .rounded) }
     static func bodyFont(_ size: CGFloat) -> Font { .system(size: size, weight: .semibold, design: .rounded) }
@@ -63,8 +68,9 @@ enum Theme {
         static let minHit: CGFloat = 88
         static let mic: CGFloat = 120
         static let choiceTile: CGFloat = 200
+        static let countTile: CGFloat = 124
         static let badge: CGFloat = 140
-        static let thumbnail: CGFloat = 150
+        static let thumbnail: CGFloat = 110
     }
 
     struct Shadow { let color: Color; let radius: CGFloat; let y: CGFloat }

@@ -57,3 +57,19 @@ func kitItem(_ id: String, size: KitSize, perPlayer: Bool = false, copies: Int =
     #expect(p.contains("Ocean Express"))
     #expect(p.lowercased().contains("blank"))
 }
+
+@Test func seatsDifferPerPlayer() {
+    var item = kitItem("pass", size: .ticket, perPlayer: true)
+    item.bigNumber = "1A"
+    let kit = Kit(nutmegSays: "", items: [item], scenes: [])
+    let slots = KitLayout.pages(for: kit, players: [.P1, .P2, .P3], directorMode: false)[0].slots
+    #expect(slots.map { KitLayout.bigNumber(for: item, slot: $0) } == ["1A", "1B", "1C"])
+    var shared = kitItem("money", size: .bill, copies: 3); shared.bigNumber = "5"
+    #expect(KitLayout.bigNumber(for: shared, slot: KitSlot(player: nil, index: 2)) == "5")
+}
+
+@Test func nameLinesAreNotRepeatedOnCards() {
+    var item = kitItem("pass", size: .ticket, perPlayer: true)
+    item.lines = ["Passenger: {P1}", "{P1}", "Flight: Ocean Express"]
+    #expect(KitLayout.printedLines(for: item) == ["Flight: Ocean Express"])
+}

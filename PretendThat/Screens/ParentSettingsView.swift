@@ -1,0 +1,57 @@
+import SwiftUI
+import NutmegCore
+
+/// Grown-ups only (behind the hold-to-open gate). Native Form and NavigationStack.
+struct ParentSettingsView: View {
+    let model: AppModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var debugState: NutmegState = .idle
+    @State private var debugLevel: Float = 0
+    @State private var debugPose: NutmegPose = .wave
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Connections") {
+                    LabeledContent("Story brain (Claude)", value: model.hasClaude ? "Key set ✓" : "Not set: using the built-in airplane game")
+                    LabeledContent("Kit pictures (OpenAI)", value: model.hasImages ? "Key set ✓" : "Not set: app-drawn pages")
+                    LabeledContent("Speech", value: model.listener.available ? "On-device ✓" : "Unavailable: tap pictures instead")
+                }
+                Section("Voice") {
+                    Button("Play a test line") { model.speak("Ooh! Pretend that we're flying over the ocean!") }
+                }
+                Section("Printing") {
+                    Button("Print a test page") {
+                        let a = Fallback.airplane
+                        let pages = Array(KitLayout.pages(for: a.kit, players: [.P1, .P2], directorMode: false).prefix(1))
+                        KitPrinter.print(KitPrinter.pdf(pages: pages, tokens: NameTokens(players: []), art: [:]), jobName: "PretendThat test page")
+                    }
+                }
+                Section("Nutmeg debug") {
+                    NutmegCharacter(state: debugState, mouthLevel: debugLevel, isSpeaking: debugState == .talking, pose: debugPose)
+                        .frame(height: 280)
+                    Picker("State", selection: $debugState) { ForEach(NutmegState.allCases) { Text($0.rawValue).tag($0) } }
+                    Picker("Pose", selection: $debugPose) { ForEach(NutmegPose.allCases) { Text($0.rawValue).tag($0) } }
+                    Slider(value: $debugLevel, in: 0...1) { Text("Mouth level") }
+                }
+                #if DEBUG
+                Section("Design") {
+                    NavigationLink("Component gallery") { ComponentGallery() }
+                }
+                #endif
+                Section("Privacy") {
+                    Text(Self.privacy)
+                }
+            }
+            .navigationTitle("Grown-ups")
+            .toolbar { Button("Done") { dismiss() } }
+        }
+    }
+
+    static let privacy = """
+    No accounts, no database, no analytics. When the app closes, the adventure is gone.
+    Kids' voices are turned into words on this iPad; no audio is sent anywhere.
+    Kids' names are never sent to Claude or OpenAI: the app swaps them for {P1}…{P4} and writes names onto the printables itself.
+    Story requests go to Anthropic and picture requests to OpenAI, handled under their commercial API terms.
+    """
+}

@@ -79,6 +79,12 @@ public final class AdventureStore {
         say(directorMode ? "A big crew! One of you is the Director and holds the iPad." : "Yay! What's your name, player one?")
     }
 
+    /// Back to the player-count question.
+    public func resetPlayers() {
+        players = []; directorMode = false; plan = nil
+        say("How many friends are playing?")
+    }
+
     public func setName(_ name: String, for token: PlayerToken) {
         guard let i = players.firstIndex(where: { $0.token == token }) else { return }
         players[i].name = name.trimmingCharacters(in: .whitespacesAndNewlines)

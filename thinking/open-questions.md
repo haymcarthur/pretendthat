@@ -8,3 +8,4 @@
 - ~~**GitHub repo name**~~: `haymcarthur/pretendthat` (private).
 - **Domain:** `pretendthat.app` looked free; the `.com` is parked. Register?
 - **Font:** SF Rounded until a heavy rounded brand font is chosen.
+- **Names without a mic:** if speech is unavailable (denied, or the simulator), players stay "Player 1…". Add a grown-up keyboard entry behind the parent gate?

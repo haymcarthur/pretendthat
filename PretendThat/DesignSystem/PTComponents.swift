@@ -15,6 +15,9 @@ struct PTSpeechBubble: View {
     var body: some View {
         Button { speak(text) } label: {
             PTText(text, .headline)
+                .lineLimit(3)
+                .minimumScaleFactor(0.6)
+                .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity)
                 .ptCard(fill: Theme.background)
         }
@@ -37,7 +40,7 @@ struct PTChoiceTile: View {
         Button(action: action) {
             Label { Text(label) } icon: { Text(emoji) }
                 .labelStyle(PTEmojiLabelStyle(emojiSize: size * 0.36))
-                .frame(width: size, height: size)
+                .frame(width: size - Theme.Space.m * 2, height: size - Theme.Space.m * 2)
                 .ptCard(fill: isSelected ? Theme.accent : tint, stroke: isSelected ? Theme.ink : Theme.outline)
         }
         .buttonStyle(TileButtonStyle())
@@ -115,13 +118,14 @@ struct PTPropCard: View {
         Toggle(isOn: $found) {
             VStack(spacing: Theme.Space.s) {
                 PTText(prop.emoji, .emoji(64))
-                PTText(prop.householdItem, .headline)
+                PTText(prop.householdItem, .headline).lineLimit(2).minimumScaleFactor(0.7)
                 Label { Text(prop.becomes) } icon: { Image(systemName: "arrow.right") }
                     .font(Theme.bodyFont(Theme.TextSize.body)).foregroundStyle(Theme.inkMuted)
+                    .lineLimit(2).minimumScaleFactor(0.7)
             }
             .frame(maxWidth: .infinity)
         }
-        .toggleStyle(.ptCheck)
+        .toggleStyle(.ptCheckCorner)
         .ptCard(fill: found ? Theme.success.opacity(0.3) : Theme.surface)
         .ptSpeakOnLongPress("\(prop.householdItem) becomes \(prop.becomes)")
     }
@@ -253,10 +257,12 @@ struct PTStageLayout<Nutmeg: View, Stage: View, Bottom: View>: View {
 
     var body: some View {
         GeometryReader { geo in
+            let nutmegWidth = geo.size.width * 0.3
             VStack(spacing: Theme.Space.m) {
                 HStack(alignment: .center, spacing: Theme.Space.l) {
-                    nutmeg.frame(width: geo.size.width * 0.3)
-                    stage.frame(maxWidth: .infinity, maxHeight: .infinity)
+                    nutmeg.frame(width: nutmegWidth)
+                    stage.frame(width: max(0, geo.size.width - nutmegWidth - Theme.Space.l))
+                        .frame(maxHeight: .infinity)
                 }
                 HStack(spacing: Theme.Space.l) { bottom }
                     .frame(maxWidth: .infinity)
@@ -275,7 +281,7 @@ struct PTCountPicker: View {
         HStack(spacing: Theme.Space.m) {
             ForEach(1...5, id: \.self) { n in
                 PTChoiceTile(emoji: Self.emoji[n - 1], label: n == 5 ? "5 or more" : "\(n)",
-                             isSelected: selected == n, size: Theme.Size.choiceTile * 0.72) { onPick(n) }
+                             isSelected: selected == n, size: Theme.Size.countTile) { onPick(n) }
             }
         }
     }
