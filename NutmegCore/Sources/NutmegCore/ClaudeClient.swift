@@ -1,0 +1,119 @@
+import Foundation
+
+/// A JSON-schema dictionary that can cross concurrency boundaries (it is built once and never mutated).
+public struct JSONSchema: @unchecked Sendable {
+    public let value: [String: Any]
+    public init(_ value: [String: Any]) { self.value = value }
+}
+
+public enum Effort: String, Sendable { case low, medium }
+
+public enum ClaudeError: Error, Equatable {
+    case refusal, truncated, http(Int), decoding(String), transport, notConfigured
+}
+
+/// Sends one HTTP request. Injectable so tests never touch the network.
+public protocol HTTPTransport: Sendable {
+    func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse)
+}
+
+public struct URLSessionTransport: HTTPTransport {
+    let session: URLSession
+    public init(session: URLSession = .shared) { self.session = session }
+    public func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw ClaudeError.transport }
+        return (data, http)
+    }
+}
+
+public struct ClaudeConfig: Sendable {
+    public enum Mode: Sendable { case direct(apiKey: String), relay(url: URL, token: String) }
+    public var mode: Mode
+    public var model = "claude-opus-5-5"
+    public init(mode: Mode) { self.mode = mode }
+
+    /// Reads Info.plist values (filled from Secrets.xcconfig). Relay wins when RELAY_HOST is set.
+    public static func from(info: [String: Any]) -> ClaudeConfig? {
+        func value(_ k: String) -> String? {
+            guard let s = (info[k] as? String)?.trimmingCharacters(in: .whitespaces), !s.isEmpty, !s.hasPrefix("$(") else { return nil }
+            return s
+        }
+        if let host = value("RELAY_HOST"), let token = value("RELAY_TOKEN"),
+           let url = URL(string: host.hasPrefix("http") ? host : "https://\(host)") {
+            return ClaudeConfig(mode: .relay(url: url, token: token))
+        }
+        if let key = value("ANTHROPIC_API_KEY") { return ClaudeConfig(mode: .direct(apiKey: key)) }
+        return nil
+    }
+    public static func fromBundle(_ bundle: Bundle = .main) -> ClaudeConfig? { from(info: bundle.infoDictionary ?? [:]) }
+}
+
+/// Anything that can return a schema-shaped answer. ClaudeClient conforms; tests use fakes.
+public protocol LLM: Sendable {
+    func structured<T: Decodable & Sendable>(_ type: T.Type, system: String, user: String, schema: JSONSchema, effort: Effort) async throws -> T
+}
+
+/// Raw-HTTPS Claude Messages API client with structured outputs.
+/// Headers verified against the claude-api skill on 2026-11-13: anthropic-version 2026-10-21,
+/// anthropic-beta server-side-fallback-2026-07-01 with body `fallbacks: "default"`.
+public final class ClaudeClient: LLM {
+    public static let apiVersion = "2026-10-21"
+    public static let fallbackBeta = "server-side-fallback-2026-07-01"
+    let config: ClaudeConfig
+    let transport: HTTPTransport
+
+    public init(config: ClaudeConfig, transport: HTTPTransport = URLSessionTransport()) {
+        self.config = config; self.transport = transport
+    }
+
+    func makeRequest(system: String, user: String, schema: JSONSchema, effort: Effort) throws -> URLRequest {
+        let base: URL
+        var req: URLRequest
+        switch config.mode {
+        case .direct(let key):
+            base = URL(string: "https://api.anthropic.com")!
+            req = URLRequest(url: base.appendingPathComponent("v1/messages"))
+            req.setValue(key, forHTTPHeaderField: "x-api-key")
+        case .relay(let url, let token):
+            req = URLRequest(url: url.appendingPathComponent("v1/messages"))
+            req.setValue(token, forHTTPHeaderField: "x-nutmeg-token")
+        }
+        req.httpMethod = "POST"
+        req.timeoutInterval = 60
+        req.setValue("application/json", forHTTPHeaderField: "content-type")
+        req.setValue(Self.apiVersion, forHTTPHeaderField: "anthropic-version")
+        req.setValue(Self.fallbackBeta, forHTTPHeaderField: "anthropic-beta")
+        // No temperature (400 on 2026-10-21), no thinking config (Opus 5.5 is adaptive), no prefill.
+        let body: [String: Any] = [
+            "model": config.model,
+            "max_tokens": 16000,
+            "system": system,
+            "messages": [["role": "user", "content": user]],
+            "output_config": ["effort": effort.rawValue, "format": ["type": "json_schema", "schema": schema.value]],
+            "fallbacks": "default"
+        ]
+        req.httpBody = try JSONSerialization.data(withJSONObject: body, options: [.sortedKeys])
+        return req
+    }
+
+    public func structured<T: Decodable & Sendable>(_ type: T.Type, system: String, user: String, schema: JSONSchema, effort: Effort) async throws -> T {
+        let req = try makeRequest(system: system, user: user, schema: schema, effort: effort)
+        let data: Data, http: HTTPURLResponse
+        do { (data, http) = try await transport.send(req) } catch let e as ClaudeError { throw e } catch { throw ClaudeError.transport }
+        guard (200..<300).contains(http.statusCode) else { throw ClaudeError.http(http.statusCode) }
+        guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw ClaudeError.decoding("response not JSON") }
+        switch obj["stop_reason"] as? String {
+        case "refusal": throw ClaudeError.refusal
+        case "max_tokens": throw ClaudeError.truncated
+        default: break
+        }
+        // After a server-side fallback, content can hold fallback/thinking blocks; the answer is the last text block.
+        let blocks = obj["content"] as? [[String: Any]] ?? []
+        guard let text = blocks.last(where: { $0["type"] as? String == "text" })?["text"] as? String else {
+            throw ClaudeError.decoding("no text block")
+        }
+        do { return try JSONDecoder().decode(T.self, from: Data(text.utf8)) }
+        catch { throw ClaudeError.decoding(String(describing: error)) }
+    }
+}
