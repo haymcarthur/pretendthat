@@ -19,10 +19,10 @@ new_bodies = {
         + f'<circle cx="560" cy="800" r="38" fill="{FUR}" {S}/>',
 }
 clip = {
-    "nutmeg-clipboard-back": f'<rect x="212" y="140" width="600" height="800" rx="56" fill="{YELLOW}" {S}/>'
+    "nutmeg-clipboard-back": f'<rect x="212" y="140" width="600" height="720" rx="56" fill="{YELLOW}" {S}/>'
         f'<rect x="372" y="90" width="280" height="110" rx="34" fill="{CORAL}" {S}/>' + star(512, 560, 120, CORAL),
-    "nutmeg-clipboard-front": f'<rect x="212" y="140" width="600" height="800" rx="56" fill="{YELLOW}" {S}/>'
-        f'<rect x="262" y="210" width="500" height="690" rx="20" fill="{WHITE}" {S}/>'
+    "nutmeg-clipboard-front": f'<rect x="212" y="140" width="600" height="720" rx="56" fill="{YELLOW}" {S}/>'
+        f'<rect x="246" y="200" width="532" height="630" rx="20" fill="{WHITE}" {S}/>'
         f'<rect x="372" y="90" width="280" height="110" rx="34" fill="{CORAL}" {S}/>',
     # Head peeking in from the left edge of the clipboard (head canvas pieces, rotated and shifted).
     "nutmeg-peek": f'<g transform="translate(-300 0) rotate(20 512 560)">' + head_parts["nutmeg-ears-perked"]
@@ -48,4 +48,8 @@ stage = {
         f'<rect x="200" y="160" width="624" height="90" rx="45" fill="#E8C79A" {S}/><rect x="200" y="774" width="624" height="90" rx="45" fill="#E8C79A" {S}/>',
 }
 for n, b in {**new_bodies, **clip, **stage}.items(): write(n, b)
+# Clipboards fill their own 4:5 canvas (viewBox cropped to the board), so content can sit on the paper.
+for n in ["nutmeg-clipboard-back", "nutmeg-clipboard-front"]:
+    f = os.path.join(ROOT, f"{n}.imageset", f"{n}.svg")
+    txt = open(f).read(); open(f, "w").write(txt.replace('width="1024" height="1024" viewBox="0 0 1024 1024"', 'width="640" height="800" viewBox="192 80 640 800"'))
 print("ok", len(new_bodies) + len(clip) + len(stage), "new layers")

@@ -302,6 +302,11 @@ public final class AdventureStore {
         players = PlayerToken.allCases.prefix(n).map { Player(token: $0, name: "", colorIndex: $0.index, emoji: Player.defaultEmojis[$0.index]) }
     }
 
+    #if DEBUG
+    /// Screenshots only: hold a phase (e.g. .makingKit for the coloring loader).
+    public func debugSetPhase(_ p: Phase) { phase = p }
+    #endif
+
     // MARK: Free speech
 
     /// A spoken answer on any screen: Nutmeg replies and offers tap choices.

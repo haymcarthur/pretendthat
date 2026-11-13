@@ -18,21 +18,30 @@ struct SceneView: View {
     let model: AppModel
     let index: Int
     private var store: AdventureStore { model.store }
+    /// D6: the checklist arrives on Nutmeg's clipboard, which flips around to reveal it (her head peeks in).
+    @State private var revealed = false
 
     var body: some View {
         if let scene = store.kit?.scenes[index] {
             VStack(spacing: Theme.Space.m) {
-                PTStageHeader(emoji: scene.emoji, title: store.tokens.untokenize(scene.title))
-                PTSpeechBubble(text: store.tokens.untokenize(scene.nutmegSays))
-                VStack(spacing: Theme.Space.s) {
-                    ForEach(Array(scene.steps.enumerated()), id: \.offset) { i, step in
-                        PTChecklistRow(emoji: step.emoji, text: store.tokens.untokenize(step.text), isChecked: Binding(
-                            get: { store.checkedSteps.contains(i) }, set: { _ in store.toggleStep(i) }))
-                        .ptPopIn(index: i)
+                PTClipboardReveal(isRevealed: revealed, peek: true, width: 400, contentScale: 0.72) {
+                    ScrollView {
+                        VStack(spacing: Theme.Space.s) {
+                            PTStageHeader(emoji: scene.emoji, title: store.tokens.untokenize(scene.title))
+                            ForEach(Array(scene.steps.enumerated()), id: \.offset) { i, step in
+                                PTChecklistRow(emoji: step.emoji, text: store.tokens.untokenize(step.text), isChecked: Binding(
+                                    get: { store.checkedSteps.contains(i) }, set: { _ in store.toggleStep(i) }))
+                            }
+                        }
                     }
+                    .scrollIndicators(.hidden)
                 }
                 Button("Done!") { store.sceneDone() }
                     .buttonStyle(store.checkedSteps.count == scene.steps.count ? .ptSuccess : .ptPrimary)
+            }
+            .task {
+                try? await Task.sleep(for: .milliseconds(450))
+                revealed = true
             }
         }
     }

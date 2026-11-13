@@ -33,6 +33,11 @@ enum DemoDriver {
 
     @MainActor static func drive(_ store: AdventureStore, model: AppModel, to target: String) async {
         if target.hasPrefix("conv") { await conversation(store, model: model, to: target); return }
+        if target == "coloring" {   // the kit loader: Nutmeg coloring, clipboard back
+            await drive(store, model: model, to: "props")
+            store.debugSetPhase(.makingKit)
+            return
+        }
         _ = model
         let order = ["hello", "pickGame", "players", "roles", "props", "kitReady", "handoff", "scene", "stepBack", "end"]
         guard let stop = order.firstIndex(of: target), stop > 0 else { return }

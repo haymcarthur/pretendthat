@@ -3,6 +3,8 @@ import NutmegCore
 
 struct KitView: View {
     let model: AppModel
+    static let thumb: CGFloat = 64
+    private var revealed: Bool { store.phase == .kitReady && store.kit != nil }
     private var store: AdventureStore { model.store }
 
     private var pages: [KitPage] {
@@ -13,19 +15,27 @@ struct KitView: View {
     var body: some View {
         VStack(spacing: Theme.Space.l) {
             PTSpeechBubble(text: store.nutmegLine)
-            if store.phase == .makingKit || store.kit == nil {
-                PTWorkingIndicator(caption: "Making your kit...")
-            } else {
-                HStack(spacing: Theme.Space.m) {
-                    ForEach(Array(pages.enumerated()), id: \.offset) { i, page in
-                        PTPageThumbnail(number: i + 1) {
-                            KitPageView(page: page, tokens: store.tokens, art: model.art.images[page.item.id])
-                                .scaleEffect(Theme.Size.thumbnail / KitPageView.size.width)
-                                .frame(width: Theme.Size.thumbnail, height: Theme.Size.thumbnail * 11 / 8.5)
+            // D6: Nutmeg colors while the kit is made (her coloring pose); then the clipboard flips to reveal the pages.
+            PTClipboardReveal(isRevealed: revealed, width: 280) {
+                if revealed {
+                    let cols = pages.count > 4 ? 3 : 2
+                    Grid(horizontalSpacing: Theme.Space.s, verticalSpacing: Theme.Space.s) {
+                        ForEach(Array(stride(from: 0, to: pages.count, by: cols)), id: \.self) { row in
+                            GridRow {
+                                ForEach(row..<min(row + cols, pages.count), id: \.self) { i in
+                                    KitPageView(page: pages[i], tokens: store.tokens, art: model.art.images[pages[i].item.id])
+                                        .scaleEffect(Self.thumb / KitPageView.size.width)
+                                        .frame(width: Self.thumb, height: Self.thumb * 11 / 8.5)
+                                        .overlay(Rectangle().strokeBorder(Theme.line, lineWidth: 1))
+                                }
+                            }
                         }
-                        .ptPopIn(index: i)
                     }
                 }
+            }
+            if store.phase == .makingKit || store.kit == nil {
+                PTWorkingIndicator(caption: "Nutmeg is making your kit...")
+            } else {
                 if model.art.isGenerating { PTWorkingIndicator(caption: "Drawing your pictures...", progress: model.art.progress) }
                 HStack(spacing: Theme.Space.l) {
                     PTParentGate(label: "Grown-up: hold to print") {

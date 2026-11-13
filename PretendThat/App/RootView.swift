@@ -117,10 +117,13 @@ struct RootView: View {
     // MARK: Classic stage (setup fallback, kit and play)
 
     private var classic: some View {
-        PTStageLayout(backdrop: backdrop, nutmegColumn: nutmegIsHero ? Theme.nutmegHeroColumn : Theme.nutmegColumn) {
-            NutmegCharacter(state: model.nutmegState, mouthLevel: model.mouthLevel,
-                            isSpeaking: model.isSpeaking, cue: model.cue)
-                .onTapGesture { if case .stepBack = store.phase { Task { _ = await store.helpRequested() } } }
+        PTStageLayout(backdrop: backdrop, nutmegColumn: isChecklist ? 0 : (nutmegIsHero ? Theme.nutmegHeroColumn : Theme.nutmegColumn)) {
+            // Checklists show just the clipboard with Nutmeg peeking in (D6), so her column folds away.
+            if !isChecklist {
+                NutmegCharacter(state: model.nutmegState, mouthLevel: model.mouthLevel,
+                                isSpeaking: model.isSpeaking, cue: model.cue)
+                    .onTapGesture { if case .stepBack = store.phase { Task { _ = await store.helpRequested() } } }
+            }
         } stage: {
             stage.transition(.ptStage)
                 .id(stageID)
@@ -175,6 +178,8 @@ struct RootView: View {
 
     /// One clean white base everywhere (Haylee, motion-and-surface.md); brand colors live on accents only.
     private var backdrop: PTBackdrop { .white }
+
+    private var isChecklist: Bool { if case .scene = store.phase { true } else { false } }
 
     /// Nutmeg gets the big column when the stage has little else on it.
     private var nutmegIsHero: Bool {
