@@ -1,0 +1,779 @@
+{
+  "source": "Figma file 8e4btNgdUzrGeaA6TYH8Zq (PretendThat), Page 1",
+  "exportedAt": "2026-11-13",
+  "format": "SVG_STRING, no exportSettings, contentsOnly default; sizes in Figma px",
+  "notes": {
+    "headLayerAlignment": "Every face, mouth and ear-flop frame is 1178x1335, identical to nutmeg-head-base, and its guide-head child sits at (0,0) at full size. Exports keep the full frame, so faces/mouths/ears stack on head-base at offset (0,0) with no adjustment. guide-head was hidden only during export and restored (visible + locked).",
+    "headPlacement": "No saved test-fit positions for nutmeg-head-base were found in the Figma file (no test/fit nodes, no plugin data) or in the project. Bodies and head-base share the same 1178x1335 canvas: head-base art spans y 15-801 and every body neck-plug starts at y 765, so headBaseOffset (0,0) on each body frame is the inferred placement. neckAnchor = center of the body neck-plug in body-frame px (and unit coords); use it if a per-pose offset is needed."
+  },
+  "headBaseArtBounds": {
+    "x": 61.25,
+    "y": 15.23,
+    "width": 994.83,
+    "height": 785.6
+  },
+  "nodes": {
+    "nutmeg": [
+      {
+        "name": "nutmeg-head-base",
+        "file": "nutmeg/nutmeg-head-base.svg",
+        "width": 1178,
+        "height": 1335,
+        "x": 1218,
+        "y": -273
+      },
+      {
+        "name": "nutmeg-body-idle",
+        "file": "nutmeg/nutmeg-body-idle.svg",
+        "width": 1178,
+        "height": 1335,
+        "x": 1218,
+        "y": -1808,
+        "artBounds": {
+          "x": 172.44,
+          "y": 765,
+          "width": 728.29,
+          "height": 546.21
+        },
+        "neckPlug": {
+          "x": 520,
+          "y": 765,
+          "width": 160,
+          "height": 46.06
+        },
+        "neckAnchor": {
+          "x": 600,
+          "y": 788.03,
+          "unitX": 0.5093,
+          "unitY": 0.5903
+        },
+        "headBaseOffset": {
+          "x": 0,
+          "y": 0,
+          "source": "inferred (shared canvas); earlier test-fit values not recoverable"
+        }
+      },
+      {
+        "name": "nutmeg-body-wave",
+        "file": "nutmeg/nutmeg-body-wave.svg",
+        "width": 1178,
+        "height": 1335,
+        "x": 2596,
+        "y": -1808,
+        "artBounds": {
+          "x": 163.69,
+          "y": 628.81,
+          "width": 885.98,
+          "height": 680.69
+        },
+        "neckPlug": {
+          "x": 520,
+          "y": 765,
+          "width": 160,
+          "height": 47.06
+        },
+        "neckAnchor": {
+          "x": 600,
+          "y": 788.53,
+          "unitX": 0.5093,
+          "unitY": 0.5907
+        },
+        "headBaseOffset": {
+          "x": 0,
+          "y": 0,
+          "source": "inferred (shared canvas); earlier test-fit values not recoverable"
+        }
+      },
+      {
+        "name": "nutmeg-body-point",
+        "file": "nutmeg/nutmeg-body-point.svg",
+        "width": 1178,
+        "height": 1335,
+        "x": 3974,
+        "y": -1808,
+        "artBounds": {
+          "x": 170.27,
+          "y": 704.41,
+          "width": 870.8,
+          "height": 600.2
+        },
+        "neckPlug": {
+          "x": 520,
+          "y": 765,
+          "width": 160,
+          "height": 47.06
+        },
+        "neckAnchor": {
+          "x": 600,
+          "y": 788.53,
+          "unitX": 0.5093,
+          "unitY": 0.5907
+        },
+        "headBaseOffset": {
+          "x": 0,
+          "y": 0,
+          "source": "inferred (shared canvas); earlier test-fit values not recoverable"
+        }
+      },
+      {
+        "name": "nutmeg-body-celebrate",
+        "file": "nutmeg/nutmeg-body-celebrate.svg",
+        "width": 1178,
+        "height": 1335,
+        "x": 5352,
+        "y": -1808,
+        "artBounds": {
+          "x": 214.15,
+          "y": 653.66,
+          "width": 814.5,
+          "height": 646.81
+        },
+        "neckPlug": {
+          "x": 520,
+          "y": 765,
+          "width": 160,
+          "height": 44.05
+        },
+        "neckAnchor": {
+          "x": 600,
+          "y": 787.02,
+          "unitX": 0.5093,
+          "unitY": 0.5895
+        },
+        "headBaseOffset": {
+          "x": 0,
+          "y": 0,
+          "source": "inferred (shared canvas); earlier test-fit values not recoverable"
+        }
+      },
+      {
+        "name": "nutmeg-body-sit",
+        "file": "nutmeg/nutmeg-body-sit.svg",
+        "width": 1178,
+        "height": 1335,
+        "x": 6730,
+        "y": -1808,
+        "artBounds": {
+          "x": 173.07,
+          "y": 765,
+          "width": 736.38,
+          "height": 541.84
+        },
+        "neckPlug": {
+          "x": 520,
+          "y": 765,
+          "width": 160,
+          "height": 57.04
+        },
+        "neckAnchor": {
+          "x": 600,
+          "y": 793.52,
+          "unitX": 0.5093,
+          "unitY": 0.5944
+        },
+        "headBaseOffset": {
+          "x": 0,
+          "y": 0,
+          "source": "inferred (shared canvas); earlier test-fit values not recoverable"
+        }
+      },
+      {
+        "name": "nutmeg-body-coloring",
+        "file": "nutmeg/nutmeg-body-coloring.svg",
+        "width": 1178,
+        "height": 1335,
+        "x": 8108,
+        "y": -1808,
+        "artBounds": {
+          "x": 171.27,
+          "y": 738.35,
+          "width": 765.29,
+          "height": 571.19
+        },
+        "neckPlug": {
+          "x": 520,
+          "y": 765,
+          "width": 160,
+          "height": 45.06
+        },
+        "neckAnchor": {
+          "x": 600,
+          "y": 787.53,
+          "unitX": 0.5093,
+          "unitY": 0.5899
+        },
+        "headBaseOffset": {
+          "x": 0,
+          "y": 0,
+          "source": "inferred (shared canvas); earlier test-fit values not recoverable"
+        }
+      },
+      {
+        "name": "nutmeg-ears-flop",
+        "file": "nutmeg/nutmeg-ears-flop.svg",
+        "width": 1178,
+        "height": 1335,
+        "x": 3974,
+        "y": 2897,
+        "artBounds": {
+          "x": 678.08,
+          "y": 53.1,
+          "width": 378.46,
+          "height": 410.58
+        },
+        "alignsToHeadBaseOrigin": true
+      },
+      {
+        "name": "nutmeg-clipboard-front",
+        "file": "nutmeg/nutmeg-clipboard-front.svg",
+        "width": 703,
+        "height": 900,
+        "x": 9486,
+        "y": -1808
+      },
+      {
+        "name": "nutmeg-clipboard-back",
+        "file": "nutmeg/nutmeg-clipboard-back.svg",
+        "width": 703,
+        "height": 900,
+        "x": 10289,
+        "y": -1808
+      },
+      {
+        "name": "nutmeg-face-happy",
+        "file": "nutmeg/nutmeg-face-happy.svg",
+        "width": 1178,
+        "height": 1335,
+        "x": 4074,
+        "y": -173,
+        "artBounds": {
+          "x": 396.53,
+          "y": 293.72,
+          "width": 460.9,
+          "height": 339.51
+        },
+        "alignsToHeadBaseOrigin": true
+      },
+      {
+        "name": "nutmeg-face-talking",
+        "file": "nutmeg/nutmeg-face-talking.svg",
+        "width": 1178,
+        "height": 1335,
+        "x": 5352,
+        "y": -173,
+        "artBounds": {
+          "x": 401.09,
+          "y": 297.51,
+          "width": 458,
+          "height": 422.45
+        },
+        "alignsToHeadBaseOrigin": true
+      },
+      {
+        "name": "nutmeg-face-listening",
+        "file": "nutmeg/nutmeg-face-listening.svg",
+        "width": 1178,
+        "height": 1335,
+        "x": 6630,
+        "y": -173,
+        "artBounds": {
+          "x": 391.2,
+          "y": 292.41,
+          "width": 459.93,
+          "height": 337.99
+        },
+        "alignsToHeadBaseOrigin": true
+      },
+      {
+        "name": "nutmeg-face-thinking",
+        "file": "nutmeg/nutmeg-face-thinking.svg",
+        "width": 1178,
+        "height": 1335,
+        "x": 7908,
+        "y": -173,
+        "artBounds": {
+          "x": 396.63,
+          "y": 292.22,
+          "width": 442.42,
+          "height": 343.55
+        },
+        "alignsToHeadBaseOrigin": true
+      },
+      {
+        "name": "nutmeg-face-ooh",
+        "file": "nutmeg/nutmeg-face-ooh.svg",
+        "width": 1178,
+        "height": 1335,
+        "x": 4074,
+        "y": 1262,
+        "artBounds": {
+          "x": 390.59,
+          "y": 292.17,
+          "width": 457.88,
+          "height": 408.09
+        },
+        "alignsToHeadBaseOrigin": true
+      },
+      {
+        "name": "nutmeg-face-yay",
+        "file": "nutmeg/nutmeg-face-yay.svg",
+        "width": 1178,
+        "height": 1335,
+        "x": 5352,
+        "y": 1262,
+        "artBounds": {
+          "x": 411.93,
+          "y": 336.27,
+          "width": 449.4,
+          "height": 409.56
+        },
+        "alignsToHeadBaseOrigin": true
+      },
+      {
+        "name": "nutmeg-face-oops",
+        "file": "nutmeg/nutmeg-face-oops.svg",
+        "width": 1178,
+        "height": 1335,
+        "x": 6630,
+        "y": 1262,
+        "artBounds": {
+          "x": 393.01,
+          "y": 295.17,
+          "width": 457.67,
+          "height": 344.02
+        },
+        "alignsToHeadBaseOrigin": true
+      },
+      {
+        "name": "nutmeg-face-nap",
+        "file": "nutmeg/nutmeg-face-nap.svg",
+        "width": 1178,
+        "height": 1335,
+        "x": 7908,
+        "y": 1262,
+        "artBounds": {
+          "x": 418.01,
+          "y": 309.5,
+          "width": 450.67,
+          "height": 320.04
+        },
+        "alignsToHeadBaseOrigin": true
+      },
+      {
+        "name": "nutmeg-mouth-closed",
+        "file": "nutmeg/nutmeg-mouth-closed.svg",
+        "width": 1178,
+        "height": 1335,
+        "x": 5452,
+        "y": 2997,
+        "artBounds": {
+          "x": 639.45,
+          "y": 592.44,
+          "width": 101.79,
+          "height": 40.79
+        },
+        "alignsToHeadBaseOrigin": true
+      },
+      {
+        "name": "nutmeg-mouth-small",
+        "file": "nutmeg/nutmeg-mouth-small.svg",
+        "width": 1178,
+        "height": 1335,
+        "x": 6730,
+        "y": 2997,
+        "artBounds": {
+          "x": 646.59,
+          "y": 596.87,
+          "width": 88.21,
+          "height": 33.53
+        },
+        "alignsToHeadBaseOrigin": true
+      },
+      {
+        "name": "nutmeg-mouth-open",
+        "file": "nutmeg/nutmeg-mouth-open.svg",
+        "width": 1178,
+        "height": 1335,
+        "x": 8008,
+        "y": 2997,
+        "artBounds": {
+          "x": 623.42,
+          "y": 569.11,
+          "width": 130.41,
+          "height": 150.84
+        },
+        "alignsToHeadBaseOrigin": true
+      },
+      {
+        "name": "nutmeg-mouth-wide",
+        "file": "nutmeg/nutmeg-mouth-wide.svg",
+        "width": 1178,
+        "height": 1335,
+        "x": 9286,
+        "y": 2997,
+        "artBounds": {
+          "x": 609.36,
+          "y": 567.44,
+          "width": 147.94,
+          "height": 178.39
+        },
+        "alignsToHeadBaseOrigin": true
+      },
+      {
+        "name": "nutmeg-mouth-ooh",
+        "file": "nutmeg/nutmeg-mouth-ooh.svg",
+        "width": 1178,
+        "height": 1335,
+        "x": 10564,
+        "y": 2997,
+        "artBounds": {
+          "x": 680.05,
+          "y": 595.81,
+          "width": 55.96,
+          "height": 104.46
+        },
+        "alignsToHeadBaseOrigin": true
+      }
+    ],
+    "stage": [
+      {
+        "name": "stage-curtain-left",
+        "file": "stage/stage-curtain-left.svg",
+        "width": 237.02,
+        "height": 447.68,
+        "x": 11403,
+        "y": -1748
+      },
+      {
+        "name": "stage-curtain-right",
+        "file": "stage/stage-curtain-right.svg",
+        "width": 232.7,
+        "height": 448.63,
+        "x": 11853.25,
+        "y": -1748
+      },
+      {
+        "name": "stage-valance",
+        "file": "stage/stage-valance.svg",
+        "width": 549.81,
+        "height": 103.7,
+        "x": 12149.78,
+        "y": -1576
+      },
+      {
+        "name": "stage-lamp",
+        "file": "stage/stage-lamp.svg",
+        "width": 224.5,
+        "height": 297.29,
+        "x": 12811.59,
+        "y": -1672
+      },
+      {
+        "name": "stage-beam",
+        "file": "stage/stage-beam.svg",
+        "width": 271.68,
+        "height": 306.93,
+        "x": 11385,
+        "y": -1239.37
+      },
+      {
+        "name": "stage-star",
+        "file": "stage/stage-star.svg",
+        "width": 211.13,
+        "height": 198.38,
+        "x": 11864.25,
+        "y": -1185.37
+      },
+      {
+        "name": "stage-sparkle",
+        "file": "stage/stage-sparkle.svg",
+        "width": 106.99,
+        "height": 128.15,
+        "x": 12370.78,
+        "y": -1150.37
+      },
+      {
+        "name": "stage-ticket",
+        "file": "stage/stage-ticket.svg",
+        "width": 328.81,
+        "height": 172.19,
+        "x": 12759.59,
+        "y": -1172.37
+      },
+      {
+        "name": "stage-bulbs",
+        "file": "stage/stage-bulbs.svg",
+        "width": 538.25,
+        "height": 144.79,
+        "x": 11252,
+        "y": -836.44
+      },
+      {
+        "name": "stage-sandbag",
+        "file": "stage/stage-sandbag.svg",
+        "width": 239.53,
+        "height": 216.79,
+        "x": 11850.25,
+        "y": -872.44
+      },
+      {
+        "name": "stage-crown",
+        "file": "stage/stage-crown.svg",
+        "width": 302.33,
+        "height": 198.59,
+        "x": 12273.78,
+        "y": -863.44
+      },
+      {
+        "name": "stage-scroll",
+        "file": "stage/stage-scroll.svg",
+        "width": 265.25,
+        "height": 216.15,
+        "x": 12791.59,
+        "y": -872.44
+      }
+    ],
+    "props": [
+      {
+        "name": "prop-stuffed-animal",
+        "file": "props/prop-stuffed-animal.svg",
+        "width": 258,
+        "height": 312,
+        "x": 13521,
+        "y": -1724
+      },
+      {
+        "name": "prop-chair",
+        "file": "props/prop-chair.svg",
+        "width": 219,
+        "height": 335,
+        "x": 13960.5,
+        "y": -1735.5
+      },
+      {
+        "name": "prop-table",
+        "file": "props/prop-table.svg",
+        "width": 284,
+        "height": 256,
+        "x": 14348,
+        "y": -1696
+      },
+      {
+        "name": "prop-couch",
+        "file": "props/prop-couch.svg",
+        "width": 382,
+        "height": 258,
+        "x": 14719,
+        "y": -1697
+      },
+      {
+        "name": "prop-pillow",
+        "file": "props/prop-pillow.svg",
+        "width": 255,
+        "height": 219,
+        "x": 15202.5,
+        "y": -1677.5
+      },
+      {
+        "name": "prop-blanket",
+        "file": "props/prop-blanket.svg",
+        "width": 285,
+        "height": 221,
+        "x": 13507.5,
+        "y": -1278.5
+      },
+      {
+        "name": "prop-rug",
+        "file": "props/prop-rug.svg",
+        "width": 311,
+        "height": 218,
+        "x": 13914.5,
+        "y": -1277
+      },
+      {
+        "name": "prop-cardboard-box",
+        "file": "props/prop-cardboard-box.svg",
+        "width": 309,
+        "height": 232,
+        "x": 14335.5,
+        "y": -1284
+      },
+      {
+        "name": "prop-plate",
+        "file": "props/prop-plate.svg",
+        "width": 275,
+        "height": 254,
+        "x": 14772.5,
+        "y": -1295
+      },
+      {
+        "name": "prop-cup",
+        "file": "props/prop-cup.svg",
+        "width": 258,
+        "height": 218,
+        "x": 15201,
+        "y": -1277
+      },
+      {
+        "name": "prop-bowl",
+        "file": "props/prop-bowl.svg",
+        "width": 266,
+        "height": 204,
+        "x": 13517,
+        "y": -870
+      },
+      {
+        "name": "prop-tray",
+        "file": "props/prop-tray.svg",
+        "width": 362,
+        "height": 159,
+        "x": 13889,
+        "y": -847.5
+      },
+      {
+        "name": "prop-spoon",
+        "file": "props/prop-spoon.svg",
+        "width": 200,
+        "height": 269,
+        "x": 14390,
+        "y": -902.5
+      },
+      {
+        "name": "prop-pot",
+        "file": "props/prop-pot.svg",
+        "width": 337,
+        "height": 262,
+        "x": 14741.5,
+        "y": -899
+      },
+      {
+        "name": "prop-towel",
+        "file": "props/prop-towel.svg",
+        "width": 278,
+        "height": 257,
+        "x": 15191,
+        "y": -896.5
+      },
+      {
+        "name": "prop-laundry-basket",
+        "file": "props/prop-laundry-basket.svg",
+        "width": 310,
+        "height": 250,
+        "x": 13495,
+        "y": -493
+      },
+      {
+        "name": "prop-books",
+        "file": "props/prop-books.svg",
+        "width": 270,
+        "height": 232,
+        "x": 13935,
+        "y": -484
+      },
+      {
+        "name": "prop-hat",
+        "file": "props/prop-hat.svg",
+        "width": 342,
+        "height": 212,
+        "x": 14319,
+        "y": -474
+      },
+      {
+        "name": "prop-bag",
+        "file": "props/prop-bag.svg",
+        "width": 240,
+        "height": 299,
+        "x": 14790,
+        "y": -517.5
+      },
+      {
+        "name": "prop-backpack",
+        "file": "props/prop-backpack.svg",
+        "width": 274,
+        "height": 292,
+        "x": 15193,
+        "y": -514
+      },
+      {
+        "name": "prop-toy-car",
+        "file": "props/prop-toy-car.svg",
+        "width": 317,
+        "height": 236,
+        "x": 13491.5,
+        "y": -86
+      },
+      {
+        "name": "prop-flashlight",
+        "file": "props/prop-flashlight.svg",
+        "width": 276,
+        "height": 196,
+        "x": 13932,
+        "y": -66
+      },
+      {
+        "name": "prop-broom",
+        "file": "props/prop-broom.svg",
+        "width": 197,
+        "height": 341,
+        "x": 14391.5,
+        "y": -138.5
+      },
+      {
+        "name": "prop-teddy-bed",
+        "file": "props/prop-teddy-bed.svg",
+        "width": 356,
+        "height": 287,
+        "x": 14732,
+        "y": -111.5
+      },
+      {
+        "name": "prop-lamp-off",
+        "file": "props/prop-lamp-off.svg",
+        "width": 237,
+        "height": 325,
+        "x": 15211.5,
+        "y": -130.5
+      },
+      {
+        "name": "prop-cushion",
+        "file": "props/prop-cushion.svg",
+        "width": 292,
+        "height": 213,
+        "x": 13504,
+        "y": 325.5
+      },
+      {
+        "name": "prop-stool",
+        "file": "props/prop-stool.svg",
+        "width": 294,
+        "height": 259,
+        "x": 13923,
+        "y": 302.5
+      },
+      {
+        "name": "prop-sheet",
+        "file": "props/prop-sheet.svg",
+        "width": 285,
+        "height": 200,
+        "x": 14347.5,
+        "y": 332
+      },
+      {
+        "name": "prop-basket",
+        "file": "props/prop-basket.svg",
+        "width": 280,
+        "height": 243,
+        "x": 14770,
+        "y": 310.5
+      },
+      {
+        "name": "prop-bucket",
+        "file": "props/prop-bucket.svg",
+        "width": 246,
+        "height": 245,
+        "x": 15207,
+        "y": 309.5
+      }
+    ]
+  }
+}
