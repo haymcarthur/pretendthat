@@ -24,6 +24,10 @@ struct PTStageAccents: View {
         GeometryReader { geo in
             let side = min(geo.size.width, geo.size.height)
             ZStack {
+                // Flat ground oval she stands on (crisp, no blur).
+                PTGround()
+                    .frame(width: side * 0.62, height: side * 0.1)
+                    .position(x: geo.size.width / 2, y: geo.size.height / 2 + side * 0.43)
                 ForEach(Array(spots.enumerated()), id: \.offset) { i, spot in
                     Image(spot.asset).resizable().scaledToFit()
                         .frame(width: side * spot.size, height: side * spot.size)

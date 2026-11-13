@@ -24,6 +24,10 @@ final class RealtimeSession {
     var micWanted = true { didSet { updateGate() } }
     private(set) var lastError: String?
 
+    /// Live transcript for the chat panel: in memory only, cleared on disconnect (PretendThat stores nothing).
+    struct Line: Identifiable, Equatable { let id = UUID(); let fromNutmeg: Bool; let text: String }
+    private(set) var transcript: [Line] = []
+
     /// Function call handler: returns the output for the model and whether Nutmeg should answer afterwards.
     @ObservationIgnored var onCall: (@MainActor (String, String) async -> (output: String, respond: Bool))?
 
@@ -98,6 +102,7 @@ final class RealtimeSession {
         engine = nil
         speakingUntil = .distantPast; tailTask?.cancel(); pendingOutputs = []; wantsResponse = false; responseActive = false
         isSpeaking = false; kidIsTalking = false; level = 0
+        transcript = []
         if status != .idle, case .failed = status {} else { status = .idle }
     }
 
@@ -112,6 +117,7 @@ final class RealtimeSession {
     func sendText(_ text: String) {
         guard let socket, isLive else { return }
         socket.send(Realtime.userText(text))
+        transcript.append(Line(fromNutmeg: false, text: text))
         requestResponse()
     }
 
@@ -249,6 +255,11 @@ final class RealtimeSession {
         #endif
         switch event {
         case .audioDelta(let data): play(data)
+        case .transcriptDone(let text):
+            if !text.isEmpty { transcript.append(Line(fromNutmeg: true, text: text)) }
+        case .kidTranscript(let text):
+            let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !t.isEmpty { transcript.append(Line(fromNutmeg: false, text: t)) }
         case .speechStarted: kidIsTalking = true
         case .speechStopped: kidIsTalking = false
         case .functionCall(let name, let callID, let args):

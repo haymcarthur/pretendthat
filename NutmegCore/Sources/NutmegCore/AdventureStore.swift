@@ -4,13 +4,40 @@ import Observation
 public enum Phase: Equatable, Sendable {
     case hello, pickGame, players, props, makingKit, kitReady
     case handoff(sceneIndex: Int), scene(Int), stepBack(Int), end
+
+    /// Which of the 4 journey steps (step rail) this phase belongs to.
+    public var step: JourneyStep? {
+        switch self {
+        case .hello: nil
+        case .pickGame, .players: .game
+        case .props: .getReady
+        case .makingKit, .kitReady: .print
+        case .handoff, .scene, .stepBack, .end: .play
+        }
+    }
+}
+
+/// The step rail (layout-toycad-style.md): Game → Get Ready → Print → Play.
+public enum JourneyStep: Int, CaseIterable, Sendable {
+    case game, getReady, print, play
+    public var label: String {
+        switch self { case .game: "Game"; case .getReady: "Get Ready"; case .print: "Print"; case .play: "Play" }
+    }
 }
 
 /// The app-side state machine (spec C4): Nutmeg leads, the LLM fills in each phase.
 /// Holds real names only in memory; everything sent out goes through `tokens`.
 @Observable @MainActor
 public final class AdventureStore {
-    public private(set) var phase: Phase = .hello
+    public private(set) var phase: Phase = .hello {
+        didSet {
+            if let st = phase.step, st.rawValue > (reachedStep?.rawValue ?? -1) { reachedStep = st }
+            if phase.step == .play { lastPlayPhase = phase }
+        }
+    }
+    /// The furthest journey step reached this adventure (the step rail lets kids jump back up to here).
+    public private(set) var reachedStep: JourneyStep?
+    @ObservationIgnored private var lastPlayPhase: Phase?
     public private(set) var players: [Player] = []
     public private(set) var directorMode = false
     public private(set) var gameTitle: String?
@@ -204,7 +231,29 @@ public final class AdventureStore {
         ideas = nil; plan = nil; props = nil; kit = nil
         choices = []; lastError = nil; usingFallback = false
         foundProps = []; checkedSteps = []; failures = [:]; retryAction = nil; holder = nil
-        nutmegLine = ""; presenting = .none
+        nutmegLine = ""; presenting = .none; reachedStep = nil; lastPlayPhase = nil
+    }
+
+    // MARK: Step rail
+
+    /// Jump to a reached step without losing anything (see props again, reprint, back to the game).
+    public func goTo(_ step: JourneyStep) {
+        guard let reached = reachedStep, step.rawValue <= reached.rawValue, step != phase.step else { return }
+        switch step {
+        case .game:
+            phase = plan != nil || !players.isEmpty ? .players : .pickGame
+            presenting = plan != nil ? .roles : (ideas != nil && gameTitle == nil ? .ideas : .none)
+        case .getReady:
+            guard props != nil else { return }
+            phase = .props; presenting = .props
+        case .print:
+            guard kit != nil else { return }
+            phase = .kitReady; presenting = .none
+        case .play:
+            guard kit != nil else { return }
+            presenting = .none
+            if let last = lastPlayPhase { phase = last } else { beginPlay() }
+        }
     }
 
     // MARK: Voice conversation (D1, D2): the Realtime model's function calls drive the same state machine.
@@ -279,6 +328,7 @@ public final class AdventureStore {
             p.props[i].householdItem = PropLibrary.name(newID) ?? newID
             if !becomes.isEmpty { p.props[i].becomes = tokens.tokenize(becomes) }
             p.props[i].skipped = false
+            p.props[i].swapped = true
             p.props[i].alternates = p.props[i].alternates?.filter { $0 != newID }
             props = p; presenting = .props
             return "Swapped (the card still uses id \(p.props[i].id))."

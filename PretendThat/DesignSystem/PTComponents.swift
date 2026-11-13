@@ -14,13 +14,14 @@ struct PTSpeechBubble: View {
     @Environment(\.speak) private var speak
     var body: some View {
         Button { speak(text) } label: {
-            PTText(text, .headline)
+            Text(text).font(Theme.uiFont(22)).foregroundStyle(Theme.ink)
+                .multilineTextAlignment(.center)
                 .lineLimit(3)
                 .minimumScaleFactor(0.6)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity)
-                .ptCard(fill: Theme.white)
-                .overlay(alignment: .leading) { BubbleTail().offset(x: -Theme.Space.m + 2, y: -Theme.cardDepth / 2) }
+                .padding(Theme.Space.m)
+                .ptPanel(radius: 24)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(text)
@@ -216,21 +217,21 @@ struct PTParentGate: View {
     @State private var pressing = false
 
     var body: some View {
-        HStack(spacing: Theme.Space.m) {
+        // Primary CTA style: black pill, white text; a white ring fills while held.
+        HStack(spacing: Theme.Space.s) {
             ZStack {
-                ProgressView(value: progress).progressViewStyle(.ptRing)
-                Image(systemName: symbol).font(Theme.displayFont(22)).foregroundStyle(Theme.ink)
+                Circle().stroke(Theme.white.opacity(0.25), lineWidth: 3)
+                Circle().trim(from: 0, to: progress).stroke(Theme.white, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                Image(systemName: symbol.replacingOccurrences(of: ".fill", with: "")).font(.system(size: 18, weight: .regular)).foregroundStyle(Theme.white)
             }
-            .frame(width: 56, height: 56)
-            PTText(label, .headline)
+            .frame(width: 40, height: 40)
+            Text(label).font(Theme.uiFont(20)).foregroundStyle(Theme.white)
         }
-        .environment(\.ptInk, Theme.ink)
-        .padding(.horizontal, Theme.Space.l).padding(.vertical, Theme.Space.xs)
-        .frame(minHeight: Theme.Size.minHit - Theme.depth)
-        .background(RoundedRectangle(cornerRadius: Theme.buttonRadius, style: .continuous).fill(Theme.accent))
-        .offset(y: pressing ? Theme.depth : 0)
-        .background(RoundedRectangle(cornerRadius: Theme.buttonRadius, style: .continuous).fill(Theme.yellowShade).offset(y: Theme.depth))
-        .padding(.bottom, Theme.depth)
+        .padding(.leading, Theme.Space.s).padding(.trailing, Theme.Space.l)
+        .frame(minHeight: 64)
+        .background(Capsule().fill(Theme.cta))
+        .scaleEffect(pressing ? 0.97 : 1)
         .animation(Theme.press, value: pressing)
         .onLongPressGesture(minimumDuration: seconds, maximumDistance: 60) {
             progress = 1
@@ -391,7 +392,6 @@ struct PTStageLayout<Nutmeg: View, Stage: View, Bottom: View>: View {
             }
         }
         .ptScreen(backdrop)
-        .overlay(alignment: .topLeading) { PTCurtainCorner(width: 150).ignoresSafeArea() }
         .animation(Theme.bouncy, value: nutmegColumn)
     }
 }

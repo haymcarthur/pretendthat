@@ -1,55 +1,46 @@
 import SwiftUI
 
-/// Native Button, themed Duolingo-style: a solid face on a solid "3D" bottom edge. Pressing pushes the face down
-/// onto the edge. White labels only on faces where they pass WCAG large-text contrast (see BrandPalette).
+/// Native Button, Emote-style (layout-toycad-style.md, style revised): compact pills. Primary = black pill with
+/// white text; secondary = white pill with a hairline border; quiet = light gray pill; success = lime pill.
+/// Touch targets stay ≥ 64 pt tall for kids.
 struct PTButtonStyle: ButtonStyle {
     enum Kind { case primary, secondary, quiet, success }
     var kind: Kind = .primary
-    var size: CGFloat = Theme.TextSize.button
+    var size: CGFloat = 20
 
     @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
-        let shape = RoundedRectangle(cornerRadius: Theme.buttonRadius, style: .continuous)
         let pressed = configuration.isPressed
-        let depth = kind == .quiet ? Theme.depth * 0.7 : Theme.depth
         configuration.label
-            .font(Theme.displayFont(size))
+            .font(Theme.uiFont(size))
             .foregroundStyle(foreground)
             .lineLimit(1).minimumScaleFactor(0.7)
             .padding(.horizontal, Theme.Space.l)
-            .padding(.vertical, Theme.Space.m)
-            .frame(minWidth: Theme.Size.minHit, minHeight: Theme.Size.minHit - depth)
-            .background(shape.fill(face))
-            .overlay(shape.strokeBorder(kind == .quiet && isEnabled ? Theme.line : .clear, lineWidth: Theme.borderWidth))
-            .offset(y: pressed ? depth : 0)
-            .background(shape.fill(edge).offset(y: depth))
-            .padding(.bottom, depth)
-            .contentShape(shape)
+            .frame(minWidth: 64, minHeight: 64)
+            .background(Capsule().fill(face))
+            .overlay(Capsule().strokeBorder(kind == .secondary ? Theme.line : .clear, lineWidth: 1.5))
+            .scaleEffect(pressed ? 0.96 : 1)
+            .contentShape(Capsule())
             .animation(Theme.press, value: pressed)
             .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.6), trigger: pressed) { _, new in new }
     }
 
     private var face: Color {
         guard isEnabled else { return Theme.disabled }
-        switch kind { case .primary: return Theme.primary; case .secondary: return Theme.accent
-        case .quiet: return Theme.white; case .success: return Theme.success }
-    }
-    private var edge: Color {
-        guard isEnabled else { return Theme.line }
-        switch kind { case .primary: return Theme.coralShade; case .secondary: return Theme.yellowShade
-        case .quiet: return Theme.line; case .success: return Theme.limeShade }
+        switch kind { case .primary: return Theme.cta; case .secondary: return Theme.white
+        case .quiet: return Theme.chipGray; case .success: return Theme.lime }
     }
     private var foreground: Color {
         guard isEnabled else { return Theme.disabledInk }
-        return kind == .primary ? Theme.inkOnBrand : Theme.ink
+        return kind == .primary ? Theme.white : Theme.ink
     }
 }
 
 extension ButtonStyle where Self == PTButtonStyle {
     static var ptPrimary: PTButtonStyle { PTButtonStyle(kind: .primary) }
     static var ptSecondary: PTButtonStyle { PTButtonStyle(kind: .secondary) }
-    static var ptQuiet: PTButtonStyle { PTButtonStyle(kind: .quiet, size: Theme.TextSize.body) }
+    static var ptQuiet: PTButtonStyle { PTButtonStyle(kind: .quiet, size: 18) }
     static var ptSuccess: PTButtonStyle { PTButtonStyle(kind: .success) }
 }
 

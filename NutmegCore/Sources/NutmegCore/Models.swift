@@ -75,6 +75,7 @@ public struct Prop: Codable, Equatable, Sendable, Identifiable {
     public var libraryID: String?
     public var alternates: [String]?
     public var skipped: Bool?
+    public var swapped: Bool?
     public init(id: String, householdItem: String, becomes: String, emoji: String, forRole: SceneOwner, safetyOK: Bool,
                 libraryID: String? = nil, alternates: [String]? = nil, skipped: Bool? = nil) {
         self.id = id; self.householdItem = householdItem; self.becomes = becomes; self.emoji = emoji; self.forRole = forRole; self.safetyOK = safetyOK

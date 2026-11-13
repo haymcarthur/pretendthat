@@ -39,6 +39,7 @@ The map. Read this first, then open only what you need.
 - [Motion and surface: crisp, calm, event-driven](decisions/motion-and-surface.md): Haylee (supersedes colored backdrops and ambient sway)
 - [Conversation voice: a friend, not a script](decisions/conversation-voice.md): Haylee
 - [Prop art library + missing props](decisions/prop-art-library.md): Claude's call pending Haylee's OK; missing-prop behavior Haylee
+- [Layout (ToyCAD) + style revised (Emote)](decisions/layout-toycad-style.md): Haylee (centered Nutmeg, fanned cards, step rail, control pill, chat panel; light minimal chrome)
 - [Kit recipe: 6 fixed item types](decisions/kit-recipe.md): Haylee (supersedes "2–4 item types")
 - Mascot update (rest pose, brief gestures, pop swaps) in [Mascot: Nutmeg](decisions/mascot-nutmeg.md): Haylee
 

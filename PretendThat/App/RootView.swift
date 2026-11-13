@@ -7,13 +7,47 @@ struct RootView: View {
     @State private var model = AppModel()
     @State private var showSettings = false
     @State private var showTyping = false
+    @State private var chatOpen = false
 
     private var store: AdventureStore { model.store }
 
     var body: some View {
-        Group {
-            if model.inConversation { conversation.transition(.opacity) } else { classic.transition(.opacity) }
+        // Layout (layout-toycad-style.md, style revised): light canvas, Nutmeg centered as the hero, a white step rail
+        // on the left, a white control pill at the bottom, and a chat panel that slides in from the right.
+        ZStack {
+            PTCanvas()
+            HStack(spacing: Theme.Space.m) {
+                Group {
+                    if model.inConversation { conversation.transition(.opacity) } else { classic.transition(.opacity) }
+                }
+                .padding(.leading, chromeVisible ? 104 : 0)
+                .padding(.bottom, chromeVisible ? 92 : 0)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                if chatOpen && chromeVisible {
+                    PTChatPanel(lines: model.realtime.transcript.map { PTChatPanel.Line(id: $0.id, fromNutmeg: $0.fromNutmeg, text: $0.text) },
+                                onSend: { text in Task { await model.typed(text) } },
+                                onClose: { chatOpen = false })
+                        .padding([.vertical, .trailing], Theme.Space.m)
+                        .transition(.move(edge: .trailing).combined(with: .opacity))
+                }
+            }
+            if chromeVisible {
+                PTStepRail(current: store.phase.step, reached: store.reachedStep) { store.goTo($0) }
+                    .padding(.leading, Theme.Space.m)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                    .transition(.move(edge: .leading).combined(with: .opacity))
+                PTControlBar(isMuted: model.realtime.isMuted, isListening: model.realtime.kidIsTalking, chatOpen: chatOpen,
+                             micAvailable: model.realtime.isLive,
+                             onMute: { if model.realtime.isLive { model.realtime.isMuted.toggle() } else { chatOpen = true } },
+                             onChat: { chatOpen.toggle() },
+                             onLeave: { chatOpen = false; model.leave() })
+                    .padding(.bottom, Theme.Space.m)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
+        .animation(.spring(response: 0.5, dampingFraction: 0.85), value: chatOpen)
+        .animation(.spring(response: 0.5, dampingFraction: 0.85), value: chromeVisible)
         .animation(.easeInOut(duration: 0.4), value: model.inConversation)
         .environment(\.speak, SpeakAction { model.speak($0) })
         .environment(\.ptCelebrate, model.celebrations)
@@ -45,15 +79,12 @@ struct RootView: View {
     // MARK: Voice conversation (D1, D4, D5)
 
     private var conversation: some View {
-        PTConversationStage(backdrop: .white, shot: shot, items: stageItems,
+        PTConversationStage(backdrop: .clear, shot: shot, items: stageItems,
                             onTapItem: { id in silentTap(id) }) {
             NutmegCharacter(state: model.nutmegState, mouthLevel: model.mouthLevel,
                             isSpeaking: model.isSpeaking, cue: model.cue)
         } bar: {
-            PTVoiceBar(isMuted: model.realtime.isMuted, isListening: model.realtime.kidIsTalking,
-                       onMute: { model.realtime.isMuted.toggle() },
-                       onLeave: { model.leave() },
-                       onType: { showTyping = true })
+            EmptyView()
         }
     }
 
@@ -69,14 +100,15 @@ struct RootView: View {
         case .ideas:
             return (store.ideas?.ideas ?? []).enumerated().map { i, idea in
                 PTStageItem(id: "idea-\(idea.title)", title: idea.title,
-                            image: model.stickers.image(.idea, idea.title), tint: Theme.playerColor(i))
+                            image: model.stickers.image(.idea, idea.title), tint: Theme.playerColor(i), tag: "Game \(i + 1)")
             }
         case .roles:
             return (store.plan?.roles ?? []).map { r in
                 let p = store.players.first { $0.token == r.player }
                 return PTStageItem(id: "role-\(r.player.rawValue)-\(r.roleName)", title: store.tokens.untokenize(r.roleName),
                                    subtitle: store.directorMode ? nil : p?.displayName,
-                                   image: model.stickers.image(.role, r.roleName), tint: Theme.playerColor(r.player.index))
+                                   image: model.stickers.image(.role, r.roleName), tint: Theme.playerColor(r.player.index),
+                                   tag: store.directorMode ? "Role" : (p?.displayName ?? "Role"))
             }
         case .props:
             return (store.props?.props ?? []).enumerated().map { i, prop in
@@ -85,7 +117,9 @@ struct RootView: View {
                 return PTStageItem(id: "prop-\(prop.id)", title: prop.householdItem,
                                    subtitle: store.tokens.untokenize(prop.becomes),
                                    image: art, tint: Theme.playerColor(i),
-                                   flipKey: prop.libraryID ?? prop.householdItem, isPretend: prop.isSkipped)
+                                   flipKey: prop.libraryID ?? prop.householdItem, isPretend: prop.isSkipped,
+                                   tag: "Prop",
+                                   chip: prop.isSkipped ? .pretend : (store.foundProps.contains(prop.id) ? .found : (prop.swapped == true ? .swapped : .none)))
             }
         }
     }
@@ -117,7 +151,7 @@ struct RootView: View {
     // MARK: Classic stage (setup fallback, kit and play)
 
     private var classic: some View {
-        PTStageLayout(backdrop: backdrop, nutmegColumn: isChecklist ? 0 : (nutmegIsHero ? Theme.nutmegHeroColumn : Theme.nutmegColumn)) {
+        PTStageLayout(backdrop: .clear, nutmegColumn: isChecklist ? 0 : (nutmegIsHero ? Theme.nutmegHeroColumn : Theme.nutmegColumn)) {
             // Checklists show just the clipboard with Nutmeg peeking in (D6), so her column folds away.
             if !isChecklist {
                 NutmegCharacter(state: model.nutmegState, mouthLevel: model.mouthLevel,
@@ -150,19 +184,11 @@ struct RootView: View {
 
     @ViewBuilder private var bottomBar: some View {
         if store.phase == .hello {
-            PTParentGate(label: "Grown-ups", symbol: "gearshape.fill") { showSettings = true }
+            PTParentGate(label: "Grown-ups", symbol: "gearshape") { showSettings = true }
         }
-        Spacer()
         if store.lastError != nil {
             Button { Task { await store.retry() } } label: { Label("Try again", systemImage: "arrow.clockwise") }.buttonStyle(.ptSecondary)
             Button { store.useFallback() } label: { Label("Play airplane", systemImage: "airplane") }.buttonStyle(.ptQuiet)
-        }
-        PTMicButton(isListening: model.listener.isListening, isAvailable: model.listener.available,
-                    onPress: model.micPressed, onRelease: model.micReleased, onTypeInstead: { showTyping = true })
-        PTReplayButton { if let line = model.voice.lastLine ?? store.nutmegLine.nilIfEmpty { model.speak(line) } }
-        Spacer()
-        if store.phase != .hello {
-            Button { model.leave() } label: { Label("Home", systemImage: "house.fill") }.buttonStyle(.ptQuiet)
         }
     }
 
@@ -178,6 +204,9 @@ struct RootView: View {
 
     /// One clean white base everywhere (Haylee, motion-and-surface.md); brand colors live on accents only.
     private var backdrop: PTBackdrop { .white }
+
+    /// Step rail and control pill show from the first step on (not on Hello).
+    private var chromeVisible: Bool { store.phase != .hello }
 
     private var isChecklist: Bool { if case .scene = store.phase { true } else { false } }
 

@@ -23,6 +23,19 @@ enum Theme {
 
     // MARK: Semantic tokens
     static let background = white
+    // Emote-style chrome (layout-toycad-style.md, style revised): light, quiet, minimal.
+    /// App canvas: very light warm gray.
+    static let canvas = Color(red: 0xF5 / 255, green: 0xF4 / 255, blue: 0xF2 / 255)
+    /// Round icon buttons, tag and chip pills.
+    static let chipGray = Color(red: 0xED / 255, green: 0xED / 255, blue: 0xED / 255)
+    /// Ground oval under Nutmeg.
+    static let ground = Color(red: 0xE7 / 255, green: 0xE5 / 255, blue: 0xE1 / 255)
+    /// Primary call-to-action pill.
+    static let cta = Color(red: 0x11 / 255, green: 0x11 / 255, blue: 0x11 / 255)
+    /// UI label fonts: calmer medium/semibold rounded (heavy display only for big moments).
+    static func uiFont(_ size: CGFloat, _ weight: Font.Weight = .semibold) -> Font { .system(size: size, weight: weight, design: .rounded) }
+    /// Panels: the one allowed soft effect, a small low-opacity shadow.
+    static let panelShadow = Color.black.opacity(0.07)
     /// Very light warm off-white (alternate base).
     static let paper = Color(red: 0.996, green: 0.988, blue: 0.976)
     static let backgroundBrand = purple
@@ -118,12 +131,15 @@ enum Theme {
 /// One solid background per phase (brand rule: solid fills, no scene art). Carries the text colors that read on it.
 enum PTBackdrop: CaseIterable {
     case white, cream, backstage, spotlight
+    /// Transparent: the screen sits on `PTShardBackground`.
+    case clear
 
     var color: Color {
         switch self {
         // Haylee 2026-11-13 (motion-and-surface.md): one clean light base everywhere; brand colors only on accents.
-        case .white, .backstage, .spotlight: Theme.white
+        case .white, .backstage, .spotlight: Theme.canvas
         case .cream: Theme.paper
+        case .clear: Color.clear
         }
     }
     var ink: Color { Theme.ink }
@@ -134,7 +150,7 @@ enum PTBackdrop: CaseIterable {
     /// Card edge under white cards on this backdrop.
     var cardEdge: Color {
         switch self {
-        case .backstage, .spotlight, .cream, .white: Theme.line
+        case .backstage, .spotlight, .cream, .white, .clear: Theme.line
         }
     }
 }

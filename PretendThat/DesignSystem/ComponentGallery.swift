@@ -20,6 +20,46 @@ struct ComponentGallery: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Space.xl) {
+                section("Layout chrome (Emote style): PTStepRail states, PTControlBar states") {
+                    HStack(alignment: .top, spacing: Theme.Space.l) {
+                        PTStepRail(current: .game, reached: .game) { _ in }
+                        PTStepRail(current: .getReady, reached: .print) { _ in }
+                        PTStepRail(current: .play, reached: .play) { _ in }
+                        VStack(spacing: Theme.Space.m) {
+                            PTControlBar(isMuted: false, isListening: false, chatOpen: false, onMute: {}, onChat: {}, onLeave: {})
+                            PTControlBar(isMuted: false, isListening: true, chatOpen: true, onMute: {}, onChat: {}, onLeave: {})
+                            PTControlBar(isMuted: true, isListening: false, chatOpen: false, onMute: {}, onChat: {}, onLeave: {})
+                            HStack {
+                                Button("Print") {}.buttonStyle(.ptPrimary)
+                                Button { } label: { Label("Chat", systemImage: "bubble.left") }.buttonStyle(.ptSecondary)
+                                Button("Quiet") {}.buttonStyle(.ptQuiet)
+                                Button("Done!") {}.buttonStyle(.ptSuccess)
+                            }
+                        }
+                    }
+                    .padding().background(Theme.canvas)
+                }
+                section("PTItemCard states (tag, found, swapped, pretend, loading)") {
+                    HStack(spacing: Theme.Space.m) {
+                        PTItemCard(item: PTStageItem(id: "a", title: "Chair", subtitle: "Plane seats", image: UIImage(named: "prop-chair"), tint: Theme.playerColor(0)), tag: "Prop")
+                        PTItemCard(item: PTStageItem(id: "b", title: "Tray", subtitle: "Snack cart", image: UIImage(named: "prop-tray"), tint: Theme.playerColor(1)), tag: "Prop", chip: .found)
+                        PTItemCard(item: PTStageItem(id: "c", title: "Books", subtitle: "Snack cart", image: UIImage(named: "prop-books"), tint: Theme.playerColor(2)), tag: "Prop", chip: .swapped)
+                        PTItemCard(item: PTStageItem(id: "d", title: "Backpack", image: UIImage(named: "prop-backpack"), tint: Theme.playerColor(3), isPretend: true), tag: "Prop", chip: .pretend)
+                        PTItemCard(item: PTStageItem(id: "e", title: "Captain", subtitle: "Mia", tint: Theme.playerColor(0)), tag: "Mia")
+                    }
+                    .padding().background(Theme.canvas)
+                }
+                section("PTChatPanel, PTClipboardReveal (back / front)") {
+                    HStack(alignment: .top, spacing: Theme.Space.l) {
+                        PTChatPanel(lines: [.init(id: UUID(), fromNutmeg: true, text: "Ooh, a pancake restaurant on the moon?! Do the pancakes float?"),
+                                            .init(id: UUID(), fromNutmeg: false, text: "Yes! And they're blue!")],
+                                    onSend: { _ in }, onClose: {})
+                            .frame(height: 420)
+                        PTClipboardReveal(isRevealed: false, width: 220) { EmptyView() }.frame(height: 280)
+                        PTClipboardReveal(isRevealed: true, peek: true, width: 220) { PTText("Checklist", .headline) }.frame(height: 280)
+                    }
+                    .padding().background(Theme.canvas)
+                }
                 section("Text styles") {
                     PTText("Hero", .hero); PTText("Title", .title); PTText("Headline", .headline)
                     PTText("Body text for kids", .body); PTText("Caption", .caption, tone: .muted)

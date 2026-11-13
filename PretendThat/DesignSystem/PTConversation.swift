@@ -13,6 +13,10 @@ struct PTStageItem: Identifiable, Equatable {
     var flipKey: String = ""
     /// A skipped prop: stays on stage in a soft "we'll pretend" state (never removed like a failure).
     var isPretend = false
+    /// Card pill tag (top-left), e.g. the player's name or "Prop".
+    var tag: String? = nil
+    /// Card state chip (top-right).
+    var chip: PTItemCard.Chip = .none
 }
 
 /// Where the "camera" is (D4): close on Nutmeg's face while she talks or listens, wide while she presents.
@@ -38,7 +42,7 @@ struct PTConversationStage<Character: View, Bar: View>: View {
                 // Camera layer: Nutmeg and her floating props move together.
                 ZStack {
                     PTStageAccents()
-                        .frame(width: side * 1.5, height: side * 1.2)
+                        .frame(width: side * 1.3, height: side * 1.05)
                     character
                         .frame(width: side, height: side)
                 }
@@ -46,12 +50,14 @@ struct PTConversationStage<Character: View, Bar: View>: View {
                 .offset(y: camera.offsetY * side)
                 .position(x: size.width / 2, y: size.height * 0.43)
 
-                // Presented items fan out around her in the wide shot.
+                // Presented items fan out in an arc around her (ToyCAD layout), slightly tilted and overlapping.
                 ForEach(Array(items.enumerated()), id: \.element.id) { i, item in
-                    let p = Self.slot(i, of: items.count, in: size)
-                    PTStageItemCard(item: item, width: min(220, size.width * 0.19))
+                    let cw = min(200, size.width * 0.18)
+                    let slot = PTFan.slot(i, of: items.count, in: size, cardWidth: cw)
+                    PTItemCard(item: item, tag: item.tag, chip: item.chip, width: cw)
+                        .rotationEffect(.degrees(slot.tilt))
                         .onTapGesture { onTapItem?(item.id) }
-                        .position(p)
+                        .position(slot.point)
                         .transition(.scale(scale: 0.2, anchor: .center).combined(with: .opacity))
                         .animation(Theme.bouncy.delay(reduceMotion ? 0 : Double(i) * 0.12), value: items.map(\.id))
                 }
@@ -61,8 +67,6 @@ struct PTConversationStage<Character: View, Bar: View>: View {
             }
             .frame(width: size.width, height: size.height)
         }
-        .ptScreen(backdrop)
-        .overlay(alignment: .topLeading) { PTCurtainCorner(width: 150).ignoresSafeArea() }
         .animation(reduceMotion ? .easeInOut(duration: 0.3) : .spring(response: 0.9, dampingFraction: 0.82), value: shot)
         .environment(\.ptBackdrop, backdrop)
     }
@@ -74,7 +78,7 @@ struct PTConversationStage<Character: View, Bar: View>: View {
         switch shot {
         case .closeUp: (1.5, 0.16)    // push in toward her face
         case .medium: (0.95, -0.02)
-        case .wide: (0.6, -0.06)      // pull back so items fit around her
+        case .wide: (0.72, -0.02)     // pull back so the fanned cards fit around her
         }
     }
 

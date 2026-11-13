@@ -24,6 +24,7 @@ import Testing
     #expect(Realtime.parse(#"{"type":"session.updated"}"#) == .sessionReady)
     #expect(Realtime.parse(#"{"type":"response.output_audio.delta","delta":"AAEC"}"#) == .audioDelta(Data([0, 1, 2])))
     #expect(Realtime.parse(#"{"type":"input_audio_buffer.speech_started"}"#) == .speechStarted)
+    #expect(Realtime.parse(#"{"type":"conversation.item.input_audio_transcription.completed","transcript":"hi"}"#) == .kidTranscript("hi"))
     #expect(Realtime.parse(#"{"type":"response.function_call_arguments.done","name":"set_game","call_id":"c1","arguments":"{\"title\":\"Zoo\"}"}"#)
             == .functionCall(name: "set_game", callID: "c1", arguments: #"{"title":"Zoo"}"#))
     #expect(Realtime.parse(#"{"type":"error","error":{"code":"bad","message":"oops"}}"#) == .error("bad: oops"))
@@ -84,4 +85,23 @@ import Testing
     store.beginConversation()
     _ = await store.apply(.setPlayers(names: [], count: 7))
     #expect(store.directorMode && store.players.count == 4)
+}
+
+@Test @MainActor func stepRailJumpsBackWithoutLosingState() async {
+    let store = await storeWithKit(owners: [.P1, .all, .all, .all], players: 2)
+    #expect(store.reachedStep == .print)
+    store.beginPlay()
+    if case .handoff = store.phase { store.badgeTapped(.P1) }
+    #expect(store.reachedStep == .play)
+    let playPhase = store.phase
+    store.goTo(.getReady)
+    #expect(store.phase == .props && store.props != nil && store.presenting == .props)
+    store.goTo(.print)
+    #expect(store.phase == .kitReady && store.kit != nil)
+    store.goTo(.play)
+    #expect(store.phase == playPhase)          // back where they were
+    store.newGame()
+    #expect(store.reachedStep == nil)
+    store.goTo(.play)
+    #expect(store.phase == .hello)             // can't jump ahead
 }

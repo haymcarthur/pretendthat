@@ -72,6 +72,8 @@ public enum Realtime {
                     "input": [
                         "format": ["type": "audio/pcm", "rate": Int(sampleRate)],
                         "noise_reduction": ["type": "far_field"],
+                        // Live transcript for the chat panel (shown in memory only, never stored).
+                        "transcription": ["model": "gpt-4o-mini-transcribe", "language": "en"],
                         "turn_detection": ["type": "server_vad", "threshold": dec(0.6), "silence_duration_ms": 700,
                                            "prefix_padding_ms": 300, "create_response": true, "interrupt_response": false]
                     ] as [String: Any],
@@ -152,6 +154,7 @@ public enum Realtime {
         case audioDelta(Data)
         case audioDone
         case transcriptDone(String)
+        case kidTranscript(String)
         case speechStarted, speechStopped
         case functionCall(name: String, callID: String, arguments: String)
         case responseCreated
@@ -169,6 +172,7 @@ public enum Realtime {
             return .audioDelta((obj["delta"] as? String).flatMap { Data(base64Encoded: $0) } ?? Data())
         case "response.output_audio.done": return .audioDone
         case "response.output_audio_transcript.done": return .transcriptDone(obj["transcript"] as? String ?? "")
+        case "conversation.item.input_audio_transcription.completed": return .kidTranscript(obj["transcript"] as? String ?? "")
         case "input_audio_buffer.speech_started": return .speechStarted
         case "input_audio_buffer.speech_stopped": return .speechStopped
         case "response.function_call_arguments.done":
