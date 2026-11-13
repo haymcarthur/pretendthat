@@ -32,7 +32,7 @@ final class FakeLLM: LLM, @unchecked Sendable {
 @Test func kitIsSanitized() async throws {
     let llm = FakeLLM(responses: ["Kit": Fixture.oversizedKit])
     let kit = try await PhaseService(llm: llm).kit(ctx: AdventureContext(gameTitle: "Airplane", playerCount: 2))
-    #expect(kit.items.count <= 4)
+    #expect(kit.items.count <= 6)
     #expect(kit.scenes.count <= 6)
 }
 
@@ -60,7 +60,7 @@ final class FakeLLM: LLM, @unchecked Sendable {
     #expect(a.ideas.ideas.count == 3)
     #expect(a.plan.roles.count == 4)
     #expect((3...5).contains(a.props.props.count))
-    #expect((2...4).contains(a.kit.items.count))
+    #expect(a.kit.items.map(\.recipe) == KitRecipe.allCases.map { Optional($0) })
     #expect((4...6).contains(a.kit.scenes.count))
     #expect(a.kit.scenes.allSatisfy { (3...5).contains($0.steps.count) })
     #expect(Sanitizer.clean(a.kit, playerCount: 4) == a.kit)   // already within limits

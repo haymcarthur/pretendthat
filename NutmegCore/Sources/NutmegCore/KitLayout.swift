@@ -15,7 +15,7 @@ public struct KitPage: Equatable, Sendable, Identifiable {
 
 /// Paginates kit items onto US Letter pages (spec §6): 8 tickets/bills/keycards, 6 badges, or 1 sheet per page.
 public enum KitLayout {
-    public static let maxPages = 6
+    public static let maxPages = 7
 
     public struct Grid: Equatable, Sendable {
         public var columns: Int, rows: Int
@@ -81,22 +81,34 @@ public enum KitArtPrompt {
     public static func prompt(for item: KitItem, gameTitle: String) -> String {
         let text = item.lines.filter { !$0.contains("{P") }
         let shape: String
-        switch item.size {
-        case .ticket: shape = "a single wide ticket card (landscape, about 2 by 1)"
-        case .bill: shape = "a single play-money bill (landscape, about 2 by 1)"
-        case .keycard: shape = "a single key card (landscape, about 2 by 1)"
-        case .badge: shape = "a single name badge (portrait)"
-        case .fullPage: shape = "a full printable page (portrait, US Letter)"
+        switch item.recipe {
+        case .sign?: shape = "a big sign to hang on the wall (portrait, US Letter) with a decorative theater-style border"
+        case .money?: shape = "a single play-money bill (landscape, about 2 by 1) with an ornate border and a big value in the corners"
+        case .menu?: shape = "a full-page menu or price list (portrait, US Letter) with a little picture next to each line"
+        case .cutouts?: shape = "a full page (portrait, US Letter) of 6 to 8 separate cut-out props, each a simple object with a thick cut-around outline and space between them"
+        case .badges?: shape = "a single role name badge (portrait) with a clip hole at the top"
+        case .tickets?: shape = item.size == .keycard ? "a single key card (landscape, about 2 by 1)" : "a single ticket or pass (landscape, about 2 by 1)"
+        case nil:
+            switch item.size {
+            case .ticket: shape = "a single wide ticket card (landscape, about 2 by 1)"
+            case .bill: shape = "a single play-money bill (landscape, about 2 by 1)"
+            case .keycard: shape = "a single key card (landscape, about 2 by 1)"
+            case .badge: shape = "a single name badge (portrait)"
+            case .fullPage: shape = "a full printable page (portrait, US Letter)"
+            }
         }
         var p = """
         Coloring-page line art for a kids' pretend-play game called "\(gameTitle)". Draw \(shape): \(item.title). \
         Black and white only, thick clean outlines, no shading, no gray fills, plain white background, friendly and simple, \
         easy for a 5-year-old to color. Fill the whole image edge to edge with the card design and a thick rounded border.
         """
-        if item.size != .fullPage {
+        if item.size != .fullPage && item.recipe != .money {
             p += " Leave a BLANK white rounded banner across the top quarter of the card with no text in it (a name is written there later)."
         }
-        if !text.isEmpty { p += " Spell these words exactly, in big rounded letters: " + text.map { "\"\($0)\"" }.joined(separator: ", ") + "." }
+        if item.recipe == .cutouts, !text.isEmpty {
+            p += " Draw these items, one each, with no words: " + text.joined(separator: ", ") + "."
+            p += " Title at the top in big rounded letters: \"\(item.title)\"."
+        } else if !text.isEmpty { p += " Spell these words exactly, in big rounded letters: " + text.map { "\"\($0)\"" }.joined(separator: ", ") + "." }
         if let n = item.bigNumber, !n.isEmpty { p += " Show the big number or code \"\(n)\"." }
         p += " Do not add any other words. No real brands, no logos, nothing scary."
         return p

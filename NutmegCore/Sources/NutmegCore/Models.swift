@@ -14,6 +14,34 @@ public enum SceneOwner: String, Codable, Sendable, Hashable {
 }
 
 public enum KitKind: String, Codable, Sendable { case card, sheet }
+
+/// The fixed kit recipe (decision kit-recipe.md): every kit has these 6 item types, in this order.
+/// The AI fills in titles, wording, numbers and what goes on each; the app fixes the shape of each.
+public enum KitRecipe: String, Codable, Sendable, CaseIterable {
+    case badges, sign, money, tickets, menu, cutouts
+    public var kind: KitKind { self == .badges || self == .money || self == .tickets ? .card : .sheet }
+    public var size: KitSize {
+        switch self {
+        case .badges: .badge
+        case .money: .bill
+        case .tickets: .ticket
+        case .sign, .menu, .cutouts: .fullPage
+        }
+    }
+    /// One per player (name banner the app fills in).
+    public var perPlayer: Bool { self == .badges || self == .tickets }
+    public var copies: Int { self == .money ? 8 : 1 }
+    public var guide: String {
+        switch self {
+        case .badges: "role name badges, one per player (the app writes each name on a blank banner)"
+        case .sign: "a sign to hang up with the place's name, e.g. \"Cozy Café\" or \"Sky Airlines Gate 3\""
+        case .money: "play money: one design of bills themed to the game, with a bigNumber value"
+        case .tickets: "tickets or passes that fit the game (boarding passes, appointment cards, room keycards, order tickets, admission tickets)"
+        case .menu: "a menu for food games, otherwise a price list or services sheet (lines = items with prices)"
+        case .cutouts: "a page of 6 to 8 themed prop cut-outs (food for food games; tools for doctor/vet/engineer; luggage and snacks for airplane); lines = the items"
+        }
+    }
+}
 public enum KitSize: String, Codable, Sendable { case ticket, badge, bill, keycard, fullPage }
 
 public struct GameIdea: Codable, Equatable, Sendable, Identifiable {
@@ -60,16 +88,16 @@ public struct Props: Codable, Equatable, Sendable {
 }
 
 public struct KitItem: Codable, Equatable, Sendable, Identifiable {
-    public var id: String; public var kind: KitKind; public var size: KitSize; public var title: String; public var symbol: String
+    public var id: String; public var recipe: KitRecipe?; public var kind: KitKind; public var size: KitSize; public var title: String; public var symbol: String
     public var lines: [String]; public var bigNumber: String?; public var perPlayer: Bool; public var copies: Int; public var colorMe: Bool
-    public init(id: String, kind: KitKind, size: KitSize, title: String, symbol: String, lines: [String], bigNumber: String?, perPlayer: Bool, copies: Int, colorMe: Bool) {
-        self.id = id; self.kind = kind; self.size = size; self.title = title; self.symbol = symbol; self.lines = lines
+    public init(id: String, recipe: KitRecipe? = nil, kind: KitKind, size: KitSize, title: String, symbol: String, lines: [String], bigNumber: String?, perPlayer: Bool, copies: Int, colorMe: Bool) {
+        self.id = id; self.recipe = recipe; self.kind = kind; self.size = size; self.title = title; self.symbol = symbol; self.lines = lines
         self.bigNumber = bigNumber; self.perPlayer = perPlayer; self.copies = copies; self.colorMe = colorMe
     }
     // bigNumber must encode as an explicit null (schema requires the key).
     public func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
-        try c.encode(id, forKey: .id); try c.encode(kind, forKey: .kind); try c.encode(size, forKey: .size)
+        try c.encode(id, forKey: .id); try c.encodeIfPresent(recipe, forKey: .recipe); try c.encode(kind, forKey: .kind); try c.encode(size, forKey: .size)
         try c.encode(title, forKey: .title); try c.encode(symbol, forKey: .symbol); try c.encode(lines, forKey: .lines)
         try c.encode(bigNumber, forKey: .bigNumber); try c.encode(perPlayer, forKey: .perPlayer)
         try c.encode(copies, forKey: .copies); try c.encode(colorMe, forKey: .colorMe)

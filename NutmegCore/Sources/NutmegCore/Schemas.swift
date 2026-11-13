@@ -28,7 +28,11 @@ public enum Schemas {
     }
     public static func kit() -> [String: Any] {
         obj(["nutmegSays": str,
-             "items": nonEmpty(obj(["id": str, "kind": enumStr(["card", "sheet"]),
+             "items": nonEmpty(obj(["id": str,
+                               "recipe": ["type": "string", "enum": KitRecipe.allCases.map(\.rawValue),
+                                          "description": "Which of the 6 fixed kit item types this is. Use each exactly once, in this order: "
+                                            + KitRecipe.allCases.map(\.rawValue).joined(separator: ", ") + "."],
+                               "kind": enumStr(["card", "sheet"]),
                                "size": enumStr(["ticket", "badge", "bill", "keycard", "fullPage"]),
                                "title": str, "symbol": str, "lines": arr(str), "bigNumber": ["type": ["string", "null"]],
                                "perPlayer": bool, "copies": int, "colorMe": bool])),

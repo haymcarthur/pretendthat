@@ -18,11 +18,11 @@ func kitItem(_ id: String, size: KitSize, perPlayer: Bool = false, copies: Int =
     #expect(pages.map(\.slots.count) == [6, 2])
 }
 
-@Test func capsAtSixPages() {
+@Test func capsAtSevenPages() {
     let items = [kitItem("a", size: .ticket, copies: 20), kitItem("b", size: .badge, copies: 20),
                  kitItem("c", size: .bill, copies: 20), kitItem("d", size: .keycard, copies: 20)]
     let pages = KitLayout.pages(for: Kit(nutmegSays: "", items: items, scenes: []), players: [.P1], directorMode: false)
-    #expect(pages.count == 6)
+    #expect(pages.count == KitLayout.maxPages && KitLayout.maxPages == 7)
     #expect(Set(pages.map(\.item.id)) == ["a", "b", "c", "d"])
 }
 
@@ -81,4 +81,10 @@ func kitItem(_ id: String, size: KitSize, perPlayer: Bool = false, copies: Int =
     #expect(pages.count == 1)
     #expect(pages[0].slots.count == KitLayout.grid(for: .badge).capacity)
     #expect(pages[0].slots.allSatisfy { $0.player == nil })
+}
+
+@Test func recipeKitFitsSevenPages() {
+    let pages = KitLayout.pages(for: Fallback.airplane.kit, players: [.P1, .P2, .P3, .P4], directorMode: false)
+    #expect(pages.count <= 7)
+    #expect(pages.map(\.item.recipe) == KitRecipe.allCases.map { Optional($0) })   // one page each, in recipe order
 }

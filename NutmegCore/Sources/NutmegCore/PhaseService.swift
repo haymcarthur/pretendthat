@@ -76,7 +76,11 @@ public enum Validate {
         p.props.count < 3 ? short("safe props", p.props.count, want: "3 to 5 safe props", fatal: p.props.isEmpty) : nil
     }
     public static func kit(_ k: Kit) -> Problem? {
-        if k.items.count < 2 { return short("kit items", k.items.count, want: "2 to 4 kit items", fatal: k.items.isEmpty) }
+        if k.items.isEmpty { return short("kit items", 0, want: "the 6 kit items", fatal: true) }
+        let missing = KitRecipe.allCases.filter { r in !k.items.contains { $0.recipe == r } }
+        if !missing.isEmpty {
+            return Problem(message: "the kit was missing these item types: \(missing.map(\.rawValue).joined(separator: ", ")); include all 6", fatal: false)
+        }
         if k.scenes.count < 4 { return short("scenes", k.scenes.count, want: "4 to 6 scenes", fatal: k.scenes.isEmpty) }
         if let s = k.scenes.first(where: { $0.title.trimmingCharacters(in: .whitespaces).count < 3 }) {
             return Problem(message: "scene \"\(s.id)\" had no real title", fatal: false)

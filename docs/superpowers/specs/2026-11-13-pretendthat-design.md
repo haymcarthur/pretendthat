@@ -209,3 +209,7 @@ Decisions D1–D7 in `thinking/decisions/` (voice-conversation, realtime-api, ki
 **Fallbacks.** Mute long-press (and the simulator) opens the typing sheet; typed text goes into the same Realtime session. If the Realtime connection fails, the app drops to the existing tap screens with the bundled airplane fallback.
 
 **Privacy wording (replaces §8 for the demo):** "PretendThat stores nothing: no accounts, no recordings, no transcripts. Audio is processed live by OpenAI under its API terms." Do not claim OpenAI keeps nothing.
+
+**Kit recipe (Haylee, 2026-11-13; supersedes "2–4 item types, ≤ 6 pages").** Every kit has 6 item types in a fixed order: role name badges (one per player, app-written names), a sign with the place's name, play money (a sheet of bills), tickets/passes, a menu/price list/flyer, and a page of 6–8 prop cut-outs. The AI fills in titles, wording and numbers; at most 7 pages. See `thinking/decisions/kit-recipe.md`.
+
+**Later updates (Haylee, 2026-11-13):** crisp white surfaces and event-driven motion (`motion-and-surface.md`), a friend-like conversation voice (`conversation-voice.md`), the household-prop library with swap/skip for missing props (`prop-art-library.md`), and Nutmeg's idle rest pose with brief pop-swap gestures (`mascot-nutmeg.md`).

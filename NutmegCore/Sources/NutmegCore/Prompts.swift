@@ -22,8 +22,7 @@ public enum Prompts {
     plastic plates and cups, stuffed animals, towels, books, toys). Never knives, scissors, glass, electronics, \
     cords, food, medicine, or anything up high. Set safetyOK to false if an item breaks these rules.
 
-    Limits: game ideas exactly 3; props 3 to 5; kit items 2 to 4 with at most 6 printed pages in total \
-    (tickets, bills and keycards fit 8 per page, badges 6 per page, a fullPage sheet is 1 page); copies 1 to 8; \
+    Limits: game ideas exactly 3; props 3 to 5; the kit is always the same 6 item types (badges, sign, money, tickets, menu, cutouts), at most 7 printed pages; \
     scenes 4 to 6; checklist steps 3 to 5 per scene, each step a short action a kid can do; choices 2 to 4. \
     Use emoji for every idea, role, prop, scene, step and choice. Kids read the emoji before the words, so each \
     emoji must picture the main object or action named in its OWN text, never another item from the game: \
@@ -57,9 +56,12 @@ public enum Prompts {
     }
 
     public static func kit(ctx: AdventureContext) -> String {
-        """
-        Phase: printable kit and scenes. Make a small kit of 2 to 4 printable item types (never more than 4) for this game (things kids \
-        would otherwise try to make: tickets, money, badges, keycards, menus, signs). Use {P1}.. tokens on per-player items. \
+        let recipe = KitRecipe.allCases.enumerated().map { "\($0.offset + 1). \($0.element.rawValue): \($0.element.guide)" }.joined(separator: "\n")
+        return """
+        Phase: printable kit and scenes. Every kit has exactly these 6 items, in this order (set recipe on each; \
+        you choose the titles, wording, numbers and what goes on each, themed to THIS game):
+        \(recipe)
+        Use {P1}.. tokens only on badges and tickets. Keep wording short (lines 1 to 5 words each).
         Then write 4 to 6 scenes for the play guide (never fewer than 4), each with 3 to 5 steps. Each scene belongs to the role that leads it (owner) or "all". \
         Return Kit.
         \(contextJSON(ctx))

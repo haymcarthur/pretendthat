@@ -1,7 +1,7 @@
 /// Clamps decoded AI output to the spec's limits (§5) instead of crashing on odd JSON.
 public enum Sanitizer {
     public enum Limits {
-        public static let ideas = 3, propsMax = 5, itemsMax = 4, scenesMax = 6, stepsMax = 5, choicesMax = 4
+        public static let ideas = 3, propsMax = 5, itemsMax = 6, scenesMax = 6, stepsMax = 5, choicesMax = 4
         public static let copies = 1...8
     }
 
@@ -12,7 +12,7 @@ public enum Sanitizer {
 
     public static func clean(_ k: Kit, playerCount: Int) -> Kit {
         var k = k
-        k.items = Array(k.items.prefix(Limits.itemsMax)).map { item in
+        k.items = recipeOrdered(k.items).map { item in
             var i = item
             i.symbol = PrintSymbols.safe(i.symbol)
             i.copies = min(max(i.copies, Limits.copies.lowerBound), Limits.copies.upperBound)
@@ -25,6 +25,38 @@ public enum Sanitizer {
             return s
         }
         return k
+    }
+
+    /// Kit recipe (kit-recipe.md): one item per recipe slot in the fixed order, shaped by the app. Items without a
+    /// recipe (older JSON) fill empty slots by their size; extras are dropped.
+    static func recipeOrdered(_ items: [KitItem]) -> [KitItem] {
+        var pool = items
+        var out: [KitItem] = []
+        for r in KitRecipe.allCases {
+            let idx = pool.firstIndex { $0.recipe == r } ?? pool.firstIndex { $0.recipe == nil && Self.guess($0) == r }
+            guard let i = idx else { continue }
+            var item = pool.remove(at: i)
+            item.recipe = r; item.kind = r.kind
+            item.size = (r == .tickets && item.size == .keycard) ? .keycard : r.size
+            item.perPlayer = r.perPlayer
+            item.copies = r == .money ? 8 : (r.perPlayer ? 1 : 1)
+            if r == .badges { item.bigNumber = nil }
+            out.append(item)
+        }
+        return out
+    }
+
+    static func guess(_ item: KitItem) -> KitRecipe? {
+        let t = item.title.lowercased()
+        switch item.size {
+        case .badge: return .badges
+        case .bill: return .money
+        case .ticket, .keycard: return .tickets
+        case .fullPage:
+            if t.contains("menu") || t.contains("price") || t.contains("list") { return .menu }
+            if t.contains("sign") { return .sign }
+            return t.contains("cut") ? .cutouts : nil
+        }
     }
 
     public static func clean(_ p: Props) -> Props {

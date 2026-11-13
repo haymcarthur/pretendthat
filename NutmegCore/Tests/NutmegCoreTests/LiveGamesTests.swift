@@ -76,7 +76,7 @@ func liveGame(_ c: LiveCase) async throws {
     let kit = try await PhaseService(llm: counting).kit(ctx: ctx)
     let kitCalls = counting.calls
     p.check(Validate.kit(kit) == nil, "kit still short after retry: \(Validate.kit(kit)?.message ?? "")")
-    p.check((2...4).contains(kit.items.count), "items=\(kit.items.count)")
+    p.check(kit.items.map(\.recipe) == KitRecipe.allCases.map { Optional($0) }, "recipe=\(kit.items.map { $0.recipe?.rawValue ?? "-" })")
     p.check((4...6).contains(kit.scenes.count), "scenes=\(kit.scenes.count)")
     p.check(kit.scenes.allSatisfy { (3...5).contains($0.steps.count) }, "steps=\(kit.scenes.map(\.steps.count))")
     let pages = KitLayout.pages(for: kit, players: Array(PlayerToken.allCases.prefix(count)), directorMode: c.director)
