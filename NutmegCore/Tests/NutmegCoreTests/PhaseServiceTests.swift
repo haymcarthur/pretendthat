@@ -71,3 +71,27 @@ final class FakeLLM: LLM, @unchecked Sendable {
     #expect(a.plan.roles.map(\.player) == [.P1, .P2])
     #expect(a.kit.scenes.allSatisfy { $0.owner != .P3 && $0.owner != .P4 })
 }
+
+@Test func shortKitAsksOnceMoreThenKeepsIt() async throws {
+    var short = Fallback.airplane.kit
+    short.scenes = [Fixture.scene("only")]
+    let llm = FakeLLM(responses: ["Kit": short])
+    let kit = try await PhaseService(llm: llm).kit(ctx: AdventureContext(gameTitle: "Restaurant", playerCount: 2))
+    #expect(llm.calls == 2)
+    #expect(llm.users.last?.contains("it had 1 scenes; write 4 to 6 scenes") == true)
+    #expect(kit.scenes.count == 1)
+}
+
+@Test func unusableKitThrowsAfterCorrection() async {
+    var empty = Fallback.airplane.kit
+    empty.scenes = []
+    let llm = FakeLLM(responses: ["Kit": empty])
+    await #expect(throws: ClaudeError.self) { try await PhaseService(llm: llm).kit(ctx: AdventureContext(gameTitle: "X", playerCount: 2)) }
+    #expect(llm.calls == 2)
+}
+
+@Test func goodKitIsOneCall() async throws {
+    let llm = FakeLLM()
+    _ = try await PhaseService(llm: llm).kit(ctx: AdventureContext(gameTitle: "Airplane", playerCount: 2))
+    #expect(llm.calls == 1)
+}

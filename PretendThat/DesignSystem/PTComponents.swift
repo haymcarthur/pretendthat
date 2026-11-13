@@ -119,9 +119,11 @@ struct PTPropCard: View {
             VStack(spacing: Theme.Space.s) {
                 PTText(prop.emoji, .emoji(64))
                 PTText(prop.householdItem, .headline).lineLimit(2).minimumScaleFactor(0.7)
+                    .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
                 Label { Text(prop.becomes) } icon: { Image(systemName: "arrow.right") }
                     .font(Theme.bodyFont(Theme.TextSize.body)).foregroundStyle(Theme.inkMuted)
                     .lineLimit(2).minimumScaleFactor(0.7)
+                    .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity)
         }

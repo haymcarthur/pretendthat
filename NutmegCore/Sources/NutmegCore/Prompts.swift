@@ -44,7 +44,7 @@ public enum Prompts {
     }
 
     public static func props(ctx: AdventureContext) -> String {
-        "Phase: props hunt. Suggest 3 to 5 safe household items that become props for this game. Return Props.\n\(contextJSON(ctx))"
+        "Phase: props hunt. Suggest 3 to 5 safe household items that become props for this game. Keep them short for a small card: householdItem 1 to 3 words (\"Pillows\", \"Plastic cups\"), becomes 2 to 4 words (\"Cozy café seats\"). Return Props.\n\(contextJSON(ctx))"
     }
 
     public static func kit(ctx: AdventureContext) -> String {
