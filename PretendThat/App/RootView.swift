@@ -18,6 +18,7 @@ struct RootView: View {
         .environment(\.speak, SpeakAction { model.speak($0) })
         .onChange(of: store.nutmegLine) { _, line in model.speak(line) }
         .onChange(of: store.phase) { _, _ in model.phaseChanged() }
+        .onChange(of: store.kit) { _, _ in model.kitChanged() }
         .onChange(of: presentedSubjects) { _, _ in requestStickers() }
         .task {
             #if DEBUG

@@ -16,6 +16,8 @@ struct ParentSettingsView: View {
                     LabeledContent("Story brain (Claude)", value: model.hasClaude ? "Key set ✓" : "Not set: using the built-in airplane game")
                     LabeledContent("Kit pictures (OpenAI)", value: !model.hasImages ? "Not set: app-drawn pages"
                         : model.art.unavailableReason.map { "Off (\($0)): app-drawn pages" } ?? "Key set ✓")
+                    LabeledContent("Last kit picture", value: model.art.lastResult ?? "none yet")
+                    LabeledContent("Last sticker", value: model.stickers.lastResult ?? "none yet")
                     LabeledContent("Speech", value: model.listener.status)
                     if !model.listener.available, let url = URL(string: UIApplication.openSettingsURLString) {
                         Link("Open Settings to allow the mic", destination: url)

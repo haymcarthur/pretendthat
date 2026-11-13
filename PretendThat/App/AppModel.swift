@@ -91,6 +91,15 @@ final class AppModel {
         realtime.micWanted = Self.isPlanning(store.phase)
     }
 
+    /// Kit art runs in its own task, NOT tied to the kit screen's lifetime: a `.task` on the view was cancelled
+    /// as soon as the kids tapped "Let's play!" (or the stage re-rendered), which cancelled every image request
+    /// and left the pages app-drawn.
+    func kitChanged() {
+        guard let kit = store.kit else { return }
+        let title = store.plan?.gameTitle ?? store.gameTitle ?? "Pretend"
+        Task { await art.generate(kit: kit, gameTitle: title) }
+    }
+
     private func handleCall(name: String, arguments: String) async -> (output: String, respond: Bool) {
         guard let call = PlanningCall.decode(name: name, arguments: arguments) else {
             return ("I couldn't use that. Try again with the right fields.", true)

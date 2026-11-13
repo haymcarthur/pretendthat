@@ -10,6 +10,8 @@ final class KitArtService {
     private(set) var isGenerating = false
     /// Pages drawn so far / pages asked for, for the progress bar.
     private(set) var progress: Double = 0
+    /// Last kit-image result, for the Grown-ups debug line ("OK (model)" or the error).
+    private(set) var lastResult: String?
     @ObservationIgnored private let client: ImageClient?
 
     init(client: ImageClient?) { self.client = client }
@@ -28,12 +30,21 @@ final class KitArtService {
             .map { ($0.id, KitArtPrompt.prompt(for: $0, gameTitle: gameTitle), KitArtPrompt.size(for: $0)) }
         progress = 0
         var done = 0
-        await withTaskGroup(of: (String, Data?).self) { group in
+        await withTaskGroup(of: (String, Result<Data, Error>).self) { group in
             for (id, prompt, size) in jobs {
-                group.addTask { (id, try? await client.generate(prompt: prompt, size: size)) }
+                group.addTask {
+                    do { return (id, .success(try await client.generate(prompt: prompt, size: size))) }
+                    catch { return (id, .failure(error)) }
+                }
             }
-            for await (id, data) in group {
-                if let data, let image = UIImage(data: data) { images[id] = image }
+            for await (id, result) in group {
+                switch result {
+                case .success(let data):
+                    if let image = UIImage(data: data) { images[id] = image; lastResult = "OK (\(client.workingModel ?? "?"))" }
+                    else { lastResult = "Error: image data unreadable" }
+                case .failure(let e):
+                    lastResult = "Error: \(client.unavailableReason ?? String(describing: e))"
+                }
                 done += 1
                 progress = Double(done) / Double(max(1, jobs.count))
             }
