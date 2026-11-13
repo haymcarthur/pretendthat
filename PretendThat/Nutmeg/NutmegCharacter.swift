@@ -124,6 +124,8 @@ struct NutmegCharacter: View {
     private func head(look l: NutmegLook, motion m: Motion) -> some View {
         ZStack {
             layer("nutmeg-head-base")
+            // Oops: the right ear flops over (Haylee's nutmeg-ears-flop art draws over the normal ear).
+            if l.ears == .flop { layer(NutmegEars.flop.asset) }
             layer(m.blink && l.face != .nap && l.face != .yay ? NutmegFace.nap.asset : l.face.asset)
             layer(isSpeaking ? NutmegMouth.forLevel(mouthLevel, oohBeat: m.oohBeat).asset : l.face.mouthAsset)
             if let costume, UIImage(named: "nutmeg-costume-\(costume)") != nil { layer("nutmeg-costume-\(costume)") }

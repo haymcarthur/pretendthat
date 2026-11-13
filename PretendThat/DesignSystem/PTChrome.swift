@@ -261,8 +261,10 @@ struct PTItemCard: View {
             .frame(width: width * 0.72, height: width * 0.72)
             .padding(.top, 34)
             .animation(.easeOut(duration: 0.3), value: item.image != nil)
+            // Wraps to 2 lines and shrinks a long single word instead of truncating it ("Airplan…").
             Text(item.title).font(Theme.uiFont(18)).foregroundStyle(Theme.ink)
-                .lineLimit(2).minimumScaleFactor(0.7).multilineTextAlignment(.center)
+                .lineLimit(2).minimumScaleFactor(0.5).allowsTightening(true).multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity).fixedSize(horizontal: false, vertical: true)
             if let sub = item.isPretend ? "We'll pretend!" : item.subtitle {
                 Text(sub).font(Theme.uiFont(14, .medium)).foregroundStyle(Theme.inkMuted).lineLimit(1).minimumScaleFactor(0.7)
             }

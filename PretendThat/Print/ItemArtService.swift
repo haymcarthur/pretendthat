@@ -8,6 +8,11 @@ import NutmegCore
 @Observable @MainActor
 final class ItemArtService {
     private(set) var images: [String: UIImage] = [:]
+    /// Subjects whose sticker could not be drawn (no image key, an error, or slower than `patience`): the card
+    /// resolves to a bundled stage illustration instead of shimmering forever.
+    private(set) var unresolved: Set<String> = []
+    /// How long a card shimmers before it settles on the fallback art (a late sticker still replaces it).
+    static let patience: Duration = .seconds(30)
     /// Last result, for the Grown-ups debug line.
     private(set) var lastResult: String?
     @ObservationIgnored private var inFlight: Set<String> = []
@@ -22,7 +27,16 @@ final class ItemArtService {
 
     func image(_ kind: StickerPrompt.Kind, _ subject: String) -> UIImage? { images[Self.key(kind, subject)] }
 
-    func reset() { images = [:]; inFlight = []; generation += 1 }
+    /// The sticker, or (once it can't arrive) a neutral bundled stage illustration picked from the subject.
+    func art(_ kind: StickerPrompt.Kind, _ subject: String) -> UIImage? {
+        let key = Self.key(kind, subject)
+        if let img = images[key] { return img }
+        guard client == nil || unresolved.contains(key) else { return nil }
+        return UIImage(named: Self.fallbackAssets[key.unicodeScalars.reduce(0) { $0 + Int($1.value) } % Self.fallbackAssets.count])
+    }
+    static let fallbackAssets = ["stage-star", "stage-crown", "stage-scroll", "stage-lamp", "stage-bulbs"]
+
+    func reset() { images = [:]; inFlight = []; unresolved = []; generation += 1 }
 
     /// Starts any missing illustrations in parallel; returns immediately.
     func request(_ jobs: [(kind: StickerPrompt.Kind, subject: String, detail: String)], game: String?) {
@@ -33,6 +47,11 @@ final class ItemArtService {
             guard images[key] == nil, !inFlight.contains(key), !job.subject.isEmpty else { continue }
             inFlight.insert(key)
             let prompt = StickerPrompt.prompt(job.kind, subject: job.subject, detail: job.detail, game: game)
+            Task { [weak self] in   // patience timer: settle on the fallback art if the sticker is slow
+                try? await Task.sleep(for: Self.patience)
+                guard let self, self.generation == gen, self.images[key] == nil else { return }
+                self.unresolved.insert(key)
+            }
             Task { [weak self] in
                 let result: Result<Data, Error>
                 do { result = .success(try await client.generate(prompt: prompt, size: "1024x1024", quality: "low", background: "transparent")) }
@@ -43,6 +62,8 @@ final class ItemArtService {
                 case .success(let data):
                     if let img = UIImage(data: data) { self.images[key] = img; self.lastResult = "OK" }
                 case .failure(let e):
+                    self.unresolved.insert(key)
+                    rtLog("sticker failed: \(client.unavailableReason ?? String(describing: e))")
                     self.lastResult = "Error: \(client.unavailableReason ?? String(describing: e))"
                 }
             }
