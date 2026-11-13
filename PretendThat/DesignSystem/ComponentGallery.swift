@@ -21,7 +21,7 @@ struct ComponentGallery: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Space.xl) {
-                section("Layout chrome (Emote style): PTStepRail states, PTControlBar states") {
+                section("Layout chrome (Emote style): PTStepRail states (current = star-yellow FFC93C, bold ink), PTControlBar states") {
                     HStack(alignment: .top, spacing: Theme.Space.l) {
                         PTStepRail(current: .game, reached: .game) { _ in }
                         PTStepRail(current: .getReady, reached: .print) { _ in }
