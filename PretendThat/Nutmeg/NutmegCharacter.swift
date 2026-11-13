@@ -35,10 +35,10 @@ struct NutmegCharacter: View {
         TimelineView(.animation(minimumInterval: 1.0 / 30, paused: false)) { context in
             let t = context.date.timeIntervalSinceReferenceDate
             GeometryReader { geo in
-                figure(t: t, side: min(geo.size.width, geo.size.height))
+                figure(t: t, side: min(geo.size.height, geo.size.width * NutmegPose.canvas.height / NutmegPose.canvas.width))
                     .frame(width: geo.size.width, height: geo.size.height)
             }
-            .aspectRatio(1, contentMode: .fit)
+            .aspectRatio(NutmegPose.canvas.width / NutmegPose.canvas.height, contentMode: .fit)
         }
         .animation(Theme.springy, value: state)
         .onAppear { shown = basePose }
@@ -94,51 +94,40 @@ struct NutmegCharacter: View {
 
     @ViewBuilder
     private func figure(t: Double, side: CGFloat) -> some View {
+        // Shared 1178×1335 canvas (Haylee's art): body and head layers stack full-frame.
         let l = state.look
         let pose = shown
         let m = Motion(state: state, t: t, reduced: reduceMotion)
-        let unit = side / 1024
-        let headSide = side * pose.headScale
-        // Place the head canvas so its neck point lands on the pose's neck anchor.
-        let headX = pose.neckAnchor.x * side - Theme.nutmegHeadNeck.x * headSide
-        let headY = pose.neckAnchor.y * side - Theme.nutmegHeadNeck.y * headSide
+        let h = side, w = side * NutmegPose.canvas.width / NutmegPose.canvas.height
+        let px = h / NutmegPose.canvas.height
+        let unit = h / 1024
 
         ZStack(alignment: .topLeading) {
-            layer("nutmeg-tail").frame(width: side, height: side)
-                .rotationEffect(.degrees(m.tailSwing), anchor: UnitPoint(x: 0.62, y: 0.88))
             ZStack {
                 layer(pose.asset).id(pose).transition(.opacity)
             }
-            .frame(width: side, height: side)
+            .frame(width: w, height: h)
             .scaleEffect(x: 1, y: m.breathe, anchor: .bottom)
             head(look: l, motion: m)
-                .frame(width: headSide, height: headSide)
-                .rotationEffect(.degrees(pose.headRotation + m.headTilt), anchor: Theme.nutmegHeadNeck)
-                .offset(x: headX, y: headY + (1 - m.breathe) * side * 0.4)
-                // The head is continuous through a body swap: it springs to the new neck anchor and rotation.
+                .frame(width: w, height: h)
+                .rotationEffect(.degrees(pose.headRotation + m.headTilt), anchor: pose.neckAnchor)
+                .offset(x: pose.headOffset.width * px, y: pose.headOffset.height * px + (1 - m.breathe) * h * 0.4)
+                // The head is continuous through a body swap: it springs to the new pose's offset and rotation.
                 .animation(reduceMotion ? .easeInOut(duration: 0.2) : .spring(response: 0.34, dampingFraction: 0.62), value: pose)
             if state == .napping { zzz(t: t, unit: unit) }
         }
-        .frame(width: side, height: side, alignment: .topLeading)
+        .frame(width: w, height: h, alignment: .topLeading)
         .scaleEffect(x: squash.width, y: squash.height, anchor: .bottom)
         .offset(y: hop * unit * 4 + m.bob * unit)
     }
 
     private func head(look l: NutmegLook, motion m: Motion) -> some View {
         ZStack {
-            layer(l.ears.asset)
-                .scaleEffect(m.earScale, anchor: UnitPoint(x: 0.5, y: 0.4))
-                .rotationEffect(.degrees(m.earTwitch), anchor: UnitPoint(x: 0.5, y: 0.5))
-                .animation(.spring(response: 0.18, dampingFraction: 0.45), value: l.ears)   // ears perk quickly
             layer("nutmeg-head-base")
             layer(m.blink && l.face != .nap && l.face != .yay ? NutmegFace.nap.asset : l.face.asset)
-            layer(mouth(l, m).asset)
+            layer(isSpeaking ? NutmegMouth.forLevel(mouthLevel, oohBeat: m.oohBeat).asset : l.face.mouthAsset)
             if let costume, UIImage(named: "nutmeg-costume-\(costume)") != nil { layer("nutmeg-costume-\(costume)") }
         }
-    }
-
-    private func mouth(_ l: NutmegLook, _ m: Motion) -> NutmegMouth {
-        isSpeaking ? NutmegMouth.forLevel(mouthLevel, oohBeat: m.oohBeat) : l.mouth
     }
 
     private func layer(_ name: String) -> some View {
@@ -183,22 +172,22 @@ private struct Motion {
         // Ear twitch: about every 9 s, a quick 160 ms flick (not while napping).
         let eCycle = floor(t / 9)
         let eAt = eCycle * 9 + 1 + Self.noise(eCycle, 2) * 7
-        if state != .napping, t >= eAt, t - eAt < 0.16 { earTwitch = 4 * sin((t - eAt) / 0.16 * .pi) * k }
+        if state != .napping, t >= eAt, t - eAt < 0.16 { headTilt += 1.5 * sin((t - eAt) / 0.16 * .pi) * k }
         oohBeat = Int(t * 7) % 7 == 0
 
         switch state {
         case .listening:
-            headTilt = 6; earScale = 1.06
+            headTilt += 5
         case .thinking:
-            headTilt = -4
+            headTilt += -4
         case .talking:
-            headTilt = 2 * sin(t * 5) * k; bob = CGFloat(-abs(sin(t * 4.5)) * 6 * k)
+            headTilt += 2 * sin(t * 5) * k; bob = CGFloat(-abs(sin(t * 4.5)) * 6 * k)
         case .excited:
-            earScale = 1.04
+            break
         case .oops:
-            headTilt = -5
+            headTilt += -5
         case .coloring:
-            headTilt = 3 * sin(t * 1.2) * k   // looking down at the page, a little busy
+            headTilt += 3 * sin(t * 1.2) * k   // looking down at the page, a little busy
         case .idle, .napping:
             break
         }

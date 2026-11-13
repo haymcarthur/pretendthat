@@ -36,32 +36,42 @@ struct NutmegCue: Equatable {
     var id = UUID()
 }
 
-/// Headless body poses. Each defines where the shared head sits (unit coords on the body canvas),
-/// how it tilts and how big it is. Placeholder values; tune after Haylee's Figma export.
+/// Body poses (Haylee's art, 2026-11-13). Every layer shares ONE 1178×1335 canvas: the bodies, head-base, faces and
+/// mouths stack full-frame, so the head sits on each body at offset (0,0) by construction. Per pose the head can be
+/// nudged (`headOffset`, canvas px) and tilted (`headRotation`) around the neck anchor; values tuned in the simulator.
 enum NutmegPose: String, CaseIterable, Identifiable {
     case idle, wave, point, celebrate, sit, coloring
     var id: String { rawValue }
     var asset: String { "nutmeg-body-\(rawValue)" }
     init(_ name: PoseName) { self = NutmegPose(rawValue: name.rawValue)! }
 
+    static let canvas = CGSize(width: 1178, height: 1335)
+
+    /// Neck plug center from the export manifest (canvas px → unit).
     var neckAnchor: UnitPoint {
         switch self {
-        case .idle, .wave, .point, .coloring: UnitPoint(x: 0.5, y: 0.625)
-        case .celebrate: UnitPoint(x: 0.5, y: 0.62)
-        case .sit: UnitPoint(x: 0.5, y: 0.685)
+        case .sit: UnitPoint(x: 600 / 1178, y: 793.5 / 1335)
+        default: UnitPoint(x: 600 / 1178, y: 788 / 1335)
+        }
+    }
+    /// Head nudge in canvas px (tuned visually; the shared canvas makes (0,0) correct for most poses).
+    var headOffset: CGSize {
+        switch self {
+        case .sit: CGSize(width: 0, height: 5)
+        default: .zero
         }
     }
     var headRotation: Double {
-        switch self { case .idle, .wave, .celebrate: 0; case .point: 4; case .sit: -6; case .coloring: 8 }
-    }
-    var headScale: CGFloat {
-        switch self { case .idle, .wave, .point, .coloring: 0.70; case .celebrate: 0.72; case .sit: 0.68 }
+        switch self { case .idle, .wave, .celebrate: 0; case .point: 3; case .sit: -4; case .coloring: 5 }
     }
 }
 
 enum NutmegFace: String, CaseIterable {
     case happy, talking, listening, thinking, ooh, yay, oops, nap
+    /// Eyes and brows (the face SVG minus its mouth; tools/import_art.py splits them).
     var asset: String { "nutmeg-face-\(rawValue)" }
+    /// This face's own mouth, shown when Nutmeg isn't talking.
+    var mouthAsset: String { "nutmeg-face-\(rawValue)-mouth" }
     /// Faces with a built-in mouth; nil means "use the live/closed mouth".
     var fixedMouth: NutmegMouth? {
         switch self {

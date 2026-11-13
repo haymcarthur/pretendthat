@@ -10,6 +10,7 @@ struct ComponentGallery: View {
     @State private var bounces = 0
     @State private var confetti = 0
     @State private var typing = false
+    @State private var paperRun = 0
 
     private let mia = Player(token: .P1, name: "Mia", colorIndex: 0, emoji: "💙")
     private let sam = Player(token: .P2, name: "Sam", colorIndex: 1, emoji: "🧡")
@@ -49,14 +50,21 @@ struct ComponentGallery: View {
                     }
                     .padding().background(Theme.canvas)
                 }
-                section("PTChatPanel, PTClipboardReveal (back / front)") {
+                section("PTChatPanel, PTPaperReveal (papers fly off Nutmeg's clipboard; tap Replay)") {
                     HStack(alignment: .top, spacing: Theme.Space.l) {
                         PTChatPanel(lines: [.init(id: UUID(), fromNutmeg: true, text: "Ooh, a pancake restaurant on the moon?! Do the pancakes float?"),
                                             .init(id: UUID(), fromNutmeg: false, text: "Yes! And they're blue!")],
                                     onSend: { _ in }, onClose: {})
                             .frame(height: 420)
-                        PTClipboardReveal(isRevealed: false, width: 220) { EmptyView() }.frame(height: 280)
-                        PTClipboardReveal(isRevealed: true, peek: true, width: 220) { PTText("Checklist", .headline) }.frame(height: 280)
+                        VStack {
+                            NutmegCharacter(state: .coloring, forcedPose: .coloring).frame(height: 200)
+                            Button("Replay") { paperRun += 1 }.buttonStyle(.ptSecondary)
+                        }
+                        PTPaperReveal(count: 4, isRevealed: true, origin: CGPoint(x: -260, y: 40),
+                                      slot: { i in (CGPoint(x: (CGFloat(i) - 1.5) * 80, y: abs(CGFloat(i) - 1.5) * 6), (Double(i) - 1.5) * 2.5) },
+                                      paperSize: CGSize(width: 90, height: 116)) { i in PTText("Page \(i + 1)", .caption) }
+                            .id(paperRun)
+                            .frame(width: 420, height: 280)
                     }
                     .padding().background(Theme.canvas)
                 }

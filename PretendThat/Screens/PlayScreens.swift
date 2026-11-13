@@ -18,29 +18,38 @@ struct SceneView: View {
     let model: AppModel
     let index: Int
     private var store: AdventureStore { model.store }
-    /// D6: the checklist arrives on Nutmeg's clipboard, which flips around to reveal it (her head peeks in).
+    /// D6 (revised): one sheet of paper flies off Nutmeg's clipboard and becomes the checklist beside her.
     @State private var revealed = false
+
+    static let paper = CGSize(width: 440, height: 470)
 
     var body: some View {
         if let scene = store.kit?.scenes[index] {
             VStack(spacing: Theme.Space.m) {
-                PTClipboardReveal(isRevealed: revealed, peek: true, width: 400, contentScale: 0.72) {
-                    ScrollView {
-                        VStack(spacing: Theme.Space.s) {
-                            PTStageHeader(emoji: scene.emoji, title: store.tokens.untokenize(scene.title))
-                            ForEach(Array(scene.steps.enumerated()), id: \.offset) { i, step in
-                                PTChecklistRow(emoji: step.emoji, text: store.tokens.untokenize(step.text), isChecked: Binding(
-                                    get: { store.checkedSteps.contains(i) }, set: { _ in store.toggleStep(i) }))
+                GeometryReader { geo in
+                    PTPaperReveal(count: 1, isRevealed: revealed, origin: CGPoint(x: -geo.size.width / 2 - 150, y: 60),
+                                  slot: { _ in (.zero, -1.5) }, paperSize: Self.paper,
+                                  onLanded: { model.gesture(.celebrate) }) { _ in
+                        ScrollView {
+                            VStack(spacing: Theme.Space.s) {
+                                PTStageHeader(emoji: scene.emoji, title: store.tokens.untokenize(scene.title))
+                                ForEach(Array(scene.steps.enumerated()), id: \.offset) { i, step in
+                                    PTChecklistRow(emoji: step.emoji, text: store.tokens.untokenize(step.text), isChecked: Binding(
+                                        get: { store.checkedSteps.contains(i) }, set: { _ in store.toggleStep(i) }))
+                                }
                             }
+                            .padding(Theme.Space.m)
                         }
+                        .scrollIndicators(.hidden)
                     }
-                    .scrollIndicators(.hidden)
+                    .frame(width: geo.size.width, height: geo.size.height)
                 }
+                .frame(height: Self.paper.height + 20)
                 Button("Done!") { store.sceneDone() }
                     .buttonStyle(store.checkedSteps.count == scene.steps.count ? .ptSuccess : .ptPrimary)
             }
             .task {
-                try? await Task.sleep(for: .milliseconds(450))
+                try? await Task.sleep(for: .milliseconds(350))
                 revealed = true
             }
         }

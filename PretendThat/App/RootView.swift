@@ -16,6 +16,9 @@ struct RootView: View {
         // on the left, a white control pill at the bottom, and a chat panel that slides in from the right.
         ZStack {
             PTCanvas()
+            #if DEBUG
+            if let art = DemoDriver.requestedPhase, art.hasPrefix("art") { ArtCheckView(mode: art).zIndex(10) }
+            #endif
             HStack(spacing: Theme.Space.m) {
                 Group {
                     if model.inConversation { conversation.transition(.opacity) } else { classic.transition(.opacity) }
@@ -55,7 +58,8 @@ struct RootView: View {
         .onChange(of: store.phase) { _, phase in
             model.phaseChanged()
             switch phase {
-            case .kitReady, .end: model.gesture(.celebrate); model.celebrations += 1
+            case .kitReady: model.celebrations += 1   // Nutmeg celebrates when the papers have landed (KitView)
+            case .end: model.gesture(.celebrate); model.celebrations += 1
             case .hello: model.gesture(.wave)
             default: break
             }
@@ -151,13 +155,10 @@ struct RootView: View {
     // MARK: Classic stage (setup fallback, kit and play)
 
     private var classic: some View {
-        PTStageLayout(backdrop: .clear, nutmegColumn: isChecklist ? 0 : (nutmegIsHero ? Theme.nutmegHeroColumn : Theme.nutmegColumn)) {
-            // Checklists show just the clipboard with Nutmeg peeking in (D6), so her column folds away.
-            if !isChecklist {
-                NutmegCharacter(state: model.nutmegState, mouthLevel: model.mouthLevel,
-                                isSpeaking: model.isSpeaking, cue: model.cue)
-                    .onTapGesture { if case .stepBack = store.phase { Task { _ = await store.helpRequested() } } }
-            }
+        PTStageLayout(backdrop: .clear, nutmegColumn: nutmegIsHero ? Theme.nutmegHeroColumn : Theme.nutmegColumn) {
+            NutmegCharacter(state: model.nutmegState, mouthLevel: model.mouthLevel,
+                            isSpeaking: model.isSpeaking, cue: model.cue)
+                .onTapGesture { if case .stepBack = store.phase { Task { _ = await store.helpRequested() } } }
         } stage: {
             stage.transition(.ptStage)
                 .id(stageID)
@@ -207,8 +208,6 @@ struct RootView: View {
 
     /// Step rail and control pill show from the first step on (not on Hello).
     private var chromeVisible: Bool { store.phase != .hello }
-
-    private var isChecklist: Bool { if case .scene = store.phase { true } else { false } }
 
     /// Nutmeg gets the big column when the stage has little else on it.
     private var nutmegIsHero: Bool {
