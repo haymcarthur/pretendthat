@@ -13,7 +13,7 @@ The map. Read this first, then open only what you need.
 - [Tablet hand-off with color and role badges](decisions/tablet-handoff.md): Claude's call, Haylee agreed
 - [No backend storage, no accounts](decisions/no-backend-no-accounts.md): Haylee
 - [Native Swift iPad app](decisions/native-swift-ipad.md): Haylee
-- [Stateless relay for API keys](decisions/stateless-relay.md): Claude's call, Haylee agreed
+- [Stateless relay for API keys](decisions/stateless-relay.md): Claude's call, Haylee agreed; demo uses direct keys, relay is post-hackathon (Haylee)
 - [On-device speech-to-text](decisions/on-device-stt.md): Claude's call, Haylee agreed
 - [Kids' names tokenized for Claude](decisions/names-tokenized.md): Claude's call, Haylee agreed
 - [Claude's calls C1–C12 approved](decisions/claudes-calls-c1-c12.md): Haylee
