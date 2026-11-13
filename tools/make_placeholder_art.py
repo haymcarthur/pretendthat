@@ -4,30 +4,32 @@ Haylee's Figma export replaces these files under the same names (spec section 7)
 import json, os, sys
 
 ROOT = os.path.join(os.path.dirname(__file__), "..", "PretendThat", "Resources", "Assets.xcassets")
-FUR, FUR_DARK, PINK, INK, WHITE = "#C98A5B", "#9C6340", "#FF9AA2", "#24123F", "#FFFFFF"
+FUR, FUR_DARK, PINK, INK, WHITE = "#B9774A", "#8E5634", "#FF8A78", "#24123F", "#FFFFFF"
 PURPLE, YELLOW, CORAL, LIME = "#3A1F6B", "#FFC83D", "#FF5A4E", "#9BDB3F"
 S = f'stroke="{INK}" stroke-width="14" stroke-linejoin="round" stroke-linecap="round"'
 
 layers = {
  "nutmeg-tail": f'<path d="M640 900 C820 920 900 820 860 720 C830 650 760 680 790 730" fill="none" stroke="{FUR_DARK}" stroke-width="34" stroke-linecap="round"/>',
- "nutmeg-body": f'<ellipse cx="512" cy="820" rx="185" ry="175" fill="{FUR}" {S}/><ellipse cx="512" cy="850" rx="105" ry="110" fill="#E9B88E"/>'
+ "nutmeg-body": f'<ellipse cx="512" cy="820" rx="185" ry="175" fill="{FUR}" {S}/><ellipse cx="512" cy="850" rx="105" ry="110" fill="#F6DDBF"/>'
+                f'<path d="M345 720 Q380 660 450 650 L470 900 Q400 930 350 880 Z" fill="{PURPLE}" {S}/><path d="M679 720 Q644 660 574 650 L554 900 Q624 930 674 880 Z" fill="{PURPLE}" {S}/>'
+                f'<path d="M612 730 L622 755 L648 757 L628 773 L635 799 L612 785 L589 799 L596 773 L576 757 L602 755 Z" fill="{YELLOW}"/>'
                 f'<ellipse cx="430" cy="985" rx="70" ry="30" fill="{FUR_DARK}" {S}/><ellipse cx="594" cy="985" rx="70" ry="30" fill="{FUR_DARK}" {S}/>',
  "nutmeg-arm-clipboard": f'<rect x="250" y="700" width="200" height="250" rx="22" fill="{YELLOW}" {S}/><rect x="300" y="680" width="100" height="44" rx="14" fill="{CORAL}" {S}/>'
                 f'<line x1="285" y1="780" x2="415" y2="780" stroke="{INK}" stroke-width="12" stroke-linecap="round"/><line x1="285" y1="830" x2="395" y2="830" stroke="{INK}" stroke-width="12" stroke-linecap="round"/>'
                 f'<line x1="285" y1="880" x2="405" y2="880" stroke="{INK}" stroke-width="12" stroke-linecap="round"/><circle cx="440" cy="820" r="42" fill="{FUR}" {S}/>',
- "nutmeg-head": f'<ellipse cx="512" cy="440" rx="250" ry="215" fill="{FUR}" {S}/><ellipse cx="512" cy="505" rx="120" ry="80" fill="#E9B88E"/>'
+ "nutmeg-head": f'<ellipse cx="512" cy="440" rx="250" ry="215" fill="{FUR}" {S}/><ellipse cx="512" cy="505" rx="120" ry="80" fill="#F6DDBF"/>'
                 f'<ellipse cx="512" cy="478" rx="30" ry="22" fill="{PINK}" {S}/>'
                 f'<line x1="640" y1="500" x2="760" y2="480" stroke="{INK}" stroke-width="8" stroke-linecap="round"/><line x1="640" y1="520" x2="765" y2="530" stroke="{INK}" stroke-width="8" stroke-linecap="round"/>'
                 f'<line x1="384" y1="500" x2="264" y2="480" stroke="{INK}" stroke-width="8" stroke-linecap="round"/><line x1="384" y1="520" x2="259" y2="530" stroke="{INK}" stroke-width="8" stroke-linecap="round"/>'
                 f'<ellipse cx="380" cy="520" rx="34" ry="20" fill="{PINK}" opacity="0.7"/><ellipse cx="644" cy="520" rx="34" ry="20" fill="{PINK}" opacity="0.7"/>',
- "nutmeg-ears": f'<circle cx="268" cy="205" r="125" fill="{FUR}" {S}/><circle cx="268" cy="205" r="76" fill="{PINK}"/>'
-                f'<circle cx="756" cy="205" r="125" fill="{FUR}" {S}/><circle cx="756" cy="205" r="76" fill="{PINK}"/>'
-                f'<path d="M640 120 L700 80 L705 160 Z M640 120 L580 80 L575 160 Z" fill="{CORAL}" {S}/><circle cx="640" cy="120" r="20" fill="{CORAL}" {S}/>',
- "nutmeg-headset": f'<path d="M290 420 C290 170 734 170 734 420" fill="none" stroke="{PURPLE}" stroke-width="30" stroke-linecap="round"/>'
-                f'<rect x="250" y="380" width="70" height="120" rx="30" fill="{PURPLE}" {S}/><rect x="704" y="380" width="70" height="120" rx="30" fill="{PURPLE}" {S}/>'
-                f'<path d="M285 490 C300 580 380 600 430 585" fill="none" stroke="{PURPLE}" stroke-width="16" stroke-linecap="round"/><circle cx="440" cy="582" r="22" fill="{CORAL}" {S}/>',
+ "nutmeg-ears": f'<circle cx="250" cy="200" r="150" fill="{FUR}" {S}/><circle cx="250" cy="200" r="100" fill="{PINK}"/>'
+                f'<circle cx="774" cy="200" r="150" fill="{FUR}" {S}/><circle cx="774" cy="200" r="100" fill="{PINK}"/>'
+                f'<path d="M395 175 L455 135 L460 215 Z M395 175 L335 135 L330 215 Z" fill="{CORAL}" {S}/><circle cx="395" cy="175" r="20" fill="{CORAL}" {S}/>',
+ "nutmeg-headset": f'<path d="M290 420 C290 170 734 170 734 420" fill="none" stroke="{YELLOW}" stroke-width="30" stroke-linecap="round"/>'
+                f'<rect x="250" y="380" width="70" height="120" rx="30" fill="{YELLOW}" {S}/><rect x="704" y="380" width="70" height="120" rx="30" fill="{YELLOW}" {S}/>'
+                f'<path d="M285 490 C300 580 380 600 430 585" fill="none" stroke="{YELLOW}" stroke-width="16" stroke-linecap="round"/><circle cx="440" cy="582" r="22" fill="{YELLOW}" {S}/>',
  "nutmeg-eyes-open": f'<ellipse cx="435" cy="410" rx="52" ry="62" fill="{WHITE}" {S}/><ellipse cx="589" cy="410" rx="52" ry="62" fill="{WHITE}" {S}/>'
-                f'<circle cx="442" cy="420" r="30" fill="{INK}"/><circle cx="596" cy="420" r="30" fill="{INK}"/>'
+                f'<circle cx="442" cy="420" r="34" fill="#4A2A18"/><circle cx="596" cy="420" r="34" fill="#4A2A18"/>'
                 f'<circle cx="452" cy="407" r="10" fill="{WHITE}"/><circle cx="606" cy="407" r="10" fill="{WHITE}"/>'
                 f'<path d="M385 340 Q430 315 470 335" fill="none" stroke="{INK}" stroke-width="10" stroke-linecap="round"/><path d="M554 335 Q594 315 639 340" fill="none" stroke="{INK}" stroke-width="10" stroke-linecap="round"/>',
  "nutmeg-eyes-closed": f'<path d="M390 420 Q435 450 480 420" fill="none" stroke="{INK}" stroke-width="14" stroke-linecap="round"/><path d="M544 420 Q589 450 634 420" fill="none" stroke="{INK}" stroke-width="14" stroke-linecap="round"/>',
