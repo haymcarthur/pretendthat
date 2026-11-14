@@ -5,7 +5,7 @@ import Testing
 @Test func idleIsTheRestingDefault() {
     #expect(PoseRules.base(napping: false, coloring: false) == .idle)
     #expect(PoseRules.base(napping: true, coloring: false) == .sit)
-    #expect(PoseRules.base(napping: false, coloring: true) == .coloring)
+    #expect(PoseRules.base(napping: false, coloring: true) == .clipboardBoth)   // round 5: writing holds the clipboard
 }
 
 @Test func gesturesAreBriefAndOnlyOverIdle() {

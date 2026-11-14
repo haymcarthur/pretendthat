@@ -13,6 +13,8 @@ final class AppModel {
     let hasImages: Bool
     /// Hands-free planning conversation (D1, D2) and its Grown-ups tuning (D7).
     let realtime = RealtimeSession()
+    /// The writing moment's quiet scribble loop (round 5).
+    @ObservationIgnored let scribble = ScribbleSound()
     let voiceSettings = VoiceSettings()
     @ObservationIgnored private let openAIKey: String?
 
@@ -43,6 +45,7 @@ final class AppModel {
             guard let self, Self.isPlanning(self.store.phase), self.store.planningStep != .finish else { return nil }
             return TurnCheck.silenceNudge(step: self.store.planningStep)
         }
+        realtime.onPlanningBeat = { [weak self] topic in await self?.planningBeat(topic) }
         realtime.onCall = { [weak self] name, args in
             guard let self else { return ("ok", true) }
             return await self.handleCall(name: name, arguments: args)
@@ -91,7 +94,7 @@ final class AppModel {
     /// Leave activity: hang up and go home. Nothing is kept.
     func leave() {
         realtime.disconnect()
-        shownProps = 0; kitBeatTask?.cancel(); kitBeat = .coloring
+        shownProps = 0; beat = .none; kitBeatTask?.cancel(); kitBeat = .coloring; kitWriting = false; kitWritingTask?.cancel(); kitWritingTask = nil
         voice.stop()
         art.reset()
         stickers.reset()
@@ -105,6 +108,29 @@ final class AppModel {
 
     func phaseChanged() {
         realtime.micWanted = Self.isPlanning(store.phase)
+        // (A fast kit can skip straight to kitReady between two observations; it still gets its writing beat.)
+        if (store.phase == .makingKit || store.phase == .kitReady) && kitBeat == .coloring && !kitWriting && kitWritingTask == nil {
+            startKitWriting()
+        }
+        if !(store.phase == .makingKit || store.phase == .kitReady) { kitWritingTask?.cancel(); kitWritingTask = nil; kitWriting = false }
+    }
+
+    /// Kit writing (round 5): once she has finished saying she's making the kit, she writes on her clipboard until the
+    /// whole kit is final (at least `PoseRules.minKitWriting`).
+    private(set) var kitWriting = false
+    @ObservationIgnored private var kitWritingSince = Date.distantPast
+    @ObservationIgnored private var kitWritingTask: Task<Void, Never>?
+    private func startKitWriting() {
+        kitWritingTask?.cancel()
+        kitWritingTask = Task { @MainActor in
+            for _ in 0..<120 where isSpeaking { try? await Task.sleep(for: .milliseconds(50)) }   // her line first (≤ 6 s)
+            guard !Task.isCancelled, store.phase == .makingKit || store.phase == .kitReady, kitBeat == .coloring else {
+                kitWritingTask = nil; return
+            }
+            kitWritingSince = Date()
+            kitWriting = true
+            kitWritingTask = nil
+        }
     }
 
     /// Kit art runs in its own task, NOT tied to the kit screen's lifetime: a `.task` on the view was cancelled
@@ -150,7 +176,15 @@ final class AppModel {
         kitBeatTask?.cancel()
         guard final else { kitBeat = .coloring; return }
         kitBeatTask = Task { @MainActor in
-            kitBeat = .lookUp                                   // eyes up, crayon down
+            // Writing never reads as a flicker: at least minKitWriting on the clipboard, even for an instant kit.
+            for _ in 0..<100 where !kitWriting && (store.phase == .makingKit || store.phase == .kitReady) && !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(100))   // her "making your kit" line, then the writing (≤ 10 s)
+            }
+            let left = PoseRules.minKitWriting - Date().timeIntervalSince(kitWritingSince)
+            if left > 0 { try? await Task.sleep(for: .seconds(left)) }
+            guard !Task.isCancelled else { return }
+            kitWriting = false
+            kitBeat = .lookUp                                   // eyes up (happy), crayon drops out of frame
             try? await Task.sleep(for: .milliseconds(900))
             guard !Task.isCancelled else { return }
             kitBeat = .papers                                   // zoom out; the papers fly once the camera settles
@@ -174,8 +208,9 @@ final class AppModel {
         #if DEBUG
         if let s = DemoDriver.forcedState { return s }
         #endif
-        // Kit (revert-animation.md): no coloring. She waits in idle with a thinking face in the close shot, then looks
-        // up (excited) before the papers fly.
+        // Writing moment (round 5): focus face (eyes down at the clipboard) while she writes; she looks up happy after.
+        if isWriting { return .coloring }
+        if beat == .lookUp { return .idle }
         if store.phase == .makingKit || store.phase == .kitReady {
             switch kitBeat { case .coloring: return realtime.isSpeaking ? .idle : .thinking; case .lookUp: return .excited; case .papers: break }
         }
@@ -203,13 +238,32 @@ final class AppModel {
 
     /// Kit step (round 3): she holds the clipboard in front with both hands from "let me make your pages" until the
     /// whole kit is final, then pops back to idle (excited) for the paper reveal.
-    var nutmegHoldsClipboard: Bool { PoseRules.holdsClipboard(phase: store.phase, kitBeat: kitBeat) }
+    var nutmegHoldsClipboard: Bool { PoseRules.holdsClipboard(phase: store.phase, kitBeat: kitBeat) || beat != .none }
+    /// The writing moment is on (planning beat or the kit being made): clipboardBoth, focus face, crayon top, scribble.
+    var isWriting: Bool {
+        #if DEBUG
+        if DemoDriver.forceWriting { return true }
+        #endif
+        return PoseRules.isWriting(phase: store.phase, planningBeat: beat == .writing, kitWriting: kitWriting)
+    }
     /// The resting body pose on the stage (the camera's face focus follows it).
     var nutmegRestPose: NutmegPose { nutmegState.basePose(holdingClipboard: nutmegHoldsClipboard) }
 
-    /// Planning beats are retired (revert-animation.md); kept only so the DEBUG live driver's wait compiles.
-    enum Beat { case none }
-    let beat: Beat = .none
+    /// Planning beat (round 5 writing moment): she writes on her clipboard, then looks up and announces the plan.
+    enum Beat { case none, writing, lookUp }
+    private(set) var beat: Beat = .none
+
+    /// Her lead-in (if any) finishes, she writes with her eyes down for ~1.8–2.6 s, looks up happy (crayon drops out of
+    /// frame, the camera returns to the normal shot), and only then does the function result go back so she announces it.
+    func planningBeat(_ topic: String) async {
+        for _ in 0..<80 where realtime.isSpeaking { try? await Task.sleep(for: .milliseconds(50)) }   // lead-in done
+        beat = .writing
+        let base = topic == "roles" ? 2.3 : PoseRules.minPlanningBeat
+        try? await Task.sleep(for: .seconds(Double.random(in: base...(base + 0.6))))
+        beat = .lookUp
+        try? await Task.sleep(for: .milliseconds(550))
+        beat = .none
+    }
 
     /// Prop cards on stage. A new card waits until the turn that was playing when it was requested has finished (never
     /// mid-sentence about the roles): it appears with her prop line, or once playback drains.
@@ -218,7 +272,8 @@ final class AppModel {
     var visibleProps: Int { realtime.isLive ? shownProps : (store.props?.props.count ?? 0) }
     private func revealProps(after serial: Int) {
         Task { @MainActor in
-            while realtime.isSpeaking && realtime.audioResponseSerial <= serial { try? await Task.sleep(for: .milliseconds(50)) }
+            // A new prop card waits for the writing beat too: it appears as she looks up and announces it.
+            while beat != .none || (realtime.isSpeaking && realtime.audioResponseSerial <= serial) { try? await Task.sleep(for: .milliseconds(50)) }
             shownProps = store.props?.props.count ?? 0
         }
     }

@@ -3,7 +3,8 @@ import Foundation
 /// Nutmeg's body poses and when she uses them (decision mascot-nutmeg.md, 2026-11-13 update).
 /// IDLE is the resting default (also for listening and talking). Wave, point and celebrate are brief gestures:
 /// pop in, hold, pop back to the base pose. Sit is only the step-back nap. clipboardBoth (round 3): the clipboard held
-/// in front with both hands while she says she's making the kit and while it generates. Coloring is retired.
+/// in front with both hands while she says she's making the kit and while it generates. Round 5: the WRITING moment
+/// (every planning beat and the kit) also rests in clipboardBoth; the old coloring body is retired.
 public enum PoseName: String, CaseIterable, Sendable {
     case idle, wave, point, celebrate, sit, coloring, clipboardBoth
 }
@@ -23,8 +24,7 @@ public enum PoseRules {
     /// The resting pose for what's happening (never a gesture).
     public static func base(napping: Bool, coloring: Bool, clipboard: Bool = false) -> PoseName {
         if napping { return .sit }
-        if coloring { return .coloring }
-        if clipboard { return .clipboardBoth }
+        if coloring || clipboard { return .clipboardBoth }   // round 5: writing = clipboardBoth + crayon top + focus face
         return .idle
     }
 
@@ -47,9 +47,19 @@ public enum PoseRules {
 }
 
 extension PoseRules {
-    /// Coloring is retired (Haylee, revert-animation.md): no coloring pose, crayon or focus face in the conversation
-    /// or while the kit is made. She rests in idle with her expressions.
-    public static func isColoring(phase: Phase, planningBeat: Bool, kitBeat: PTStageDirector.KitBeat) -> Bool { false }
+    /// The WRITING moment (Haylee, round 5; replaces the coloring approach): EVERY time she plans (roles after the
+    /// player count, each next prop, the kit) she writes on the clipboard for a short beat: clipboardBoth, focus face,
+    /// a close shot of her head and the clipboard top (hands out of frame), the crayon's top end wiggling above the
+    /// clipboard edge, a soft scribble sound. Everything else (including the start of the conversation) rests in idle.
+    public static func isWriting(phase: Phase, planningBeat: Bool, kitWriting: Bool) -> Bool {
+        if planningBeat { return true }
+        switch phase {
+        case .makingKit, .kitReady: return kitWriting
+        default: return false
+        }
+    }
+    /// Shortest writing beats (seconds): a planning beat never feels like a flicker; the kit writes a little longer.
+    public static let minPlanningBeat: TimeInterval = 1.8, minKitWriting: TimeInterval = 3.2
 }
 
 /// Resting motion (motion-and-surface.md) as plain numbers, so it can be checked: subtle breathing and a blink at a

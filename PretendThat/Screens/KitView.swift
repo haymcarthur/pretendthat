@@ -20,15 +20,21 @@ struct KitView: View {
     private var store: AdventureStore { model.store }
 
     private var pages: [KitPage] { model.kitPages }
+    /// The Print / Let's play row above the fan: its height and its gap to the pages.
+    private static let buttonRow: CGFloat = 56, buttonGap: CGFloat = 24
 
     var body: some View {
         VStack(spacing: Theme.Space.l) {
             // Pages in a slightly overlapped fan (Haylee fix round 1): every title visible, nothing clipped, sized to fit.
+            // Buttons ABOVE the fan (Haylee): a row centered over the pages, 24 pt above the fan's top, so they stay off
+            // the floor and the control pill. The fan keeps the row's room below it, so nothing shifts when they pop in.
             GeometryReader { geo in
                 let n = pages.count
-                let g = PTPageFan(count: n, in: geo.size)
+                let row = Self.buttonRow + Self.buttonGap
+                let g = PTPageFan(count: n, in: CGSize(width: geo.size.width, height: max(120, geo.size.height - row)))
+                let fanTop = row / 2 - (CGFloat(g.rows - 1) / 2 * g.paper.height * PTPageFan.rowStep + g.paper.height / 2) - 6
                 PTPaperReveal(count: revealed ? n : 0, isRevealed: revealed,
-                              origin: clipboard,
+                              origin: CGPoint(x: clipboard.x, y: clipboard.y - row / 2),
                               slot: { i in g.slot(i) },
                               paperSize: g.paper,
                               onLanded: { landed = true; model.gesture(.celebrate) },
@@ -40,20 +46,25 @@ struct KitView: View {
                         .scaleEffect(g.paper.width / KitPageView.size.width)
                         .frame(width: g.paper.width, height: g.paper.height)
                 }
+                .offset(y: row / 2)
                 .frame(width: geo.size.width, height: geo.size.height)
+                .overlay {
+                    HStack(spacing: Theme.Space.m) {
+                        PTParentGate(label: "Hold to print") { model.printKit() }
+                        Button("Let's play!") { store.beginPlay() }.buttonStyle(.ptSecondary)
+                    }
+                    .frame(height: Self.buttonRow)
+                    .opacity(landed && !chatOpen ? 1 : 0)
+                    .scaleEffect(landed && !chatOpen ? 1 : 0.8)
+                    .allowsHitTesting(landed && !chatOpen)
+                    .position(x: geo.size.width / 2, y: geo.size.height / 2 + fanTop - Self.buttonGap - Self.buttonRow / 2)
+                }
             }
             .frame(maxHeight: .infinity)
             .opacity(chatOpen ? 0 : 1)
             .scaleEffect(chatOpen ? 0.6 : 1, anchor: .topTrailing)
             .allowsHitTesting(!chatOpen)
             .animation(.spring(response: 0.5, dampingFraction: 0.85), value: chatOpen)
-            if landed && !chatOpen {
-                HStack(spacing: Theme.Space.m) {
-                    PTParentGate(label: "Hold to print") { model.printKit() }
-                    Button("Let's play!") { store.beginPlay() }.buttonStyle(.ptSecondary)
-                }
-                .transition(.scale(scale: 0.8).combined(with: .opacity))
-            }
         }
         .animation(Theme.bouncy, value: landed)
         .overlay { if store.phase == .kitReady && landed { PTConfetti().ignoresSafeArea() } }

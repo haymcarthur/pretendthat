@@ -54,7 +54,11 @@ The map. Read this first, then open only what you need.
 - [No caption cards or loading text](decisions/no-text-overlays.md): Haylee (voice and animation only; papers wait for the final kit)
 - [Round 4 art + no game-idea cards](decisions/round4-art-no-game-cards.md): Haylee/Claude (new head/idle/celebrate, arm workaround removed, ideas spoken only)
 - [Conversation samples](research/conversation-samples.md): live typed transcripts checked against the step and turn-ending rules
+- [Round 5: writing moment, clipboardBoth layers, new gestures, kit buttons/preview](decisions/round5-writing-moment.md): Haylee (Claude's calls noted) · supersedes the no-coloring part of revert-animation
 - [Checklist and scene pictures, no emoji](decisions/checklist-pictures.md): Haylee (prop / action / kit pictures; cut-outs generated one per item; confetti uses stage art)
+- [Push-to-talk + mic/chat/close pill + exit warning](decisions/2026-11-13-push-to-talk.md): Haylee
+- [Single tap to print](decisions/2026-11-13-single-tap-print.md): Haylee
+- [New writing body (one paw writes)](decisions/2026-11-13-writing-body.md): Haylee
 
 ## Research
 - [Competitor analysis](research/competitor-analysis.md): competitors, white space, novelty angles, pricing

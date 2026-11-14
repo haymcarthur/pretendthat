@@ -31,6 +31,8 @@ struct NutmegCharacter: View {
     var showsTail = true
     /// Kit step: rest in the both-hands clipboard pose instead of idle (`PoseRules.holdsClipboard`).
     var holdsClipboard = false
+    /// The writing moment (round 5): in clipboardBoth, the crayon's top end wiggles above the clipboard's top edge.
+    var writing = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var shown: NutmegPose = .idle
@@ -139,6 +141,7 @@ struct NutmegCharacter: View {
             .frame(width: w, height: h)
             .scaleEffect(x: 1 - (m.breathe - 1) * 0.42, y: m.breathe, anchor: .bottom)
             head(look: l, motion: m)
+                .scaleEffect(pose.headScale, anchor: pose.neckAnchor)
                 .frame(width: w, height: h)
                 // Pose rotation/offset change in the SAME transaction as the body swap (no separate spring, so the
                 // head never trails the body). Only the small intentional state tilt eases, scoped to the rotation.
@@ -147,7 +150,15 @@ struct NutmegCharacter: View {
                 .offset(x: pose.headOffset.width * px,
                         // The head rides the breathing neck with at most ~2 pt of follow, plus the talking nod.
                         y: pose.headOffset.height * px + max(-2, min(2, (1 - m.breathe) * h * 0.41)) + m.nod)
-            crayon(t: t, px: px).frame(width: w, height: h)
+            // In front of the head: the crayon (behind the clipboard, so only its top end shows above the edge), then
+            // the clipboard and her gripping paws (clipboardBoth layer split, round 5). They breathe with the body.
+            ZStack(alignment: .topLeading) {
+                crayon(t: t, px: px)
+                ForEach(pose.frontLayers, id: \.self) { layer($0) }
+            }
+            .frame(width: w, height: h)
+            .scaleEffect(x: 1 - (m.breathe - 1) * 0.42, y: m.breathe, anchor: .bottom)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: writing && pose == .clipboardBoth)
             if state == .napping { zzz(t: t, unit: unit) }
         }
         .frame(width: w, height: h, alignment: .topLeading)
@@ -177,14 +188,19 @@ struct NutmegCharacter: View {
         }
     }
 
-    /// The crayon (new art: nutmeg-coloring-crayon), drawn over the head while she colors, scribbling back and forth
-    /// on a ~0.25 s cycle.
+    /// The writing crayon (Haylee's crayon-only art): turned tip-down behind the clipboard so only its TOP END pokes up
+    /// above the clipboard's top edge, scribbling (small rotation around the hidden tip + a little offset, ~0.25 s
+    /// cycle, drifting slowly across the page). It slides down out of frame when she looks up. Reduce Motion: still.
     @ViewBuilder private func crayon(t: Double, px: CGFloat) -> some View {
-        if shown == .coloring, Self.crayonAvailable {
+        if writing, shown == .clipboardBoth, Self.crayonAvailable {
             let k = reduceMotion ? 0 : 1.0
+            let w = sin(t * 2 * .pi / 0.26)
+            // Art: tip at (708, 872), blunt end at (560, 940). Turned 134.7° around the tip, the tip lands at
+            // (612, 899) behind the clipboard and the blunt end at (668, 746), ~60 px above the clipboard top (807).
             layer("nutmeg-coloring-crayon")
-                .rotationEffect(.degrees(4 * sin(t * 2 * .pi / 0.25) * k), anchor: UnitPoint(x: 0.5, y: 0.75))
-                .offset(x: 6 * px * CGFloat(sin(t * 2 * .pi / 0.25) * k), y: 3 * px * CGFloat(cos(t * 2 * .pi / 0.5) * k))
+                .rotationEffect(.degrees(134.7 + 6 * w * k), anchor: UnitPoint(x: 708 / 1178, y: 872 / 1335))
+                .offset(x: (-96 + 3 * w * k + 14 * sin(t * 0.8) * k) * px, y: (27 + 2 * cos(t * 2 * .pi / 0.52) * k) * px)
+                .transition(.offset(y: 170 * px))
         }
     }
 
@@ -250,7 +266,10 @@ private struct Motion {
         case .oops:
             stateTilt = -5
         case .coloring:
-            headTilt += 3 * sin(t * 1.2) * k   // looking down at the page, a little busy
+            // Writing: eyes down at the clipboard, an occasional tiny nod (a quick dip about every 1.7 s).
+            let c = (t / 1.7).truncatingRemainder(dividingBy: 1)
+            if c < 0.18 { nod = CGFloat(2 * sin(c / 0.18 * .pi) * k) }
+            headTilt += 1 * sin(t * 1.1) * k
         case .idle, .napping:
             break
         }

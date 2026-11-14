@@ -74,15 +74,17 @@ def split_box(svg, box):
 n = 0
 for f in sorted(glob.glob(os.path.join(SRC, "nutmeg", "*.svg"))):
     name = os.path.basename(f)[:-4]; svg = strip_hidden(open(f).read())
-    if re.search(r"\.v\d+$", name) or ".before" in name: continue   # superseded art / Figma backups kept for reference
-    if name.startswith("nutmeg-body-coloring") or name.startswith("nutmeg-coloring-"): continue   # coloring retired (revert-animation.md)
+    if re.search(r"\.v\d+(bak)?$", name) or ".before" in name: continue   # superseded art / Figma backups kept for reference
+    # Coloring body and fingers stay retired (revert-animation.md); the crayon-only piece is the round-5 writing moment's
+    # crayon (only its top end shows above the clipboard).
+    if name.startswith("nutmeg-body-coloring") or (name.startswith("nutmeg-coloring-") and name != "nutmeg-coloring-crayon"): continue
     if name.startswith("nutmeg-face-"):
         eyes, mouth = split_face(svg)
         put(name, eyes); put(name + "-mouth", mouth); n += 2
     else:
         put(name, svg); n += 1
         if name in ("nutmeg-body-idle", "nutmeg-body-wave"):   # the start screen's poses
-            put(name + "-notail", strip_tail(svg, 300 if name == "nutmeg-body-idle" else 200)); n += 1
+            put(name + "-notail", strip_tail(svg, 300)); n += 1   # round 5: the new wave's tail also starts at x ~214
 for f in sorted(glob.glob(os.path.join(SRC, "stage", "*.svg"))):
     name = os.path.basename(f)[:-4]
     if name == "stage-beam": continue

@@ -66,6 +66,11 @@ struct RootView: View {
                              onLeave: { chatOpen = false; model.leave() })
                     .padding(.bottom, Theme.Space.m)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    // Writing moment: the pill steps aside so the screen's bottom edge crops just below the clipboard
+                    // top (her paws out of frame, the crayon's top end visible); the mic keeps listening.
+                    .opacity(model.isWriting ? 0 : 1)
+                    .allowsHitTesting(!model.isWriting)
+                    .animation(.easeInOut(duration: 0.25), value: model.isWriting)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
@@ -93,6 +98,8 @@ struct RootView: View {
         }
         .onChange(of: store.kit) { _, _ in model.kitChanged() }
         .onChange(of: model.kitFinal) { _, final in model.kitFinalChanged(final) }
+        .onChange(of: model.isWriting) { _, on in model.scribble.setPlaying(on, ducked: model.isSpeaking) }
+        .onChange(of: model.isSpeaking) { _, talking in if model.isWriting { model.scribble.setPlaying(true, ducked: talking) } }
         .onChange(of: presentedSubjects) { _, _ in requestStickers() }
         .task {
             #if DEBUG
@@ -118,14 +125,17 @@ struct RootView: View {
                     frame: { g in stageFrame(g) }, itemCount: stageItems.count) {
             NutmegCharacter(state: model.nutmegState, mouthLevel: model.mouthLevel, mouthShape: model.mouthShape,
                             isSpeaking: model.isSpeaking, cue: model.cue, forcedPose: debugPose, showsGround: true,
-                            holdsClipboard: model.nutmegHoldsClipboard)
+                            holdsClipboard: model.nutmegHoldsClipboard, writing: model.isWriting)
                 .onTapGesture { if case .stepBack = store.phase { Task { _ = await store.helpRequested() } } }
         } overlay: { g, L in
             if model.inConversation {
                 if huntOnStage {
+                    // Hidden while she writes in the close shot (the cards are laid out for the hunt's medium shot).
                     PTPropHuntStage(items: stageItems, geometry: g, nutmeg: L, curtainInset: curtainInset(g), namespace: huntSpace,
                                     onHunt: { _, found in model.huntReply(found: found) })
-                } else if shot == .wide {
+                        .opacity(model.isWriting ? 0 : 1)
+                        .animation(.easeInOut(duration: 0.25), value: model.isWriting)
+                } else if shot == .wide && !model.isWriting {
                     PTPresentedCards(items: stageItems, nutmeg: L, size: g.size, onTapItem: { silentTap($0) },
                                      onHunt: { _, found in model.huntReply(found: found) })
                 }
@@ -147,7 +157,7 @@ struct RootView: View {
     private func stageFrame(_ g: PTStageGeometry) -> PTStageFrame {
         PTStageDirector.frame(phase: store.phase, conversation: model.inConversation, conversationShot: shot,
                               cards: stageItems.count, hunt: huntOnStage, kitBeat: model.kitBeat,
-                              curtainInset: curtainInset(g), g)
+                              curtainInset: curtainInset(g), writing: model.isWriting, g)
     }
 
     /// What's docked at the top of the chat panel: the hunt's active prop, or the kit papers once they're out.

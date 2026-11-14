@@ -1,3 +1,4 @@
+import CoreImage
 import SwiftUI
 import UIKit
 import NutmegCore
@@ -60,7 +61,7 @@ final class KitArtService {
             for await (id, result) in group {
                 switch result {
                 case .success(let data):
-                    if let image = UIImage(data: data) {
+                    if let image = UIImage(data: data).map(PaperWhite.normalize) {
                         let parts = id.split(separator: "#")
                         if parts.count == 2, let n = Int(parts[1]) { cutouts[String(parts[0]), default: [:]][n] = image }
                         else { images[id] = image }
@@ -74,5 +75,25 @@ final class KitArtService {
                 progress = Double(done) / Double(max(1, jobs.count))
             }
         }
+    }
+}
+
+
+/// Paper-white AI art (Haylee, page preview fix): the image model paints near-white, off-white or light-gray paper and
+/// soft drop shadows behind items. A tone curve lifts everything above ~88% luminance to pure white, so every tile
+/// sits flat on the one white sheet (dark line art is unchanged).
+enum PaperWhite {
+    private static let context = CIContext(options: [.useSoftwareRenderer: false])
+    static func normalize(_ image: UIImage) -> UIImage {
+        guard let input = CIImage(image: image) else { return image }
+        let f = CIFilter(name: "CIToneCurve")!
+        f.setValue(input, forKey: kCIInputImageKey)
+        f.setValue(CIVector(x: 0, y: 0), forKey: "inputPoint0")
+        f.setValue(CIVector(x: 0.3, y: 0.3), forKey: "inputPoint1")
+        f.setValue(CIVector(x: 0.6, y: 0.62), forKey: "inputPoint2")
+        f.setValue(CIVector(x: 0.8, y: 0.88), forKey: "inputPoint3")
+        f.setValue(CIVector(x: 0.88, y: 1), forKey: "inputPoint4")
+        guard let out = f.outputImage, let cg = context.createCGImage(out, from: input.extent) else { return image }
+        return UIImage(cgImage: cg, scale: image.scale, orientation: image.imageOrientation)
     }
 }

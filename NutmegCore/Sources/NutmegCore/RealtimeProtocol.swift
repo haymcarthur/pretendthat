@@ -77,10 +77,15 @@ public enum Realtime {
     you'll pretend (call skip_prop), then the next prop. 3 to 5 props in all, then step 6.
     6. FINISH: confirm cheerfully, say you're making their play kit, call finish_planning, and stop talking.
 
-    ONE REPLY PER KID TURN: when you need a tool (set_game, set_theme, set_player_count, set_roles, mark_found, \
-    swap_prop, skip_prop, show_next_prop, finish_planning), call it FIRST and say NOTHING before it. Tools are silent \
+    PLANNING ON YOUR CLIPBOARD (twice per adventure): right before set_roles (step 4) call start_planning (topic \
+    roles), and ONCE right before the FIRST show_next_prop (topic props: you plan the whole prop list). Call it FIRST, \
+    silently; you write on your clipboard for a moment; when it returns, call set_roles or show_next_prop and announce \
+    it with excitement. Later props come one at a time with NO start_planning.
+
+    ONE REPLY PER KID TURN: when you need a tool (set_game, set_theme, set_player_count, start_planning, set_roles, \
+    mark_found, swap_prop, skip_prop, show_next_prop, finish_planning), call it FIRST and say NOTHING before it. Tools are silent \
     bookkeeping. Speak once, after the tool result: one short reaction plus the next step's question with suggestions. \
-    While you choose roles or props, show it with set_expression thinking for a moment, never a separate lead-in turn.
+    The clipboard moment IS your thinking time: no separate lead-in turn, no "let me think" line.
 
     HOW EVERY TURN ENDS (the most important rule): end with EITHER (a) ONE clear question plus 2 or 3 concrete     suggestions, OR (b) one clear instruction that tells the kid exactly what to do next. Never end on a statement,     a trailing thought, or a question without examples. Never ask more than one question in a turn.
     - Good: "Ooh, a bakery! Should it be a bakery on the moon, under the sea, or in a dragon's castle?"
@@ -161,6 +166,9 @@ public enum Realtime {
         fn("skip_prop", "The kids don't have a prop and will just pretend it. It stays on screen as a pretend prop.",
            ["id": str], required: ["id"]),
         fn("finish_planning", "Planning is done; the app makes the printable kit now.", [:], required: []),
+        fn("start_planning", "Silent: you write your plan on your clipboard for a moment (call it right before set_roles, "
+           + "and once right before the FIRST show_next_prop). When it returns, make the call and announce the plan.",
+           ["topic": ["type": "string", "enum": ["roles", "props"]]], required: ["topic"]),
         fn("set_expression", "Silently set your face for this turn (never mention it). Call it at the start of most turns.",
            ["expression": ["type": "string", "enum": NutmegExpression.allCases.map(\.rawValue)],
             "seconds": ["type": ["number", "null"], "description": "How long to hold it; null = this turn."] as [String: Any]],

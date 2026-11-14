@@ -35,7 +35,7 @@ struct KitPageView: View {
                 .offset(x: margin, y: margin)
             ForEach(Array(cutouts.enumerated()), id: \.offset) { i, img in
                 Group {
-                    if let img { Image(uiImage: img).resizable().scaledToFit().padding(10) }
+                    if let img { Image(uiImage: img).resizable().scaledToFit().blendMode(.multiply).padding(10) }
                     else { Text(labels.indices.contains(i) ? labels[i] : "").font(Theme.printFont(22)).foregroundStyle(Theme.printInk) }
                 }
                 .frame(width: cellW, height: cellH)
@@ -86,9 +86,13 @@ struct KitCardView: View {
         GeometryReader { geo in
             if let art {
                 // AI art is fitted whole (never cropped) and centered in its cell; the blank name line goes on its banner.
-                let fit = Self.aspectFit(art.size, in: geo.size)
+                // Full sheets (sign, menu) fill the page's content area edge to edge (Haylee). Drawn flat on the white
+                // sheet (multiply): no tile card, no shadow.
+                let fit = fullPage ? geo.size : Self.aspectFit(art.size, in: geo.size)
                 ZStack(alignment: .top) {
-                    Image(uiImage: art).resizable().scaledToFit()
+                    Image(uiImage: art).resizable().aspectRatio(contentMode: fullPage ? .fill : .fit)
+                        .frame(width: fit.width, height: fit.height).clipped()
+                        .blendMode(.multiply)
                     if showsName { nameBanner(height: fit.height * 0.17).padding(.top, fit.height * 0.05) }
                     if let role = roleText {   // the role title, on the shared badge art's bottom banner
                         roleBanner(role, height: fit.height * 0.13)

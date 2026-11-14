@@ -23,12 +23,16 @@ public struct PTStageFrame: Equatable, Sendable {
     public var cards: Int = 0
     /// The landing from the start screen (whole body on the start screen's floor; the only frame below the minimum).
     public var landing = false
+    /// Close-up only: the WRITING framing (round 5): her head plus the TOP of the clipboard, the screen's bottom edge
+    /// cropping just below the clipboard top so her paws are out of frame.
+    public var writing = false
     public init(shot: PTCameraShot, leftReserve: CGFloat = 0, rightReserve: CGFloat = 0, topReserve: CGFloat = 0, cards: Int = 0,
-                landing: Bool = false) {
+                landing: Bool = false, writing: Bool = false) {
         self.shot = shot; self.leftReserve = leftReserve; self.rightReserve = rightReserve
-        self.topReserve = topReserve; self.cards = cards; self.landing = landing
+        self.topReserve = topReserve; self.cards = cards; self.landing = landing; self.writing = writing
     }
     public static let closeUp = PTStageFrame(shot: .closeUp)
+    public static let writing = PTStageFrame(shot: .closeUp, writing: true)
     /// The reference shot: she stands centered, whole body, feet on the stage floor (where the start screen lands her).
     public static let arrival = PTStageFrame(shot: .wide, landing: true)
 }
@@ -81,6 +85,10 @@ public enum PTStageCamera {
     public static let feet = CGPoint(x: 561, y: 1306)
     /// Her chest (where the hunt card centers), canvas px.
     public static let chestY: CGFloat = 900
+    /// clipboardBoth (round 5 layer split): the clipboard's top (its clip, ~777; panel ~807) and the top of her paws
+    /// (~872), canvas px. The writing shot puts the screen's bottom edge at `writeBottom`, just below the clip and above
+    /// where her arms show beside the clipboard.
+    public static let clipboardTop: CGFloat = 777, pawsTop: CGFloat = 872, writeBottom: CGFloat = 790
 
     public struct Star: Sendable { public let asset: String; public let point: CGPoint; public let size: CGFloat; public let maxPoints: CGFloat; public let tilt: Double }
     /// Placed clear of her head (ears end at x 59 and 1055) and body; static.
@@ -191,6 +199,14 @@ public enum PTStageCamera {
             k = min(F.height / 2 / faceToTop, leftRoom / (faceToLeftEar * 1.02), rightRoom / (faceToRightEar * 0.94),
                     size.height * 0.85 / headHeight)
             origin = CGPoint(x: centerX - faceFocus.x * k, y: centerY - faceFocus.y * k)
+            if frame.writing {
+                // Writing (Haylee): a tight crop, the screen's bottom edge at `writeBottom` (around the clipboard's clip)
+                // so NO part of her arms or paws shows, only the crayon's top end poking up above the clipboard. Her ear
+                // tops may crop; the far ear may crop a little at the sides (as above).
+                k = max(size.height * 0.95 / (writeBottom - headTop),
+                        min(size.height / (writeBottom - headTop), leftRoom / (faceToLeftEar * 1.02), rightRoom / (faceToRightEar * 0.94)))
+                origin = CGPoint(x: centerX - faceFocus.x * k, y: size.height - writeBottom * k)
+            }
         case .medium:
             // Head to knees ~70% of the stage height, never wider than the lane, ears below any top reserve.
             let roomH = F.maxY + 60 - laneMinY   // the knees may dip a little behind the pill
@@ -262,8 +278,10 @@ public enum PTStageDirector {
     }
 
     /// - conversationShot: the planning camera's current pick (close-up, wide with cards, arrival).
+    /// - writing: the writing moment (planning beat or the kit being made) overrides every other shot.
     public static func frame(phase: Phase, conversation: Bool, conversationShot: PTCameraShot, cards: Int,
-                             hunt: Bool, kitBeat: KitBeat, curtainInset: CGFloat, _ g: PTStageGeometry) -> PTStageFrame {
+                             hunt: Bool, kitBeat: KitBeat, curtainInset: CGFloat, writing: Bool = false, _ g: PTStageGeometry) -> PTStageFrame {
+        if writing { return .writing }
         if conversation {
             if hunt { return huntFrame(curtainInset: curtainInset, g) }
             switch conversationShot {

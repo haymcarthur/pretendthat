@@ -26,6 +26,9 @@ enum DemoDriver {
         return Double(args[i + 1])
     }
 
+    /// `-PTWriting`: hold the writing moment (clipboardBoth, focus face, crayon top, writing close shot) for screenshots.
+    static var forceWriting: Bool { ProcessInfo.processInfo.arguments.contains("-PTWriting") }
+
     /// `-PTChat`: open the chat panel at launch (screenshots).
     static var chatOpen: Bool { ProcessInfo.processInfo.arguments.contains("-PTChat") }
 

@@ -73,6 +73,21 @@ final class RealtimeSession {
     @ObservationIgnored var onPlanningBeat: (@MainActor (String) async -> Void)?
     @ObservationIgnored private var beatTask: Task<Void, Never>?
     @ObservationIgnored private var beatRunning = false
+    @ObservationIgnored private var lastBeatAt = Date.distantPast
+    /// The prop list is planned once per adventure (one writing beat before the first prop).
+    @ObservationIgnored private var propsPlanned = false
+
+    /// Starts a writing beat: no automatic replies while she writes (room noise would otherwise start a turn mid-beat);
+    /// the pending function results go back when it ends (`.responseDone`).
+    private func startBeat(_ topic: String) {
+        guard !beatRunning else { return }
+        if topic == "props" { propsPlanned = true }
+        let beat = onPlanningBeat
+        beatRunning = true
+        lastBeatAt = Date()
+        if !huntMode { socket?.send(Realtime.autoRespond(false)) }
+        beatTask = Task { await beat?(topic) }
+    }
 
     @ObservationIgnored private var socket: RealtimeSocket?
     @ObservationIgnored private var engine: AVAudioEngine?
@@ -171,7 +186,7 @@ final class RealtimeSession {
         engine = nil
         speakingUntil = .distantPast; tailTask?.cancel(); pendingOutputs = []; wantsResponse = false; responseActive = false
         isSpeaking = false; kidIsTalking = false; level = 0
-        resetMouth(); silenceTask?.cancel(); huntMode = false; beatTask?.cancel(); beatTask = nil; beatRunning = false
+        resetMouth(); silenceTask?.cancel(); huntMode = false; beatTask?.cancel(); beatTask = nil; beatRunning = false; propsPlanned = false; lastBeatAt = .distantPast
         gapTask?.cancel(); expressionTask?.cancel(); expression = nil; thinkingGap = false; awaitingReply = false
         if status != .idle, case .failed = status {} else { status = .idle }
     }
@@ -499,6 +514,20 @@ final class RealtimeSession {
             chat.apply(event)
         case .speechStarted: kidIsTalking = true; silenceTask?.cancel()
         case .speechStopped: kidIsTalking = false; if !huntMode { kidTurnEnded() }
+        case .functionCall(let name, let callID, let args) where name == "start_planning":
+            // Writing moment (round 5): she writes on her clipboard; the result waits for the beat (the pause is natural).
+            let topic = (try? JSONSerialization.jsonObject(with: Data(args.utf8)) as? [String: Any])?["topic"] as? String ?? "props"
+            // Props are planned ONCE (before the first prop, Haylee); a repeat call returns at once, no beat.
+            if topic != "props" || !propsPlanned { startBeat(topic) }
+            pendingOutputs.append((callID, "You wrote it on your clipboard. Look up, call "
+                                   + (topic == "roles" ? "set_roles" : "show_next_prop") + " now, then announce it."))
+            wantsResponse = true
+        case .functionCall(let name, _, _) where !beatRunning && Date().timeIntervalSince(lastBeatAt) > 8
+                && (name == "set_roles" || (name == "show_next_prop" && !propsPlanned)):
+            // She skipped start_planning: the app still runs the writing beat (EVERY planning moment, Haylee), holding
+            // this call's result until it ends. Then handle the call as usual.
+            startBeat(name == "set_roles" ? "roles" : "props")
+            await handle(event)   // beatRunning is set now, so this lands in the generic case below
         case .functionCall(let name, let callID, let args) where name == "set_expression":
             // Silent and instant: never waits on the app, never blocks audio.
             if let d = NutmegExpression.decode(name: name, arguments: args) { setExpression(d.expression, seconds: d.seconds, fromModel: true) }

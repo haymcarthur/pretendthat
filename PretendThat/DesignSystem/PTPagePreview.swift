@@ -33,8 +33,10 @@ struct PTPagePreview<Page: View>: View {
                             .frame(width: pageSize.width, height: pageSize.height)
                             .scaleEffect(scale)
                             .frame(width: pageSize.width * scale, height: pageSize.height * scale)
+                            // ONE clean white sheet, rounded like the stack's papers, one subtle shadow.
                             .background(Color.white)
-                            .shadow(color: .black.opacity(0.25), radius: 18, y: 6)
+                            .clipShape(RoundedRectangle(cornerRadius: 14 * max(1, scale), style: .continuous))
+                            .shadow(color: .black.opacity(0.18), radius: 14, y: 4)
                             .contentShape(Rectangle())
                             .onTapGesture {}   // taps on the page itself don't close it
                             .accessibilityElement(children: .ignore)
@@ -132,6 +134,11 @@ struct PTKitPinnedCard<Page: View>: View {
 
     var body: some View {
         VStack(spacing: Theme.Space.s) {
+            // Buttons above the paper thumbnails (same order as the stage's kit reveal).
+            HStack(spacing: Theme.Space.xs) {
+                PTParentGate(label: "Print", onComplete: onPrint)
+                Button("Let's play!", action: onPlay).buttonStyle(.ptSecondary)
+            }
             ScrollView(.horizontal) {
                 HStack(spacing: Theme.Space.xs) {
                     ForEach(0..<count, id: \.self) { i in
@@ -151,10 +158,6 @@ struct PTKitPinnedCard<Page: View>: View {
                 .padding(.horizontal, 4)
             }
             .scrollIndicators(.hidden)
-            HStack(spacing: Theme.Space.xs) {
-                PTParentGate(label: "Print", onComplete: onPrint)
-                Button("Let's play!", action: onPlay).buttonStyle(.ptSecondary)
-            }
         }
         .padding(Theme.Space.s)
         .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Theme.white))

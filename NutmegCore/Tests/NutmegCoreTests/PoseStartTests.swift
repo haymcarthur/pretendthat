@@ -1,23 +1,25 @@
 import Testing
 @testable import NutmegCore
 
-/// Regression (Haylee's recording): the conversation must start in the idle pose with live resting motion; the
-/// coloring pose is retired.
+/// Regression (Haylee's recording): the conversation must start in the idle pose with live resting motion. Round 5:
+/// the writing moment (clipboardBoth) runs only during a planning beat or while the kit is being written.
 struct PoseStartTests {
     @Test func conversationStartsIdle() {
         for phase in [Phase.pickGame, .players, .props] {
-            let coloring = PoseRules.isColoring(phase: phase, planningBeat: false, kitBeat: .coloring)
-            #expect(!coloring)
-            #expect(PoseRules.base(napping: false, coloring: coloring) == .idle)
+            let writing = PoseRules.isWriting(phase: phase, planningBeat: false, kitWriting: true)
+            #expect(!writing)
+            #expect(PoseRules.base(napping: false, coloring: writing) == .idle)
         }
     }
 
-    @Test func neverColoring() {   // revert-animation.md: idle with expressions, also while the kit is made
-        for phase in [Phase.pickGame, .props, .makingKit, .kitReady, .scene(0)] {
-            for beat in [PTStageDirector.KitBeat.coloring, .lookUp, .papers] {
-                #expect(!PoseRules.isColoring(phase: phase, planningBeat: true, kitBeat: beat))
-            }
-        }
+    @Test func writesOnEveryPlanningBeatAndTheKit() {
+        for phase in [Phase.players, .props] { #expect(PoseRules.isWriting(phase: phase, planningBeat: true, kitWriting: false)) }
+        #expect(PoseRules.isWriting(phase: .makingKit, planningBeat: false, kitWriting: true))
+        #expect(PoseRules.isWriting(phase: .kitReady, planningBeat: false, kitWriting: true))
+        #expect(!PoseRules.isWriting(phase: .kitReady, planningBeat: false, kitWriting: false))
+        #expect(!PoseRules.isWriting(phase: .scene(0), planningBeat: false, kitWriting: true))
+        #expect(PoseRules.base(napping: false, coloring: true) == .clipboardBoth)
+        #expect(PoseRules.minPlanningBeat >= 1.8 && PoseRules.minKitWriting > PoseRules.minPlanningBeat)
     }
 
     @Test func idleMotionIsActive() {

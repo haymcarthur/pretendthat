@@ -23,7 +23,7 @@ enum NutmegState: String, CaseIterable, Identifiable {
         case .oops: NutmegLook(face: .oops, ears: .flop)
         case .napping: NutmegLook(face: .nap, ears: .normal)
         // Coloring (planning beats, kit): eyes down on the clipboard (focus art when it's imported, thinking until then).
-        case .coloring: NutmegLook(face: NutmegFace.focusAvailable ? .focus : .thinking, ears: .normal)
+        case .coloring: NutmegLook(face: NutmegFace.writing, ears: .normal)
         }
     }
 
@@ -49,7 +49,14 @@ struct NutmegCue: Equatable {
 enum NutmegPose: String, CaseIterable, Identifiable {
     case idle, wave, point, celebrate, sit, coloring, clipboardBoth
     var id: String { rawValue }
-    var asset: String { self == .clipboardBoth ? "nutmeg-body-clipboard-both" : "nutmeg-body-\(rawValue)" }
+    /// clipboardBoth (round 5 layer split): the body behind the head; the clipboard and paws are `frontLayers`.
+    var asset: String { self == .clipboardBoth ? "nutmeg-clipboardboth-body" : "nutmeg-body-\(rawValue)" }
+    /// Layers drawn IN FRONT of the head (body → head → face → headset → clipboard → paws), so the clipboard sits in
+    /// front of her chin and her paws grip it from the front.
+    var frontLayers: [String] { self == .clipboardBoth ? ["nutmeg-clipboardboth-clipboard", "nutmeg-clipboardboth-paws"] : [] }
+    /// Head size per pose around the neck anchor. clipboardBoth's torso is drawn larger (neck top ~30 px higher than the
+    /// round-4 idle, frontal), so its head is a little smaller to read at the same visual size.
+    var headScale: CGFloat { self == .clipboardBoth ? 0.93 : 1 }
     init(_ name: PoseName) { self = NutmegPose(rawValue: name.rawValue)! }
 
     static let canvas = CGSize(width: 1178, height: 1335)
@@ -68,6 +75,8 @@ enum NutmegPose: String, CaseIterable, Identifiable {
     var headOffset: CGSize {
         switch self {
         case .sit: CGSize(width: 0, height: 17)
+        // Round 5: up onto the higher, frontal neck (V center x ~590 vs the idle's 3/4 neck) instead of sinking into it.
+        case .clipboardBoth: CGSize(width: -12, height: -18)
         default: CGSize(width: 0, height: 12)
         }
     }
@@ -84,10 +93,13 @@ enum NutmegFace: String, CaseIterable {
     case happy, talking, listening, thinking, ooh, yay, oops, nap, focus
     /// nutmeg-face-focus (eyes down at the clipboard) is new art; fall back until it's imported.
     static let focusAvailable = UIImage(named: "nutmeg-face-focus") != nil
+    /// The writing moment's face (round 5): the focus EYES (looking down at the clipboard). Its own lopsided tongue-tip
+    /// mouth is replaced by the happy face's simple closed smile (`mouthAsset`), Haylee.
+    static let writing: NutmegFace = .focus
     /// Eyes (the face SVG minus its mouth; tools/import_art.py splits them).
     var asset: String { "nutmeg-face-\(rawValue)" }
     /// This face's own mouth, shown when Nutmeg isn't talking.
-    var mouthAsset: String { "nutmeg-face-\(rawValue)-mouth" }
+    var mouthAsset: String { self == .focus ? NutmegFace.happy.mouthAsset : "nutmeg-face-\(rawValue)-mouth" }
     /// Faces with a built-in mouth; nil means "use the live/closed mouth".
     var fixedMouth: NutmegMouth? {
         switch self {
@@ -128,7 +140,7 @@ extension NutmegPose {
         let f = PTStageCamera.faceFocus
         let a = CGPoint(x: neckAnchor.x * Self.canvas.width, y: neckAnchor.y * Self.canvas.height)
         let r = headRotation * .pi / 180
-        let dx = f.x - a.x, dy = f.y - a.y
+        let dx = (f.x - a.x) * headScale, dy = (f.y - a.y) * headScale
         // Coloring: aim a little lower so the top of the clipboard and the crayon stay in the close-up (a pan, not a zoom).
         let lower: CGFloat = self == .coloring ? 120 : 0
         return CGPoint(x: a.x + dx * cos(r) - dy * sin(r) + headOffset.width,
