@@ -216,30 +216,21 @@ struct PTPageThumbnail<Page: View>: View {
 }
 
 /// Hold for 2 seconds to continue (keeps a tap-happy 4-year-old from printing 6 pages).
+/// `.pill` is the black labelled CTA; `.gear` is a tiny faint 30 pt translucent-white circle with a gear (start screen
+/// corner, over the valance), whose ring fills while held. Both keep `label` as the accessibility label.
 struct PTParentGate: View {
+    enum Style { case pill, gear }
     let label: String
     var symbol = "printer.fill"
     var seconds: Double = 2
+    var style: Style = .pill
     let onComplete: () -> Void
     @State private var progress = 0.0
     @State private var pressing = false
 
     var body: some View {
-        // Primary CTA style: black pill, white text; a white ring fills while held.
-        HStack(spacing: Theme.Space.s) {
-            ZStack {
-                Circle().stroke(Theme.white.opacity(0.25), lineWidth: 3)
-                Circle().trim(from: 0, to: progress).stroke(Theme.white, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-                Image(systemName: symbol.replacingOccurrences(of: ".fill", with: "")).font(.system(size: 18, weight: .regular)).foregroundStyle(Theme.white)
-            }
-            .frame(width: 40, height: 40)
-            Text(label).font(Theme.uiFont(20)).foregroundStyle(Theme.white)
-        }
-        .padding(.leading, Theme.Space.s).padding(.trailing, Theme.Space.l)
-        .frame(minHeight: 64)
-        .background(Capsule().fill(Theme.cta))
-        .scaleEffect(pressing ? 0.97 : 1)
+        face
+            .scaleEffect(pressing ? 0.94 : 1)
         .animation(Theme.press, value: pressing)
         .onLongPressGesture(minimumDuration: seconds, maximumDistance: 60) {
             progress = 1
@@ -254,6 +245,36 @@ struct PTParentGate: View {
         .accessibilityLabel(label)
         .accessibilityHint("Grown-ups: hold for \(Int(seconds)) seconds")
         .accessibilityAction { onComplete() }
+    }
+
+    @ViewBuilder private var face: some View {
+        switch style {
+        case .gear:
+            ZStack {
+                Circle().fill(Theme.white.opacity(0.35))
+                Circle().trim(from: 0, to: progress).stroke(Theme.white, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
+                    .rotationEffect(.degrees(-90)).padding(1.25)
+                Image(systemName: "gearshape").font(.system(size: 15, weight: .regular)).foregroundStyle(Theme.white.opacity(0.85))
+            }
+            .frame(width: 30, height: 30)
+            .padding(7)   // 44 pt touch target around the 30 pt gear
+            .contentShape(Rectangle())
+        case .pill:
+            // Primary CTA style: black pill, white text; a white ring fills while held.
+            HStack(spacing: Theme.Space.s) {
+                ZStack {
+                    Circle().stroke(Theme.white.opacity(0.25), lineWidth: 3)
+                    Circle().trim(from: 0, to: progress).stroke(Theme.white, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                        .rotationEffect(.degrees(-90))
+                    Image(systemName: symbol.replacingOccurrences(of: ".fill", with: "")).font(.system(size: 18, weight: .regular)).foregroundStyle(Theme.white)
+                }
+                .frame(width: 40, height: 40)
+                Text(label).font(Theme.uiFont(20)).foregroundStyle(Theme.white)
+            }
+            .padding(.leading, Theme.Space.s).padding(.trailing, Theme.Space.l)
+            .frame(minHeight: 64)
+            .background(Capsule().fill(Theme.cta))
+        }
     }
 }
 

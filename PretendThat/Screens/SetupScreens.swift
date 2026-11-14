@@ -14,15 +14,35 @@ struct HelloView: View {
         return Array(PTStartArt.toys.shuffled().prefix(6))
     }()
 
+    @State private var introDone = false
+
     var body: some View {
-        PTToyChestScene(toys: toys, frozenAt: freeze, onStart: { Task { await model.startConversation() } }) { waving in
-            NutmegCharacter(state: .idle, forcedPose: waving ? .wave : nil)
+        GeometryReader { geo in
+            PTToyChestScene(toys: toys, frozenAt: freeze, handoff: handoff(geo),
+                            onIntroFinished: { withAnimation(.easeOut(duration: 0.35)) { introDone = true } },
+                            onGrownUps: onGrownUps,
+                            onStart: { Task { await model.startConversation() } }) { look in
+                NutmegCharacter(state: .idle, showsGround: look.ground, showsTail: look.tail)
+            }
+            .overlay(alignment: .topTrailing) {
+                // A tiny faint gear, shown only once the opening is over (grown-ups can also hold the logo card).
+                if Theme.showSettingsGear {
+                    PTParentGate(label: "Grown-ups", symbol: "gearshape", style: .gear, onComplete: onGrownUps)
+                        .opacity(introDone ? 1 : 0)
+                        .allowsHitTesting(introDone)
+                        .padding(.top, Theme.Space.s).padding(.trailing, Theme.Space.s)
+                }
+            }
         }
-        .overlay(alignment: .topTrailing) {
-            // Over the right curtain, under the valance: clear of the toys and the title card.
-            PTParentGate(label: "Grown-ups", symbol: "gearshape", onComplete: onGrownUps)
-                .padding(.top, 84).padding(.trailing, Theme.Space.m)
-        }
+    }
+
+    /// Where the conversation screen will draw Nutmeg (medium shot, chrome showing), in global coordinates: this view
+    /// has the same frame the conversation stage gets, so she lands exactly there.
+    private func handoff(_ geo: GeometryProxy) -> CGRect {
+        let L = PTStageCamera.layout(shot: .medium, itemCount: 0, size: geo.size,
+                                     leadingInset: PTStageCamera.chromeLeading, bottomInset: PTStageCamera.chromeBottom)
+        let o = geo.frame(in: .global).origin
+        return CGRect(x: o.x + L.origin.x, y: o.y + L.origin.y, width: L.canvas.width, height: L.canvas.height)
     }
 
     private var freeze: Double? {

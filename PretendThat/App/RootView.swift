@@ -8,6 +8,7 @@ struct RootView: View {
     @State private var showSettings = false
     @State private var showTyping = false
     @State private var chatOpen = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var store: AdventureStore { model.store }
 
@@ -15,7 +16,8 @@ struct RootView: View {
         // Layout (layout-toycad-style.md, style revised): light canvas, Nutmeg centered as the hero, a white step rail
         // on the left, a white control pill at the bottom, and a chat panel that slides in from the right.
         ZStack {
-            PTCanvas()
+            // The same stage as the start screen (sky, floor, tied-back curtains, valance) under every game screen.
+            PTStageBackdrop()
             #if DEBUG
             if let art = DemoDriver.requestedPhase, art.hasPrefix("art") { ArtCheckView(mode: art).zIndex(10) }
             #endif
@@ -25,9 +27,15 @@ struct RootView: View {
                     // screen (and the control pill); it keeps its cards clear of the rail and pill itself.
                     if store.phase == .hello {
                         // Start screen: full-bleed toy-chest scene, no step rail or control pill.
-                        HelloView(model: model, onGrownUps: { showSettings = true }).transition(.opacity)
-                    } else if model.inConversation { conversation.transition(.opacity) } else {
-                        classic.transition(.opacity)
+                        // Start screen → conversation: the start screen's exit leaves Nutmeg exactly where the conversation
+                        // draws her on the same stage, so the swap is instant (no crossfade of two Nutmegs).
+                        HelloView(model: model, onGrownUps: { showSettings = true })
+                            .transition(reduceMotion ? .opacity : .identity)
+                    } else if model.inConversation {
+                        conversation.transition(.asymmetric(insertion: reduceMotion ? .opacity : .identity, removal: .opacity))
+                    } else {
+                        // From the start screen (no voice: tap screens) the stage is already there: no fade from empty.
+                        classic.transition(.asymmetric(insertion: store.phase == .pickGame && !reduceMotion ? .identity : .opacity, removal: .opacity))
                             .padding(.leading, chromeVisible ? 104 : 0)
                             .padding(.bottom, chromeVisible ? 92 : 0)
                     }
@@ -92,7 +100,7 @@ struct RootView: View {
 
     private var conversation: some View {
         PTConversationStage(backdrop: .clear, shot: shot, items: stageItems,
-                            leadingInset: chromeVisible ? 132 : 0, bottomInset: chromeVisible ? 108 : 0,
+                            leadingInset: chromeVisible ? PTStageCamera.chromeLeading : 0, bottomInset: chromeVisible ? PTStageCamera.chromeBottom : 0,
                             faceFocus: model.nutmegState.basePose.faceFocus, centerBetweenChrome: chatOpen && chromeVisible,
                             onTapItem: { id in silentTap(id) }) {
             NutmegCharacter(state: model.nutmegState, mouthLevel: model.mouthLevel,

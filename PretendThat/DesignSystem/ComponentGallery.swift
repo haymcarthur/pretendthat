@@ -21,8 +21,8 @@ struct ComponentGallery: View {
             VStack(alignment: .leading, spacing: Theme.Space.xl) {
                 section("Start screen: PTToyChestScene (tap Replay), PTTitleCard + PTLogo (builds in), PTStartButton, PTCurtain (slider: closed → framed)") {
                     VStack(alignment: .leading, spacing: Theme.Space.m) {
-                        PTToyChestScene(toys: PTStartArt.demoToys, onStart: {}) { waving in
-                            NutmegCharacter(state: .idle, forcedPose: waving ? .wave : nil)
+                        PTToyChestScene(toys: PTStartArt.demoToys, onStart: {}) { look in
+                            NutmegCharacter(state: .idle, showsGround: look.ground, showsTail: look.tail)
                         }
                         .id(startRun)
                         .frame(width: 900, height: 620).clipShape(RoundedRectangle(cornerRadius: Theme.smallRadius))
@@ -33,7 +33,7 @@ struct ComponentGallery: View {
                             PTLogo().frame(width: 200)
                         }
                         Slider(value: $curtain, in: 0...1).frame(width: 300)
-                        ZStack { Theme.startSky; PTCurtain(progress: curtain) }
+                        ZStack { PTStageBackdrop(curtains: false); PTCurtain(progress: curtain) }
                             .frame(width: 600, height: 400).clipped()
                     }
                     .padding().background(Theme.canvas)

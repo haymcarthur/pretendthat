@@ -34,6 +34,15 @@ enum Theme {
     static let startSky = Color(hex: 0xCDEBF5)
     /// Start screen floor ellipse under the toy chest.
     static let startFloor = cream
+    /// The stage floor (start screen and game screens): warm wood that contrasts with the cream parts of the toys,
+    /// with a flat darker front rim (no gradient).
+    static let stageFloor = Color(hex: 0xEBC29A)
+    static let stageFloorEdge = Color(hex: 0xD9A97B)
+    /// Fold stripes on the coral stage curtains (from the curtain art).
+    static let curtainFold = Color(hex: 0xDC4D42)
+    /// The faint settings gear on the start screen. Set false before a demo: grown-ups then open settings with a
+    /// 2-second press on the logo card only.
+    static let showSettingsGear = true
     /// Primary call-to-action pill.
     static let cta = Color(red: 0x11 / 255, green: 0x11 / 255, blue: 0x11 / 255)
     /// UI label fonts: calmer medium/semibold rounded (heavy display only for big moments).

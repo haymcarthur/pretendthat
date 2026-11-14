@@ -23,6 +23,8 @@ struct NutmegCharacter: View {
     /// Draw the flat ground oval under her feet INSIDE the figure, so it shares every transform and timing with her
     /// (zoom, position, squash, hop): nothing trails (Haylee fix round 1).
     var showsGround = false
+    /// false: draw the tail-less body art (`<pose>-notail`, start screen where she stands in the chest) when it exists.
+    var showsTail = true
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var shown: NutmegPose = .idle
@@ -113,7 +115,7 @@ struct NutmegCharacter: View {
                     .position(x: 590 * px, y: 1290 * px)
             }
             ZStack {
-                layer(pose.asset).id(pose).transition(.opacity)
+                layer(bodyAsset(pose)).id(pose).transition(.opacity)
             }
             .frame(width: w, height: h)
             .scaleEffect(x: 1, y: m.breathe, anchor: .bottom)
@@ -129,6 +131,11 @@ struct NutmegCharacter: View {
         .frame(width: w, height: h, alignment: .topLeading)
         .scaleEffect(x: squash.width, y: squash.height, anchor: .bottom)
         .offset(y: hop * unit * 4 + m.bob * unit)
+    }
+
+    private func bodyAsset(_ pose: NutmegPose) -> String {
+        guard !showsTail, UIImage(named: pose.asset + "-notail") != nil else { return pose.asset }
+        return pose.asset + "-notail"
     }
 
     private func head(look l: NutmegLook, motion m: Motion) -> some View {

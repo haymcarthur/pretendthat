@@ -127,6 +127,8 @@ struct PTStageStar: View {
 
 /// The stage camera math (pure, so it can be checked): where Nutmeg's canvas goes for a shot, and the card slots.
 enum PTStageCamera {
+    /// Room the conversation screen keeps for its floating chrome (step rail on the left, control pill at the bottom).
+    static let chromeLeading: CGFloat = 132, chromeBottom: CGFloat = 108
     /// Nutmeg's art canvas (all layers share it) and the focal points measured from Haylee's export
     /// (alpha bounds via tools: head-base x 61–1055, y 15–800; idle body + tail x 172–900, y 765–1311).
     static let art = CGSize(width: 1178, height: 1335)
