@@ -84,7 +84,7 @@ enum NutmegFace: String, CaseIterable {
     case happy, talking, listening, thinking, ooh, yay, oops, nap, focus
     /// nutmeg-face-focus (eyes down at the clipboard) is new art; fall back until it's imported.
     static let focusAvailable = UIImage(named: "nutmeg-face-focus") != nil
-    /// Eyes and brows (the face SVG minus its mouth; tools/import_art.py splits them).
+    /// Eyes (the face SVG minus its mouth; tools/import_art.py splits them).
     var asset: String { "nutmeg-face-\(rawValue)" }
     /// This face's own mouth, shown when Nutmeg isn't talking.
     var mouthAsset: String { "nutmeg-face-\(rawValue)-mouth" }

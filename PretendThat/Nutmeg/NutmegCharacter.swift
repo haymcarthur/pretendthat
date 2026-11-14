@@ -3,8 +3,8 @@ import UIKit
 import NutmegCore
 
 /// Nutmeg, drawn from layered art (spec §7): one shared head placed on a headless body pose.
-/// BODY canvas: body-<pose> (tail drawn in). HEAD canvas, bottom to top: head-base, face (eyes/brows), mouth, HEADSET
-/// (round 3: its own layer on top, so the brows tuck under the band and the mic arm sits in front of her cheek). All
+/// BODY canvas: body-<pose> (tail drawn in). HEAD canvas, bottom to top: head-base, face (eyes), mouth, HEADSET
+/// (round 3: its own layer on top, so the band sits cleanly over the forehead and the mic arm sits in front of her cheek). All
 /// layers are full-frame and the whole head stack shares one transform (tilt, bob, nudge).
 ///
 /// Motion (decisions motion-and-surface.md, mascot-nutmeg.md): she mostly RESTS in the idle pose with subtle
@@ -190,7 +190,7 @@ struct NutmegCharacter: View {
             if l.ears == .flop { layer(NutmegEars.flop.asset) }
             layer(m.blink && l.face != .nap && l.face != .yay ? NutmegFace.nap.asset : l.face.asset)
             layer(isSpeaking ? (mouthShape ?? NutmegMouth.forLevel(mouthLevel, oohBeat: m.oohBeat)).asset : l.face.mouthAsset)
-            if Self.headsetAvailable { layer("nutmeg-headset") }   // on top of the brows; moves with the head
+            if Self.headsetAvailable { layer("nutmeg-headset") }   // on top of the face; moves with the head
             if let costume, UIImage(named: "nutmeg-costume-\(costume)") != nil { layer("nutmeg-costume-\(costume)") }
         }
     }

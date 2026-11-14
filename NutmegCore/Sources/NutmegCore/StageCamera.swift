@@ -64,7 +64,7 @@ public enum PTStageCamera {
     public static let bodyFocus = CGPoint(x: 578, y: 663)
     /// Her head's center (ears included).
     public static let headFocus = CGPoint(x: 566, y: 410)
-    /// Her FACE center (eyes, brows and nose) in the rest pose: the close-up anchor.
+    /// Her FACE center (eyes and nose) in the rest pose: the close-up anchor.
     public static let faceFocus = CGPoint(x: 630, y: 470)
     /// How far her head reaches from the face center (ears x 59–1055, top y 16, chin y ~800), canvas px.
     public static let faceToLeftEar: CGFloat = 569, faceToRightEar: CGFloat = 425, faceToTop: CGFloat = 455

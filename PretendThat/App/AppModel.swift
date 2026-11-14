@@ -181,7 +181,7 @@ final class AppModel {
         }
         if realtime.isLive {
             // Conversation faces (decisions/conversation-camera-and-expressions.md): listening while the kid talks,
-            // thinking in the gap before her reply, then the face the model chose (eyes and brows; the live mouth
+            // thinking in the gap before her reply, then the face the model chose (its eyes; the live mouth
             // animates on top), happy by default.
             if realtime.kidIsTalking { return .listening }
             if let e = realtime.expression { return Self.state(for: e) }
