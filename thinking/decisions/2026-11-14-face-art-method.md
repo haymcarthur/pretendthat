@@ -20,3 +20,6 @@ New facial expressions for Nutmeg are never generated on her head or body. In Ch
 ## Result, 2026-11-14 ~05:50
 - I placed version 1 of the eyes-on-green focus eyes (looking down, no lids) with her smile. **Haylee: it made her look evil.** Reverted: the app and the export are back to the previous focus face. In Figma, the new eyes are hidden-swappable; the old eyes are in the backup "eyes-before-v4".
 - Takeaway: lower-lid-free eyes looking down and inward read as scheming. Any future try should keep a soft, raised lower lid (a happy squint) or closed happy arcs.
+
+## Final, 2026-11-14 ~06:10
+- Haylee approved prompt A: round open eyes with an upward-arched lash line, thin inner ends and the irises looking straight down. They're placed at the HAPPY face's eye positions, not the old focus ones. This is now the shipped focus face. In Figma, "eyes-rejected-v4" and "eyes-before-v4" are kept hidden in nutmeg-face-focus.
