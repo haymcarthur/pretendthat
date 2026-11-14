@@ -96,3 +96,29 @@ struct ConversationStepTests {
         #expect(TurnCheck.nudge(for: "What do you feel like playing? Maybe a bakery, a rocket, or a jungle?", step: .game) == nil)
     }
 }
+
+struct HuntTests {
+    @Test func gateHearsOnlyLinesForNutmeg() {
+        #expect(!HuntGate.addressed("Mom, where's the big plate?"))
+        #expect(!HuntGate.addressed("Look at this cool rock"))
+        #expect(HuntGate.addressed("Nutmeg, we found it!"))
+        #expect(HuntGate.addressed("we don't have one"))
+        #expect(HuntGate.addressed("Got it!"))
+        #expect(HuntGate.addressed("I can’t find it"))
+    }
+
+    @MainActor @Test func oneAtATime() async {
+        let store = AdventureStore(service: nil)
+        store.beginConversation()
+        _ = await store.apply(.setGame("Ship")); _ = await store.apply(.setTheme("Space Ship"))
+        _ = await store.apply(.setPlayerCount(1)); _ = await store.apply(.setRoles([.init(roleName: "Captain", job: "steer")]))
+        _ = await store.apply(.showNextProp(.init(itemID: "plate", becomes: "steering wheel", forRole: "all")))
+        #expect(store.props?.props.count == 1 && store.currentPropID == "plate" && store.huntActive)
+        _ = await store.apply(.markFound("plate"))
+        #expect(store.foundProps.contains("plate"))
+        _ = await store.apply(.showNextProp(.init(itemID: "pillow", becomes: "seat", forRole: "all")))
+        #expect(store.props?.props.count == 2 && store.currentPropID == "pillow")
+        #expect(PlanningCall.decode(name: "show_next_prop", arguments: #"{"item_id":"plate","becomes":"wheel","for_role":"all","alternates":["bowl"]}"#)
+                == .showNextProp(.init(itemID: "plate", becomes: "wheel", forRole: "all", alternates: ["bowl"])))
+    }
+}

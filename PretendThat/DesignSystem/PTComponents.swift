@@ -8,27 +8,6 @@ struct PTCard<Content: View>: View {
     var body: some View { content.ptCard(fill: fill) }
 }
 
-/// Nutmeg's current line, as a speech bubble. Tap to hear it again.
-struct PTSpeechBubble: View {
-    let text: String
-    @Environment(\.speak) private var speak
-    var body: some View {
-        Button { speak(text) } label: {
-            Text(text).font(Theme.uiFont(22)).foregroundStyle(Theme.ink)
-                .multilineTextAlignment(.center)
-                .lineLimit(3)
-                .minimumScaleFactor(0.6)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity)
-                .padding(Theme.Space.m)
-                .ptPanel(radius: 24)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(text)
-        .accessibilityHint("Tap to hear Nutmeg again")
-    }
-}
-
 /// Little triangle on the speech bubble pointing back at Nutmeg.
 private struct BubbleTail: View {
     @Environment(\.ptBackdrop) private var backdrop
@@ -435,20 +414,6 @@ struct PTCountPicker: View {
                 PTChoiceTile(label: n == 6 ? "6+" : "\(n)",
                              isSelected: selected == n, size: Theme.Size.countTile) { onPick(n) }
             }
-        }
-    }
-}
-
-/// Inline "thinking" indicator with a short caption.
-struct PTWorkingIndicator: View {
-    var caption = "Nutmeg is thinking..."
-    /// 0...1 shows a chunky progress bar under the dots.
-    var progress: Double? = nil
-    var body: some View {
-        VStack(spacing: Theme.Space.m) {
-            if let progress { ProgressView(value: progress).progressViewStyle(.ptDots) }
-            else { ProgressView().progressViewStyle(.ptDots) }
-            PTText(caption, .body, tone: .muted)
         }
     }
 }

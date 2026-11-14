@@ -84,6 +84,7 @@ struct RootView: View {
         }
         .onChange(of: store.presenting) { _, p in if p != .none { model.gesture(.point) } }
         .onChange(of: desiredShot) { _, _ in scheduleShot() }
+        .onChange(of: store.currentPropID) { _, id in if id != nil { model.gesture(.point) } }   // toward the new card
         .onChange(of: model.inConversation) { _, live in
             if live { scheduleShot(arrival: true) } else { shotTask?.cancel(); cameraShot = .medium; lastShotChange = .distantPast }
         }
@@ -109,7 +110,8 @@ struct RootView: View {
         PTConversationStage(backdrop: .clear, shot: shot, items: stageItems,
                             leadingInset: chromeVisible ? PTStageCamera.chromeLeading : 0, bottomInset: chromeVisible ? PTStageCamera.chromeBottom : 0,
                             faceFocus: model.nutmegState.basePose.faceFocus, centerBetweenChrome: chatOpen && chromeVisible,
-                            onTapItem: { id in silentTap(id) }) {
+                            onTapItem: { id in silentTap(id) },
+                            onHunt: { _, found in model.huntReply(found: found) }) {
             NutmegCharacter(state: model.nutmegState, mouthLevel: model.mouthLevel, mouthShape: model.mouthShape,
                             isSpeaking: model.isSpeaking, cue: model.cue, showsGround: true)
         } bar: {
@@ -127,7 +129,7 @@ struct RootView: View {
         #endif
         return cameraShot
     }
-    private var desiredShot: PTCameraShot { stageItems.isEmpty ? .closeUp : .wide }
+    private var desiredShot: PTCameraShot { store.huntActive ? .hunt : (stageItems.isEmpty ? .closeUp : .wide) }
     private static let minShotGap: TimeInterval = 2
 
     private func scheduleShot(arrival: Bool = false) {
@@ -136,7 +138,7 @@ struct RootView: View {
             let target = desiredShot
             guard target != cameraShot else { return }
             var wait = max(0, Self.minShotGap - Date().timeIntervalSince(lastShotChange))
-            if target == .wide { wait = 0 }
+            if target == .wide || target == .hunt { wait = 0 }
             if arrival { wait = max(wait, 0.9) }   // let her landing settle first
             if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
             guard !Task.isCancelled, desiredShot != cameraShot else { return }
@@ -149,14 +151,16 @@ struct RootView: View {
         switch store.presenting {
         case .none: return []
         case .props:
-            return (store.props?.props ?? []).enumerated().map { i, prop in
+            return (store.props?.props ?? []).prefix(model.visibleProps).enumerated().map { i, prop in
                 // Library props use the hand-drawn art (prop-<id>); off-list props fall back to a generated sticker.
                 let art = prop.libraryID.flatMap { UIImage(named: PropLibrary.asset($0)) } ?? model.stickers.art(.prop, prop.householdItem)
                 return PTStageItem(id: "prop-\(prop.id)", title: prop.householdItem,
                                    subtitle: prop.becomes,
                                    image: art, tint: Theme.playerColor(i),
                                    flipKey: prop.libraryID ?? prop.householdItem, isPretend: prop.isSkipped,
-                                   chip: prop.isSkipped ? .pretend : (store.foundProps.contains(prop.id) ? .found : (prop.swapped == true ? .swapped : .none)))
+                                   chip: prop.isSkipped ? .pretend : (store.foundProps.contains(prop.id) ? .found : (prop.swapped == true ? .swapped : .none)),
+                                   huntButtons: store.huntActive && prop.id == store.currentPropID
+                                       && !store.foundProps.contains(prop.id) && !prop.isSkipped)
             }
         }
     }
@@ -237,7 +241,8 @@ struct RootView: View {
     /// Nutmeg gets the big column when the stage has little else on it.
     private var nutmegIsHero: Bool {
         switch store.phase {
-        case .hello, .stepBack, .end, .handoff: true
+        case .hello, .stepBack, .end, .handoff, .makingKit: true
+        case .kitReady: !model.art.finished   // big while she colors the pages; the papers then take the room
         default: false
         }
     }

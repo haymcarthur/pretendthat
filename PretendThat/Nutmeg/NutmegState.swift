@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 import NutmegCore
 
@@ -21,7 +22,8 @@ enum NutmegState: String, CaseIterable, Identifiable {
         case .amazed: NutmegLook(face: .ooh, ears: .perked)
         case .oops: NutmegLook(face: .oops, ears: .flop)
         case .napping: NutmegLook(face: .nap, ears: .normal)
-        case .coloring: NutmegLook(face: .happy, ears: .normal)
+        // Coloring (planning beats, kit): eyes down on the clipboard (focus art when it's imported, thinking until then).
+        case .coloring: NutmegLook(face: NutmegFace.focusAvailable ? .focus : .thinking, ears: .normal)
         }
     }
 
@@ -68,7 +70,9 @@ enum NutmegPose: String, CaseIterable, Identifiable {
 }
 
 enum NutmegFace: String, CaseIterable {
-    case happy, talking, listening, thinking, ooh, yay, oops, nap
+    case happy, talking, listening, thinking, ooh, yay, oops, nap, focus
+    /// nutmeg-face-focus (eyes down at the clipboard) is new art; fall back until it's imported.
+    static let focusAvailable = UIImage(named: "nutmeg-face-focus") != nil
     /// Eyes and brows (the face SVG minus its mouth; tools/import_art.py splits them).
     var asset: String { "nutmeg-face-\(rawValue)" }
     /// This face's own mouth, shown when Nutmeg isn't talking.
@@ -79,7 +83,7 @@ enum NutmegFace: String, CaseIterable {
         case .yay: .wide
         case .ooh: .ooh
         case .thinking: .small
-        case .nap: .closed
+        case .nap, .focus: .closed
         case .oops: .small
         default: nil
         }
@@ -114,7 +118,9 @@ extension NutmegPose {
         let a = CGPoint(x: neckAnchor.x * Self.canvas.width, y: neckAnchor.y * Self.canvas.height)
         let r = headRotation * .pi / 180
         let dx = f.x - a.x, dy = f.y - a.y
+        // Coloring: aim a little lower so the top of the clipboard and the crayon stay in the close-up (a pan, not a zoom).
+        let lower: CGFloat = self == .coloring ? 120 : 0
         return CGPoint(x: a.x + dx * cos(r) - dy * sin(r) + headOffset.width,
-                       y: a.y + dx * sin(r) + dy * cos(r) + headOffset.height)
+                       y: a.y + dx * sin(r) + dy * cos(r) + headOffset.height + lower)
     }
 }

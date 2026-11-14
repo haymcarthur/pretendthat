@@ -14,17 +14,17 @@ public enum Realtime {
     /// marin, cedar; "for best quality, we recommend marin or cedar"). Marin is the natural, expressive female voice;
     /// the squeak now comes from the voice and the delivery instructions, not heavy processing (conversation-voice.md).
     public static let voices = ["shimmer", "coral", "marin", "cedar", "sage", "ballad", "alloy", "verse", "ash", "echo"]
-    /// Marin sounded realistic but too old (an adult woman); shimmer is the brightest, youngest-sounding pick to start
-    /// from. Haylee confirms by ear in the Grown-ups voice audition.
-    public static let defaultVoice = "shimmer"
+    /// Haylee's pick by ear (2026-11-13 evening): coral, sped up with Varispeed for a younger sound. (Marin sounded too
+    /// old; cedar is deeper.)
+    public static let defaultVoice = "coral"
     /// How the app raises Nutmeg's pitch on the device. TimePitch (time-stretching) sounded phasey/robotic at +350
     /// cents; Varispeed resamples (pitch and speed together), which is artifact-free.
     public enum PitchMethod: String, CaseIterable, Sendable { case off, varispeed, timePitch
         public var label: String { switch self { case .off: "Off"; case .varispeed: "Varispeed"; case .timePitch: "TimePitch" } }
     }
     public static let defaultPitchMethod = PitchMethod.varispeed
-    /// Varispeed playback rate: 1.12 ≈ two semitones up and 12% quicker, which reads as a younger voice.
-    public static let defaultVarispeedRate: Double = 1.12
+    /// Varispeed playback rate: 1.20 ≈ three semitones up and 20% quicker (Haylee's setting with coral).
+    public static let defaultVarispeedRate: Double = 1.20
     /// TimePitch cents (only used with the TimePitch method; kept subtle).
     public static let defaultPitchCents: Double = 100
     /// Server-side speech speed. Forced to 1.0 while Varispeed is on so the two never stack into an unnatural pace.
@@ -67,8 +67,25 @@ public enum Realtime {
     2. THEME: react in one short sentence, then ask what kind of theme or twist, with 2 or 3 example themes that fit     THEIR game. When they pick, call set_theme with the full title ("Pancake Restaurant on the Moon").
     3. PLAYERS: ask how many kids are playing, with an example ("Is it just you, or two, or three friends?"). Call     set_player_count. NEVER ask for names; if a kid says a name, don't repeat it: call everyone by their role.
     4. ROLES (you decide, they don't choose): invent exactly one role per kid that fits their game and theme (3 kids     on an airplane: Captain, Flight Attendant, Passenger; with more than 4 kids, repeat a role that makes sense to     share) and call set_roles. Announce them with excitement and end with a quick "Sound good?". Kids pick their own     badge after printing, so never assign a role to a particular kid.
-    5. PROPS: call show_props with 3 to 5 household items from the item list (each with 1 or 2 alternates); cards     appear on screen. Tell them exactly what to go find and to tell you when they've found them or if they don't     have something. Props are optional and never block the game: if they lack one, react kindly and either offer ONE     alternate (call swap_prop) or happily skip it (call skip_prop). If they're ready before finding everything, go on.
+    5. PROPS, ONE AT A TIME (only after they've answered the roles question): call show_next_prop for ONE household \
+    item from the item list (with 1 or 2 alternates); its card appears. Say what to find and what it becomes. Only on \
+    the FIRST prop, also explain once: say "found it" when you have it, or tell me if you don't ("Can you find a \
+    plate? It'll be our steering wheel! Say 'found it' when you have it, or tell me if you don't."). Later props stay \
+    short and fun ("Next, can you find a spoon? It'll be the big stirrer for swirly batter!"). Then WAIT: kids will be hunting and \
+    chatting with family; you only hear the lines meant for you. When they found it, call mark_found, cheer in a few \
+    words, then show_next_prop for the next one. If they don't have it, offer ONE alternate (call swap_prop) or say \
+    you'll pretend (call skip_prop), then the next prop. 3 to 5 props in all, then step 6.
     6. FINISH: confirm cheerfully, say you're making their play kit, call finish_planning, and stop talking.
+
+    PLANNING BEATS: before you announce the roles (step 4) and before each next prop (step 5), say a SHORT lead-in \
+    ("Hmm, let me plan that on my clipboard...") and call start_planning (topic roles or props). You'll be coloring \
+    on your clipboard for a moment; when the tool returns, look up and announce the plan (then call set_roles or \
+    show_next_prop). The lead-in is the only turn that may end without a question.
+
+    ONE REPLY PER KID TURN: when you need a tool (set_game, set_theme, set_player_count, set_roles, mark_found, \
+    swap_prop, skip_prop, show_next_prop, finish_planning), call it FIRST and say NOTHING before it. Tools are silent \
+    bookkeeping. Speak once, after the tool result: one short reaction plus the next step's question with suggestions. \
+    (The only two-part turn is the planning beat: a short lead-in, start_planning, then the announcement.)
 
     HOW EVERY TURN ENDS (the most important rule): end with EITHER (a) ONE clear question plus 2 or 3 concrete     suggestions, OR (b) one clear instruction that tells the kid exactly what to do next. Never end on a statement,     a trailing thought, or a question without examples. Never ask more than one question in a turn.
     - Good: "Ooh, a bakery! Should it be a bakery on the moon, under the sea, or in a dragon's castle?"
@@ -139,16 +156,18 @@ public enum Realtime {
         fn("set_roles", "Exactly one role per kid for the chosen game (as many entries as kids). With more than 4 kids, "
            + "repeat a role title that makes sense to share (e.g. Passenger twice).",
            ["roles": array(object(["role_name": str, "job": str]))], required: ["roles"]),
-        fn("show_props", "Show 3 to 5 household items that become props. item_id MUST come from the list. "
-           + "alternates: 1 or 2 other list IDs that could become the same thing if the kids don't have it. "
-           + "for_role is a role title from set_roles or \"all\".",
-           ["props": array(object(["item_id": propID, "becomes": str, "for_role": str, "alternates": array(propID)]))],
-           required: ["props"]),
+        fn("show_next_prop", "Show ONE prop card for the hunt (step 5). item_id MUST come from the list. alternates: 1 or 2 "
+           + "other list IDs that could become the same thing. for_role is a role title from set_roles or \"all\".",
+           ["item_id": propID, "becomes": str, "for_role": str, "alternates": array(propID)],
+           required: ["item_id", "becomes", "for_role", "alternates"]),
+        fn("mark_found", "The kids found the current prop: its card checks off.", ["id": str], required: ["id"]),
         fn("swap_prop", "The kids don't have a prop: replace it with another list item that becomes the same (or a new) thing.",
            ["old_id": str, "new_id": propID, "becomes": str], required: ["old_id", "new_id", "becomes"]),
         fn("skip_prop", "The kids don't have a prop and will just pretend it. It stays on screen as a pretend prop.",
            ["id": str], required: ["id"]),
         fn("finish_planning", "Planning is done; the app makes the printable kit now.", [:], required: []),
+        fn("start_planning", "Say a short lead-in first; you color on your clipboard for a moment, then announce the plan.",
+           ["topic": ["type": "string", "enum": ["roles", "props", "kit"]]], required: ["topic"]),
         fn("set_expression", "Silently set your face for this turn (never mention it). Call it at the start of most turns.",
            ["expression": ["type": "string", "enum": NutmegExpression.allCases.map(\.rawValue)],
             "seconds": ["type": ["number", "null"], "description": "How long to hold it; null = this turn."] as [String: Any]],
@@ -173,6 +192,14 @@ public enum Realtime {
     public static func systemNote(_ text: String) -> [String: Any] {
         ["type": "conversation.item.create",
          "item": ["type": "message", "role": "system", "content": [["type": "input_text", "text": text]]] as [String: Any]]
+    }
+    /// Turns automatic replies on or off (off during the prop hunt: the app decides when she answers).
+    public static func autoRespond(_ on: Bool) -> [String: Any] {
+        ["type": "session.update",
+         "session": ["type": "realtime",
+                     "audio": ["input": ["turn_detection": ["type": "server_vad", "threshold": dec(0.6), "silence_duration_ms": 700,
+                                                            "prefix_padding_ms": 300, "create_response": on,
+                                                            "interrupt_response": false]] as [String: Any]] as [String: Any]] as [String: Any]]
     }
     public static func sayExactly(_ line: String) -> [String: Any] {
         ["type": "response.create",
@@ -272,6 +299,8 @@ public enum PlanningCall: Equatable, Sendable {
     case setPlayerCount(Int)
     case setRoles([RoleDraft])
     case showProps([PropDraft])
+    case showNextProp(PropDraft)
+    case markFound(String)
     case swapProp(oldID: String, newID: String, becomes: String)
     case skipProp(String)
     case finishPlanning
@@ -297,6 +326,13 @@ public enum PlanningCall: Equatable, Sendable {
             let roles = list("roles").map { RoleDraft(roleName: s($0, "role_name"), job: s($0, "job")) }
                 .filter { !$0.roleName.isEmpty }
             return roles.isEmpty ? nil : .setRoles(roles)
+        case "show_next_prop":
+            let id = s(a, "item_id")
+            guard !id.isEmpty else { return nil }
+            return .showNextProp(PropDraft(itemID: id, becomes: s(a, "becomes"), forRole: s(a, "for_role"),
+                                           alternates: (a["alternates"] as? [String] ?? []).filter(PropLibrary.contains).prefix(2).map { $0 }))
+        case "mark_found":
+            let id = s(a, "id"); return id.isEmpty ? nil : .markFound(id)
         case "show_props":
             let props = list("props").map {
                 PropDraft(itemID: s($0, "item_id").isEmpty ? s($0, "household_item") : s($0, "item_id"), becomes: s($0, "becomes"),
@@ -324,8 +360,9 @@ public struct RealtimeTranscript: Equatable, Sendable {
         public init(id: UUID = UUID(), fromNutmeg: Bool, text: String) { self.id = id; self.fromNutmeg = fromNutmeg; self.text = text }
     }
     public private(set) var lines: [Line] = []
-    /// Index of Nutmeg's line that is still streaming.
+    /// Index of Nutmeg's line that is still streaming, and the text it had before this response (a merged reply).
     private var streaming: Int?
+    private var streamPrefix = ""
     public init() {}
 
     public mutating func kidTyped(_ text: String) {
@@ -339,13 +376,19 @@ public struct RealtimeTranscript: Equatable, Sendable {
         switch event {
         case .transcriptDelta(let d):
             guard !d.isEmpty else { return false }
-            if let i = streaming { lines[i].text += d } else { lines.append(Line(fromNutmeg: true, text: d)); streaming = lines.count - 1 }
+            if let i = streaming { lines[i].text += d }
+            else if let last = lines.indices.last, lines[last].fromNutmeg {
+                // Her next response in the same turn (after a tool) continues the same bubble: one reply per kid turn.
+                streamPrefix = lines[last].text + " "
+                lines[last].text = streamPrefix + d.trimmingCharacters(in: .whitespaces); streaming = last
+            } else { streamPrefix = ""; lines.append(Line(fromNutmeg: true, text: d)); streaming = lines.count - 1 }
             return true
         case .transcriptDone(let text):
             let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            defer { streaming = nil }
-            if let i = streaming { if !t.isEmpty { lines[i].text = t }; return true }
+            defer { streaming = nil; streamPrefix = "" }
+            if let i = streaming { if !t.isEmpty { lines[i].text = streamPrefix + t }; return true }
             guard !t.isEmpty else { return false }
+            if let last = lines.indices.last, lines[last].fromNutmeg { lines[last].text += " " + t; return true }
             lines.append(Line(fromNutmeg: true, text: t)); return true
         case .kidTranscript(let text):
             let t = text.trimmingCharacters(in: .whitespacesAndNewlines)

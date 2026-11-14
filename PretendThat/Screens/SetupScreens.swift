@@ -58,7 +58,6 @@ struct PickGameView: View {
     let model: AppModel
     var body: some View {
         VStack(spacing: Theme.Space.l) {
-            PTSpeechBubble(text: model.store.nutmegLine)
             if let ideas = model.store.ideas {
                 HStack(spacing: Theme.Space.m) {
                     ForEach(Array(ideas.ideas.enumerated()), id: \.element.id) { i, idea in
@@ -68,8 +67,6 @@ struct PickGameView: View {
                         .ptPopIn(index: i)
                     }
                 }
-            } else {
-                PTWorkingIndicator()
             }
             PTText("Hold the mic and say your own idea!", .caption, tone: .muted)
         }
@@ -82,7 +79,6 @@ struct PlayersView: View {
 
     var body: some View {
         VStack(spacing: Theme.Space.l) {
-            PTSpeechBubble(text: store.nutmegLine)
             // Only the number of kids: we never ask for names. The number decides the roles (roles-not-names.md).
             if store.playerCount == 0 {
                 PTCountPicker(selected: nil) { store.setPlayerCount($0) }
@@ -95,7 +91,7 @@ struct PlayersView: View {
                     }
                 }
                 if store.isWorking {
-                    PTWorkingIndicator(caption: "Picking jobs...")
+                    EmptyView()   // Nutmeg's thinking pose says it (no loading text, no-text-overlays.md)
                 } else if store.plan == nil {
                     HStack(spacing: Theme.Space.m) {
                         Button("Change") { store.resetPlayers() }.buttonStyle(.ptQuiet)
@@ -116,7 +112,6 @@ struct PropsView: View {
 
     var body: some View {
         VStack(spacing: Theme.Space.l) {
-            PTSpeechBubble(text: store.nutmegLine)
             if let props = store.props {
                 let columns = props.props.count == 4 ? 2 : 3
                 Grid(horizontalSpacing: Theme.Space.m, verticalSpacing: Theme.Space.m) {
@@ -135,8 +130,6 @@ struct PropsView: View {
                     Button("All set!") { Task { await store.confirmProps() } }
                         .buttonStyle(store.foundProps.count == props.props.count ? .ptSuccess : .ptPrimary)
                 }
-            } else {
-                PTWorkingIndicator(caption: "Finding props...")
             }
         }
     }

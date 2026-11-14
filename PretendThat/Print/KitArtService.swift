@@ -11,6 +11,8 @@ final class KitArtService {
     /// Per-cut-out images: item id → index → image.
     private(set) var cutouts: [String: [Int: UIImage]] = [:]
     private(set) var isGenerating = false
+    /// Every page's art has landed or definitively failed (or there's no image service): the kit is final.
+    private(set) var finished = false
     /// Pages drawn so far / pages asked for, for the progress bar.
     private(set) var progress: Double = 0
     /// Last kit-image result, for the Grown-ups debug line ("OK (model)" or the error).
@@ -23,16 +25,18 @@ final class KitArtService {
     /// Set after OpenAI says this account can't make images this run (no credits, unverified org, bad key).
     var unavailableReason: String? { client?.unavailableReason }
 
-    func reset() { images = [:]; cutouts = [:]; isGenerating = false; progress = 0 }
+    func reset() { images = [:]; cutouts = [:]; isGenerating = false; progress = 0; finished = false }
 
     func cutout(_ itemID: String, _ index: Int) -> UIImage? { cutouts[itemID]?[index] }
     /// The cut-out images of an item in order (nil where not drawn yet).
     func cutoutImages(_ item: KitItem) -> [UIImage?] { KitArtPrompt.cutoutLabels(item).indices.map { cutouts[item.id]?[$0] } }
 
     func generate(kit: Kit, gameTitle: String) async {
-        guard let client, !isGenerating else { return }
+        guard let client else { finished = true; return }   // app-drawn pages: final right away
+        guard !isGenerating else { return }
         isGenerating = true
-        defer { isGenerating = false }
+        finished = false
+        defer { isGenerating = false; finished = true }
         // Job key: "<item id>" for a whole item, "<item id>#<n>" for one cut-out.
         var jobs: [(String, String, String)] = []
         for item in kit.items {

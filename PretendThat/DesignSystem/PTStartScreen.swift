@@ -9,33 +9,33 @@ import SwiftUI
 // shows her, the chest and toys leave, and the same stage (`PTStageBackdrop`) carries on under the game screens.
 // Crisp and flat: no gradients, no glows (motion-and-surface.md). Art: design/export/startscreen.
 
-/// When each beat of the opening runs (seconds from launch). One beat at a time, total about 3.7 s:
-/// curtains 0.9 → chest wiggle 0.4 → lid pop 0.25 → toys ~1.0 (staggered) → Nutmeg jump 0.5 → card + logo 0.5 →
-/// start button 0.2.
+/// When each beat of the opening runs (seconds from launch). Slow enough that every beat reads (Haylee), ~6.8 s:
+/// curtains 1.8 (ease-in-out) → beat → chest wiggle 0.6 → lid pop 0.35 → toys one at a time (0.3 s apart, 0.6 s arcs)
+/// → beat → Nutmeg's jump 0.6 → card + logo 0.5 → start button 0.2. A tap skips to the end.
 enum PTStartTimeline {
     /// The curtains hold closed for a moment so the launch screen (the same closed curtains) hands over invisibly.
-    static let curtains = 0.15...1.05
-    static let wiggle = 1.05...1.45
-    /// Lid squash, swap at `lidSwap`, then the open lid stretches and settles (lid pop = 0.25 s).
-    static let lidSquash = 1.45...1.53
-    static let lidSwap = 1.53
-    static let lidSettle = 1.53...1.70
-    static let toysStart = 1.58
-    static let toyGap = 0.09
-    static let toyFlight = 0.5
+    static let curtains = 0.15...1.95
+    static let wiggle = 2.25...2.85
+    /// Lid squash, swap at `lidSwap`, then the open lid stretches and settles (lid pop = 0.35 s).
+    static let lidSquash = 2.85...2.97
+    static let lidSwap = 2.97
+    static let lidSettle = 2.97...3.2
+    static let toysStart = 3.15
+    static let toyGap = 0.3
+    static let toyFlight = 0.6
     static let toyLand = 0.15
-    /// Nutmeg's jump (0.5 s): the chest crouches (anticipation), she shoots up past her resting height, drops back
+    /// Nutmeg's jump (~0.65 s): the chest crouches (anticipation), she shoots up past her resting height, drops back
     /// into the opening and lands with a squash.
-    static let crouch = 2.55...2.63
-    static let rise = 2.63...2.86
-    static let fall = 2.86...2.97
-    static let land = 2.97...3.08
+    static let crouch = 5.45...5.55
+    static let rise = 5.55...5.83
+    static let fall = 5.83...5.97
+    static let land = 5.97...6.1
     static var jump: ClosedRange<Double> { crouch.lowerBound...land.upperBound }
     /// The card pops in at its final place and the logo builds on it at the same moment.
-    static let card = 3.0...3.5
-    static let logo = 3.0
-    static let button = 3.48...3.68
-    static let end = 3.7
+    static let card = 6.05...6.55
+    static let logo = 6.05
+    static let button = 6.53...6.73
+    static let end = 6.75
 }
 
 /// The "Let's play!" exit (seconds from the tap, ~1.25 s): the card and button pop away, Nutmeg crouches and hops out
@@ -454,8 +454,8 @@ struct PTToyChestScene<Nutmeg: View>: View {
             cx = s.width / 2
             chestBottom = floor.midY + floor.height * 0.1
             chestTop = chestBottom - chestH * 616 / 620
-            // Front edge of the chest opening (art y 372): Nutmeg is hidden below this line.
-            frontY = chestTop + chestH * 372 / 620
+            // Front edge of the chest opening (art y 378 in the regenerated box): Nutmeg is hidden below this line.
+            frontY = chestTop + chestH * 378 / 620
             // Her body (canvas 172–900 px wide) fills ~60% of the chest; at rest her waist (canvas y ≈ 1030) sits on
             // the front edge and her ear tips are at canvas y ≈ 10.
             nutmegScale = 0.6 * chestW * 0.945 / 730
@@ -530,10 +530,10 @@ struct PTToyChestScene<Nutmeg: View>: View {
         .accessibilityHidden(true)
     }
 
-    /// Body + lids + clasp + Nutmeg, in the chest's own 650×620 frame. Layering: open lid (behind) → body (interior and
-    /// front panel) → Nutmeg (masked at the opening's front edge so the front panel hides her below it) → clasp (open
-    /// only) → closed lid. Exactly one clasp shows in each state: the closed lid's, then the body's. Lids and clasp are
-    /// always in the tree; the swap at `lidSwap` is opacity only (same frame, no layout change).
+    /// Body + lids + Nutmeg, in the chest's own 650×620 frame. Layering: open lid (behind) → body (interior and front
+    /// panel) → Nutmeg (masked at the opening's front edge so the front panel hides her below it) → closed lid. The
+    /// brackets and clasp exist once, on the lids. Both lids are always in the tree; the swap at `lidSwap` is opacity
+    /// only (same frame, no layout change).
     private func chest(t: Double, e: Double, _ L: Layout, origin: CGPoint) -> some View {
         let w = L.chestW, h = L.chestH
         // (1) Wiggle: two small shakes.
@@ -563,13 +563,11 @@ struct PTToyChestScene<Nutmeg: View>: View {
             }
             .scaleEffect(back, anchor: .bottom).offset(y: drop)
             nutmegLayer(t: t, e: e, L, origin: origin)
-            ZStack(alignment: .topLeading) {
-                Image("chest-clasp").resizable().frame(width: w, height: h)
-                    .opacity(open ? 1 : 0)
-                Image("chest-lid-closed").resizable().frame(width: w, height: h)
-                    .opacity(open ? 0 : 1)
-            }
-            .scaleEffect(back, anchor: .bottom).offset(y: drop)
+            // The box has no top hardware (Haylee's regenerated chest-body); the clasp and brackets live on the lids, so
+            // they show once whether the lid is closed or open.
+            Image("chest-lid-closed").resizable().frame(width: w, height: h)
+                .opacity(open ? 0 : 1)
+                .scaleEffect(back, anchor: .bottom).offset(y: drop)
         }
         .frame(width: w, height: h, alignment: .topLeading)
         .scaleEffect(x: bodyScale.width, y: bodyScale.height, anchor: UnitPoint(x: 0.5, y: 616 / 620))

@@ -105,7 +105,8 @@ struct NutmegCharacter: View {
         // Shared 1178×1335 canvas (Haylee's art): body and head layers stack full-frame.
         let l = state.look
         let pose = shown
-        let m = Motion(state: state, t: t, reduced: reduceMotion, speaking: isSpeaking)
+        let m = Motion(state: state, t: t, reduced: reduceMotion, speaking: isSpeaking,
+                       level: mouthShape.map { $0 == .closed ? 0 : ($0 == .small ? 0.4 : 0.9) } ?? mouthLevel * 2)
         let h = side, w = side * NutmegPose.canvas.width / NutmegPose.canvas.height
         let px = h / NutmegPose.canvas.height
         let unit = h / 1024
@@ -126,22 +127,27 @@ struct NutmegCharacter: View {
                 layer(bodyAsset(pose)).id(pose).transition(.opacity)
             }
             .frame(width: w, height: h)
-            .scaleEffect(x: 1, y: m.breathe, anchor: .bottom)
+            .scaleEffect(x: 1 - (m.breathe - 1) * 0.42, y: m.breathe, anchor: .bottom)
             head(look: l, motion: m)
                 .frame(width: w, height: h)
                 // Pose rotation/offset change in the SAME transaction as the body swap (no separate spring, so the
                 // head never trails the body). Only the small intentional state tilt eases, scoped to the rotation.
                 .animation(reduceMotion ? nil : .easeOut(duration: 0.25)) { $0.rotationEffect(.degrees(m.stateTilt), anchor: pose.neckAnchor) }
                 .rotationEffect(.degrees(pose.headRotation + m.headTilt), anchor: pose.neckAnchor)
-                .offset(x: pose.headOffset.width * px, y: pose.headOffset.height * px + (1 - m.breathe) * h * 0.4)
+                .offset(x: pose.headOffset.width * px,
+                        // The head rides the breathing neck with at most ~2 pt of follow, plus the talking nod.
+                        y: pose.headOffset.height * px + max(-2, min(2, (1 - m.breathe) * h * 0.41)) + m.nod)
+            crayon(t: t, px: px).frame(width: w, height: h)
             if state == .napping { zzz(t: t, unit: unit) }
         }
         .frame(width: w, height: h, alignment: .topLeading)
         .scaleEffect(x: squash.width, y: squash.height, anchor: .bottom)
-        .offset(y: hop * unit * 4 + m.bob * unit)
+        .offset(y: hop * unit * 4)   // deliberate gestures only (pose-swap hop); no idle/talk bounce
         }
         .frame(width: w, height: h, alignment: .topLeading)
     }
+
+    private static let crayonAvailable = UIImage(named: "nutmeg-coloring-crayon") != nil
 
     private func bodyAsset(_ pose: NutmegPose) -> String {
         guard !showsTail, UIImage(named: pose.asset + "-notail") != nil else { return pose.asset }
@@ -156,6 +162,17 @@ struct NutmegCharacter: View {
             layer(m.blink && l.face != .nap && l.face != .yay ? NutmegFace.nap.asset : l.face.asset)
             layer(isSpeaking ? (mouthShape ?? NutmegMouth.forLevel(mouthLevel, oohBeat: m.oohBeat)).asset : l.face.mouthAsset)
             if let costume, UIImage(named: "nutmeg-costume-\(costume)") != nil { layer("nutmeg-costume-\(costume)") }
+        }
+    }
+
+    /// The crayon (new art: nutmeg-coloring-crayon), drawn over the head while she colors, scribbling back and forth
+    /// on a ~0.25 s cycle.
+    @ViewBuilder private func crayon(t: Double, px: CGFloat) -> some View {
+        if shown == .coloring, Self.crayonAvailable {
+            let k = reduceMotion ? 0 : 1.0
+            layer("nutmeg-coloring-crayon")
+                .rotationEffect(.degrees(4 * sin(t * 2 * .pi / 0.25) * k), anchor: UnitPoint(x: 0.5, y: 0.75))
+                .offset(x: 6 * px * CGFloat(sin(t * 2 * .pi / 0.25) * k), y: 3 * px * CGFloat(cos(t * 2 * .pi / 0.5) * k))
         }
     }
 
@@ -193,10 +210,14 @@ private struct Motion {
         abs((sin(n * 12.9898 + salt * 78.233) * 43758.5453).truncatingRemainder(dividingBy: 1))
     }
 
-    init(state: NutmegState, t: Double, reduced: Bool, speaking: Bool = false) {
+    /// Head nod while talking, in screen points (≤ 2).
+    var nod: CGFloat = 0
+
+    init(state: NutmegState, t: Double, reduced: Bool, speaking: Bool = false, level: Float = 0) {
         let k: Double = reduced ? 0 : 1
-        let breathPeriod = state == .napping ? 4.5 : 3.2
-        breathe = 1 + 0.012 * CGFloat(sin(t * 2 * .pi / breathPeriod))
+        // Breathing (Haylee): a very subtle scale on the BODY only, anchored at her feet; no vertical translation.
+        let breathPeriod = state == .napping ? 4.5 : 3.5
+        breathe = 1 + 0.012 * CGFloat(sin(t * 2 * .pi / breathPeriod)) * CGFloat(max(k, 0.5))
         tailSwing = 2.5 * sin(t * 0.9) * k
         // Blink: once per 4–7 s window at a random moment, 130 ms long.
         let bCycle = floor(t / 5.5)
@@ -209,7 +230,7 @@ private struct Motion {
 
         switch state {
         case .listening:
-            stateTilt = 5
+            stateTilt = 3
         case .thinking:
             stateTilt = -4
         case .talking:
@@ -223,9 +244,12 @@ private struct Motion {
         case .idle, .napping:
             break
         }
-        // Talking bob with the voice, whatever face she's making (expressions keep their eyes; only the mouth and
-        // this bob follow the audio).
-        if speaking || state == .talking { headTilt += 2 * sin(t * 5) * k; bob = CGFloat(-abs(sin(t * 4.5)) * 6 * k) }
+        // Talking: only a very small head nod (≤ 2 pt, ≤ 2°) loosely tied to speech energy; the body stays planted
+        // (no whole-body bounce, whatever face she's making).
+        if speaking || state == .talking {
+            headTilt += 1.5 * sin(t * 5) * k
+            nod = -CGFloat(min(1, max(0, level))) * 2 * CGFloat(0.6 + 0.4 * abs(sin(t * 7))) * CGFloat(k)
+        }
     }
 }
 

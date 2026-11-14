@@ -56,7 +56,7 @@ enum DemoDriver {
         for turn in turns {
             // Wait for Nutmeg to start and then finish her line.
             for _ in 0..<100 where !model.realtime.isSpeaking { try? await Task.sleep(for: .milliseconds(100)) }
-            for _ in 0..<300 where model.realtime.isSpeaking { try? await Task.sleep(for: .milliseconds(100)) }
+            for _ in 0..<300 where model.realtime.isSpeaking || model.beat != .none { try? await Task.sleep(for: .milliseconds(100)) }
             try? await Task.sleep(for: .milliseconds(600))
             model.realtime.sendText(turn)
         }
@@ -119,6 +119,15 @@ enum DemoDriver {
                                          .init(roleName: "Flight Attendant", job: "Serve snacks"),
                                          .init(roleName: "Passenger", job: "Enjoy the trip")]))
         if target == "convRoles" { return }
+        if target.hasPrefix("convHunt") {   // the one-at-a-time prop hunt: convHunt1, convHunt3 (2 done), convHuntLast
+            let hunt: [(String, String)] = [("plate", "the steering wheel"), ("chair", "the plane seats"), ("tray", "the snack cart"), ("backpack", "a suitcase")]
+            let upTo = target == "convHunt1" ? 1 : (target == "convHunt3" ? 3 : 4)
+            for (i, p) in hunt.prefix(upTo).enumerated() {
+                _ = await store.apply(.showNextProp(.init(itemID: p.0, becomes: p.1, forRole: "all")))
+                if i < upTo - 1 { _ = await store.apply(i == 1 ? .skipProp(p.0) : .markFound(p.0)) }
+            }
+            return
+        }
         _ = await store.apply(.showProps([.init(itemID: "chair", becomes: "Plane seats", forRole: "all", alternates: ["cushion"]),
                                           .init(itemID: "plate", becomes: "Steering wheel", forRole: "Captain", alternates: ["bowl"]),
                                           .init(itemID: "tray", becomes: "Snack cart", forRole: "Flight Attendant", alternates: ["books"]),

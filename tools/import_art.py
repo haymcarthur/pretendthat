@@ -67,14 +67,13 @@ def split_box(svg, box):
     only = head + "\n" + "\n".join(m.group(0) for m in re.finditer(r'<path\b[^>]*?/>', svg, re.S) if inside(m.group(0))) + "\n</svg>\n"
     return re.sub(r'<path\b[^>]*?/>', lambda m: "" if inside(m.group(0)) else m.group(0), svg, flags=re.S), only
 
-# One clasp per chest state (Haylee): the body's rim clasp becomes its own layer (shown only while the lid is open,
-# since the closed lid draws its own), and the open lid's copy is dropped.
-CHEST_CLASP = (270, 365, 380, 440)
-OPEN_LID_CLASP = (270, 10, 380, 106)
+# Chest hardware exists once: Haylee's regenerated chest-body.svg has no top clasp or brackets (old: chest-body.v1.svg);
+# the lids carry their own.
 
 n = 0
 for f in sorted(glob.glob(os.path.join(SRC, "nutmeg", "*.svg"))):
     name = os.path.basename(f)[:-4]; svg = strip_hidden(open(f).read())
+    if name.endswith(".v1"): continue   # superseded art kept for reference
     if name.startswith("nutmeg-face-"):
         eyes, mouth = split_face(svg)
         put(name, eyes); put(name + "-mouth", mouth); n += 2
@@ -91,16 +90,13 @@ for f in sorted(glob.glob(os.path.join(SRC, "actions", "*.svg"))):   # checklist
 for f in sorted(glob.glob(os.path.join(SRC, "props", "*.svg"))):
     put(os.path.basename(f)[:-4], open(f).read()); n += 1
 for f in sorted(glob.glob(os.path.join(SRC, "startscreen", "*.svg"))):   # start screen: chest, lids, toys, curtains
-    name, svg = os.path.basename(f)[:-4], strip_hidden(open(f).read())
-    if name == "chest-body":
-        svg, clasp = split_box(svg, CHEST_CLASP); put("chest-clasp", clasp); n += 1
-    elif name == "chest-lid-open":
-        svg, _ = split_box(svg, OPEN_LID_CLASP)
-    put(name, svg); n += 1
+    name = os.path.basename(f)[:-4]
+    if name.endswith(".v1"): continue   # superseded art kept for reference
+    put(name, strip_hidden(open(f).read())); n += 1
 for f in sorted(glob.glob(os.path.join(SRC, "logo", "*.svg"))):   # logo: full + per-letter parts (logo-layout.json)
     put(os.path.basename(f)[:-4], open(f).read()); n += 1
 # Placeholder layers the new art doesn't use (ears/tail are drawn into head-base and the bodies).
-for old in ["nutmeg-tail", "nutmeg-ears-normal", "nutmeg-ears-perked", "nutmeg-peek"]:
+for old in ["nutmeg-tail", "nutmeg-ears-normal", "nutmeg-ears-perked", "nutmeg-peek", "chest-clasp", "chest-rim", "chest-body.v1", "nutmeg-body-coloring.v1"]:
     d = os.path.join(DST, f"{old}.imageset")
     if os.path.isdir(d): shutil.rmtree(d)
 print("imported", n)

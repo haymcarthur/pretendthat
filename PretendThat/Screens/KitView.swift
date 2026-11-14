@@ -8,7 +8,9 @@ struct KitView: View {
     let model: AppModel
     @State private var landed = false
     @State private var preview: PTPreviewTarget?
-    private var revealed: Bool { store.phase == .kitReady && store.kit != nil }
+    /// The papers fly out only once the WHOLE kit is final: every page's AI art landed or definitively fell back
+    /// (never the fallback first and then a swap). Until then Nutmeg colors (no-text-overlays.md).
+    private var revealed: Bool { store.phase == .kitReady && store.kit != nil && model.art.finished }
     private var store: AdventureStore { model.store }
 
     private var pages: [KitPage] {
@@ -18,7 +20,6 @@ struct KitView: View {
 
     var body: some View {
         VStack(spacing: Theme.Space.l) {
-            PTSpeechBubble(text: store.nutmegLine)
             // Pages in a slightly overlapped fan (Haylee fix round 1): every title visible, nothing clipped, sized to fit.
             GeometryReader { geo in
                 let n = pages.count
@@ -39,10 +40,7 @@ struct KitView: View {
                 .frame(width: geo.size.width, height: geo.size.height)
             }
             .frame(maxHeight: .infinity)
-            if store.phase == .makingKit || store.kit == nil {
-                PTWorkingIndicator(caption: "Nutmeg is making your kit...")
-            } else if landed {
-                if model.art.isGenerating { PTWorkingIndicator(caption: "Drawing your pictures...", progress: model.art.progress) }
+            if landed {
                 HStack(spacing: Theme.Space.m) {
                     PTParentGate(label: "Grown-up: hold to print") {
                         let pdf = KitPrinter.pdf(pages: pages, art: model.art.images,

@@ -82,3 +82,19 @@ public enum TurnCheck {
     }
 
 }
+
+/// During the prop hunt Nutmeg answers only lines meant for her (prop-gathering-flow.md): kids are hunting and talking
+/// to family. Addressed = her name, or a clear found / not-found / back phrase.
+public enum HuntGate {
+    static let phrases = ["found it", "found one", "found the", "we found", "i found", "got it", "got one", "got the",
+                          "here it is", "here's the", "we're back", "i'm back", "we are back", "we don't have",
+                          "we dont have", "i don't have", "i dont have", "don't have one", "can't find", "cant find",
+                          "couldn't find", "no we don't", "we have it", "i have it", "we're ready", "i'm ready", "we're done"]
+    public static func addressed(_ text: String) -> Bool {
+        let t = text.lowercased().replacingOccurrences(of: "’", with: "'")
+        return t.contains("nutmeg") || phrases.contains { p in
+            // Whole words only ("where's the plate" must not match "here's the").
+            t.range(of: "\\b" + NSRegularExpression.escapedPattern(for: p), options: .regularExpression) != nil
+        }
+    }
+}

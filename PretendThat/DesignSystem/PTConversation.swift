@@ -15,10 +15,13 @@ struct PTStageItem: Identifiable, Equatable {
     var isPretend = false
     /// Card state chip (top-right).
     var chip: PTItemCard.Chip = .none
+    /// The prop the hunt is on: shows the backup "Got it" / "Don't have it" buttons.
+    var huntButtons = false
 }
 
 /// Where the "camera" is (D4): close on Nutmeg's face while she talks or listens, wide while she presents.
-enum PTCameraShot: Equatable { case closeUp, medium, wide }
+/// `hunt`: the prop hunt's medium shot with her right of center (active card left, done chips right).
+enum PTCameraShot: Equatable { case closeUp, medium, wide, hunt }
 
 /// The voice-mode screen (D1): Nutmeg big and centered on a calm stage with 2–3 static stars, the presented items in
 /// two neat columns beside her, and the control pill at the bottom (drawn by the root). No tap targets during planning;
@@ -43,9 +46,45 @@ struct PTConversationStage<Character: View, Bar: View>: View {
     /// The chat panel is open: center her between the rail and the panel (the stage is already narrowed by it).
     var centerBetweenChrome = false
     var onTapItem: ((String) -> Void)? = nil
+    /// Backup hunt buttons on the current card (found: true / false).
+    var onHunt: ((String, Bool) -> Void)? = nil
     @ViewBuilder var character: Character
     @ViewBuilder var bar: Bar
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Namespace private var huntSpace
+
+    /// Prop hunt zones (screen space, not stage space): the rail gutter + DONE stack on the left (≥ 24 pt from the
+    /// rail), Nutmeg left of center, and the ACTIVE card on the right where she points, ≥ 32 pt inside the right
+    /// curtain, vertically centered on her chest. A card that's done shrinks and flies left into the stack.
+    @ViewBuilder private func huntLayout(_ size: CGSize, _ L: PTStageCamera.Layout, full: CGSize) -> some View {
+        let done = items.filter(\.isDone)
+        let active = items.last { !$0.isDone }
+        // The tied-back swag is narrowest around the card's height: its inner edge there is about half the top reach.
+        let curtainEdge = PTCurtain.metrics(full).visible * 0.55
+        let nutRight = L.canvasCenter.x + PTStageCamera.halfWidth * L.k
+        let zoneL = nutRight + 20, zoneR = size.width - curtainEdge - 32
+        let cardW = max(220, min(zoneR - zoneL, size.width * 0.4, 440))
+        let chestY = L.screen(CGPoint(x: 0, y: 860)).y
+        let stackX = leadingInset + 24 + 90
+        ZStack(alignment: .topLeading) {
+            if let active {
+                PTPropActiveCard(item: active, width: cardW, onHunt: active.huntButtons ? onHunt.map { f in { f(active.id, $0) } } : nil)
+                    .matchedGeometryEffect(id: active.id, in: huntSpace)
+                    .position(x: (zoneL + zoneR) / 2, y: min(max(chestY, 220), size.height - bottomInset - 200))
+                    .transition(.scale(scale: 0.3).combined(with: .opacity))
+            }
+            VStack(spacing: Theme.Space.s) {
+                ForEach(done) { item in
+                    PTPropDoneChip(item: item, width: 180).matchedGeometryEffect(id: item.id, in: huntSpace)
+                }
+            }
+            .frame(width: 180)
+            .position(x: stackX, y: 84 + CGFloat(done.count) * 36)   // fills top to bottom
+        }
+        .frame(width: size.width, height: size.height, alignment: .topLeading)
+        .animation(reduceMotion ? .easeInOut(duration: 0.25) : .spring(response: 0.55, dampingFraction: 0.8), value: done.map(\.id))
+        .animation(reduceMotion ? .easeInOut(duration: 0.25) : .spring(response: 0.5, dampingFraction: 0.75), value: active?.id)
+    }
 
     var body: some View {
         GeometryReader { geo in
@@ -84,15 +123,22 @@ struct PTConversationStage<Character: View, Bar: View>: View {
                     .scaleEffect(L.k / big.k)
                     .position(L.canvasCenter)
 
+                if shot == .hunt {
+                    huntLayout(geo.size, L, full: full)
+                } else {
                 // Presented items in two columns beside her (no overlap; every label readable).
                 ForEach(Array(items.enumerated()), id: \.element.id) { i, item in
                     let slot = L.slot(i, fallback: CGPoint(x: geo.size.width / 2, y: geo.size.height / 2))
                     PTItemCard(item: item, chip: item.chip, width: L.cardWidth)
+                        .overlay(alignment: .bottom) {
+                            if item.huntButtons, let onHunt { PTHuntButtons { onHunt(item.id, $0) }.offset(y: 26) }
+                        }
                         .rotationEffect(.degrees(slot.tilt))
                         .onTapGesture { onTapItem?(item.id) }
                         .position(slot.point)
                         .transition(.scale(scale: 0.2, anchor: .center).combined(with: .opacity))
                         .animation(Theme.bouncy.delay(reduceMotion ? 0 : Double(i) * 0.12), value: items.map(\.id))
+                }
                 }
 
                 VStack { Spacer(); bar }
@@ -234,6 +280,11 @@ enum PTStageCamera {
         case .medium:
             canvasH = mediumH
             focus = bodyFocus
+        case .hunt:
+            // Left of center, facing and pointing (viewer's right) toward the active card.
+            canvasH = mediumH * 0.74
+            focus = bodyFocus
+            center.x = leadingInset + (size.width - leadingInset) * 0.37
         case .wide:
             focus = bodyFocus
             let left = (n + 1) / 2, rows = max(1, left)
@@ -376,5 +427,26 @@ struct PTRoundControl: View {
         }
         .buttonStyle(TileButtonStyle())
         .accessibilityLabel(label)
+    }
+}
+
+/// The backup buttons under the current prop card ("Got it" / "Don't have it") for noisy rooms.
+struct PTHuntButtons: View {
+    let action: (Bool) -> Void
+    var body: some View {
+        HStack(spacing: 8) {
+            button("Got it", symbol: "checkmark", fill: Theme.lime, found: true)
+            button("Don't have it", symbol: "xmark", fill: Theme.white, found: false)
+        }
+    }
+    private func button(_ title: String, symbol: String, fill: Color, found: Bool) -> some View {
+        Button { action(found) } label: {
+            Label(title, systemImage: symbol).font(Theme.uiFont(14)).foregroundStyle(Theme.ink)
+                .padding(.horizontal, 12).frame(height: 40)
+                .background(Capsule().fill(fill))
+                .overlay(Capsule().strokeBorder(Theme.line, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(found ? "We found it" : "We don't have it")
     }
 }

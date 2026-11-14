@@ -23,3 +23,13 @@
 - Instructions add: "You sound like a cheerful kid around 8–9 years old: young, bright, bouncy, playful. Short, simple words, a quick pace, giggles."
 - Grown-ups: rate slider 1.00–1.25 with live preview (applies to a live voice at once; letting go plays the sample), and an audition list of every Realtime voice, each playable at the current rate.
 - The Realtime API `speed` is forced to 1.0 while Varispeed is on, so the two never stack.
+
+## Update 2026-11-13 (evening, Haylee)
+
+- Default voice **coral** (her pick, "starts with a C"; cedar is the deeper one), Varispeed rate **1.20** (her setting
+  with coral). These are the built-in defaults in `Realtime.defaultVoice` / `defaultVarispeedRate`; settings keys
+  moved to `nutmeg.v4.*` so the old stored shimmer/1.12 values don't override them, and Grown-ups changes persist under
+  the new keys. DEBUG logs the active voice, method, rate and cents at session start.
+- Why it sounded lower: the app was uninstalled and reinstalled on the simulator during the start-screen launch-image
+  work, which wiped her Grown-ups settings (coral, faster rate) back to the old code defaults (shimmer, 1.12). The
+  audio path (player → Varispeed → mixer) did not change. Making her choice the built-in default fixes it for good.

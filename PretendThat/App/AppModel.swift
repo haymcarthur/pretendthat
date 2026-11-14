@@ -39,6 +39,7 @@ final class AppModel {
             guard let self, Self.isPlanning(self.store.phase) else { return nil }
             return TurnCheck.nudge(for: text, step: self.store.planningStep)
         }
+        realtime.onPlanningBeat = { [weak self] topic in await self?.planningBeat(topic) }
         realtime.onSilence = { [weak self] in
             guard let self, Self.isPlanning(self.store.phase), self.store.planningStep != .finish else { return nil }
             return TurnCheck.silenceNudge(step: self.store.planningStep)
@@ -91,6 +92,7 @@ final class AppModel {
     /// Leave activity: hang up and go home. Nothing is kept.
     func leave() {
         realtime.disconnect()
+        shownProps = 0; beat = .none
         voice.stop()
         art.reset()
         stickers.reset()
@@ -113,13 +115,27 @@ final class AppModel {
         guard let kit = store.kit else { return }
         let title = store.plan?.gameTitle ?? store.gameTitle ?? "Pretend"
         Task { await art.generate(kit: kit, gameTitle: title) }
+        // A long wait gets one or two short reassuring lines, never more.
+        kitWait?.cancel()
+        kitWait = Task { @MainActor in
+            for line in ["Almost done! These are going to be so fun to color!", "Just a few more lines and they're ready!"] {
+                try? await Task.sleep(for: .seconds(20))
+                guard !Task.isCancelled, !art.finished, store.kit != nil else { return }
+                speak(line)
+            }
+        }
     }
+    @ObservationIgnored private var kitWait: Task<Void, Never>?
 
     private func handleCall(name: String, arguments: String) async -> (output: String, respond: Bool) {
         guard let call = PlanningCall.decode(name: name, arguments: arguments) else {
             return ("I couldn't use that. Try again with the right fields.", true)
         }
+        let before = realtime.responseSerial
         let output = await store.apply(call)
+        realtime.huntMode = store.huntActive
+        if case .showNextProp = call { revealProps(after: before) }
+        if store.props == nil { shownProps = 0 }
         return (output, call != .finishPlanning)
     }
 
@@ -133,12 +149,14 @@ final class AppModel {
             // thinking in the gap before her reply, then the face the model chose (eyes and brows; the live mouth
             // animates on top), happy by default.
             if realtime.kidIsTalking { return .listening }
+            switch beat { case .coloring: return .coloring; case .lookUp: return .excited; case .none: break }
             if let e = realtime.expression { return Self.state(for: e) }
             if realtime.thinkingGap { return .thinking }
             if realtime.isSpeaking { return .idle }
         }
         if listener.isListening { return .listening }
-        if store.phase == .makingKit { return .coloring }
+        // Kit: she colors until every page is final (the papers wait for it, no-text-overlays.md).
+        if store.phase == .makingKit || (store.phase == .kitReady && !art.finished) { return .coloring }
         if store.isWorking { return .thinking }
         if voice.isSpeaking { return .talking }
         if store.lastError != nil { return .oops }
@@ -148,6 +166,40 @@ final class AppModel {
         case .kitReady, .end: return .excited
         default: return .idle
         }
+    }
+
+    /// Planning beat (planning-beats.md): coloring on her clipboard, then a look-up.
+    enum Beat { case none, coloring, lookUp }
+    private(set) var beat: Beat = .none
+
+    /// She finishes her lead-in, colors with her eyes down for 2.5–3.5 s, looks up (crayon down: the pose pops back to
+    /// idle with the clipboard), and only then does the function result go back so she announces the plan.
+    func planningBeat(_ topic: String) async {
+        for _ in 0..<80 where realtime.isSpeaking { try? await Task.sleep(for: .milliseconds(50)) }   // lead-in done
+        beat = .coloring
+        try? await Task.sleep(for: .seconds(Double.random(in: 2.5...3.5)))
+        beat = .lookUp
+        try? await Task.sleep(for: .milliseconds(700))
+        beat = .none
+    }
+
+    /// Prop cards on stage. A new card waits until the turn that was playing when it was requested has finished (never
+    /// mid-sentence about the roles): it appears with her prop line, or once playback drains.
+    private(set) var shownProps = 0
+    /// Without a live session (demo screenshots, tap fallback) every card shows at once.
+    var visibleProps: Int { realtime.isLive ? shownProps : (store.props?.props.count ?? 0) }
+    private func revealProps(after serial: Int) {
+        Task { @MainActor in
+            while realtime.isSpeaking && realtime.audioResponseSerial <= serial { try? await Task.sleep(for: .milliseconds(50)) }
+            shownProps = store.props?.props.count ?? 0
+        }
+    }
+
+    /// Backup buttons on the current prop card (noisy rooms): the one planning tap.
+    func huntReply(found: Bool) {
+        guard let p = store.props?.props.first(where: { $0.id == store.currentPropID }) else { return }
+        let name = p.householdItem.lowercased()
+        realtime.sendText(found ? "Nutmeg, we found the \(name)!" : "Nutmeg, we don't have a \(name).")
     }
 
     static func state(for e: NutmegExpression) -> NutmegState {

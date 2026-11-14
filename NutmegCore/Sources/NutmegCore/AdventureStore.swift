@@ -56,6 +56,10 @@ public final class AdventureStore {
     public private(set) var usingFallback = false
     /// Which players' props have been checked off (prop ids).
     public var foundProps: Set<String> = []
+    /// The prop the hunt is on right now (one at a time, prop-gathering-flow.md).
+    public private(set) var currentPropID: String?
+    /// The sequential hunt is running: Nutmeg answers only lines meant for her.
+    public var huntActive: Bool { planningStep == .props && props != nil && phase == .props }
     /// Checked steps for the current scene.
     public var checkedSteps: Set<Int> = []
     /// What Nutmeg is showing around her in the voice conversation (D4): the camera zooms out while this isn't `.none`.
@@ -291,6 +295,33 @@ public final class AdventureStore {
             let ids = props!.props.map(\.id).joined(separator: ", ")
             planningStep = .props
             return "Props are on screen (ids: \(ids)). Step 5: tell them exactly what to go find and to tell you when they've found them or if they don't have something. If they lack one, use swap_prop or skip_prop. When they're ready, step 6: finish_planning."
+        case .showNextProp(let d):
+            guard d.inLibrary else { return "\(d.itemID) isn't on the item list. Pick a list item." }
+            var p = props ?? Props(nutmegSays: "", props: [])
+            if p.props.count >= Sanitizer.Limits.propsMax {
+                return "That's enough props (\(p.props.count)). Call finish_planning now."
+            }
+            if props == nil { foundProps = [] }
+            let owner = plan?.roles.first { $0.roleName.localizedCaseInsensitiveCompare(d.forRole) == .orderedSame }
+                .map { SceneOwner(rawValue: $0.id.rawValue) ?? .all } ?? .all
+            var id = d.itemID
+            if p.props.contains(where: { $0.id == id }) { id += "-\(p.props.count)" }
+            p.props.append(Prop(id: id, householdItem: PropLibrary.name(d.itemID) ?? d.itemID, becomes: d.becomes,
+                                forRole: owner, safetyOK: true, libraryID: d.itemID, alternates: d.alternates, skipped: false))
+            props = p; currentPropID = id
+            phase = .props; presenting = .props; planningStep = .props
+            let n = p.props.count
+            return "Card \(id) is on screen (prop \(n)). Say what to find and what it becomes, and end by asking them to say "
+                + "'found it' or tell you if they don't have it. Then wait. Found: mark_found then show_next_prop. Missing: "
+                + "swap_prop (one alternate) or skip_prop, then show_next_prop. After 3 to 5 props, finish_planning."
+                + (n >= 3 ? " (You have \(n); finishing after this one is fine.)" : "")
+        case .markFound(let id):
+            guard let p = props, let prop = p.props.first(where: { $0.id == id || $0.libraryID == id }) ?? p.props.first(where: { $0.id == currentPropID }) else {
+                return "No prop with id \(id)."
+            }
+            foundProps.insert(prop.id)
+            let n = p.props.count
+            return "Checked off \(prop.householdItem). Cheer in a few words, then " + (n >= 3 ? "show_next_prop or finish_planning." : "show_next_prop.")
         case .swapProp(let oldID, let newID, let becomes):
             guard var p = props, let i = p.props.firstIndex(where: { $0.id == oldID || $0.libraryID == oldID }) else {
                 return "No prop with id \(oldID). Ids: \(props?.props.map(\.id).joined(separator: ", ") ?? "none")."

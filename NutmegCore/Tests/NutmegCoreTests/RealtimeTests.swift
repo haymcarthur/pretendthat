@@ -13,7 +13,7 @@ import Testing
     let input = try #require(audio["input"] as? [String: Any])
     #expect((input["turn_detection"] as? [String: Any])?["type"] as? String == "server_vad")
     let names = (session["tools"] as? [[String: Any]])?.compactMap { $0["name"] as? String }
-    #expect(names == ["show_game_ideas", "set_game", "set_theme", "set_player_count", "set_roles", "show_props", "swap_prop", "skip_prop", "finish_planning", "set_expression"])
+    #expect(names == ["show_game_ideas", "set_game", "set_theme", "set_player_count", "set_roles", "show_next_prop", "mark_found", "swap_prop", "skip_prop", "finish_planning", "start_planning", "set_expression"])
     #expect(Realtime.json(s).contains("\"laundry-basket\""))   // the prop library is an enum in the schema
     // Serializes cleanly.
     #expect(Realtime.json(s).contains("\"server_vad\""))
@@ -138,9 +138,13 @@ import Testing
     t.apply(Realtime.parse(#"{"type":"conversation.item.input_audio_transcription.completed","transcript":"  "}"#))   // empty: ignored
     #expect(t.lines.map(\.text) == ["Hi! I'm Nutmeg!", "A vet clinic for dinosaurs!", "There are 3 of us", "Ooh, dinosaurs!"])
     #expect(t.lines.map(\.fromNutmeg) == [true, false, false, true])
-    // A done without deltas still adds the line.
+    // Her next response in the same turn (after a tool) joins the same bubble: one reply per kid turn.
+    t.apply(Realtime.parse(#"{"type":"response.output_audio_transcript.delta","delta":"How many "}"#))
+    t.apply(Realtime.parse(#"{"type":"response.output_audio_transcript.done","transcript":"How many kids?"}"#))
+    #expect(t.lines.last?.text == "Ooh, dinosaurs! How many kids?" && t.lines.count == 4)
+    // A done without deltas still lands (joined, too).
     t.apply(Realtime.parse(#"{"type":"response.output_audio_transcript.done","transcript":"Let's go!"}"#))
-    #expect(t.lines.last?.text == "Let's go!" && t.lines.count == 5)
+    #expect(t.lines.last?.text == "Ooh, dinosaurs! How many kids? Let's go!" && t.lines.count == 4)
 }
 
 @Test func sessionTranscribesKidSpeech() {
@@ -151,6 +155,6 @@ import Testing
 @Test func varispeedAndApiSpeedNeverStack() {
     #expect(Realtime.apiSpeed(method: .varispeed, requested: 1.3) == 1.0)
     #expect(Realtime.apiSpeed(method: .timePitch, requested: 1.3) == 1.3)
-    #expect(Realtime.defaultPitchMethod == .varispeed && Realtime.defaultVarispeedRate == 1.12)
+    #expect(Realtime.defaultPitchMethod == .varispeed && Realtime.defaultVarispeedRate == 1.20 && Realtime.defaultVoice == "coral")
     #expect(Realtime.instructions.contains("8–9 years old"))
 }

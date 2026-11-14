@@ -66,6 +66,19 @@ struct ComponentGallery: View {
                     }
                     .padding().background(Theme.canvas)
                 }
+                section("Prop hunt: PTPropActiveCard (with backup buttons), PTPropDoneChip (found, swapped, pretend)") {
+                    HStack(alignment: .top, spacing: Theme.Space.l) {
+                        PTPropActiveCard(item: PTStageItem(id: "p", title: "Plastic plate", subtitle: "the ship's steering wheel",
+                                                           image: UIImage(named: "prop-plate"), tint: Theme.playerColor(0)),
+                                         width: 400, onHunt: { _ in })
+                        VStack(spacing: Theme.Space.s) {
+                            PTPropDoneChip(item: PTStageItem(id: "a", title: "Tray", image: UIImage(named: "prop-tray"), chip: .found))
+                            PTPropDoneChip(item: PTStageItem(id: "b", title: "Books", image: UIImage(named: "prop-books"), chip: .swapped))
+                            PTPropDoneChip(item: PTStageItem(id: "c", title: "Hat", image: UIImage(named: "prop-hat"), isPretend: true, chip: .pretend))
+                        }
+                    }
+                    .padding().background(Theme.startSky)
+                }
                 section("PTChatPanel, PTPaperReveal (papers fly off Nutmeg's clipboard; tap Replay)") {
                     HStack(alignment: .top, spacing: Theme.Space.l) {
                         PTChatPanel(lines: [.init(id: UUID(), fromNutmeg: true, text: "Ooh, a pancake restaurant on the moon?! Do the pancakes float?"),
@@ -140,7 +153,6 @@ struct ComponentGallery: View {
                     }
                 }
                 section("PTCountPicker") { PTCountPicker(selected: 3) { _ in } }
-                section("PTSpeechBubble") { PTSpeechBubble(text: "Ooh! Pretend that we're flying over the ocean!") }
                 section("PTRoleBadge") {
                     HStack(spacing: Theme.Space.l) {
                         ForEach(plan.roles) { PTRoleBadge(role: $0) }
@@ -173,7 +185,6 @@ struct ComponentGallery: View {
                 section("Progress (native ProgressView styles)") {
                     HStack(spacing: Theme.Space.xl) {
                         ProgressView(value: 0.66).progressViewStyle(.ptRing).frame(width: 60, height: 60)
-                        PTWorkingIndicator()
                     }
                 }
                 section("PTPageThumbnail + KitPageView") {

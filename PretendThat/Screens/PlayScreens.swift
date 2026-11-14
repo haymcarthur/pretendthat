@@ -66,7 +66,6 @@ struct StepBackView: View {
     var body: some View {
         VStack(spacing: Theme.Space.l) {
             PTText("Go play!", .hero)
-            PTSpeechBubble(text: store.nutmegLine)
             HStack(spacing: Theme.Space.l) {
                 Button { Task { _ = await store.helpRequested() } } label: { Label("Help, Nutmeg!", systemImage: "questionmark.bubble.fill") }
                     .buttonStyle(.ptSecondary)
@@ -82,7 +81,6 @@ struct EndView: View {
     var body: some View {
         VStack(spacing: Theme.Space.l) {
             PTText("The End!", .hero)
-            PTSpeechBubble(text: model.store.nutmegLine)
             HStack(spacing: Theme.Space.l) {
                 Button { model.store.playAgain() } label: { Label("Play again", systemImage: "arrow.counterclockwise") }
                     .buttonStyle(.ptSecondary)
