@@ -18,7 +18,7 @@ struct PoseStartTests {
         #expect(PoseRules.isWriting(phase: .kitReady, planningBeat: false, kitWriting: true))
         #expect(!PoseRules.isWriting(phase: .kitReady, planningBeat: false, kitWriting: false))
         #expect(!PoseRules.isWriting(phase: .scene(0), planningBeat: false, kitWriting: true))
-        #expect(PoseRules.base(napping: false, coloring: true) == .clipboardBoth)
+        #expect(PoseRules.base(napping: false, coloring: true) == .coloring)   // round 8: one-paw writing body
         #expect(PoseRules.minPlanningBeat >= 1.8 && PoseRules.minKitWriting > PoseRules.minPlanningBeat)
     }
 

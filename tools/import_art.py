@@ -84,7 +84,8 @@ for f in sorted(glob.glob(os.path.join(SRC, "nutmeg", "*.svg"))):
     else:
         put(name, svg); n += 1
         if name in ("nutmeg-body-idle", "nutmeg-body-wave"):   # the start screen's poses
-            put(name + "-notail", strip_tail(svg, 300)); n += 1   # round 5: the new wave's tail also starts at x ~214
+            # Round 8: the new (smaller-drawn) wave body's torso starts at x 291, so only its tail (x 102) is left of 200.
+            put(name + "-notail", strip_tail(svg, 300 if name == "nutmeg-body-idle" else 200)); n += 1
 for f in sorted(glob.glob(os.path.join(SRC, "stage", "*.svg"))):
     name = os.path.basename(f)[:-4]
     if name == "stage-beam": continue

@@ -45,13 +45,13 @@ func walk(_ store: AdventureStore) -> [Phase] {
     #expect(store.plan?.roles.last?.count == 2)   // the extra kid shares the last role
     store.beginPlay()
     #expect(store.phase == .handoff(sceneIndex: 0))
-    #expect(store.nutmegLine == "Pass the tablet to the Captain!")
+    #expect(store.nutmegLine == "Pass the iPad to the Captain! Then tap I'm the Captain!")
 }
 
 @Test @MainActor func handoffLineUsesTheRoleNeverAName() async {
     let store = await storeWithKit(owners: [.R2, .R1, .all, .R1], players: 3)
     store.beginPlay()
-    #expect(store.nutmegLine == "Pass the tablet to the Flight Attendant!")
+    #expect(store.nutmegLine == "Pass the iPad to the Flight Attendant! Then tap I'm the Flight Attendant!")
 }
 
 @Test @MainActor func singlePlayerSkipsHandoff() async {

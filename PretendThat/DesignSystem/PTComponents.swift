@@ -99,21 +99,27 @@ struct PTRoleBadge: View {
 struct PTChecklistRow<Picture: View>: View {
     let text: String
     @Binding var isChecked: Bool
+    /// Round 8: compact rows (many steps, or pinned in the chat panel) shrink padding and spacing first; the text
+    /// never goes below 17 pt.
+    var fontSize: CGFloat = Theme.TextSize.body
+    var padding: CGFloat = Theme.Space.s
     /// Exactly one picture (prop, action or kit art; PTPictureTile).
     @ViewBuilder var picture: Picture
 
     var body: some View {
         Toggle(isOn: $isChecked) {
-            HStack(spacing: Theme.Space.m) {
+            HStack(spacing: padding < Theme.Space.s ? Theme.Space.s : Theme.Space.m) {
                 picture
                 Text(text).strikethrough(isChecked, color: Theme.inkMuted)
-                    .font(Theme.bodyFont(Theme.TextSize.body)).foregroundStyle(Theme.ink).multilineTextAlignment(.leading)
+                    .font(Theme.bodyFont(fontSize)).foregroundStyle(Theme.ink).multilineTextAlignment(.leading)
+                    .minimumScaleFactor(min(1, 17 / fontSize))
+                    .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
             }
         }
         .toggleStyle(.ptCheck)
         .ptCard(fill: isChecked ? Theme.limeTint : Theme.white,
-                edge: isChecked ? Theme.limeShade : nil, padding: Theme.Space.s)
+                edge: isChecked ? Theme.limeShade : nil, padding: padding)
         .animation(Theme.springy, value: isChecked)
         .ptSpeakOnLongPress(text)
     }
@@ -148,8 +154,9 @@ struct PTPropCard: View {
     }
 }
 
-/// "Pass the tablet to the Captain!" card: Nutmeg (point pose, passed in) and the role title in the role color to tap.
-/// No role emoji or symbol (checklist-pictures.md).
+/// "Pass the iPad to the Captain!" card (round 8, Haylee: "Tap your badge" was confusing; "badge" is also the printed
+/// name badge). The new holder taps a big role-colored button that says who they are, "I'm the Captain!" + arrow,
+/// with a 3D depth edge that presses down. Nutmeg points at the card from the shared stage and says the line aloud.
 struct PTHandoffCard<Figure: View>: View {
     let role: Role
     @ViewBuilder var figure: Figure
@@ -159,11 +166,17 @@ struct PTHandoffCard<Figure: View>: View {
 
     var body: some View {
         VStack(spacing: Theme.Space.l) {
-            PTText("Pass the tablet to \(role.spoken)!", .headline, tone: .muted)
+            PTText("Pass the iPad to \(role.spoken)!", .headline, tone: .muted)
             if Figure.self != EmptyView.self { figure.frame(height: 200) }
-            PTRoleBadge(role: role, size: Theme.Size.badge * 1.6, onTap: onTap)
-                .ptBounce(trigger: shown)
-            PTText("Tap your badge!", .headline)
+            Button(action: onTap) {
+                HStack(spacing: Theme.Space.s) {
+                    Text("I'm \(role.spoken)!").multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.6)
+                    Image(systemName: "arrow.right").font(.system(size: 30, weight: .heavy))
+                }
+            }
+            .buttonStyle(PTRoleButtonStyle(color: role.id.index))
+            .ptBounce(trigger: shown)
+            .accessibilityLabel("I'm \(role.spoken)")
         }
         .ptCard(fill: Theme.white, edge: Theme.playerColor(role.id.index), padding: Theme.Space.xl)
         .offset(x: shown || reduceMotion ? 0 : 700)
@@ -171,6 +184,24 @@ struct PTHandoffCard<Figure: View>: View {
         .opacity(shown || !reduceMotion ? 1 : 0)
         .onAppear { withAnimation(reduceMotion ? Theme.gentle : Theme.bouncy) { shown = true } }
         .sensoryFeedback(.impact(weight: .medium), trigger: shown)
+    }
+}
+
+/// A big role-colored pill button with a darker depth edge under it; pressing sinks the face onto the edge.
+struct PTRoleButtonStyle: ButtonStyle {
+    let color: Int
+    func makeBody(configuration: Configuration) -> some View {
+        let pressed = configuration.isPressed, depth: CGFloat = 7
+        configuration.label
+            .font(Theme.headlineFont(34)).foregroundStyle(Theme.white)
+            .padding(.horizontal, Theme.Space.xl).padding(.vertical, Theme.Space.m)
+            .frame(minWidth: 300, minHeight: 88)
+            .background(Capsule().fill(Theme.playerColor(color)))
+            .offset(y: pressed ? depth : 0)
+            .background(Capsule().fill(Theme.playerShade(color)).offset(y: depth))
+            .contentShape(Capsule())
+            .animation(Theme.press, value: pressed)
+            .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.7), trigger: pressed) { _, new in new }
     }
 }
 

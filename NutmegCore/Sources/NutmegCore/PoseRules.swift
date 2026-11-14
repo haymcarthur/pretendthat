@@ -24,7 +24,8 @@ public enum PoseRules {
     /// The resting pose for what's happening (never a gesture).
     public static func base(napping: Bool, coloring: Bool, clipboard: Bool = false) -> PoseName {
         if napping { return .sit }
-        if coloring || clipboard { return .clipboardBoth }   // round 5: writing = clipboardBoth + crayon top + focus face
+        if coloring { return .coloring }   // round 8: writing = the one-paw writing body (crayon + fingers layers), focus face
+        if clipboard { return .clipboardBoth }
         return .idle
     }
 

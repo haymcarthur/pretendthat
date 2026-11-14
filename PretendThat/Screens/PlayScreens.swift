@@ -15,6 +15,10 @@ struct HandoffView: View {
     }
 }
 
+/// The play step's scene checklist on the stage (chat closed). Round 8 (Haylee): it never scrolls; the paper is sized
+/// to fit every step (scenes have ~3–6). Many steps shrink row padding and pictures before text (≥ 17 pt). "Done!" is a
+/// full-width button under the paper. With the chat open the checklist is pinned at the top of the chat panel instead
+/// (`PTScenePinnedCard`), like the prop and kit cards.
 struct SceneView: View {
     let model: AppModel
     let index: Int
@@ -22,39 +26,93 @@ struct SceneView: View {
     /// D6 (revised): one sheet of paper flies off Nutmeg's clipboard and becomes the checklist beside her.
     @State private var revealed = false
 
-    static let paper = CGSize(width: 440, height: 470)
+    static let width: CGFloat = 440
+    /// Row metrics for `n` steps: (picture side, font size, row padding, estimated row height for a two-line step).
+    static func rows(_ n: Int) -> (picture: CGFloat, font: CGFloat, padding: CGFloat, height: CGFloat) {
+        n <= 4 ? (56, 22, Theme.Space.s, 84) : (n == 5 ? (46, 20, Theme.Space.xs, 72) : (40, 18, Theme.Space.xs, 64))
+    }
+    static func paper(_ n: Int) -> CGSize {
+        let r = rows(n)
+        return CGSize(width: width, height: 150 + CGFloat(n) * (r.height + Theme.Space.s) + Theme.Space.m)
+    }
 
     var body: some View {
         if let scene = store.kit?.scenes[index] {
+            let n = scene.steps.count, paper = Self.paper(n), r = Self.rows(n)
             VStack(spacing: Theme.Space.m) {
                 GeometryReader { geo in
                     PTPaperReveal(count: 1, isRevealed: revealed, origin: CGPoint(x: -geo.size.width / 2 - 150, y: 60),
-                                  slot: { _ in (.zero, -1.5) }, paperSize: Self.paper,
+                                  slot: { _ in (.zero, -1.5) }, paperSize: paper,
                                   onLanded: { model.gesture(.celebrate) }) { _ in
-                        ScrollView {
-                            VStack(spacing: Theme.Space.s) {
-                                PTStageHeader(title: scene.title) { model.pictureTile(scene.picture, size: 72) }
-                                ForEach(Array(scene.steps.enumerated()), id: \.offset) { i, step in
-                                    PTChecklistRow(text: step.text, isChecked: Binding(
-                                        get: { store.checkedSteps.contains(i) }, set: { _ in store.toggleStep(i) })) {
-                                        model.pictureTile(step.picture)
-                                    }
+                        VStack(spacing: Theme.Space.s) {
+                            PTStageHeader(title: scene.title) { model.pictureTile(scene.picture, size: n <= 4 ? 72 : 56) }
+                                .fixedSize(horizontal: false, vertical: true)
+                            ForEach(Array(scene.steps.enumerated()), id: \.offset) { i, step in
+                                PTChecklistRow(text: step.text, isChecked: Binding(
+                                    get: { store.checkedSteps.contains(i) }, set: { _ in store.toggleStep(i) }),
+                                               fontSize: r.font, padding: r.padding) {
+                                    model.pictureTile(step.picture, size: r.picture)
                                 }
                             }
-                            .padding(Theme.Space.m)
+                            Spacer(minLength: 0)
                         }
-                        .scrollIndicators(.hidden)
+                        .padding(Theme.Space.m)
                     }
                     .frame(width: geo.size.width, height: geo.size.height)
                 }
-                .frame(height: Self.paper.height + 20)
-                Button("Done!") { store.sceneDone() }
-                    .buttonStyle(store.checkedSteps.count == scene.steps.count ? .ptSuccess : .ptPrimary)
+                .frame(height: paper.height + 20)
+                PTSceneDoneButton(allChecked: store.checkedSteps.count == n) { store.sceneDone() }
+                    .frame(width: Self.width)
             }
             .task {
                 try? await Task.sleep(for: .milliseconds(350))
                 revealed = true
             }
+        }
+    }
+}
+
+/// "Done!" as a real full-size button (round 8): full width of its card, 64 pt tall, big label; lime once every
+/// step is checked.
+struct PTSceneDoneButton: View {
+    var allChecked: Bool
+    var action: () -> Void
+    var body: some View {
+        Button(action: action) { Text("Done!").frame(maxWidth: .infinity) }
+            .buttonStyle(PTButtonStyle(kind: allChecked ? .success : .primary, size: 26))
+    }
+}
+
+/// The scene checklist pinned at the top of the chat panel (round 8, chat open), like the prop and kit cards: compact
+/// rows (small pictures and padding, 17 pt text), every step visible, a full-width "Done!".
+struct PTScenePinnedCard: View {
+    let model: AppModel
+    let index: Int
+    private var store: AdventureStore { model.store }
+
+    var body: some View {
+        if let scene = store.kit?.scenes[index] {
+            VStack(spacing: Theme.Space.xs) {
+                HStack(spacing: Theme.Space.s) {
+                    model.pictureTile(scene.picture, size: 44)
+                    Text(scene.title).font(Theme.displayFont(21)).foregroundStyle(Theme.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 0)
+                }
+                ForEach(Array(scene.steps.enumerated()), id: \.offset) { i, step in
+                    PTChecklistRow(text: step.text, isChecked: Binding(
+                        get: { store.checkedSteps.contains(i) }, set: { _ in store.toggleStep(i) }),
+                                   fontSize: 17, padding: Theme.Space.xs) {
+                        model.pictureTile(step.picture, size: 36)
+                    }
+                }
+                PTSceneDoneButton(allChecked: store.checkedSteps.count == scene.steps.count) { store.sceneDone() }
+                    .padding(.top, Theme.Space.xs)
+            }
+            .padding(Theme.Space.s)
+            .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Theme.white))
+            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Theme.line, lineWidth: 1.5))
+            .accessibilityElement(children: .contain)
         }
     }
 }

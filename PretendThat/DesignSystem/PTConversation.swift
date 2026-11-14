@@ -127,6 +127,43 @@ struct PTPresentedCards: View {
 }
 
 /// One static stage star: pops in once, a single bounce on `\.ptCelebrate` (motion-and-surface.md).
+/// Star sparkle (round 8, Haylee): the stage stars twinkle ONE AT A TIME, never together. Star i of `count` twinkles
+/// once per cycle in its own slot (`gap` seconds apart): a 0.6 s ease-in-out swell to 1.12x with a slight turn and a
+/// little extra brightness, then rests. Reduce Motion: static.
+struct PTTwinkle: ViewModifier {
+    var index: Int
+    var count: Int
+    var gap: Double = 2.6
+    static let duration = 0.6
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// 0 at rest, 1 at the peak of star `index`'s twinkle at time `t`.
+    static func amount(_ t: Double, index: Int, count: Int, gap: Double) -> Double {
+        let cycle = gap * Double(max(count, 1))
+        let u = (t.truncatingRemainder(dividingBy: cycle) - Double(index) * gap - 1.2) / duration
+        guard u > 0, u < 1 else { return 0 }
+        return 0.5 - 0.5 * cos(u * 2 * .pi)   // ease in-out, up and back down
+    }
+
+    func body(content: Content) -> some View {
+        if reduceMotion {
+            content
+        } else {
+            TimelineView(.animation(minimumInterval: 1.0 / 30)) { ctx in
+                let w = Self.amount(ctx.date.timeIntervalSinceReferenceDate, index: index, count: count, gap: gap)
+                content
+                    .brightness(0.08 * w)
+                    .rotationEffect(.degrees(9 * w))
+                    .scaleEffect(1 + 0.12 * w)
+            }
+        }
+    }
+}
+
+extension View {
+    func ptTwinkle(index: Int, count: Int, gap: Double = 2.6) -> some View { modifier(PTTwinkle(index: index, count: count, gap: gap)) }
+}
+
 struct PTStageStar: View {
     let asset: String
     var tilt: Double = 0
@@ -139,6 +176,7 @@ struct PTStageStar: View {
     var body: some View {
         Image(asset).resizable().scaledToFit()
             .rotationEffect(.degrees(tilt))
+            .ptTwinkle(index: index, count: PTStageCamera.stars.count)
             .scaleEffect(appeared ? (bounce ? 1.18 : 1) : 0.2)
             .opacity(appeared ? 1 : 0)
             .animation(reduceMotion ? .easeOut(duration: 0.2)

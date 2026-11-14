@@ -174,7 +174,9 @@ struct RootView: View {
 
     /// The frame (shot + lane) this phase asks the one stage camera for.
     private func stageFrame(_ g: PTStageGeometry) -> PTStageFrame {
-        PTStageDirector.frame(phase: store.phase, conversation: model.inConversation, conversationShot: shot,
+        // Round 8: chat open in a scene, the checklist is pinned in the panel, so she stands centered on the stage.
+        if case .scene = store.phase, g.chatOpen, !model.inConversation { return PTStageFrame(shot: .wide) }
+        return PTStageDirector.frame(phase: store.phase, conversation: model.inConversation, conversationShot: shot,
                               cards: stageItems.count, hunt: huntOnStage, kitBeat: model.kitBeat,
                               curtainInset: curtainInset(g), writing: model.isWriting, g)
     }
@@ -183,9 +185,11 @@ struct RootView: View {
     private var pinnedKey: String? {
         if huntOnStage, let active = stageItems.last(where: { !$0.isDone }) { return active.id }
         if model.kitPapersOut { return "kit-papers" }
+        if case .scene(let i) = store.phase { return "scene-\(i)" }   // round 8: the checklist docks in the chat panel
         return nil
     }
     private var pinnedCard: AnyView? {
+        if case .scene(let i) = store.phase, !huntOnStage, !model.kitPapersOut { return AnyView(PTScenePinnedCard(model: model, index: i)) }
         if huntOnStage, let active = stageItems.last(where: { !$0.isDone }) {
             return AnyView(PTPropPinnedCard(item: active, onHunt: active.huntButtons ? { model.huntReply(found: $0) } : nil)
                 .matchedGeometryEffect(id: ptHuntActiveID, in: huntSpace))
@@ -324,7 +328,7 @@ struct RootView: View {
         case .makingKit, .kitReady: KitView(model: model, clipboard: clipboard, chatOpen: chatOpen && chromeVisible, preview: $kitPreview,
                                             onCelebrate: { celebrate() })
         case .handoff(let i): HandoffView(model: model, sceneIndex: i)
-        case .scene(let i): SceneView(model: model, index: i)
+        case .scene(let i): if !(chatOpen && chromeVisible) { SceneView(model: model, index: i) }   // chat open: pinned in the panel
         case .stepBack: StepBackView(model: model)
         case .end: EndView(model: model)
         }

@@ -122,15 +122,15 @@ struct StageCameraTests {
         }
     }
 
-    /// Round 5 writing moment: a close shot of her head and the clipboard top; her paws are below the screen's bottom
-    /// edge, the clipboard's top edge (where the crayon pokes up) is on screen, her face stays in frame.
-    @Test func writingHidesHerPawsAndShowsTheClipboardTop() {
+    /// Round 8 writing moment (zoomed out): a medium close-up that shows her head, the clipboard and the writing paw
+    /// (art ~965) on screen, with the screen's bottom edge just under the clipboard.
+    @Test func writingShowsHeadClipboardAndWritingPaw() {
         for g in Self.geometries() {
             #expect(PTStageDirector.frame(phase: .props, conversation: true, conversationShot: .medium, cards: 2, hunt: true,
                                           kitBeat: .coloring, curtainInset: 80, writing: true, g).writing)
             let L = PTStageCamera.layout(.writing, g)
-            #expect(L.screen(CGPoint(x: 0, y: PTStageCamera.pawsTop)).y > g.size.height)
-            #expect(L.screen(CGPoint(x: 0, y: PTStageCamera.clipboardTop)).y < g.size.height - 5)
+            #expect(L.screen(CGPoint(x: 0, y: 1000)).y < g.size.height - 5)   // writing paw + crayon
+            #expect(L.screen(CGPoint(x: 0, y: PTStageCamera.kneeY)).y > g.size.height)   // not a medium (head-to-knees) shot
             #expect(L.screen(CGPoint(x: 0, y: PTStageCamera.faceFocus.y)).y > g.free.minY)
             #expect(abs(L.screen(CGPoint(x: 0, y: PTStageCamera.writeBottom)).y - g.size.height) < 0.5)
         }

@@ -53,10 +53,41 @@ enum NutmegPose: String, CaseIterable, Identifiable {
     case idle, wave, point, celebrate, sit, coloring, clipboardBoth
     var id: String { rawValue }
     /// clipboardBoth (round 5 layer split): the body behind the head; the clipboard and paws are `frontLayers`.
-    var asset: String { self == .clipboardBoth ? "nutmeg-clipboardboth-body" : "nutmeg-body-\(rawValue)" }
-    /// Layers drawn IN FRONT of the head (body → head → face → headset → clipboard → paws), so the clipboard sits in
-    /// front of her chin and her paws grip it from the front.
-    var frontLayers: [String] { self == .clipboardBoth ? ["nutmeg-clipboardboth-clipboard", "nutmeg-clipboardboth-paws"] : [] }
+    /// coloring (round 8): the one-paw writing body (nutmeg-body-writing); the crayon and fingers are front layers.
+    var asset: String {
+        switch self {
+        case .clipboardBoth: "nutmeg-clipboardboth-body"
+        case .coloring: "nutmeg-body-writing"
+        default: "nutmeg-body-\(rawValue)"
+        }
+    }
+    /// Layers drawn IN FRONT of the head (body → head → face → headset → front layers), so the clipboard sits in front
+    /// of her chin and her paws grip it from the front. Round 8: every pose holding the clipboard at her side has a
+    /// clipboard layer (tools/split_clipboard.py: the body's own paths clipped to the clipboard + gripping paw), so the
+    /// breathing head never covers the clip; the wave's arm is in front of the head too. They share the body's
+    /// transform and breathing, never the head bob. (Sit: the clipboard lies on the floor, far from the head.)
+    var frontLayers: [String] {
+        switch self {
+        case .clipboardBoth: ["nutmeg-clipboardboth-clipboard", "nutmeg-clipboardboth-paws"]
+        case .idle, .point, .celebrate: ["nutmeg-\(rawValue)-clipboard"]
+        case .wave: ["nutmeg-wave-arm", "nutmeg-wave-clipboard"]
+        case .coloring: ["nutmeg-writing-fingers"]   // the wiggling crayon draws just below this (NutmegCharacter)
+        default: []
+        }
+    }
+    /// Per-pose body transform in canvas px (body AND front layers; the head keeps its own values). The round-8 wave
+    /// and writing bodies were drawn at a different size: wave = scale 0.876 at the neck (610.5, 589) then +28.5, +177;
+    /// writing = scale 0.69 at (625, 436) then +14, +330.
+    var bodyTransform: CGAffineTransform {
+        switch self {
+        case .wave: CGAffineTransform(a: 0.876, b: 0, c: 0, d: 0.876, tx: 104.2, ty: 250.0)
+        case .coloring: CGAffineTransform(a: 0.69, b: 0, c: 0, d: 0.69, tx: 625 * 0.31 + 14, ty: 436 * 0.31 + 330)
+        default: .identity
+        }
+    }
+    /// Wave (round 8): the arm in front of the head would open a gap at the chin if the head bobbed up on its own, so
+    /// the head only ever follows the breath downward in this pose.
+    var headBobsUp: Bool { self != .wave }
     /// Head size per pose around the neck anchor. clipboardBoth's torso is drawn larger (neck top ~30 px higher than the
     /// round-4 idle, frontal), so its head is a little smaller to read at the same visual size.
     var headScale: CGFloat { self == .clipboardBoth ? 0.93 : 1 }
@@ -88,7 +119,7 @@ enum NutmegPose: String, CaseIterable, Identifiable {
     /// itself comes from `headOffset`.
     static let neckPlug = CGRect(x: 600 - 80, y: 800 - 35, width: 160, height: 70)
     var headRotation: Double {
-        switch self { case .idle, .wave, .celebrate, .clipboardBoth: 0; case .point: 3; case .sit: -4; case .coloring: 5 }
+        switch self { case .idle, .wave, .celebrate, .clipboardBoth, .coloring: 0; case .point: 3; case .sit: -4 }   // writing: head at the idle values (round 8)
     }
 }
 

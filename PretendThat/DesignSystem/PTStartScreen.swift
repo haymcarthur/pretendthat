@@ -10,7 +10,7 @@ import SwiftUI
 // Crisp and flat: no gradients, no glows (motion-and-surface.md). Art: design/export/startscreen.
 
 /// When each beat of the opening runs (seconds from launch). Slow enough that every beat reads (Haylee), ~6.8 s:
-/// curtains 1.8 (ease-in-out) → beat → chest wiggle 0.6 → lid pop 0.35 → toys one at a time (0.3 s apart, 0.6 s arcs)
+/// curtains 1.8 (ease-in-out) → beat → chest wiggle 0.6 → lid pop 0.35 → toys overlapping (0.1 s apart, 0.6 s arcs)
 /// → beat → Nutmeg's jump 0.6 → card + logo 0.5 → start button 0.2. A tap skips to the end.
 enum PTStartTimeline {
     /// The curtains hold closed for a moment so the launch screen (the same closed curtains) hands over invisibly.
@@ -21,21 +21,23 @@ enum PTStartTimeline {
     static let lidSwap = 2.97
     static let lidSettle = 2.97...3.2
     static let toysStart = 3.15
-    static let toyGap = 0.3
+    /// Round 8 (Haylee): each toy's own arc is unchanged; the gap between toys is a third of round 7's 0.3 s, so they
+    /// overlap and the whole opening ends ~1 s sooner (every beat after the toys moves up by 1.0 s).
+    static let toyGap = 0.1
     static let toyFlight = 0.6
     static let toyLand = 0.15
     /// Nutmeg's jump (~0.65 s): the chest crouches (anticipation), she shoots up past her resting height, drops back
     /// into the opening and lands with a squash.
-    static let crouch = 5.45...5.55
-    static let rise = 5.55...5.83
-    static let fall = 5.83...5.97
-    static let land = 5.97...6.1
+    static let crouch = 4.45...4.55
+    static let rise = 4.55...4.83
+    static let fall = 4.83...4.97
+    static let land = 4.97...5.1
     static var jump: ClosedRange<Double> { crouch.lowerBound...land.upperBound }
     /// The card pops in at its final place and the logo builds on it at the same moment.
-    static let card = 6.05...6.55
-    static let logo = 6.05
-    static let button = 6.53...6.73
-    static let end = 6.75
+    static let card = 5.05...5.55
+    static let logo = 5.05
+    static let button = 5.53...5.73
+    static let end = 5.75
 }
 
 /// The "Let's play!" exit (seconds from the tap, ~1.25 s): the card and button pop away, Nutmeg crouches and hops out
@@ -172,6 +174,9 @@ struct PTCurtain: View {
         .accessibilityHidden(true)
     }
 
+    /// The knot's center in tieback-left.svg (art point 604, 169 of 709 x 627).
+    static let knot = UnitPoint(x: 0.852, y: 0.270)
+
     private func half(_ s: CGSize, _ m: Metrics) -> some View {
         let geo = PTCurtainShape.Geometry(size: s, visible: m.visible, progress: progress)
         let tie = CGFloat(max(0, (progress - 0.75) / 0.25))
@@ -180,13 +185,14 @@ struct PTCurtain: View {
             ForEach(Array(PTCurtainShape.folds.enumerated()), id: \.offset) { _, f in
                 PTCurtainShape(geometry: geo, fold: f).fill(Theme.curtainFold)
             }
-            // Gold tie-back, growing in (scale, never alpha) as the swag gathers.
-            Capsule().fill(Theme.yellow)
-                .overlay(Capsule().strokeBorder(Theme.yellowShade, lineWidth: 2))
-                .frame(width: m.visible * 0.5, height: s.height * 0.045)
-                .scaleEffect(max(PTEase.outBack(Double(tie), 1.6), 0.001))
-                .rotationEffect(.degrees(-12))
-                .position(x: geo.tieX, y: geo.tieY)
+            // Haylee's rope-and-tassel tie-back (round 8, replaces the code-drawn pill), growing in (scale, never alpha)
+            // around its knot as the swag gathers. The knot (unit point 0.852, 0.270 of the left art) sits on the tie
+            // point; the right half mirrors this whole view, so the left art flips into the right tie-back.
+            let tw = m.visible * 1.1, th = tw * 627 / 709
+            Image("tieback-left").resizable().accessibilityHidden(true)
+                .frame(width: tw, height: th)
+                .scaleEffect(max(PTEase.outBack(Double(tie), 1.6), 0.001), anchor: Self.knot)
+                .position(x: geo.tieX - (Self.knot.x - 0.5) * tw, y: geo.tieY - (Self.knot.y - 0.5) * th)
         }
         .frame(width: s.width, height: s.height, alignment: .topLeading)
     }
@@ -519,10 +525,11 @@ struct PTToyChestScene<Nutmeg: View>: View {
         let left = L.curtain.visible, span = L.size.width - 2 * L.curtain.visible
         let away = max(0.001, 1 - PTEase.progress(e, X.popAway))
         return ZStack {
-            ForEach(Array(spots.enumerated()), id: \.offset) { _, s in
+            ForEach(Array(spots.enumerated()), id: \.offset) { i, s in
                 Image(s.0).resizable().scaledToFit()
                     .frame(width: side * s.3, height: side * s.3)
                     .rotationEffect(.degrees(s.4))
+                    .ptTwinkle(index: [0, 3, 1, 4, 2][i], count: spots.count, gap: 2.0)   // one at a time, hopping sides
                     .scaleEffect(away)
                     .position(x: left + span * s.1, y: L.size.height * s.2)
             }

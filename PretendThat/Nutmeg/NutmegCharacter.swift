@@ -136,6 +136,7 @@ struct NutmegCharacter: View {
                     .position(x: (NutmegPose.neckPlug.midX + pose.headOffset.width) * px,
                               y: (NutmegPose.neckPlug.midY + pose.headOffset.height) * px)
                 layer(bodyAsset(pose))
+                .transformEffect(pose.bodyTransform.px(px))
                 .id(pose).transition(.opacity)
             }
             .frame(width: w, height: h)
@@ -149,16 +150,16 @@ struct NutmegCharacter: View {
                 .rotationEffect(.degrees(pose.headRotation + m.headTilt), anchor: pose.neckAnchor)
                 .offset(x: pose.headOffset.width * px,
                         // The head rides the breathing neck with at most ~2 pt of follow, plus the talking nod.
-                        y: pose.headOffset.height * px + max(-2, min(2, (1 - m.breathe) * h * 0.41)) + m.nod)
+                        y: pose.headOffset.height * px + max(pose.headBobsUp ? -2 : 0, min(2, (1 - m.breathe) * h * 0.41))
+                            + (pose.headBobsUp ? m.nod : max(0, m.nod)))
             // In front of the head: the crayon (behind the clipboard, so only its top end shows above the edge), then
             // the clipboard and her gripping paws (clipboardBoth layer split, round 5). They breathe with the body.
             ZStack(alignment: .topLeading) {
                 crayon(t: t, px: px)
-                ForEach(pose.frontLayers, id: \.self) { layer($0) }
+                ForEach(pose.frontLayers, id: \.self) { layer($0).transformEffect(pose.bodyTransform.px(px)) }
             }
             .frame(width: w, height: h)
             .scaleEffect(x: 1 - (m.breathe - 1) * 0.42, y: m.breathe, anchor: .bottom)
-            .animation(reduceMotion ? nil : .easeInOut(duration: 0.3), value: writing && pose == .clipboardBoth)
             if state == .napping { zzz(t: t, unit: unit) }
         }
         .frame(width: w, height: h, alignment: .topLeading)
@@ -168,7 +169,7 @@ struct NutmegCharacter: View {
         .frame(width: w, height: h, alignment: .topLeading)
     }
 
-    private static let crayonAvailable = UIImage(named: "nutmeg-coloring-crayon") != nil
+    private static let writingCrayonAvailable = UIImage(named: "nutmeg-writing-crayon") != nil
     private static let headsetAvailable = UIImage(named: "nutmeg-headset") != nil
 
     private func bodyAsset(_ pose: NutmegPose) -> String {
@@ -188,19 +189,18 @@ struct NutmegCharacter: View {
         }
     }
 
-    /// The writing crayon (Haylee's crayon-only art): turned tip-down behind the clipboard so only its TOP END pokes up
-    /// above the clipboard's top edge, scribbling (small rotation around the hidden tip + a little offset, ~0.25 s
-    /// cycle, drifting slowly across the page). It slides down out of frame when she looks up. Reduce Motion: still.
+    /// The writing crayon (round 8: the one-paw writing body's own crayon, drawn under her fingers): it scribbles with a
+    /// small quick rotation around her grip (~0.26 s) plus a tiny drift, in the writing body's transform. Reduce
+    /// Motion: still.
     @ViewBuilder private func crayon(t: Double, px: CGFloat) -> some View {
-        if writing, shown == .clipboardBoth, Self.crayonAvailable {
-            let k = reduceMotion ? 0 : 1.0
+        if shown == .coloring, Self.writingCrayonAvailable {
+            let k = (reduceMotion || !writing) ? 0 : 1.0
             let w = sin(t * 2 * .pi / 0.26)
-            // Art: tip at (708, 872), blunt end at (560, 940). Turned 134.7° around the tip, the tip lands at
-            // (612, 899) behind the clipboard and the blunt end at (668, 746), ~60 px above the clipboard top (807).
-            layer("nutmeg-coloring-crayon")
-                .rotationEffect(.degrees(134.7 + 6 * w * k), anchor: UnitPoint(x: 708 / 1178, y: 872 / 1335))
-                .offset(x: (-96 + 3 * w * k + 14 * sin(t * 0.8) * k) * px, y: (27 + 2 * cos(t * 2 * .pi / 0.52) * k) * px)
-                .transition(.offset(y: 170 * px))
+            // Grip (between her fingers) at art point (640, 600); the tip is at ~(725, 700).
+            layer("nutmeg-writing-crayon")
+                .rotationEffect(.degrees(4 * w * k), anchor: UnitPoint(x: 640 / 1178, y: 600 / 1335))
+                .offset(x: (2 * w + 3 * sin(t * 0.8)) * k * px, y: 1.5 * cos(t * 2 * .pi / 0.52) * k * px)
+                .transformEffect(NutmegPose.coloring.bodyTransform.px(px))
         }
     }
 
@@ -283,3 +283,8 @@ private struct Motion {
 }
 
 #Preview { NutmegCharacter(state: .idle).padding() }
+
+private extension CGAffineTransform {
+    /// This canvas-px transform in screen points (the layers are drawn `px` points per canvas px).
+    func px(_ px: CGFloat) -> CGAffineTransform { CGAffineTransform(a: a, b: b, c: c, d: d, tx: tx * px, ty: ty * px) }
+}

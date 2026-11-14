@@ -68,9 +68,10 @@ The map. Read this first, then open only what you need.
 - [Kit pages fit, pages step uses prop-card camera, confetti on top, prop text](decisions/2026-11-13-kit-pages-and-stage.md): Haylee
 - [Art: clipboard above head, arm-in-front wave, head stays, writing body](decisions/2026-11-13-art-layering-and-head.md): Haylee
 - [Approved polish: star sparkle, tie-backs, sleepy Nutmeg, game survives lock](decisions/2026-11-13-stage-polish-ideas-approved.md): Haylee
+- [Round 8 build: tie-backs, new wave, clipboard in front of the head, writing body + zoom out, star sparkle, faster toys, hand-off button, checklist fit](decisions/round8-art-polish.md): Haylee (Claude's calls noted)
 
 ## Work queue
-- [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–6 done; round 7 (conversation) running; round 8 = art (tie-backs, writing body, wave, clipboard layers, stars); round 9 = sleepy Nutmeg + lock/background
+- [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–8 done; round 9 = sleepy Nutmeg + lock/background (voice confirm on the hand-off still open)
 
 ## Research
 - [Competitor analysis](research/competitor-analysis.md): competitors, white space, novelty angles, pricing

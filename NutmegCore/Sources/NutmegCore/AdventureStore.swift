@@ -491,11 +491,11 @@ public final class AdventureStore {
 
     private func goToScene(_ i: Int) {
         guard let kit, i < kit.scenes.count else { phase = .end; say("The end! What a show! Take a bow!"); return }
-        // Hand-offs are by role: "Pass the tablet to the Captain!" (kids wear the badges they picked).
+        // Hand-offs are by role (round 8: "iPad", and she says which button to tap; the card's button reads "I'm the Captain!").
         let owner = kit.scenes[i].owner.role
         if playerCount > 1, let owner, owner != holder, let role = plan?.role(for: owner) {
             phase = .handoff(sceneIndex: i)
-            say("Pass the tablet to \(role.spoken)!")
+            say("Pass the iPad to \(role.spoken)! Then tap I'm \(role.spoken)!")
         } else {
             enterScene(i)
         }

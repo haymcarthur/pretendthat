@@ -86,9 +86,10 @@ public enum PTStageCamera {
     /// Her chest (where the hunt card centers), canvas px.
     public static let chestY: CGFloat = 900
     /// clipboardBoth (round 5 layer split): the clipboard's top (its clip, ~777; panel ~807) and the top of her paws
-    /// (~872), canvas px. The writing shot puts the screen's bottom edge at `writeBottom`, just below the clip and above
-    /// where her arms show beside the clipboard.
-    public static let clipboardTop: CGFloat = 777, pawsTop: CGFloat = 872, writeBottom: CGFloat = 790
+    /// (~872), canvas px. Round 8: the writing moment uses the one-paw writing body (scaled 0.69), whose clipboard
+    /// bottom lands at ~1070 and writing paw at ~965; the writing shot (a medium close-up) puts the screen's bottom edge
+    /// at `writeBottom`, just under the clipboard, so her head, the clipboard and the writing paw all show.
+    public static let clipboardTop: CGFloat = 777, pawsTop: CGFloat = 872, writeBottom: CGFloat = 1120
 
     public struct Star: Sendable { public let asset: String; public let point: CGPoint; public let size: CGFloat; public let maxPoints: CGFloat; public let tilt: Double }
     /// Placed clear of her head (ears end at x 59 and 1055) and body; static.
@@ -200,9 +201,9 @@ public enum PTStageCamera {
                     size.height * 0.85 / headHeight)
             origin = CGPoint(x: centerX - faceFocus.x * k, y: centerY - faceFocus.y * k)
             if frame.writing {
-                // Writing (Haylee): a tight crop, the screen's bottom edge at `writeBottom` (around the clipboard's clip)
-                // so NO part of her arms or paws shows, only the crayon's top end poking up above the clipboard. Her ear
-                // tops may crop; the far ear may crop a little at the sides (as above).
+                // Writing (round 8, Haylee: zoomed out): a medium close-up, the screen's bottom edge at `writeBottom`
+                // (just under the clipboard), so her head, the clipboard and the writing paw with its crayon all show.
+                // Her ear tops may crop; the far ear may crop a little at the sides (as above).
                 k = max(size.height * 0.95 / (writeBottom - headTop),
                         min(size.height / (writeBottom - headTop), leftRoom / (faceToLeftEar * 1.02), rightRoom / (faceToRightEar * 0.94)))
                 origin = CGPoint(x: centerX - faceFocus.x * k, y: size.height - writeBottom * k)
