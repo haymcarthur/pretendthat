@@ -148,11 +148,24 @@ struct PTSceneDoneButton: View {
 struct PTChecklistActions: View {
     let model: AppModel
     var allChecked: Bool
+    var stacked = false
     var body: some View {
-        HStack(spacing: Theme.Space.s) {
-            PTHearAgainButton { model.repeatChecklist() }
-            PTSceneDoneButton(allChecked: allChecked, busy: model.store.autoChecking) { Task { await model.sceneDone() } }
+        // Stage card (380 pt): side by side, same 64 pt height as Done! alone, so the round 14 fit holds. The chat
+        // panel is narrower: stacked (Done! first), and that tab scrolls if a long scene needs it.
+        if stacked {
+            VStack(spacing: Theme.Space.s) {
+                done
+                PTHearAgainButton { model.repeatChecklist() }
+            }
+        } else {
+            HStack(spacing: Theme.Space.s) {
+                PTHearAgainButton { model.repeatChecklist() }
+                done
+            }
         }
+    }
+    private var done: some View {
+        PTSceneDoneButton(allChecked: allChecked, busy: model.store.autoChecking) { Task { await model.sceneDone() } }
     }
 }
 
@@ -204,7 +217,7 @@ struct PTScenePinnedCard: View {
         if let scene = store.kit?.scenes[index] {
             VStack(spacing: Theme.Space.m) {
                 PTSceneChecklist(model: model, scene: scene, tier: scene.steps.count <= 4 ? 1 : 3)   // the panel is narrower: smaller pictures, same readable text
-                PTChecklistActions(model: model, allChecked: store.checkedSteps.count == scene.steps.count)
+                PTChecklistActions(model: model, allChecked: store.checkedSteps.count == scene.steps.count, stacked: true)
             }
             .padding(.vertical, Theme.Space.xs)
             .ptPinnedCard()
