@@ -161,10 +161,9 @@ final class AppModel {
         #if DEBUG
         if let s = DemoDriver.forcedState { return s }
         #endif
-        // Kit: she colors until every page is final, then looks up before the papers fly.
-        if store.phase == .makingKit || store.phase == .kitReady {
-            switch kitBeat { case .coloring: return .coloring; case .lookUp: return .excited; case .papers: break }
-        }
+        // Coloring ONLY during a planning beat or while the kit is made (PoseRules.isColoring); then she looks up.
+        if PoseRules.isColoring(phase: store.phase, planningBeat: beat == .coloring, kitBeat: kitBeat) { return .coloring }
+        if (store.phase == .makingKit || store.phase == .kitReady) && kitBeat == .lookUp { return .excited }
         if realtime.isLive {
             // Conversation faces (decisions/conversation-camera-and-expressions.md): listening while the kid talks,
             // thinking in the gap before her reply, then the face the model chose (eyes and brows; the live mouth

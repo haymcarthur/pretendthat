@@ -35,3 +35,32 @@ public enum PoseRules {
     /// Gestures only play over the idle rest pose (not while napping or coloring).
     public static func allowsGesture(over base: PoseName) -> Bool { base == .idle }
 }
+
+extension PoseRules {
+    /// The coloring pose appears ONLY during a planning beat or while the kit is being made (planning-beats.md,
+    /// no-text-overlays.md). Everything else (including the start of the conversation) rests in idle.
+    public static func isColoring(phase: Phase, planningBeat: Bool, kitBeat: PTStageDirector.KitBeat) -> Bool {
+        if planningBeat { return true }
+        switch phase {
+        case .makingKit, .kitReady: return kitBeat == .coloring
+        default: return false
+        }
+    }
+}
+
+/// Resting motion (motion-and-surface.md) as plain numbers, so it can be checked: subtle breathing and a blink at a
+/// pseudo-random moment in every 5.5 s window.
+public enum IdleMotion {
+    static func noise(_ n: Double, _ salt: Double) -> Double {
+        abs((sin(n * 12.9898 + salt * 78.233) * 43758.5453).truncatingRemainder(dividingBy: 1))
+    }
+    /// Body breathing scale (1 ± 1.2%).
+    public static func breathe(_ t: Double, napping: Bool = false, reduced: Bool = false) -> Double {
+        1 + 0.012 * sin(t * 2 * .pi / (napping ? 4.5 : 3.5)) * (reduced ? 0.5 : 1)
+    }
+    /// Eyes closed right now (a 130 ms blink once per 5.5 s window).
+    public static func blink(_ t: Double) -> Bool {
+        let c = floor(t / 5.5)
+        return abs(t - c * 5.5 - (0.5 + noise(c, 1) * 4.5)) < 0.065
+    }
+}

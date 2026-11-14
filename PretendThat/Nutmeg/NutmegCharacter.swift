@@ -221,12 +221,10 @@ private struct Motion {
     init(state: NutmegState, t: Double, reduced: Bool, speaking: Bool = false, level: Float = 0) {
         let k: Double = reduced ? 0 : 1
         // Breathing (Haylee): a very subtle scale on the BODY only, anchored at her feet; no vertical translation.
-        let breathPeriod = state == .napping ? 4.5 : 3.5
-        breathe = 1 + 0.012 * CGFloat(sin(t * 2 * .pi / breathPeriod)) * CGFloat(max(k, 0.5))
+        breathe = CGFloat(IdleMotion.breathe(t, napping: state == .napping, reduced: reduced))
         tailSwing = 2.5 * sin(t * 0.9) * k
         // Blink: once per 4–7 s window at a random moment, 130 ms long.
-        let bCycle = floor(t / 5.5)
-        blink = abs(t - bCycle * 5.5 - (0.5 + Self.noise(bCycle, 1) * 4.5)) < 0.065
+        blink = IdleMotion.blink(t)
         // Ear twitch: about every 9 s, a quick 160 ms flick (not while napping).
         let eCycle = floor(t / 9)
         let eAt = eCycle * 9 + 1 + Self.noise(eCycle, 2) * 7
