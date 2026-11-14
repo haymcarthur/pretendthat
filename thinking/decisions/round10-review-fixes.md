@@ -63,3 +63,11 @@ zoom-transition-sheet.png + zoomseq/.
 ## Not verified
 - 13" iPad; the collapsed summary row on a real long scene (bundled scenes fit); Reduce Motion paths; the first-prop
   prompt live; the hunt zoom waiting for the card in a live session (logic only, demo shots have no live session).
+
+## Round 10b (2026-11-14, ~01:00, Claude's call on the method; Haylee: "the arm still isn't fixed")
+- The head always wins over the arm/paw; only the clipboard board/clip may draw over the head. The round-10 cut used an
+  even-odd clip, which Apple's SVG renderer ignores, so the arm's top still drew over her chin on device. Option (a):
+  tools/split_clipboard.py now splits the idle/point front layer by the head zone (head-base bottom as placed +12, plus
+  a 12 px bob margin widening for the state tilts): the arm and paw are only in front below it, and only the clip pieces
+  painted after the arm are in front inside it. Simple nonzero polygons, 3 px overlaps so no anti-aliased hairline.
+  Celebrate, wave, writing checked, not affected. Crops: /tmp/pt-round10b/crop-*.png.
