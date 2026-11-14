@@ -15,7 +15,10 @@ Built by Haylee McArthur for Southern Utah Code Camp 2026. Demo site: https://pr
 3. **Print:** an AI-generated printable kit (role badges, a sign, play money, tickets, a menu and cutouts) to color and cut, printed with one tap through AirPrint.
 4. **Play:** Nutmeg guides the show scene by scene, then steps back and naps while the kids play.
 
-![The printable kit](design/pitch/screens/printable-kit.png)
+| | |
+|---|---|
+| ![Prop hunt](design/pitch/screens/prop-hunt.png) | ![The AI-drawn printable kit](design/pitch/screens/kit-reveal.png) |
+| ![Scene checklist](design/pitch/screens/checklist.png) | |
 
 ## Privacy
 
