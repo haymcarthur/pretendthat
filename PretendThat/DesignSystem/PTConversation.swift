@@ -49,7 +49,10 @@ struct PTStageView<Character: View, Overlay: View>: View {
             let full = CGSize(width: geo.size.width + geo.safeAreaInsets.leading + geo.safeAreaInsets.trailing,
                               height: geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom)
             let g = PTStageGeometry(size: geo.size, leadingInset: leadingInset, bottomInset: bottomInset,
-                                    floor: PTStage.floor(full).offsetBy(dx: -geo.safeAreaInsets.leading, dy: -geo.safeAreaInsets.top),
+                                    // Round 14: the floor belongs to the REFERENCE stage (the full chat-closed one the arrival
+                                    // framing is computed on); taking it from the narrower chat-open stage put it ~200 pt left
+                                    // of her (the floor cut off on the left).
+                                    floor: PTStage.floor(referenceSize ?? full).offsetBy(dx: -geo.safeAreaInsets.leading, dy: -geo.safeAreaInsets.top),
                                     chatOpen: chatOpen, referenceSize: referenceSize)
             let f = frame(g)
             let comp = PTStageCamera.compose(f, g, faceFocus: faceFocus)

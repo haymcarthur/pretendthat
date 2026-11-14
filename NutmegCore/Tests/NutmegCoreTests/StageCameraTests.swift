@@ -68,7 +68,11 @@ struct StageCameraTests {
                                 let f = PTStageDirector.frame(phase: phase, conversation: conv, conversationShot: shot, cards: cards,
                                                               hunt: shot == .medium, kitBeat: beat, curtainInset: curtain, g)
                                 if f == .arrival { continue }   // the 0.9 s landing from the start screen
-                                #expect(PTStageCamera.layout(f, g).k >= PTStageCamera.minK(g) - 0.0001, "\(f) too small on \(g.size)")
+                                // Round 14: chat open, a fit-closed framing is the closed one scaled to fit left of the panel,
+                                // so its minimum is the closed minimum times that fit.
+                                let F0 = g.reference.free, F1 = g.free
+                                let fit = f.fitClosed && g.chatOpen ? min(1, (F1.width - 24) / F0.width, F1.height / F0.height) : 1
+                                #expect(PTStageCamera.layout(f, g).k >= PTStageCamera.minK(g.reference) * fit - 0.0001, "\(f) too small on \(g.size)")
                             }
                         }
                     }
@@ -92,8 +96,10 @@ struct StageCameraTests {
             let L = PTStageCamera.layout(f, g)
             let stackRight = g.free.minX + 8 + PTStageDirector.doneStackWidth
             #expect(L.minX >= stackRight + 16, "Nutmeg overlaps the done stack")
-            let cardLeft = g.size.width - curtain - PTStageDirector.curtainGap - PTStageDirector.huntCardWidth(g)
-            #expect(L.maxX + 12 <= cardLeft, "Nutmeg overlaps the active card")
+            // Round 14: the card zone right of her (where the active card sits) stays readable (≥ 240 pt).
+            let zone = PTStageDirector.huntContent(g, nutmeg: L, curtainInset: curtain)
+            #expect(zone.minX >= L.maxX + 12, "Nutmeg overlaps the active card")
+            #expect(zone.width >= 240, "hunt card zone too narrow: \(zone.width)")
             // Large: head to knees about 70% of the height (at least 64%).
             let span = (PTStageCamera.kneeY - PTStageCamera.headTop) * L.k
             #expect(span / g.size.height > 0.64, "medium shot too small: \(span / g.size.height)")
@@ -109,6 +115,49 @@ struct StageCameraTests {
         }
     }
 
+    /// Round 14 (Haylee: chat open cut the floor off on the left, Nutmeg low/left): chat open, the talk and prop-card
+    /// framings are the chat-closed framing scaled to fit left of the panel: floor fully in frame, centered.
+    @Test func chatOpenFitsTheClosedFramingWithTheWholeFloor() {
+        for s in Self.screens {
+            let open = PTStageGeometry(size: CGSize(width: s.width - 392, height: s.height), leadingInset: PTStageCamera.chromeLeading,
+                                       bottomInset: PTStageCamera.chromeBottom, floor: Self.floor(s), chatOpen: true, referenceSize: s)
+            for preset in [PTStageDirector.Preset.propCardChat, .talk] {
+                let f = PTStageDirector.frame(preset, curtainInset: 80, open)
+                let c = PTStageCamera.compose(f, open)
+                if preset == .propCardChat {
+                    #expect(c.floor.minX >= open.free.minX - 1 && c.floor.maxX <= open.size.width + 1,
+                            "floor cut off: \(c.floor) in \(open.free)")
+                }
+                // Prop card: her body centered; talk: her face centered (the close-up anchor).
+                // (The closed close-up centers her face on the whole screen, so open it lands near the stage's middle.)
+                let mid = preset == .talk ? c.nutmeg.screen(PTStageCamera.faceFocus).x : (c.nutmeg.minX + c.nutmeg.maxX) / 2
+                #expect(abs(mid - (preset == .talk ? open.size.width / 2 : open.free.midX)) < 30, "\(preset) not centered: \(mid) vs \(open.free.midX)")
+                // Same proportions: the closed framing's scale times the fit.
+                let closedG = open.reference
+                let closed = PTStageCamera.layout(PTStageDirector.frame(preset == .talk ? .talk : .propCard, curtainInset: 80, closedG)
+                    .withChatClosedCentered(preset), closedG)
+                #expect(c.nutmeg.k <= closed.k + 0.001)
+            }
+        }
+    }
+
+    /// Round 14 (Haylee: the cards got smaller): the kit pages / checklist / hand-off / finale zone is the shared card
+    /// zone (~30% of the stage); the hunt's is narrower (done stack on her left) but still readable.
+    @Test func cardZoneIsTheSharedSize() {
+        for s in Self.screens {
+            let g = PTStageGeometry(size: s, leadingInset: PTStageCamera.chromeLeading, bottomInset: PTStageCamera.chromeBottom,
+                                    floor: Self.floor(s), referenceSize: s)
+            let curtain = s.height * 238 / 448 * 0.34 * 0.55
+            let content = PTStageCamera.layout(PTStageDirector.huntFrame(curtainInset: curtain, doneStack: false, g), g)
+            let hunt = PTStageCamera.layout(PTStageDirector.huntFrame(curtainInset: curtain, doneStack: true, g), g)
+            let zc = PTStageDirector.huntContent(g, nutmeg: content, curtainInset: curtain).width
+            let zh = PTStageDirector.huntContent(g, nutmeg: hunt, curtainInset: curtain).width
+            #expect(abs(zc - PTStageDirector.cardZoneWidth(g)) < 1, "content zone \(zc)")
+            #expect(zc >= 340 && zh >= 240 && zc > zh, "zones \(zc) / \(zh)")
+            #expect(content.minX >= g.free.minX + 8)
+        }
+    }
+
     @Test func kitColorsInTheCloseUpUntilThePapers() {
         let g = Self.geometries()[0]
         #expect(PTStageDirector.frame(phase: .makingKit, conversation: false, conversationShot: .wide, cards: 0, hunt: false,
@@ -118,7 +167,7 @@ struct StageCameraTests {
         // The pages step reuses the prop-card step's camera exactly (Haylee, round 5).
         for g in Self.geometries() {
             #expect(PTStageDirector.frame(phase: .kitReady, conversation: false, conversationShot: .wide, cards: 0, hunt: false,
-                                          kitBeat: .papers, curtainInset: 80, g) == PTStageDirector.huntFrame(curtainInset: 80, g))
+                                          kitBeat: .papers, curtainInset: 80, g) == PTStageDirector.huntFrame(curtainInset: 80, doneStack: false, g))
         }
     }
 
@@ -148,6 +197,7 @@ struct StagePresetTests {
         for g in StageCameraTests.geometries() {
             let presetFrames = D.Preset.allCases.map { D.frame($0, cards: 4, curtainInset: Self.curtain, g) }
                 + D.Preset.allCases.map { D.frame($0, cards: 0, curtainInset: Self.curtain, g) }
+                + [D.frame(.propCard, curtainInset: Self.curtain, doneStack: true, g), D.frame(.propCardChat, curtainInset: Self.curtain, doneStack: true, g)]   // round 14: the hunt's variant
             for phase in allPhases {
                 for conv in [false, true] {
                     for shot in [PTCameraShot.closeUp, .medium, .wide] {
@@ -208,5 +258,12 @@ struct StagePresetTests {
             let lo = ratios.min()!, hi = ratios.max()!
             #expect(hi - lo < 0.5, "floor : Nutmeg varies \(lo)…\(hi) on \(s)")
         }
+    }
+}
+
+private extension PTStageFrame {
+    /// The chat-open prop-card framing's closed counterpart is the centered medium shot (no side zones).
+    func withChatClosedCentered(_ preset: PTStageDirector.Preset) -> PTStageFrame {
+        preset == .propCardChat ? PTStageFrame(shot: .medium, topReserve: PTStageDirector.thumbRow) : self
     }
 }

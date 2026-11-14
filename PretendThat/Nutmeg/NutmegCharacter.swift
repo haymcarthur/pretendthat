@@ -124,9 +124,16 @@ struct NutmegCharacter: View {
         if showsGround {
             let air = min(1, abs(hop) / 12)
             PTGround()
-                .frame(width: 445 * px, height: 46 * px)
+                .frame(width: pose.shadow.width * px, height: (pose == .sit ? 52 : 46) * px)
                 .scaleEffect(1 - 0.2 * air)
-                .position(x: 603 * px, y: 1306 * px)
+                .position(x: pose.shadow.x * px, y: 1306 * px)
+        }
+        // Round 14: seated, her clipboard lies on the floor right behind her hip (drawn behind her).
+        if pose == .sit {
+            layer("nutmeg-sit-clipboard")
+                .frame(width: w, height: h)
+                .offset(x: NutmegPose.sitClipboardShift * px)
+                .transition(.opacity)
         }
         ZStack(alignment: .topLeading) {
             ZStack(alignment: .topLeading) {

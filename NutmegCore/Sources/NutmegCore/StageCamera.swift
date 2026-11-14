@@ -26,10 +26,15 @@ public struct PTStageFrame: Equatable, Sendable {
     /// Close-up only: the WRITING framing (round 5): her head plus the TOP of the clipboard, the screen's bottom edge
     /// cropping just below the clipboard top so her paws are out of frame.
     public var writing = false
+    /// Round 14 (Haylee: with the chat open the floor was cut off and she sat low/left): chat open, this frame is the
+    /// SAME framing as chat closed (computed on the full reference stage), scaled down uniformly to fit the free stage
+    /// left of the panel and centered there: same proportions, floor fully in frame. Ignored with the chat closed.
+    public var fitClosed = false
     public init(shot: PTCameraShot, leftReserve: CGFloat = 0, rightReserve: CGFloat = 0, topReserve: CGFloat = 0, cards: Int = 0,
-                landing: Bool = false, writing: Bool = false) {
+                landing: Bool = false, writing: Bool = false, fitClosed: Bool = false) {
         self.shot = shot; self.leftReserve = leftReserve; self.rightReserve = rightReserve
         self.topReserve = topReserve; self.cards = cards; self.landing = landing; self.writing = writing
+        self.fitClosed = fitClosed
     }
     public static let closeUp = PTStageFrame(shot: .closeUp)
     public static let writing = PTStageFrame(shot: .closeUp, writing: true)
@@ -187,6 +192,19 @@ public enum PTStageCamera {
     }
 
     public static func layout(_ frame: PTStageFrame, _ g: PTStageGeometry, faceFocus: CGPoint = faceFocus) -> Layout {
+        if frame.fitClosed && g.chatOpen {
+            // Round 14: the chat-closed framing on the full stage, uniformly scaled into the free stage left of the
+            // panel (right of the rail) and centered there.
+            var closed = frame; closed.fitClosed = false
+            let G0 = g.reference
+            let L0 = layout(closed, G0, faceFocus: faceFocus)
+            let F0 = G0.free, F1 = g.free
+            // A small side margin so the floor's rim never touches the panel's gap.
+            let s = min(1, (F1.width - 24) / F0.width, F1.height / F0.height)
+            let k = L0.k * s
+            let origin = CGPoint(x: F1.midX + (L0.origin.x - F0.midX) * s, y: F1.midY + (L0.origin.y - F0.midY) * s)
+            return Layout(k: k, origin: origin, canvas: CGSize(width: art.width * k, height: art.height * k), cardWidth: 0, cards: [])
+        }
         let size = g.size, F = g.free
         // The lane she stands in (free stage minus the reserved zones).
         let laneMinX = F.minX + frame.leftReserve, laneMaxX = F.maxX - frame.rightReserve
@@ -272,8 +290,13 @@ public enum PTStageDirector {
 
     /// Prop hunt zones (chat closed): the DONE stack on the left (≥ 24 pt from the rail), the ACTIVE card on the right
     /// (≥ 32 pt inside the curtain).
-    public static let doneStackWidth: CGFloat = 160, railGap: CGFloat = 24, curtainGap: CGFloat = 32
-    public static func huntCardWidth(_ g: PTStageGeometry) -> CGFloat { min(320, max(230, g.size.width * 0.2)) }
+    public static let doneStackWidth: CGFloat = 140, railGap: CGFloat = 24, curtainGap: CGFloat = 32
+    /// Round 14 (Haylee: the cards got smaller): ONE card size for everything the prop-card preset shows on her right
+    /// (active prop card, kit pages, checklist, hand-off card, The End): the content zone is this wide, and the content
+    /// draws at its natural size in it (no scale-down). ~30% of the stage (≈ 360 pt on an 11" iPad); the prop hunt's zone is narrower (done stack on her left).
+    public static func cardZoneWidth(_ g: PTStageGeometry) -> CGFloat { min(420, max(300, (g.referenceSize ?? g.size).width * 0.30)) }
+    /// The active prop card's width = the shared card zone.
+    public static func huntCardWidth(_ g: PTStageGeometry) -> CGFloat { cardZoneWidth(g) }
     /// Chat open: a row of small round done thumbnails along the top of the stage.
     public static let thumbRow: CGFloat = 92
 
@@ -318,12 +341,13 @@ public enum PTStageDirector {
     }
 
     /// The camera frame for a preset.
-    public static func frame(_ preset: Preset, cards: Int = 0, curtainInset: CGFloat, _ g: PTStageGeometry) -> PTStageFrame {
+    /// - doneStack: the prop hunt (done props stack on her left); the other prop-card phases have nothing there.
+    public static func frame(_ preset: Preset, cards: Int = 0, curtainInset: CGFloat, doneStack: Bool = false, _ g: PTStageGeometry) -> PTStageFrame {
         switch preset {
         case .hop: return .arrival
-        case .talk: return .closeUp
+        case .talk: return PTStageFrame(shot: .closeUp, fitClosed: true)   // round 14: chat open = closed framing, scaled
         case .writing: return .writing
-        case .propCard, .propCardChat: return huntFrame(curtainInset: curtainInset, g)
+        case .propCard, .propCardChat: return huntFrame(curtainInset: curtainInset, doneStack: doneStack, g)
         case .presentedCards: return PTStageFrame(shot: .wide, cards: cards)
         }
     }
@@ -333,7 +357,8 @@ public enum PTStageDirector {
     public static func frame(phase: Phase, conversation: Bool, conversationShot: PTCameraShot, cards: Int,
                              hunt: Bool, kitBeat: KitBeat, curtainInset: CGFloat, writing: Bool = false, _ g: PTStageGeometry) -> PTStageFrame {
         frame(preset(phase: phase, conversation: conversation, conversationShot: conversationShot, cards: cards, hunt: hunt,
-                     kitBeat: kitBeat, writing: writing, chatOpen: g.chatOpen), cards: cards, curtainInset: curtainInset, g)
+                     kitBeat: kitBeat, writing: writing, chatOpen: g.chatOpen), cards: cards, curtainInset: curtainInset,
+              doneStack: hunt, g)
     }
 
     /// The prop-card step's content zone right of her (chat closed): where the active hunt card sits, reused by the
@@ -343,12 +368,22 @@ public enum PTStageDirector {
         return CGRect(x: x0, y: g.free.minY, width: max(160, x1 - x0), height: g.free.height)
     }
 
-    public static func huntFrame(curtainInset: CGFloat, _ g: PTStageGeometry) -> PTStageFrame {
+    public static func huntFrame(curtainInset: CGFloat, doneStack: Bool = true, _ g: PTStageGeometry) -> PTStageFrame {
         if g.chatOpen {
-            // The active card docks in the chat panel; done props are a thumbnail row along the top.
-            return PTStageFrame(shot: .medium, topReserve: thumbRow)
+            // The active card docks in the chat panel; done props are a thumbnail row along the top. Round 14: the
+            // framing is the chat-closed centered medium shot scaled to fit left of the panel (floor fully in frame).
+            return PTStageFrame(shot: .medium, topReserve: thumbRow, fitClosed: true)
         }
-        return PTStageFrame(shot: .medium, leftReserve: 8 + doneStackWidth + 20,
-                            rightReserve: huntCardWidth(g) + curtainGap + curtainInset + 12)
+        // Round 14: she stands so the card zone right of her is `cardZoneWidth` (she's at her minimum medium scale, so
+        // the lane is solved from where her right edge must be). The prop hunt keeps her clear of the done stack on
+        // her left, so its zone is what's left (~270 pt); the other phases (kit pages, checklist, hand-off, finale)
+        // have nothing on her left and get the full shared card zone.
+        let zoneR = g.size.width - curtainInset - curtainGap
+        let half = (PTStageCamera.extentRight - PTStageCamera.extentLeft) / 2 * PTStageCamera.minK(g)
+        let leftReserve: CGFloat = doneStack ? 8 + doneStackWidth + 18 : 8
+        let laneMin = g.free.minX + leftReserve
+        let center = max(laneMin + half, zoneR - 20 - cardZoneWidth(g) - half)
+        let laneMax = 2 * center - laneMin
+        return PTStageFrame(shot: .medium, leftReserve: leftReserve, rightReserve: max(0, g.free.maxX - laneMax))
     }
 }

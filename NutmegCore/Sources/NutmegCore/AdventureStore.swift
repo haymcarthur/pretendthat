@@ -443,6 +443,8 @@ public final class AdventureStore {
     #if DEBUG
     /// Screenshots only: hold a phase (e.g. .makingKit for the coloring loader).
     public func debugSetPhase(_ p: Phase) { phase = p }
+    /// Screenshots (round 14): replace one scene of the kit (e.g. a long Sunset-style checklist).
+    public func debugReplaceScene(_ i: Int, with scene: Scene) { if kit?.scenes.indices.contains(i) == true { kit?.scenes[i] = scene } }
     #endif
 
     // MARK: Free speech

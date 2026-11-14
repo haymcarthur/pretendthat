@@ -252,6 +252,9 @@ struct PTChatPanel: View {
     var pinned: AnyView? = nil
     /// Round 13: she's working on her reply (kid let go / sent / tapped, no audio yet): typing dots on her side.
     var typing = false
+    /// Round 14 (Haylee): during play (checklist or hand-off card) the panel has "Checklist" | "Chat" tabs instead of
+    /// a pinned card: Checklist shows the card full size, Chat the transcript. nil = no tabs (pinned card as before).
+    var tab: Binding<PTChatTab>? = nil
     @State private var draft = ""
     @FocusState private var focused: Bool
     @State private var following = true
@@ -268,63 +271,29 @@ struct PTChatPanel: View {
                 Spacer()
                 PTIconButton(symbol: "xmark", label: "Close chat", size: 44, action: onClose)
             }
-            if let pinned, let pinnedKey {
-                pinned
-                    .environment(\.ptPinnedCap, panelHeight > 0 ? panelHeight * 0.5 : .infinity)   // round 10: ≤ ~50%
-                    // Sticky above the transcript; the next prop animates in place; it slides away when it ends.
-                    .id(pinnedKey)
-                    .transition(.asymmetric(insertion: .scale(scale: 0.85).combined(with: .opacity),
-                                            removal: .move(edge: .top).combined(with: .opacity)))
-            }
-            ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(spacing: Theme.Space.s) {
-                        if lines.isEmpty {
-                            Text("Talk or type. Nutmeg's words show up here.")
-                                .font(Theme.uiFont(15, .medium)).foregroundStyle(Theme.inkMuted)
-                                .frame(maxWidth: .infinity).padding(.top, Theme.Space.l)
-                        }
-                        ForEach(lines) { line in bubble(line).id(line.id) }
-                        if typing {
-                            HStack { PTTypingBubble(); Spacer(minLength: 40) }
-                                .transition(.opacity)
-                        }
-                    }
-                    .padding(.vertical, Theme.Space.xs)
-                    Color.clear.frame(height: 1).id(Self.bottomID)
-                }
-                .scrollIndicators(.hidden)
-                // Follow the newest entry (a new line, or Nutmeg's streaming text growing) unless the reader scrolled up
-                // to read older messages; then a "New" pill jumps back and following resumes at the bottom.
-                .modifier(ScrolledToBottom { atBottom in
-                    following = atBottom
-                    if atBottom { hasUnseen = false }
-                })
-                .onChange(of: followKey) { _, _ in
-                    if following { withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(Self.bottomID, anchor: .bottom) } }
-                    else { hasUnseen = true }
-                }
-                .onAppear { proxy.scrollTo(Self.bottomID, anchor: .bottom) }
-                // The newest line stays in view when the panel opens or the pinned hunt card appears / changes height.
-                .task(id: "\(pinnedKey ?? "")-\(lines.isEmpty)") {
-                    try? await Task.sleep(for: .milliseconds(150))
-                    following = true; hasUnseen = false
-                    withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(Self.bottomID, anchor: .bottom) }
-                }
-                .overlay(alignment: .bottom) {
-                    if hasUnseen && !following {
-                        Button {
-                            withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo(Self.bottomID, anchor: .bottom) }
-                        } label: {
-                            Label("New", systemImage: "arrow.down").font(Theme.uiFont(14)).foregroundStyle(Theme.white)
-                                .padding(.horizontal, 14).padding(.vertical, 8).background(Capsule().fill(Theme.cta))
-                        }
-                        .buttonStyle(.plain)
-                        .padding(.bottom, Theme.Space.xs)
+            if let tab, let pinned {
+                PTChatTabs(selection: tab)
+                if tab.wrappedValue == .checklist {
+                    // The full-size card; a long scene scrolls (never collapses, never clips).
+                    ScrollView { pinned.id(pinnedKey) }
+                        .scrollIndicators(.automatic)
+                        .frame(maxHeight: .infinity, alignment: .top)
                         .transition(.opacity)
-                    }
+                } else {
+                    transcript
                 }
+            } else {
+                if let pinned, let pinnedKey {
+                    pinned
+                        .environment(\.ptPinnedCap, panelHeight > 0 ? panelHeight * 0.5 : .infinity)   // round 10: ≤ ~50%
+                        // Sticky above the transcript; the next prop animates in place; it slides away when it ends.
+                        .id(pinnedKey)
+                        .transition(.asymmetric(insertion: .scale(scale: 0.85).combined(with: .opacity),
+                                                removal: .move(edge: .top).combined(with: .opacity)))
+                }
+                transcript
             }
+            if tab?.wrappedValue != .checklist || pinned == nil {
             HStack(spacing: Theme.Space.s) {
                 TextField("Type to Nutmeg", text: $draft)
                     .font(Theme.uiFont(17, .medium)).foregroundStyle(Theme.ink)
@@ -342,13 +311,68 @@ struct PTChatPanel: View {
                 .disabled(draft.trimmingCharacters(in: .whitespaces).isEmpty)
                 .accessibilityLabel("Send")
             }
+            }
         }
         .animation(Theme.stageMove, value: pinnedKey)
+        .animation(.easeOut(duration: 0.2), value: tab?.wrappedValue)
         .padding(Theme.Space.m)
         .frame(width: 360)
         .frame(maxHeight: .infinity)
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { panelHeight = $0 }
         .ptPanel(radius: 28)
+    }
+
+    /// The transcript (Nutmeg's and the kid's lines, typing dots), following the newest line.
+    @ViewBuilder private var transcript: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(spacing: Theme.Space.s) {
+                    if lines.isEmpty {
+                        Text("Talk or type. Nutmeg's words show up here.")
+                            .font(Theme.uiFont(15, .medium)).foregroundStyle(Theme.inkMuted)
+                            .frame(maxWidth: .infinity).padding(.top, Theme.Space.l)
+                    }
+                    ForEach(lines) { line in bubble(line).id(line.id) }
+                    if typing {
+                        HStack { PTTypingBubble(); Spacer(minLength: 40) }
+                            .transition(.opacity)
+                    }
+                }
+                .padding(.vertical, Theme.Space.xs)
+                Color.clear.frame(height: 1).id(Self.bottomID)
+            }
+            .scrollIndicators(.hidden)
+            // Follow the newest entry (a new line, or Nutmeg's streaming text growing) unless the reader scrolled up
+            // to read older messages; then a "New" pill jumps back and following resumes at the bottom.
+            .modifier(ScrolledToBottom { atBottom in
+                following = atBottom
+                if atBottom { hasUnseen = false }
+            })
+            .onChange(of: followKey) { _, _ in
+                if following { withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(Self.bottomID, anchor: .bottom) } }
+                else { hasUnseen = true }
+            }
+            .onAppear { proxy.scrollTo(Self.bottomID, anchor: .bottom) }
+            // The newest line stays in view when the panel opens or the pinned hunt card appears / changes height.
+            .task(id: "\(pinnedKey ?? "")-\(lines.isEmpty)") {
+                try? await Task.sleep(for: .milliseconds(150))
+                following = true; hasUnseen = false
+                withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(Self.bottomID, anchor: .bottom) }
+            }
+            .overlay(alignment: .bottom) {
+                if hasUnseen && !following {
+                    Button {
+                        withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo(Self.bottomID, anchor: .bottom) }
+                    } label: {
+                        Label("New", systemImage: "arrow.down").font(Theme.uiFont(14)).foregroundStyle(Theme.white)
+                            .padding(.horizontal, 14).padding(.vertical, 8).background(Capsule().fill(Theme.cta))
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.bottom, Theme.Space.xs)
+                    .transition(.opacity)
+                }
+            }
+        }
     }
 
     private func bubble(_ line: Line) -> some View {
@@ -476,5 +500,30 @@ enum PTFan {
         let point = CGPoint(x: center.x + rx * CGFloat(cos(rad)), y: center.y - ry * CGFloat(sin(rad)))
         let tilt = (isLeft ? -1.0 : 1.0) * (-7 + 14 * t)                   // fan: tops lean out, bottoms lean in
         return (point, tilt)
+    }
+}
+
+/// Round 14: "Checklist" | "Chat" tabs at the top of the chat panel during play: a two-segment pill, big tap targets.
+struct PTChatTabs: View {
+    @Binding var selection: PTChatTab
+    var body: some View {
+        HStack(spacing: 4) {
+            seg(.checklist, "Checklist", "checklist")
+            seg(.chat, "Chat", "bubble.left.and.bubble.right")
+        }
+        .padding(4)
+        .background(Capsule().fill(Theme.chipGray))
+    }
+    private func seg(_ t: PTChatTab, _ title: String, _ symbol: String) -> some View {
+        let on = selection == t
+        return Button { selection = t } label: {
+            Label(title, systemImage: symbol)
+                .font(Theme.uiFont(17)).foregroundStyle(on ? Theme.white : Theme.ink)
+                .frame(maxWidth: .infinity, minHeight: 48)
+                .background(Capsule().fill(on ? Theme.cta : Color.clear))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(on ? [.isSelected] : [])
     }
 }

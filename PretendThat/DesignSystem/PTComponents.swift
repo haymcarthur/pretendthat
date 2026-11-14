@@ -171,7 +171,7 @@ struct PTHandoffCard<Figure: View>: View {
     var body: some View {
         if pinned {
             VStack(spacing: Theme.Space.m) {
-                Text("Pass the iPad to \(role.spoken)!").font(Theme.headlineFont(24)).foregroundStyle(Theme.inkMuted)
+                Text("Pass the iPad to \(role.spoken)!").font(Theme.headlineFont(26)).foregroundStyle(Theme.inkMuted)
                     .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
                 roleButton(minWidth: 0)
                 if let onBack { PTBackToChecklistButton(compact: true, action: onBack) }
@@ -179,13 +179,17 @@ struct PTHandoffCard<Figure: View>: View {
             .padding(.vertical, Theme.Space.s)
             .ptPinnedCard()
         } else {
+            // Round 14 (Haylee: the panel's button was much bigger): the stage card uses the SAME big role button as
+            // the panel (34 pt, full card width, scales to fit), at natural size in the shared card zone.
             VStack(spacing: Theme.Space.l) {
-                PTText("Pass the iPad to \(role.spoken)!", .headline, tone: .muted)
+                Text("Pass the iPad to \(role.spoken)!").font(Theme.headlineFont(26)).foregroundStyle(Theme.inkMuted)
+                    .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
                 if Figure.self != EmptyView.self { figure.frame(height: 200) }
-                roleButton(minWidth: 300)
-                if let onBack { PTBackToChecklistButton(action: onBack) }
+                roleButton(minWidth: 0)
+                if let onBack { PTBackToChecklistButton(compact: true, action: onBack) }
             }
-            .ptCard(fill: Theme.white, edge: Theme.playerColor(role.id.index), padding: Theme.Space.xl)
+            .frame(maxWidth: .infinity)
+            .ptCard(fill: Theme.white, edge: Theme.playerColor(role.id.index), padding: Theme.Space.m)
             .offset(x: shown || reduceMotion ? 0 : 700)
             .rotationEffect(.degrees(shown || reduceMotion ? 0 : 8))
             .opacity(shown || !reduceMotion ? 1 : 0)

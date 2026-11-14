@@ -92,6 +92,9 @@ enum NutmegPose: String, CaseIterable, Identifiable {
         switch self {
         case .wave: CGAffineTransform(a: 0.876, b: 0, c: 0, d: 0.876, tx: 104.2, ty: 250.0)
         case .coloring: CGAffineTransform(a: 0.69, b: 0, c: 0, d: 0.69, tx: 625 * 0.31 + 14, ty: 436 * 0.31 + 330)
+        // Round 14 (Haylee: sleeping looked like floating): the sit art's seat ends at y ~1237, ~70 px above the floor
+        // line (`PTStageCamera.feet`, 1306), so the seated body moves down onto the floor.
+        case .sit: CGAffineTransform(translationX: 0, y: NutmegPose.sitDrop)
         default: .identity
         }
     }
@@ -104,6 +107,14 @@ enum NutmegPose: String, CaseIterable, Identifiable {
     init(_ name: PoseName) { self = NutmegPose(rawValue: name.rawValue)! }
 
     static let canvas = CGSize(width: 1178, height: 1335)
+    /// Round 14: how far the sit pose moves down so her seat rests on the floor line (canvas px).
+    static let sitDrop: CGFloat = 62
+    /// Round 14: the sit pose's clipboard (split out of the sit art, tools/split_sit_clipboard.py) lies on the floor
+    /// just behind her hip instead of far to her left: this far right of where the art drew it (canvas px).
+    static let sitClipboardShift: CGFloat = 125
+    /// Her contact shadow per pose (canvas px): center x and width. The seated body is wider and sits right of the
+    /// standing stance.
+    var shadow: (x: CGFloat, width: CGFloat) { self == .sit ? (668, 560) : (603, 445) }
 
     /// Neck plug center from the export manifest (canvas px → unit).
     var neckAnchor: UnitPoint {
@@ -118,7 +129,7 @@ enum NutmegPose: String, CaseIterable, Identifiable {
     /// between the chin and the vest, so the +12 nudge stays.
     var headOffset: CGSize {
         switch self {
-        case .sit: CGSize(width: 0, height: 17)
+        case .sit: CGSize(width: 0, height: 17 + NutmegPose.sitDrop)   // round 14: rides the body down onto the floor
         // Round 5: up onto the higher, frontal neck (V center x ~590 vs the idle's 3/4 neck) instead of sinking into it.
         case .clipboardBoth: CGSize(width: -12, height: -18)
         default: CGSize(width: 0, height: 12)
@@ -143,7 +154,15 @@ enum NutmegFace: String, CaseIterable {
     /// Eyes (the face SVG minus its mouth; tools/import_art.py splits them).
     var asset: String { "nutmeg-face-\(rawValue)" }
     /// This face's own mouth, shown when Nutmeg isn't talking.
-    var mouthAsset: String { self == .focus ? NutmegFace.happy.mouthAsset : "nutmeg-face-\(rawValue)-mouth" }
+    /// Round 14 (Haylee: the thinking state looked grumpy): thinking keeps its eyes (open, looking up and aside) but
+    /// uses the listening face's small soft mouth instead of its own "^" (which read as a frown).
+    var mouthAsset: String {
+        switch self {
+        case .focus: NutmegFace.happy.mouthAsset
+        case .thinking: NutmegFace.listening.mouthAsset
+        default: "nutmeg-face-\(rawValue)-mouth"
+        }
+    }
     /// Faces with a built-in mouth; nil means "use the live/closed mouth".
     var fixedMouth: NutmegMouth? {
         switch self {

@@ -26,6 +26,8 @@ struct RootView: View {
     @State private var startExiting = false
     /// Round 11: the full, keyboard-free root size: the stage camera's reference (floor : Nutmeg never changes).
     @State private var rootSize: CGSize = .zero
+    /// Round 14: the chat panel's Checklist | Chat tabs during play (a new hand-off / scene opens on Checklist).
+    @State private var chatTabs = PTChatTabState()
 
     private var store: AdventureStore { model.store }
 
@@ -63,7 +65,8 @@ struct RootView: View {
                     PTChatPanel(lines: model.realtime.transcript.map { PTChatPanel.Line(id: $0.id, fromNutmeg: $0.fromNutmeg, text: $0.text) },
                                 onSend: { text in Task { await model.typed(text) } },
                                 onClose: { chatOpen = false },
-                                pinnedKey: pinnedKey, pinned: pinnedCard, typing: model.realtime.thinkingGap)
+                                pinnedKey: pinnedKey, pinned: pinnedCard, typing: model.realtime.thinkingGap,
+                                tab: tabbed ? Binding(get: { chatTabs.tab }, set: { chatTabs.select($0) }) : nil)
                         .padding([.vertical, .trailing], Theme.Space.m)
                         .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
@@ -127,6 +130,12 @@ struct RootView: View {
         // Round 13: pre-connect the voice session while the start screen shows.
         .task(id: store.phase == .hello) { if store.phase == .hello { model.preconnect() } }
         .onChange(of: store.phase) { _, _ in model.updateIdleTimer() }
+        .onChange(of: PTChatTabState.cardKey(for: store.phase), initial: true) { _, key in
+            chatTabs.show(cardKey: key)
+            #if DEBUG
+            if DemoDriver.chatTabChat { chatTabs.select(.chat) }
+            #endif
+        }
         .onChange(of: model.kitPapersOut) { _, _ in model.updateIdleTimer() }
         .onChange(of: desiredShot) { _, _ in scheduleShot() }
         // Round 7: the point toward a prop card is tied to the card's reveal and her prop line (AppModel.pointAtCard).
@@ -211,6 +220,9 @@ struct RootView: View {
         if store.phase == .end { return "end" }   // round 11: and the finale (the chat-open prop-card framing has no side zone)
         return nil
     }
+    /// Round 14: the play step's checklist / hand-off card gets the panel's Checklist | Chat tabs (not the pinned card).
+    private var tabbed: Bool { PTChatTabState.cardKey(for: store.phase) != nil && !huntOnStage && !model.kitPapersOut }
+
     /// Round 10 rule (Haylee): every interactive card (prop, kit, checklist, hand-off) has ONE chat-open treatment:
     /// pinned at the top of the chat panel at full readable size (`.ptPinnedCard()`), never shrunk into the stage gap.
     private var pinnedCard: AnyView? {
@@ -315,24 +327,24 @@ struct RootView: View {
     /// Screen-space content right of her lane. Kit: nothing while she colors in the close-up (the papers wait for the
     /// whole kit, no-text-overlays.md); the papers fly off her clipboard once the camera has zoomed out.
     @ViewBuilder private func classicContent(_ g: PTStageGeometry, _ L: PTStageCamera.Layout) -> some View {
-        let kitStep = store.phase == .makingKit || store.phase == .kitReady
-        let sceneStep = isScene
         // Round 11: every phase's content sits in the prop-card step's card zone (one framing, one zone).
         let r = PTStageDirector.huntContent(g, nutmeg: L, curtainInset: curtainInset(g))
-        let minW = kitStep ? Self.kitContentWidth : (sceneStep ? SceneView.width : Self.contentWidth)
+        // Round 14 (Haylee: the cards got smaller): every phase's content draws at its NATURAL size in the shared card
+        // zone (`PTStageDirector.cardZoneWidth`); it only scales down on a stage too narrow for ~300 pt.
+        let fit = min(1, r.width / Self.minContentWidth)
+        let w = r.width / fit, h = r.height / fit
         let kitWaiting = (store.phase == .makingKit || store.phase == .kitReady) && model.kitBeat != .papers
         VStack(spacing: Theme.Space.m) {
             ViewThatFits(in: .vertical) {
-                stage(clipboard: clipboard(L, in: r)).padding(.vertical, Theme.Space.s)
-                ScrollView(.vertical) { stage(clipboard: clipboard(L, in: r)).padding(.vertical, Theme.Space.m) }.scrollIndicators(.visible)
+                stage(clipboard: clipboard(L, in: r), width: w, height: h - 2 * Theme.Space.s).padding(.vertical, Theme.Space.s)
+                ScrollView(.vertical) { stage(clipboard: clipboard(L, in: r), width: w, height: .infinity).padding(.vertical, Theme.Space.m) }.scrollIndicators(.visible)
             }
             .transition(.ptStage)
             .id(stageID)
             if store.lastError != nil { HStack(spacing: Theme.Space.l) { bottomBar } }
         }
-        // Content needs ~460 pt; beside her (minimum size) with the chat open it scales down to fit.
-        .frame(width: max(r.width, minW), height: r.height / min(1, r.width / minW))
-        .scaleEffect(min(1, r.width / minW))
+        .frame(width: w, height: h)
+        .scaleEffect(fit)
         .frame(width: r.width, height: r.height)
         .position(x: r.midX, y: r.midY)
         .opacity(kitWaiting ? 0 : 1)
@@ -341,10 +353,8 @@ struct RootView: View {
     }
 
     private var isScene: Bool { if case .scene = store.phase { return true } else { return false } }
-    private static let contentWidth: CGFloat = 460
-    /// The kit pages zone is the hunt card's (narrower): the fan and the stacked buttons need ~280 pt.
-    private static let kitContentWidth: CGFloat = 280
-    private func fit(_ r: CGRect) -> CGFloat { min(1, r.width / Self.contentWidth) }
+    /// Below this zone width the content scales down instead of squeezing (round 14).
+    private static let minContentWidth: CGFloat = 300
 
     /// Her clipboard (idle pose, canvas px) relative to the content rect's center: where the papers fly from.
     private func clipboard(_ L: PTStageCamera.Layout, in r: CGRect) -> CGPoint {
@@ -352,7 +362,7 @@ struct RootView: View {
         return CGPoint(x: p.x - r.midX, y: p.y - r.midY)
     }
 
-    @ViewBuilder private func stage(clipboard: CGPoint) -> some View {
+    @ViewBuilder private func stage(clipboard: CGPoint, width: CGFloat, height: CGFloat) -> some View {
         switch store.phase {
         case .hello: EmptyView()   // the start screen replaces the classic stage (see body)
         case .pickGame: EmptyView()   // games are talked about only: no idea cards, no caption (no-text-overlays.md)
@@ -360,8 +370,8 @@ struct RootView: View {
         case .props: PropsView(model: model)
         case .makingKit, .kitReady: KitView(model: model, clipboard: clipboard, chatOpen: chatOpen && chromeVisible, preview: $kitPreview,
                                             onCelebrate: { celebrate() })
-        case .handoff(let i): if !(chatOpen && chromeVisible) { HandoffView(model: model, sceneIndex: i) }   // chat open: pinned
-        case .scene(let i): if !(chatOpen && chromeVisible) { SceneView(model: model, index: i) }   // chat open: pinned in the panel
+        case .handoff(let i): if !(chatOpen && chromeVisible) { HandoffView(model: model, sceneIndex: i).frame(width: width) }   // chat open: pinned
+        case .scene(let i): if !(chatOpen && chromeVisible) { SceneView(model: model, index: i, width: width, maxHeight: height) }   // chat open: pinned in the panel
         case .end: if !(chatOpen && chromeVisible) { EndView(model: model) }   // chat open: pinned in the panel
         }
     }

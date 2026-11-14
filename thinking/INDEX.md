@@ -72,10 +72,11 @@ The map. Read this first, then open only what you need.
 - [Round 9 build: game survives lock/background (silent reconnect with state), sleepy Nutmeg, hand-off voice confirm](decisions/round9-sleepy-and-lock.md): Haylee (Claude's calls noted)
 - [Round 10 build: clipboard layer = board only, tie-backs inward, twinkle removed, writing shot, Go play removed, Done auto-check + Back, pinned hand-off/compact checklist, prop-card framing for the checklist, one shared stage animation](decisions/round10-review-fixes.md): Haylee (Claude's calls noted)
 - [Round 11: start-screen choreography (wiggle during curtains, logo + button pop with Nutmeg), every transition one move, stage audit](decisions/round11-start-and-transitions.md): Haylee (Claude's calls noted)
+- [Round 14: chat-open stage fits the closed framing (floor fixed), grounded sleeping pose, one bigger card size, Checklist | Chat tabs, one hand-off button size, checklists never clip, curious thinking face](decisions/round14-ui-fixes.md): Haylee (Claude's calls noted)
 - [Round 13: one voice for every line (app lines lost the voice description), pre-connect, text-only silent pass, instant taps, thinking face + typing dots, "Pretend that" scene intros](decisions/round13-voice-latency.md): Haylee (Claude's calls noted)
 
 ## Work queue
-- [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–11 done (round 11 = start choreography, one-move transitions, stage audit)
+- [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–14 done (round 14 = UI fixes from Haylee's full-game test)
 
 ## Research
 - [Competitor analysis](research/competitor-analysis.md): competitors, white space, novelty angles, pricing

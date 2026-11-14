@@ -42,6 +42,9 @@ enum DemoDriver {
     /// `-PTWriting`: hold the writing moment (clipboardBoth, focus face, crayon top, writing close shot) for screenshots.
     static var forceWriting: Bool { ProcessInfo.processInfo.arguments.contains("-PTWriting") }
 
+    /// Round 14: `-PTChatTabChat` (with `-PTChat`, in play): start on the panel's Chat tab instead of Checklist.
+    static var chatTabChat: Bool { ProcessInfo.processInfo.arguments.contains("-PTChatTabChat") }
+
     /// `-PTChat`: open the chat panel at launch (screenshots).
     static var chatOpen: Bool { ProcessInfo.processInfo.arguments.contains("-PTChat") }
 
@@ -135,6 +138,19 @@ enum DemoDriver {
     @MainActor static func drive(_ store: AdventureStore, model: AppModel, to target: String) async {
         if !target.hasPrefix("conv") { model.realtime.debugSeedTranscript(demoTranscript) }
         if target.hasPrefix("conv") { await conversation(store, model: model, to: target); return }
+        if target == "sceneLong" {   // round 14: a long Sunset-style checklist (2-line title, 6 long steps)
+            await drive(store, model: model, to: "scene")
+            if case .scene(let i) = store.phase, var sc = store.kit?.scenes[i] {
+                let pics = sc.steps.map(\.picture)
+                sc.title = "Sunset Closing Time at the Beach Café"
+                sc.steps = ["Wipe every table until it sparkles", "Stack the cups and plates on the tray",
+                            "Count the money in the cash register", "Flip the sign on the door to Closed",
+                            "Turn off the lights one by one", "Wave goodbye to the very last customer"]
+                    .enumerated().map { Step(picture: pics[$0.offset % max(1, pics.count)], text: $0.element) }
+                store.debugReplaceScene(i, with: sc)
+            }
+            return
+        }
         if target == "coloring" {   // the kit loader: Nutmeg coloring, clipboard back
             await drive(store, model: model, to: "props")
             store.debugSetPhase(.makingKit)
