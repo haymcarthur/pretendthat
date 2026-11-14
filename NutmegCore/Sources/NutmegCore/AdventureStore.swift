@@ -567,7 +567,7 @@ public final class AdventureStore {
     private func enterScene(_ i: Int) {
         checkedSteps = []; doneSnapshot = nil
         phase = .scene(i)
-        if let s = kit?.scenes[i] { sayInPlay(HandOffLines.checklist(sceneLine: s.nutmegSays, firstScene: i == 0)) }
+        if let s = kit?.scenes[i] { sayInPlay(HandOffLines.checklist(sceneLine: s.nutmegSays, firstScene: i == 0, firstStep: s.steps.first?.text)) }
     }
 
     private func say(_ line: String) {

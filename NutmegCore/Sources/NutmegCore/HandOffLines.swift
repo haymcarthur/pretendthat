@@ -12,16 +12,27 @@ public enum HandOffLines {
         "Pass the iPad to \(spokenRole), then tap I'm \(spokenRole)!"
     }
 
-    /// The scene's checklist appears: the scene line, then how to use the list (unless the line already says it).
-    /// The first scene of a game gets the full how-to; later scenes a short reminder.
-    public static func checklist(sceneLine: String, firstScene: Bool) -> String {
+    /// The scene's checklist appears: the scene line, then the first step (round 18: she names step 1, the way
+    /// ChecklistCheers names each next step), then how to use the list (unless the line already says it).
+    /// The first scene of a game gets the full how-to; later scenes a short reminder. The first step is skipped if
+    /// the scene line already names it.
+    public static func checklist(sceneLine: String, firstScene: Bool, firstStep: String? = nil) -> String {
         let line = sceneLine.trimmingCharacters(in: .whitespacesAndNewlines)
         let l = line.lowercased()
-        if l.contains("tap") && (l.contains("done") || l.contains("step") || l.contains("check")) { return line }
-        let how = firstScene
-            ? "Tap each step when you do it, then tap Done!"
-            : "Tap the steps as you go, then tap Done!"
-        return line.isEmpty ? how : endSentence(line) + " " + how
+        var parts: [String] = line.isEmpty ? [] : [endSentence(line)]
+        if let step = firstStep {
+            let p = ChecklistCheers.phrase(step)
+            if !p.isEmpty && !normalized(line).contains(normalized(p)) { parts.append("First, " + p + "!") }
+        }
+        let saysHow = l.contains("tap") && (l.contains("done") || l.contains("step") || l.contains("check"))
+        if !saysHow {
+            parts.append(firstScene ? "Tap each step when you do it, then tap Done!" : "Tap the steps as you go, then tap Done!")
+        }
+        return parts.joined(separator: " ")
+    }
+
+    private static func normalized(_ s: String) -> String {
+        String(s.lowercased().map { $0.isLetter || $0.isNumber ? $0 : " " }).split(separator: " ").joined(separator: " ")
     }
 
     /// The End. Buttons: "Play again", "New game", and (right after the last Done!) "Back to the checklist".
