@@ -13,7 +13,7 @@ import Testing
     let input = try #require(audio["input"] as? [String: Any])
     #expect((input["turn_detection"] as? [String: Any])?["type"] as? String == "server_vad")
     let names = (session["tools"] as? [[String: Any]])?.compactMap { $0["name"] as? String }
-    #expect(names == ["show_game_ideas", "set_game", "set_player_count", "set_roles", "show_props", "swap_prop", "skip_prop", "finish_planning"])
+    #expect(names == ["show_game_ideas", "set_game", "set_theme", "set_player_count", "set_roles", "show_props", "swap_prop", "skip_prop", "finish_planning", "set_expression"])
     #expect(Realtime.json(s).contains("\"laundry-basket\""))   // the prop library is an enum in the schema
     // Serializes cleanly.
     #expect(Realtime.json(s).contains("\"server_vad\""))
@@ -55,7 +55,9 @@ import Testing
     _ = await store.apply(.showGameIdeas([GameIdea(id: "a", title: "Zoo", emoji: "", pitch: "")]))
     #expect(store.presenting == .none)   // ideas are spoken, never carded (Haylee)
     _ = await store.apply(.setGame("Zoo"))
-    #expect(store.phase == .players && store.presenting == .none && store.gameTitle == "Zoo")
+    #expect(store.phase == .pickGame && store.presenting == .none && store.gameTitle == "Zoo")   // theme step next
+    _ = await store.apply(.setTheme("Zoo on the Moon"))
+    #expect(store.phase == .players && store.gameTitle == "Zoo on the Moon")
     _ = await store.apply(.setPlayerCount(2))
     #expect(store.playerCount == 2)
     _ = await store.apply(.setRoles([.init(roleName: "Zookeeper", job: "Feed the lion"),

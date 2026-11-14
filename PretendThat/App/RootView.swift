@@ -9,6 +9,9 @@ struct RootView: View {
     @State private var showTyping = false
     @State private var chatOpen = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var cameraShot: PTCameraShot = .medium
+    @State private var lastShotChange = Date.distantPast
+    @State private var shotTask: Task<Void, Never>?
 
     private var store: AdventureStore { model.store }
 
@@ -17,7 +20,7 @@ struct RootView: View {
         // on the left, a white control pill at the bottom, and a chat panel that slides in from the right.
         ZStack {
             // The same stage as the start screen (sky, floor, tied-back curtains, valance) under every game screen.
-            PTStageBackdrop()
+            PTStageBackdrop(floor: !model.inConversation)
             #if DEBUG
             if let art = DemoDriver.requestedPhase, art.hasPrefix("art") { ArtCheckView(mode: art).zIndex(10) }
             #endif
@@ -80,6 +83,10 @@ struct RootView: View {
             }
         }
         .onChange(of: store.presenting) { _, p in if p != .none { model.gesture(.point) } }
+        .onChange(of: desiredShot) { _, _ in scheduleShot() }
+        .onChange(of: model.inConversation) { _, live in
+            if live { scheduleShot(arrival: true) } else { shotTask?.cancel(); cameraShot = .medium; lastShotChange = .distantPast }
+        }
         .onChange(of: store.kit) { _, _ in model.kitChanged() }
         .onChange(of: presentedSubjects) { _, _ in requestStickers() }
         .task {
@@ -103,20 +110,39 @@ struct RootView: View {
                             leadingInset: chromeVisible ? PTStageCamera.chromeLeading : 0, bottomInset: chromeVisible ? PTStageCamera.chromeBottom : 0,
                             faceFocus: model.nutmegState.basePose.faceFocus, centerBetweenChrome: chatOpen && chromeVisible,
                             onTapItem: { id in silentTap(id) }) {
-            NutmegCharacter(state: model.nutmegState, mouthLevel: model.mouthLevel,
+            NutmegCharacter(state: model.nutmegState, mouthLevel: model.mouthLevel, mouthShape: model.mouthShape,
                             isSpeaking: model.isSpeaking, cue: model.cue, showsGround: true)
         } bar: {
             EmptyView()
         }
     }
 
+    /// Camera (decisions/conversation-camera-and-expressions.md): stays close on her face for the whole planning
+    /// chat (while she talks AND while the kid talks); zooms out only when cards need the room. She arrives from the
+    /// start screen at the medium shot, then the camera eases in. Changes are at least `minShotGap` apart, except
+    /// zooming out for cards (they must never cover her face).
     private var shot: PTCameraShot {
         #if DEBUG
         if let forced = DemoDriver.forcedShot { return forced }
         #endif
-        if !stageItems.isEmpty { return .wide }
-        if model.realtime.isSpeaking || model.realtime.kidIsTalking { return .closeUp }
-        return .medium
+        return cameraShot
+    }
+    private var desiredShot: PTCameraShot { stageItems.isEmpty ? .closeUp : .wide }
+    private static let minShotGap: TimeInterval = 2
+
+    private func scheduleShot(arrival: Bool = false) {
+        shotTask?.cancel()
+        shotTask = Task { @MainActor in
+            let target = desiredShot
+            guard target != cameraShot else { return }
+            var wait = max(0, Self.minShotGap - Date().timeIntervalSince(lastShotChange))
+            if target == .wide { wait = 0 }
+            if arrival { wait = max(wait, 0.9) }   // let her landing settle first
+            if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
+            guard !Task.isCancelled, desiredShot != cameraShot else { return }
+            cameraShot = desiredShot
+            lastShotChange = Date()
+        }
     }
 
     private var stageItems: [PTStageItem] {
@@ -158,7 +184,7 @@ struct RootView: View {
 
     private var classic: some View {
         PTStageLayout(backdrop: .clear, nutmegColumn: nutmegIsHero ? Theme.nutmegHeroColumn : Theme.nutmegColumn) {
-            NutmegCharacter(state: model.nutmegState, mouthLevel: model.mouthLevel,
+            NutmegCharacter(state: model.nutmegState, mouthLevel: model.mouthLevel, mouthShape: model.mouthShape,
                             isSpeaking: model.isSpeaking, cue: model.cue, showsGround: true)
                 .onTapGesture { if case .stepBack = store.phase { Task { _ = await store.helpRequested() } } }
         } stage: {

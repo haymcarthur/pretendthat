@@ -105,17 +105,30 @@ enum PTStage {
     }
 }
 
-/// Sky + floor (+ open curtains and valance unless `curtains` is false). Full screen; decorative.
+/// The wooden stage floor in a rect: a flat darker front rim peeking out below the floor ellipse (no gradient).
+struct PTStageFloor: View {
+    let rect: CGRect
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            Ellipse().fill(Theme.stageFloorEdge).frame(width: rect.width, height: rect.height)
+                .position(x: rect.midX, y: rect.midY + rect.height * 0.07)
+            Ellipse().fill(Theme.stageFloor).frame(width: rect.width, height: rect.height)
+                .position(x: rect.midX, y: rect.midY)
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+/// Sky + floor (+ open curtains and valance unless `curtains` is false). Full screen; decorative. The conversation
+/// stage draws its own floor (`floor: false` here) so the floor zooms with Nutmeg as one camera move.
 struct PTStageBackdrop: View {
     var curtains = true
+    var floor = true
     var body: some View {
         GeometryReader { geo in
-            let f = PTStage.floor(geo.size)
             ZStack(alignment: .topLeading) {
                 Theme.startSky
-                // Wooden floor with a flat darker front rim: the rim ellipse peeks out below the floor ellipse.
-                Ellipse().fill(Theme.stageFloorEdge).frame(width: f.width, height: f.height).position(x: f.midX, y: f.midY + f.height * 0.07)
-                Ellipse().fill(Theme.stageFloor).frame(width: f.width, height: f.height).position(x: f.midX, y: f.midY)
+                if floor { PTStageFloor(rect: PTStage.floor(geo.size)) }
                 if curtains { PTCurtain(progress: 1) }
             }
         }

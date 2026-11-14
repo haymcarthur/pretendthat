@@ -46,6 +46,8 @@ The map. Read this first, then open only what you need.
 - [Roles, not names](decisions/roles-not-names.md): Haylee (no kids' names; kid count decides roles; badges with role title + blank name line; hand-offs by role; only prop cards on stage)
 - [Start screen: curtains, toy chest, logo](decisions/start-screen.md): Haylee (sequence, art); Claude's calls noted
 - [Start screen → game transition, one shared stage](decisions/start-to-game-transition.md): Haylee (Nutmeg hops out onto the stage; game screens use the same stage); hand-off method Claude's call
+- [Conversation camera and expressions](decisions/conversation-camera-and-expressions.md): Haylee (stay zoomed in, true camera move, set_expression faces, lip sync, shadow)
+- [Conversation structure](decisions/conversation-structure.md): Haylee (fixed steps, every turn ends with a question + suggestions or an instruction; app-side nudges)
 - [Checklist and scene pictures, no emoji](decisions/checklist-pictures.md): Haylee (prop / action / kit pictures; cut-outs generated one per item; confetti uses stage art)
 
 ## Research

@@ -40,6 +40,8 @@ public final class AdventureStore {
     @ObservationIgnored private var lastPlayPhase: Phase?
     /// How many kids are playing (0 = not asked yet). Decides the number of roles and badges.
     public private(set) var playerCount = 0
+    /// Where the planning conversation is (conversation-structure.md); driven by the function calls.
+    public private(set) var planningStep: PlanningStep = .game
     public private(set) var gameTitle: String?
     public private(set) var ideas: GameIdeas?
     public private(set) var plan: GamePlan?
@@ -200,7 +202,7 @@ public final class AdventureStore {
 
     public func newGame() {
         phase = .hello
-        playerCount = 0; gameTitle = nil
+        playerCount = 0; gameTitle = nil; planningStep = .game
         ideas = nil; plan = nil; props = nil; kit = nil
         choices = []; lastError = nil; usingFallback = false
         foundProps = []; checkedSteps = []; failures = [:]; retryAction = nil; holder = nil
@@ -244,15 +246,19 @@ public final class AdventureStore {
         case .showGameIdeas(let list):
             ideas = GameIdeas(nutmegSays: "", ideas: list)
             phase = .pickGame; presenting = .none
-            return "Noted (there are no idea cards; the chat shows your words). Tell the kids the ideas in a fun way and let them choose."
+            return "Noted (there are no idea cards; the chat shows your words). Say the ideas in a fun way and end by asking which one they want to play."
         case .setGame(let title):
             gameTitle = title; plan = nil; props = nil
-            phase = .players; presenting = .none
-            return "Game set: \(title). React to it, then ask how many kids are playing (just the number, never names)."
+            phase = .pickGame; presenting = .none; planningStep = .theme
+            return "Game set: \(title). Step 2: react in one short sentence, then ask what theme or twist it should have, with 2 or 3 example themes that fit this game. Call set_theme when they pick."
+        case .setTheme(let title):
+            gameTitle = title; plan = nil; props = nil
+            phase = .players; presenting = .none; planningStep = .players
+            return "Theme set: \(title). Step 3: react in one short sentence, then ask how many kids are playing, with an example (just you, or two, or three friends?). Never ask for names."
         case .setPlayerCount(let count):
             playerCount = max(1, min(count, Players.max))
             plan = nil; props = nil
-            phase = .players; presenting = .none
+            phase = .players; presenting = .none; planningStep = .roles
             let shared = playerCount > RoleID.allCases.count ? " With more than 4 kids, repeat a role that makes sense to share." : ""
             return "\(playerCount) kid\(playerCount == 1 ? "" : "s"). Invent exactly \(playerCount) role\(playerCount == 1 ? "" : "s") for this game and call set_roles.\(shared) Never ask for names."
         case .setRoles(let drafts):
@@ -262,10 +268,10 @@ public final class AdventureStore {
             }
             let title = gameTitle ?? "Pretend"
             plan = Sanitizer.clean(GamePlan(gameTitle: title, gameEmoji: "", setting: title, roles: roles, nutmegSays: ""), playerCount: playerCount)
-            phase = .players; presenting = .none
+            phase = .players; presenting = .none; planningStep = .props
             let cast = plan!.roles.map { $0.count > 1 ? "\($0.count) \($0.roleName)s" : $0.roleName }.joined(separator: ", ")
             let short = drafts.count < playerCount ? " You gave \(drafts.count) roles for \(playerCount) kids, so the last role is shared." : ""
-            return "Roles set: \(cast).\(short) Tell the kids the roles with excitement (there are no role cards; kids pick their own badge after printing). Then show_props."
+            return "Roles set: \(cast).\(short) Step 4: announce the roles with excitement (there are no role cards; kids pick their own badge after printing) and end with a quick \"Sound good?\". Then step 5: show_props."
         case .showProps(let drafts):
             var used = Set<String>()
             let list: [Prop] = drafts.enumerated().compactMap { i, d in
@@ -283,7 +289,8 @@ public final class AdventureStore {
             props = Props(nutmegSays: "", props: Array(list.prefix(Sanitizer.Limits.propsMax))); foundProps = []
             phase = .props; presenting = .props
             let ids = props!.props.map(\.id).joined(separator: ", ")
-            return "Props are on screen (ids: \(ids)). Send them on a fun hunt. If they lack one, use swap_prop or skip_prop."
+            planningStep = .props
+            return "Props are on screen (ids: \(ids)). Step 5: tell them exactly what to go find and to tell you when they've found them or if they don't have something. If they lack one, use swap_prop or skip_prop. When they're ready, step 6: finish_planning."
         case .swapProp(let oldID, let newID, let becomes):
             guard var p = props, let i = p.props.firstIndex(where: { $0.id == oldID || $0.libraryID == oldID }) else {
                 return "No prop with id \(oldID). Ids: \(props?.props.map(\.id).joined(separator: ", ") ?? "none")."
@@ -305,7 +312,7 @@ public final class AdventureStore {
             props = p; presenting = .props
             return "Marked as pretend. Keep going cheerfully."
         case .finishPlanning:
-            presenting = .none
+            presenting = .none; planningStep = .finish
             if gameTitle == nil { gameTitle = "Airplane" }
             if playerCount == 0 { playerCount = max(1, plan?.kidCount ?? 1) }
             Task { await self.makeKit() }

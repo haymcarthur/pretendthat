@@ -5,7 +5,7 @@ import NutmegCore
 /// What Nutmeg is doing right now (app state). Napping is the step-back screen; oops is an error;
 /// coloring is the kit/checklist wait (D6).
 enum NutmegState: String, CaseIterable, Identifiable {
-    case idle, listening, thinking, talking, excited, oops, napping, coloring
+    case idle, listening, thinking, talking, excited, amazed, oops, napping, coloring
     var id: String { rawValue }
 
     /// Face and ears per state. The BODY pose is separate (decision mascot-nutmeg.md): idle is the resting default
@@ -18,6 +18,7 @@ enum NutmegState: String, CaseIterable, Identifiable {
         case .thinking: NutmegLook(face: .thinking, ears: .normal)
         case .talking: NutmegLook(face: .talking, ears: .normal)
         case .excited: NutmegLook(face: .yay, ears: .perked)
+        case .amazed: NutmegLook(face: .ooh, ears: .perked)
         case .oops: NutmegLook(face: .oops, ears: .flop)
         case .napping: NutmegLook(face: .nap, ears: .normal)
         case .coloring: NutmegLook(face: .happy, ears: .normal)

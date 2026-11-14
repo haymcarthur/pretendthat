@@ -13,10 +13,10 @@ struct PTCanvas: View {
     var body: some View { Theme.canvas.ignoresSafeArea().accessibilityHidden(true) }
 }
 
-/// A soft flat ground oval under Nutmeg (crisp edge, no blur).
+/// Nutmeg's contact shadow: a crisp, low-contrast ellipse in a darker tone of the wooden floor (no blur, not gray).
 struct PTGround: View {
     var body: some View {
-        Ellipse().fill(Theme.ground).accessibilityHidden(true)
+        Ellipse().fill(Theme.stageFloorEdge.opacity(0.6)).accessibilityHidden(true)
     }
 }
 
@@ -171,6 +171,11 @@ struct PTChatPanel: View {
     var onClose: () -> Void
     @State private var draft = ""
     @FocusState private var focused: Bool
+    @State private var following = true
+    @State private var hasUnseen = false
+    private static let bottomID = "chat-bottom"
+    /// Changes when a line is added or the last line's text grows (streaming).
+    private var followKey: String { "\(lines.count)-\(lines.last?.text.count ?? 0)" }
 
     var body: some View {
         VStack(spacing: Theme.Space.s) {
@@ -181,7 +186,7 @@ struct PTChatPanel: View {
             }
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(spacing: Theme.Space.s) {
+                    VStack(spacing: Theme.Space.s) {
                         if lines.isEmpty {
                             Text("Talk or type. Nutmeg's words show up here.")
                                 .font(Theme.uiFont(15, .medium)).foregroundStyle(Theme.inkMuted)
@@ -190,10 +195,32 @@ struct PTChatPanel: View {
                         ForEach(lines) { line in bubble(line).id(line.id) }
                     }
                     .padding(.vertical, Theme.Space.xs)
+                    Color.clear.frame(height: 1).id(Self.bottomID)
                 }
                 .scrollIndicators(.hidden)
-                .onChange(of: lines.count) { _, _ in
-                    if let last = lines.last { withAnimation { proxy.scrollTo(last.id, anchor: .bottom) } }
+                // Follow the newest entry (a new line, or Nutmeg's streaming text growing) unless the reader scrolled up
+                // to read older messages; then a "New" pill jumps back and following resumes at the bottom.
+                .modifier(ScrolledToBottom { atBottom in
+                    following = atBottom
+                    if atBottom { hasUnseen = false }
+                })
+                .onChange(of: followKey) { _, _ in
+                    if following { withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(Self.bottomID, anchor: .bottom) } }
+                    else { hasUnseen = true }
+                }
+                .onAppear { proxy.scrollTo(Self.bottomID, anchor: .bottom) }
+                .overlay(alignment: .bottom) {
+                    if hasUnseen && !following {
+                        Button {
+                            withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo(Self.bottomID, anchor: .bottom) }
+                        } label: {
+                            Label("New", systemImage: "arrow.down").font(Theme.uiFont(14)).foregroundStyle(Theme.white)
+                                .padding(.horizontal, 14).padding(.vertical, 8).background(Capsule().fill(Theme.cta))
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.bottom, Theme.Space.xs)
+                        .transition(.opacity)
+                    }
                 }
             }
             HStack(spacing: Theme.Space.s) {
@@ -234,6 +261,22 @@ struct PTChatPanel: View {
         let t = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !t.isEmpty else { return }
         onSend(t); draft = ""
+        following = true
+        focused = true   // keep typing without tapping the field again
+    }
+}
+
+/// Reports whether a scroll view is at (or near) its bottom (iOS 18+; on 17 it always follows).
+private struct ScrolledToBottom: ViewModifier {
+    let onChange: (Bool) -> Void
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, *) {
+            content.onScrollGeometryChange(for: Bool.self) { g in
+                g.contentOffset.y + g.containerSize.height >= g.contentSize.height - 24
+            } action: { _, atBottom in onChange(atBottom) }
+        } else {
+            content
+        }
     }
 }
 

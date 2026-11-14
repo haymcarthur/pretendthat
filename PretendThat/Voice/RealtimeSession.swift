@@ -1,5 +1,6 @@
 import AVFoundation
 import Observation
+import QuartzCore
 import NutmegCore
 
 /// Hands-free voice conversation with Nutmeg over OpenAI's Realtime API (decisions D1, D2, D7).
@@ -9,7 +10,12 @@ import NutmegCore
 ///   decides when the kid has finished talking.
 /// - Speaker: PCM16 deltas (24 kHz float, same rate as the Realtime output, so nothing is resampled before the
 ///   mixer's one high-quality conversion to the hardware rate) → player node → pitch unit (Varispeed by default,
-///   TimePitch or none for comparison) → mixer, with an RMS tap for the mouth.
+///   TimePitch or none for comparison) → mixer.
+/// - Mouth (lip sync): each delta is analyzed as it is scheduled (10 ms windows: loudness + a cheap spectral split,
+///   `LipSyncAnalyzer`), and each window is stamped with the moment it will actually leave the speaker: the player's
+///   sample position (source samples, so the Varispeed rate is divided out) plus the output latency and IO buffer.
+///   A 60 Hz main-actor clock feeds due windows to `MouthShaper` (30 ms attack, 80 ms release, hysteresis, 60 ms
+///   hold) and publishes `mouth`. (A mixer tap was coarse: iOS delivers taps in ~100 ms chunks, after the fact.)
 /// - Voice-processing IO (echo cancellation) is OFF by default: on iOS it runs on the whole IO unit, so it also
 ///   processes (and dulls/ducks) the OUTPUT. The mic is gated while Nutmeg talks, so she never hears herself anyway.
 /// Nothing is recorded or stored: audio buffers are sent and dropped.
@@ -18,11 +24,18 @@ final class RealtimeSession {
     enum Status: Equatable { case idle, connecting, live, failed(String) }
 
     private(set) var status: Status = .idle
-    /// 0…1 loudness of Nutmeg's voice (drives her mouth).
+    /// 0…1 loudness of Nutmeg's voice (the mouth envelope, coarsely updated).
     private(set) var level: Float = 0
+    /// The mouth shape to show right now, in sync with what the speaker is playing.
+    private(set) var mouth: MouthShape = .closed
     private(set) var isSpeaking = false
     /// Server VAD heard the kid start talking (ears perk).
     private(set) var kidIsTalking = false
+    /// The kid finished a turn and her reply hasn't started yet (shown as thinking after a short beat, so a quick reply
+    /// doesn't flash it).
+    private(set) var thinkingGap = false
+    /// The face for her current turn: set by the model's `set_expression`, or a blip from an exclamation ("Ooh!").
+    private(set) var expression: NutmegExpression?
     var isMuted = false { didSet { updateGate() } }
     /// Planning is over: stop sending the mic (kids tap from here on, D3), keep the voice for Nutmeg's lines.
     var micWanted = true { didSet { updateGate() } }
@@ -35,6 +48,10 @@ final class RealtimeSession {
 
     /// Function call handler: returns the output for the model and whether Nutmeg should answer afterwards.
     @ObservationIgnored var onCall: (@MainActor (String, String) async -> (output: String, respond: Bool))?
+    /// Checks how her finished turn ended (conversation-structure.md); returns a silent nudge, or nil when it's fine.
+    @ObservationIgnored var onTurnDone: (@MainActor (String) -> String?)?
+    /// The kids have been quiet ~8 s after her turn; returns the gentle re-ask nudge (nil = don't).
+    @ObservationIgnored var onSilence: (@MainActor () -> String?)?
 
     @ObservationIgnored private var socket: RealtimeSocket?
     @ObservationIgnored private var engine: AVAudioEngine?
@@ -52,6 +69,27 @@ final class RealtimeSession {
     @ObservationIgnored private var wantsResponse = false
     @ObservationIgnored private var responseActive = false
     @ObservationIgnored private var receiveTask: Task<Void, Never>?
+    @ObservationIgnored private var analyzer = LipSyncAnalyzer(sampleRate: Realtime.sampleRate)
+    @ObservationIgnored private var shaper = MouthShaper()
+    /// Analysis windows waiting for their moment (CACurrentMediaTime seconds), in order.
+    @ObservationIgnored private var mouthQueue: [(time: Double, features: MouthFeatures)] = []
+    /// End of the scheduled audio, in player (source) samples.
+    @ObservationIgnored private var scheduledEnd: Double = 0
+    @ObservationIgnored private var mouthClock: Task<Void, Never>?
+    @ObservationIgnored private var awaitingReply = false
+    @ObservationIgnored private var gapTask: Task<Void, Never>?
+    @ObservationIgnored private var expressionTask: Task<Void, Never>?
+    /// The model chose a face this turn (blips never override it).
+    @ObservationIgnored private var modelChoseExpression = false
+    /// The current response produced audio (an expression-only response needs a follow-up to actually speak).
+    @ObservationIgnored private var responseHadAudio = false
+    @ObservationIgnored private var expressionNeedsFollowUp = false
+    @ObservationIgnored private var replyStarted = false
+    @ObservationIgnored private var expressionSetAt = Date.distantPast
+    @ObservationIgnored private var responseLineStart = 0
+    @ObservationIgnored private var nudgesThisTurn = 0
+    @ObservationIgnored private var reasks = 0
+    @ObservationIgnored private var silenceTask: Task<Void, Never>?
     @ObservationIgnored private let playFormat = AVAudioFormat(standardFormatWithSampleRate: Realtime.sampleRate, channels: 1)!
 
     var isLive: Bool { status == .live }
@@ -105,13 +143,14 @@ final class RealtimeSession {
         configObserver = nil
         if let engine {
             engine.inputNode.removeTap(onBus: 0)
-            engine.mainMixerNode.removeTap(onBus: 0)
             player.stop()
             engine.stop()
         }
         engine = nil
         speakingUntil = .distantPast; tailTask?.cancel(); pendingOutputs = []; wantsResponse = false; responseActive = false
         isSpeaking = false; kidIsTalking = false; level = 0
+        resetMouth(); silenceTask?.cancel()
+        gapTask?.cancel(); expressionTask?.cancel(); expression = nil; thinkingGap = false; awaitingReply = false
         if status != .idle, case .failed = status {} else { status = .idle }
     }
 
@@ -127,6 +166,10 @@ final class RealtimeSession {
         guard let socket, isLive else { return }
         socket.send(Realtime.userText(text))
         chat.kidTyped(text)
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-PTLive") { rtLog("KID: \(text)") }
+        #endif
+        kidTurnEnded()
         requestResponse()
     }
 
@@ -215,7 +258,6 @@ final class RealtimeSession {
         if let pitchUnit { engine.attach(pitchUnit) }
         wireOutput(engine)
         engine.mainMixerNode.outputVolume = 1   // unity gain: PCM16 → float is already within ±1, no clipping
-        installLevelTap(engine)
 
         let inFormat = input.outputFormat(forBus: 0)
         if inFormat.sampleRate > 0 && inFormat.channelCount > 0 {
@@ -232,7 +274,6 @@ final class RealtimeSession {
                 guard let self, let engine = self.engine else { return }
                 // Re-wire the output chain at our format; a reconfiguration can leave it disconnected.
                 self.wireOutput(engine)
-                self.installLevelTap(engine)
                 self.ensureRunning()
                 self.player.play()
             }
@@ -243,16 +284,115 @@ final class RealtimeSession {
         mic.open = isLive && !isMuted && micWanted && !isSpeaking
     }
 
-    private func update(rms: Float) {
-        guard isSpeaking else { if level != 0 { level = 0 }; return }
-        let target = min(1, rms * 7)
-        level = target > level ? target : level + (target - level) * 0.2
-        peak = max(peak, level)
+    // MARK: Expressions (decisions/conversation-camera-and-expressions.md)
+
+    private func kidTurnEnded() {
+        awaitingReply = true; replyStarted = false
+        nudgesThisTurn = 0; reasks = 0; silenceTask?.cancel()
+        modelChoseExpression = false
+        expressionTask?.cancel(); expression = nil
+        gapTask?.cancel()
+        gapTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(250))
+            guard let self, !Task.isCancelled, self.awaitingReply else { return }
+            self.thinkingGap = true
+            rtLog("face thinking (gap)")
+        }
     }
 
-    private func installLevelTap(_ engine: AVAudioEngine) {
-        engine.mainMixerNode.removeTap(onBus: 0)
-        Self.installLevelTap(on: engine.mainMixerNode) { [weak self] rms in Task { @MainActor in self?.update(rms: rms) } }
+    private func replyBegan() {
+        guard !replyStarted else { return }
+        replyStarted = true
+        awaitingReply = false; gapTask?.cancel(); thinkingGap = false
+    }
+
+    private func setExpression(_ e: NutmegExpression, seconds: Double?, fromModel: Bool) {
+        if fromModel { modelChoseExpression = true }
+        rtLog("face \(e.rawValue)\(fromModel ? "" : " (blip)")")
+        expression = e
+        expressionSetAt = Date()
+        expressionTask?.cancel()
+        guard let seconds else { return }
+        expressionTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(max(1, seconds)))   // hold at least 1 s
+            guard let self, !Task.isCancelled else { return }
+            self.expression = nil
+        }
+    }
+
+    /// After her turn, if the kids stay quiet ~8 s during planning, she gently re-asks (at most twice per turn).
+    private func startSilenceTimer() {
+        silenceTask?.cancel()
+        guard micWanted, reasks < 2 else { return }
+        silenceTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(8))
+            guard let self, !Task.isCancelled, self.isLive, self.micWanted, !self.isSpeaking, !self.kidIsTalking,
+                  !self.awaitingReply, !self.responseActive, let note = self.onSilence?() else { return }
+            self.reasks += 1
+            rtLog("nudge: silence")
+            self.socket?.send(Realtime.systemNote(note))
+            self.requestResponse()
+        }
+    }
+
+    // MARK: Lip sync
+
+    /// Analyzes a delta as it is scheduled and stamps each window with when it will be heard.
+    private func queueMouth(_ buffer: AVAudioPCMBuffer) {
+        guard let data = buffer.floatChannelData?[0] else { return }
+        let frames = Int(buffer.frameLength)
+        let sr = Realtime.sampleRate, rate = playbackRate
+        let audio = AVAudioSession.sharedInstance()
+        let latency = audio.outputLatency + audio.ioBufferDuration
+        // Where the player is now (source samples) and the host time of that sample.
+        var nowSample = scheduledEnd, nowTime = CACurrentMediaTime()
+        if let render = player.lastRenderTime, render.isHostTimeValid, let pt = player.playerTime(forNodeTime: render) {
+            nowSample = Double(pt.sampleTime)
+            nowTime = AVAudioTime.seconds(forHostTime: render.hostTime)
+        }
+        let start = max(scheduledEnd, nowSample)
+        scheduledEnd = start + Double(frames)
+        let base = nowTime + (start - nowSample) / sr / rate + latency
+        let features = analyzer.analyze(Array(UnsafeBufferPointer(start: data, count: frames)))
+        mouthQueue.append(contentsOf: features.map { (base + $0.offset / rate, $0) })
+        startMouthClock()
+    }
+
+    private func startMouthClock() {
+        guard mouthClock == nil else { return }
+        mouthClock = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(16))
+                guard let self, self.tickMouth() else { break }
+            }
+            self?.mouthClock = nil
+        }
+    }
+
+    /// Feeds due windows to the shaper; returns false once the voice has ended and the mouth is closed.
+    private func tickMouth() -> Bool {
+        let now = CACurrentMediaTime()
+        var fed = false
+        while let first = mouthQueue.first, first.time <= now {
+            mouthQueue.removeFirst()
+            shaper.step(first.features, at: first.time)
+            fed = true
+        }
+        if !fed && mouthQueue.isEmpty {
+            // Nothing playing: decay toward closed (silence windows).
+            shaper.step(MouthFeatures(offset: 0, rms: 0, bright: 0, low: 0), at: now)
+        }
+        if mouth != shaper.shape { mouth = shaper.shape }
+        let e = (shaper.envelope * 20).rounded() / 20
+        if abs(e - level) >= 0.05 || (e == 0 && level != 0) { level = e; peak = max(peak, e) }
+        return !(mouthQueue.isEmpty && shaper.shape == .closed && shaper.envelope < 0.01)
+    }
+
+    private func resetMouth() {
+        mouthClock?.cancel(); mouthClock = nil
+        mouthQueue = []; scheduledEnd = 0
+        analyzer.reset(); shaper.reset()
+        mouth = .closed
     }
 
     /// Voice processing / route changes can stop the engine; restart it before scheduling audio.
@@ -269,6 +409,7 @@ final class RealtimeSession {
         // reconfiguration can drop scheduled buffers without calling them back).
         let now = Date()
         speakingUntil = max(now, speakingUntil).addingTimeInterval(Double(buffer.frameLength) / Realtime.sampleRate / playbackRate)
+        queueMouth(buffer)
         player.scheduleBuffer(buffer, completionHandler: nil)
         if !player.isPlaying { player.play() }
         scheduleEndCheck()
@@ -283,6 +424,10 @@ final class RealtimeSession {
             self.isSpeaking = false
             rtLog("done speaking, peak mouth level \(String(format: "%.2f", self.peak))")
             self.level = 0
+            self.mouthQueue = []
+            self.startSilenceTimer()
+            // Her turn's face ends with her turn (held at least 1 s).
+            if Date().timeIntervalSince(self.expressionSetAt) >= 1 { self.expressionTask?.cancel(); self.expression = nil }
             self.updateGate()
         }
     }
@@ -294,30 +439,64 @@ final class RealtimeSession {
         switch event {
         case .audioDelta, .transcriptDelta, .other: break
         case .functionCall(let name, _, _): rtLog("call \(name)")
-        case .transcriptDone: rtLog("said a line")
+        case .transcriptDone(let t):
+            // Live tests only (typed turns): her words in the console for the transcript samples.
+            if ProcessInfo.processInfo.arguments.contains("-PTLive") { rtLog("NUTMEG: \(t)") } else { rtLog("said a line") }
         default: rtLog("\(event)")
         }
         #endif
         switch event {
-        case .audioDelta(let data): play(data)
+        case .audioDelta(let data):
+            responseHadAudio = true
+            silenceTask?.cancel()
+            replyBegan()
+            play(data)
+        case .transcriptDelta where !modelChoseExpression && expression == nil:
+            chat.apply(event)
+            // Only the first few characters of her reply count ("Ooh!", "Wow,", "Yes!").
+            let line = chat.lines.last(where: \.fromNutmeg)?.text ?? ""
+            if line.count >= 3, line.count <= 14, let blip = NutmegExpression.blip(forReplyStart: line) {
+                setExpression(blip, seconds: 1.2, fromModel: false)
+            }
         case .transcriptDelta, .transcriptDone, .kidTranscript:
             // Out-of-band lines (sayExactly: kit ready, scene lines) also stream here; they're Nutmeg's words too.
             chat.apply(event)
-        case .speechStarted: kidIsTalking = true
-        case .speechStopped: kidIsTalking = false
+        case .speechStarted: kidIsTalking = true; silenceTask?.cancel()
+        case .speechStopped: kidIsTalking = false; kidTurnEnded()
+        case .functionCall(let name, let callID, let args) where name == "set_expression":
+            // Silent and instant: never waits on the app, never blocks audio.
+            if let d = NutmegExpression.decode(name: name, arguments: args) { setExpression(d.expression, seconds: d.seconds, fromModel: true) }
+            pendingOutputs.append((callID, "ok"))
+            expressionNeedsFollowUp = true
         case .functionCall(let name, let callID, let args):
             let result = await onCall?(name, args) ?? (output: "ok", respond: true)
             pendingOutputs.append((callID, result.output))
             if result.respond { wantsResponse = true }
         case .responseCreated:
             responseActive = true
+            responseHadAudio = false
+            responseLineStart = chat.lines.count
         case .responseDone:
             responseActive = false
             if !pendingOutputs.isEmpty, let socket {
                 for (id, out) in pendingOutputs { socket.send(Realtime.functionOutput(callID: id, output: out)) }
                 pendingOutputs = []
             }
+            // A response that only set her face (no audio) gets a follow-up so she actually answers.
+            if expressionNeedsFollowUp && !responseHadAudio { wantsResponse = true }
+            expressionNeedsFollowUp = false
+            #if DEBUG
+            rtLog("turn check: requested=\(wantsResponse) audio=\(responseHadAudio) nudges=\(nudgesThisTurn) newLine=\(chat.lines.count > responseLineStart)")
+            #endif
             if wantsResponse { wantsResponse = false; requestResponse() }
+            else if responseHadAudio, nudgesThisTurn < 1, let line = chat.lines.last, line.fromNutmeg,
+                    chat.lines.count > responseLineStart, let note = onTurnDone?(line.text) {
+                // Her turn broke the turn-ending rule: one silent nudge and a short follow-up (never a loop).
+                nudgesThisTurn += 1
+                rtLog("nudge: turn ending")
+                socket?.send(Realtime.systemNote(note))
+                requestResponse()
+            }
         case .error(let message):
             lastError = message
         default: break
@@ -336,17 +515,6 @@ final class RealtimeSession {
         }
         buf.frameLength = AVAudioFrameCount(frames)
         return buf
-    }
-
-    nonisolated private static func installLevelTap(on node: AVAudioNode, report: @escaping @Sendable (Float) -> Void) {
-        node.installTap(onBus: 0, bufferSize: 1024, format: nil) { buffer, _ in
-            guard let data = buffer.floatChannelData?[0] else { return }
-            let n = Int(buffer.frameLength)
-            guard n > 0 else { return }
-            var sum: Float = 0
-            for i in 0..<n { sum += data[i] * data[i] }
-            report((sum / Float(n)).squareRoot())
-        }
     }
 
     nonisolated private static func installMicTap(on input: AVAudioInputNode, format: AVAudioFormat, pump: MicPump) {

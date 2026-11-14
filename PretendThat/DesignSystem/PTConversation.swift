@@ -52,12 +52,23 @@ struct PTConversationStage<Character: View, Bar: View>: View {
             let L = PTStageCamera.layout(shot: shot, itemCount: items.count, size: geo.size,
                                          leadingInset: leadingInset, bottomInset: bottomInset,
                                          faceFocus: faceFocus, centerBetweenChrome: centerBetweenChrome)
+            // The camera moves on the stage WORLD (Haylee): the floor and the stars get the same transform as Nutmeg,
+            // relative to the medium shot (where the floor is exactly the start screen's / backdrop's floor), stars with
+            // ~70% parallax. Curtains and valance (the proscenium, drawn by the backdrop) and all UI stay put.
+            let mediumL = PTStageCamera.layout(shot: .medium, itemCount: 0, size: geo.size, leadingInset: leadingInset,
+                                               bottomInset: bottomInset, faceFocus: faceFocus)
+            let world = PTStageCamera.WorldMove(from: mediumL, to: L)
+            let full = CGSize(width: geo.size.width + geo.safeAreaInsets.leading + geo.safeAreaInsets.trailing,
+                              height: geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom)
+            let floorFull = PTStage.floor(full)
+            let floorRect = floorFull.offsetBy(dx: -geo.safeAreaInsets.leading, dy: -geo.safeAreaInsets.top)
             ZStack(alignment: .topLeading) {
+                PTStageFloor(rect: world.apply(floorRect))
                 // (Her ground oval is drawn inside NutmegCharacter(showsGround:) so it moves with her as one unit.)
                 // 2–3 static stars around her, never over her face (positions in art-canvas px).
                 ForEach(Array(PTStageCamera.stars.enumerated()), id: \.offset) { i, star in
-                    let side = min(star.size * L.k, star.maxPoints)
-                    let p = L.screen(star.point)
+                    let side = min(star.size * mediumL.k, star.maxPoints) * world.parallaxScale
+                    let p = world.apply(mediumL.screen(star.point), parallax: 0.7)
                     PTStageStar(asset: star.asset, tilt: star.tilt, index: i)
                         .frame(width: side, height: side)
                         .position(p)
@@ -154,6 +165,22 @@ enum PTStageCamera {
         Star(asset: "stage-sparkle", point: CGPoint(x: -20, y: 560), size: 100, maxPoints: 56, tilt: 0),
         Star(asset: "stage-sparkle", point: CGPoint(x: 1090, y: 1010), size: 70, maxPoints: 40, tilt: 0)
     ]
+
+    /// The camera move between two layouts as a world transform (screen points at `from` → screen points at `to`).
+    struct WorldMove {
+        let from: Layout, to: Layout
+        var scale: CGFloat { to.k / from.k }
+        /// Star scale with ~70% parallax.
+        var parallaxScale: CGFloat { 1 + (scale - 1) * 0.7 }
+        func apply(_ p: CGPoint, parallax: CGFloat = 1) -> CGPoint {
+            let full = CGPoint(x: to.origin.x + (p.x - from.origin.x) * scale, y: to.origin.y + (p.y - from.origin.y) * scale)
+            return CGPoint(x: p.x + (full.x - p.x) * parallax, y: p.y + (full.y - p.y) * parallax)
+        }
+        func apply(_ r: CGRect) -> CGRect {
+            let o = apply(r.origin)
+            return CGRect(x: o.x, y: o.y, width: r.width * scale, height: r.height * scale)
+        }
+    }
 
     struct Layout {
         /// Points per canvas px.

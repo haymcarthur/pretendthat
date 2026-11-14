@@ -35,6 +35,14 @@ final class AppModel {
         openAIKey = (info["OPENAI_API_KEY"] as? String).flatMap { k in
             let k = k.trimmingCharacters(in: .whitespaces); return k.isEmpty || k.hasPrefix("$(") ? nil : k
         }
+        realtime.onTurnDone = { [weak self] text in
+            guard let self, Self.isPlanning(self.store.phase) else { return nil }
+            return TurnCheck.nudge(for: text, step: self.store.planningStep)
+        }
+        realtime.onSilence = { [weak self] in
+            guard let self, Self.isPlanning(self.store.phase), self.store.planningStep != .finish else { return nil }
+            return TurnCheck.silenceNudge(step: self.store.planningStep)
+        }
         realtime.onCall = { [weak self] name, args in
             guard let self else { return ("ok", true) }
             return await self.handleCall(name: name, arguments: args)
@@ -121,8 +129,13 @@ final class AppModel {
         if let s = DemoDriver.forcedState { return s }
         #endif
         if realtime.isLive {
+            // Conversation faces (decisions/conversation-camera-and-expressions.md): listening while the kid talks,
+            // thinking in the gap before her reply, then the face the model chose (eyes and brows; the live mouth
+            // animates on top), happy by default.
             if realtime.kidIsTalking { return .listening }
-            if realtime.isSpeaking { return .talking }
+            if let e = realtime.expression { return Self.state(for: e) }
+            if realtime.thinkingGap { return .thinking }
+            if realtime.isSpeaking { return .idle }
         }
         if listener.isListening { return .listening }
         if store.phase == .makingKit { return .coloring }
@@ -134,6 +147,17 @@ final class AppModel {
         case .stepBack: return .napping
         case .kitReady, .end: return .excited
         default: return .idle
+        }
+    }
+
+    static func state(for e: NutmegExpression) -> NutmegState {
+        switch e {
+        case .happy: .idle
+        case .excited: .excited
+        case .ooh: .amazed
+        case .thinking: .thinking
+        case .listening: .listening
+        case .oops: .oops
         }
     }
 
@@ -178,6 +202,8 @@ final class AppModel {
     }
 
     var mouthLevel: Float { realtime.isLive ? realtime.level : voice.level }
+    /// The live voice's lip-synced mouth (nil: fall back to the amplitude mouth from `mouthLevel`).
+    var mouthShape: NutmegMouth? { realtime.isLive ? NutmegMouth(rawValue: realtime.mouth.rawValue) : nil }
     var isSpeaking: Bool { realtime.isLive ? realtime.isSpeaking : voice.isSpeaking }
 
     func micPressed() { listener.startListening(stopping: voice) }

@@ -13,6 +13,8 @@ import NutmegCore
 struct NutmegCharacter: View {
     var state: NutmegState
     var mouthLevel: Float = 0
+    /// Lip-synced mouth from the live voice; overrides the amplitude mapping of `mouthLevel` while speaking.
+    var mouthShape: NutmegMouth? = nil
     /// While speaking, the amplitude mouth overrides the face's default mouth.
     var isSpeaking = false
     /// One-shot gesture (wave on hello/goodbye, point when presenting, celebrate when something's ready).
@@ -103,17 +105,23 @@ struct NutmegCharacter: View {
         // Shared 1178×1335 canvas (Haylee's art): body and head layers stack full-frame.
         let l = state.look
         let pose = shown
-        let m = Motion(state: state, t: t, reduced: reduceMotion)
+        let m = Motion(state: state, t: t, reduced: reduceMotion, speaking: isSpeaking)
         let h = side, w = side * NutmegPose.canvas.width / NutmegPose.canvas.height
         let px = h / NutmegPose.canvas.height
         let unit = h / 1024
 
         ZStack(alignment: .topLeading) {
-            if showsGround {
-                PTGround()
-                    .frame(width: 640 * px, height: 90 * px)
-                    .position(x: 590 * px, y: 1290 * px)
-            }
+        // Her contact shadow on the floor (Haylee): a small low-contrast ellipse in a darker floor tone, ~1.1x her
+        // stance (feet span canvas x 377–745, soles at y ~1310), centered under her feet. It stays on the floor when she
+        // hops (outside the hop offset) and shrinks a little while she's in the air.
+        if showsGround {
+            let air = min(1, abs(hop) / 12)
+            PTGround()
+                .frame(width: 405 * px, height: 46 * px)
+                .scaleEffect(1 - 0.2 * air)
+                .position(x: 561 * px, y: 1306 * px)
+        }
+        ZStack(alignment: .topLeading) {
             ZStack {
                 layer(bodyAsset(pose)).id(pose).transition(.opacity)
             }
@@ -131,6 +139,8 @@ struct NutmegCharacter: View {
         .frame(width: w, height: h, alignment: .topLeading)
         .scaleEffect(x: squash.width, y: squash.height, anchor: .bottom)
         .offset(y: hop * unit * 4 + m.bob * unit)
+        }
+        .frame(width: w, height: h, alignment: .topLeading)
     }
 
     private func bodyAsset(_ pose: NutmegPose) -> String {
@@ -144,7 +154,7 @@ struct NutmegCharacter: View {
             // Oops: the right ear flops over (Haylee's nutmeg-ears-flop art draws over the normal ear).
             if l.ears == .flop { layer(NutmegEars.flop.asset) }
             layer(m.blink && l.face != .nap && l.face != .yay ? NutmegFace.nap.asset : l.face.asset)
-            layer(isSpeaking ? NutmegMouth.forLevel(mouthLevel, oohBeat: m.oohBeat).asset : l.face.mouthAsset)
+            layer(isSpeaking ? (mouthShape ?? NutmegMouth.forLevel(mouthLevel, oohBeat: m.oohBeat)).asset : l.face.mouthAsset)
             if let costume, UIImage(named: "nutmeg-costume-\(costume)") != nil { layer("nutmeg-costume-\(costume)") }
         }
     }
@@ -183,7 +193,7 @@ private struct Motion {
         abs((sin(n * 12.9898 + salt * 78.233) * 43758.5453).truncatingRemainder(dividingBy: 1))
     }
 
-    init(state: NutmegState, t: Double, reduced: Bool) {
+    init(state: NutmegState, t: Double, reduced: Bool, speaking: Bool = false) {
         let k: Double = reduced ? 0 : 1
         let breathPeriod = state == .napping ? 4.5 : 3.2
         breathe = 1 + 0.012 * CGFloat(sin(t * 2 * .pi / breathPeriod))
@@ -203,8 +213,8 @@ private struct Motion {
         case .thinking:
             stateTilt = -4
         case .talking:
-            headTilt += 2 * sin(t * 5) * k; bob = CGFloat(-abs(sin(t * 4.5)) * 6 * k)
-        case .excited:
+            break
+        case .excited, .amazed:
             break
         case .oops:
             stateTilt = -5
@@ -213,6 +223,9 @@ private struct Motion {
         case .idle, .napping:
             break
         }
+        // Talking bob with the voice, whatever face she's making (expressions keep their eyes; only the mouth and
+        // this bob follow the audio).
+        if speaking || state == .talking { headTilt += 2 * sin(t * 5) * k; bob = CGFloat(-abs(sin(t * 4.5)) * 6 * k) }
     }
 }
 

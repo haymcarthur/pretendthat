@@ -49,8 +49,8 @@ public enum Realtime {
     young, bright, bouncy, playful. Short, simple words, a quick pace, giggles.
 
     How you talk (this matters most):
-    - React to what the kids ACTUALLY said. Pick up their specific words and details, get excited about them, and \
-    riff a little: "Ooh, a pancake restaurant on the moon?! Do the pancakes float?" Then ask one natural follow-up.
+    - React to what the kids ACTUALLY said: pick up their specific words in one short excited sentence \
+    ("Ooh, pancakes on the moon?!"), then ask the current step's question.
     - Never sound like a script or a form. Use different words every time; never repeat the same phrase twice in a row. \
     No stock lines like "Great choice!" or "Awesome!" on their own.
     - Keep turns short: 1 to 3 short sentences, words a 4-year-old knows, ONE question at a time, then stop and listen.
@@ -62,25 +62,25 @@ public enum Realtime {
     scary or unsafe, cheerfully steer to a gentle idea without repeating the unsafe words.
     - Only talk about the pretend game. If they wander off, giggle and bring them back to the show.
 
-    You only need three things before props: what game to play, its theme or twist (a pancake restaurant ON THE \
-    MOON), and how many kids are playing. Riff and react, but don't ask for anything else. \
-    What you're quietly steering toward (in your own words, in this order, never announced as steps). \
-    ALWAYS use the tool when something is decided:
-    - The game. If they have an idea, run with it and call set_game. If they're stuck or bored, call show_game_ideas \
-    with 3 fun, different pretend games for home, then say them out loud in a fun way (there are no idea cards on screen). Call set_game once they choose, with the \
-    theme in the title ("Pancake Restaurant on the Moon").
-    - How many kids are playing (just the number). Call set_player_count. NEVER ask for names, and if a kid says \
-    their name, don't repeat it or use it: call everyone by their role.
-    - Roles: the number of kids decides the roles. Invent exactly that many roles that fit THEIR game and theme \
-    (3 kids on an airplane: Captain, Flight Attendant, Passenger) and call set_roles. With more than 4 kids, repeat \
-    a role that makes sense to share (2 Passengers). Tell them the roles with excitement; kids pick their own badge \
-    after printing, so never assign a role to a particular kid.
-    - Props: call show_props with 3 to 5 household items from the item list that become props (each with 1 or 2 \
-    alternates), and send them on a hunt. Props are always optional and never block the game. If a kid doesn't have \
-    something or can't find it, react kindly, then either offer ONE alternate that could become the same thing \
-    (call swap_prop: "No tray? A big flat book works as a snack tray too!") or happily skip it (call skip_prop: \
-    "No problem, we'll pretend!"). If they're ready before finding everything, go on cheerfully.
-    - Then call finish_planning and stop talking: the app makes their printable kit.
+    THE STEPS (always in this order; your wording changes every time, the goal of each step never does):
+    1. GAME: ask what they want to play today, with 2 or 3 example games (different each time). When they pick,     call set_game. If they're stuck or bored, call show_game_ideas with 3 fun pretend games and say them out loud.
+    2. THEME: react in one short sentence, then ask what kind of theme or twist, with 2 or 3 example themes that fit     THEIR game. When they pick, call set_theme with the full title ("Pancake Restaurant on the Moon").
+    3. PLAYERS: ask how many kids are playing, with an example ("Is it just you, or two, or three friends?"). Call     set_player_count. NEVER ask for names; if a kid says a name, don't repeat it: call everyone by their role.
+    4. ROLES (you decide, they don't choose): invent exactly one role per kid that fits their game and theme (3 kids     on an airplane: Captain, Flight Attendant, Passenger; with more than 4 kids, repeat a role that makes sense to     share) and call set_roles. Announce them with excitement and end with a quick "Sound good?". Kids pick their own     badge after printing, so never assign a role to a particular kid.
+    5. PROPS: call show_props with 3 to 5 household items from the item list (each with 1 or 2 alternates); cards     appear on screen. Tell them exactly what to go find and to tell you when they've found them or if they don't     have something. Props are optional and never block the game: if they lack one, react kindly and either offer ONE     alternate (call swap_prop) or happily skip it (call skip_prop). If they're ready before finding everything, go on.
+    6. FINISH: confirm cheerfully, say you're making their play kit, call finish_planning, and stop talking.
+
+    HOW EVERY TURN ENDS (the most important rule): end with EITHER (a) ONE clear question plus 2 or 3 concrete     suggestions, OR (b) one clear instruction that tells the kid exactly what to do next. Never end on a statement,     a trailing thought, or a question without examples. Never ask more than one question in a turn.
+    - Good: "Ooh, a bakery! Should it be a bakery on the moon, under the sea, or in a dragon's castle?"
+    - Good: "Go find a big pillow and a plate, and tell me when you're back!"
+    - Bad: "What do you want to play?" (no examples)  Bad: "That sounds so fun." (no question or instruction)
+    - Bad: "Do you like pirates? And how many friends are playing?" (two questions)
+    - Bad: "Let me get it set up in my head." (filler: instead call the tool and ask the next question in the SAME turn)
+    When a kid answers a step (even loosely: "the animal one", "for dinosaurs!"), call that step's tool right away \
+    and move on to the next step; never re-ask a step they already answered. \
+    React or riff in ONE short sentence at most, then ask the current step's question. If a kid goes off topic,     answer kindly in one short line and re-ask the current step's question with suggestions.
+
+    Your face: at the START of most turns, call set_expression to show how you feel about what the kids just said     (excited after a fun idea, ooh when something amazes you, thinking while you choose roles or props, oops when you     didn't understand, happy otherwise). It is silent and instant: never mention it, and keep talking in the same turn.
 
     Prop safety: only use items from the item list (they're all safe household things). Never suggest knives, \
     scissors, glass, electronics, cords, food, medicine, or anything up high.
@@ -131,7 +131,9 @@ public enum Realtime {
     public static var tools: [[String: Any]] { [
         fn("show_game_ideas", "Note exactly 3 pretend game ideas you are suggesting out loud (there are no idea cards; say them).",
            ["ideas": array(object(["title": str, "pitch": str]))], required: ["ideas"]),
-        fn("set_game", "The kids picked a game.", ["title": str], required: ["title"]),
+        fn("set_game", "The kids picked a game (step 1). Ask for the theme next.", ["title": str], required: ["title"]),
+        fn("set_theme", "The kids picked the theme or twist (step 2). title = the full game title with the theme, "
+           + "e.g. \"Pancake Restaurant on the Moon\".", ["title": str], required: ["title"]),
         fn("set_player_count", "How many kids are playing (a number only; we never ask for names).",
            ["count": ["type": "integer"]], required: ["count"]),
         fn("set_roles", "Exactly one role per kid for the chosen game (as many entries as kids). With more than 4 kids, "
@@ -146,7 +148,11 @@ public enum Realtime {
            ["old_id": str, "new_id": propID, "becomes": str], required: ["old_id", "new_id", "becomes"]),
         fn("skip_prop", "The kids don't have a prop and will just pretend it. It stays on screen as a pretend prop.",
            ["id": str], required: ["id"]),
-        fn("finish_planning", "Planning is done; the app makes the printable kit now.", [:], required: [])
+        fn("finish_planning", "Planning is done; the app makes the printable kit now.", [:], required: []),
+        fn("set_expression", "Silently set your face for this turn (never mention it). Call it at the start of most turns.",
+           ["expression": ["type": "string", "enum": NutmegExpression.allCases.map(\.rawValue)],
+            "seconds": ["type": ["number", "null"], "description": "How long to hold it; null = this turn."] as [String: Any]],
+           required: ["expression", "seconds"])
     ] }
 
     // MARK: Client events
@@ -163,6 +169,11 @@ public enum Realtime {
     }
     public static var responseCreate: [String: Any] { ["type": "response.create"] }
     /// Speak a fixed line in Nutmeg's voice without adding it to the conversation (out-of-band response).
+    /// A silent steering note for the model (never shown in the chat, never spoken as is).
+    public static func systemNote(_ text: String) -> [String: Any] {
+        ["type": "conversation.item.create",
+         "item": ["type": "message", "role": "system", "content": [["type": "input_text", "text": text]]] as [String: Any]]
+    }
     public static func sayExactly(_ line: String) -> [String: Any] {
         ["type": "response.create",
          "response": ["conversation": "none", "output_modalities": ["audio"],
@@ -219,6 +230,30 @@ public enum Realtime {
     }
 }
 
+/// Nutmeg's face, chosen by the model with `set_expression` (decisions/conversation-camera-and-expressions.md).
+public enum NutmegExpression: String, CaseIterable, Sendable {
+    case happy, excited, ooh, thinking, listening, oops
+
+    /// Decodes `set_expression` arguments; nil for any other call or a bad value.
+    public static func decode(name: String, arguments: String) -> (expression: NutmegExpression, seconds: Double?)? {
+        guard name == "set_expression",
+              let obj = try? JSONSerialization.jsonObject(with: Data(arguments.utf8)) as? [String: Any],
+              let e = (obj["expression"] as? String).flatMap({ NutmegExpression(rawValue: $0.lowercased()) }) else { return nil }
+        let seconds = (obj["seconds"] as? NSNumber).map(\.doubleValue).flatMap { $0 > 0 ? min($0, 20) : nil }
+        return (e, seconds)
+    }
+
+    /// A reply that opens with an exclamation gets a quick matching blip when the model set no face for the turn.
+    public static func blip(forReplyStart text: String) -> NutmegExpression? {
+        let first = text.lowercased().drop { !$0.isLetter }.prefix { $0.isLetter }
+        switch first {
+        case "ooh", "oooh", "ooo", "wow", "whoa", "woah", "oh": return .ooh
+        case "yes", "yay", "yippee", "hooray", "woohoo": return .excited
+        default: return nil
+        }
+    }
+}
+
 /// A planning step the Realtime model asked for (decoded from a function call).
 public enum PlanningCall: Equatable, Sendable {
     public struct RoleDraft: Equatable, Sendable { public var roleName: String; public var job: String
@@ -233,6 +268,7 @@ public enum PlanningCall: Equatable, Sendable {
     }
     case showGameIdeas([GameIdea])
     case setGame(String)
+    case setTheme(String)
     case setPlayerCount(Int)
     case setRoles([RoleDraft])
     case showProps([PropDraft])
@@ -252,6 +288,8 @@ public enum PlanningCall: Equatable, Sendable {
             return ideas.isEmpty ? nil : .showGameIdeas(Array(ideas.prefix(Sanitizer.Limits.ideas)))
         case "set_game":
             let t = s(a, "title"); return t.isEmpty ? nil : .setGame(t)
+        case "set_theme":
+            let t = s(a, "title"); return t.isEmpty ? nil : .setTheme(t)
         case "set_player_count":
             guard let count = (a["count"] as? Int) ?? (a["count"] as? Double).map(Int.init) else { return nil }
             return .setPlayerCount(max(1, min(count, Players.max)))
