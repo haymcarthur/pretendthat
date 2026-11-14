@@ -57,13 +57,22 @@ enum NutmegPose: String, CaseIterable, Identifiable {
         default: UnitPoint(x: 600 / 1178, y: 788 / 1335)
         }
     }
-    /// Head nudge in canvas px (tuned visually; the shared canvas makes (0,0) correct for most poses).
+    /// Head nudge in canvas px (fix round 2, checked offline at every pose ±6° tilt with tools-style compositing):
+    /// the chin overlaps the shoulders by ~10–20 px on both sides and no background shows under it. Before this the
+    /// head sat ~12 px too high and blue showed between the chin and the right shoulder.
     var headOffset: CGSize {
         switch self {
-        case .sit: CGSize(width: 0, height: 5)
-        default: .zero
+        case .idle: CGSize(width: 0, height: 12)
+        case .wave: CGSize(width: 0, height: 12)
+        case .point: CGSize(width: 0, height: 12)
+        case .celebrate: CGSize(width: 0, height: 12)
+        case .sit: CGSize(width: 0, height: 17)
+        case .coloring: CGSize(width: 0, height: 12)
         }
     }
+    /// The neck plug: a fur-colored oval drawn BEHIND the body under the chin (canvas px, follows the head nudge), so
+    /// no background shows in the chin/shoulder junction at any head tilt.
+    static let neckPlug = CGRect(x: 600 - 180, y: 790 - 60, width: 360, height: 120)
     var headRotation: Double {
         switch self { case .idle, .wave, .celebrate: 0; case .point: 3; case .sit: -4; case .coloring: 5 }
     }

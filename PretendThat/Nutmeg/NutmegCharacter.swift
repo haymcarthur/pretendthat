@@ -123,7 +123,12 @@ struct NutmegCharacter: View {
                 .position(x: 561 * px, y: 1306 * px)
         }
         ZStack(alignment: .topLeading) {
-            ZStack {
+            ZStack(alignment: .topLeading) {
+                // Neck plug behind the body (fur color), riding the head nudge.
+                Ellipse().fill(Color(red: 0xA0 / 255, green: 0x62 / 255, blue: 0x3A / 255))
+                    .frame(width: NutmegPose.neckPlug.width * px, height: NutmegPose.neckPlug.height * px)
+                    .position(x: (NutmegPose.neckPlug.midX + pose.headOffset.width) * px,
+                              y: (NutmegPose.neckPlug.midY + pose.headOffset.height) * px)
                 layer(bodyAsset(pose)).id(pose).transition(.opacity)
             }
             .frame(width: w, height: h)

@@ -36,6 +36,13 @@ enum DemoDriver {
         return NutmegState(rawValue: args[i + 1])
     }
 
+    /// `-PTPose idle|wave|point|celebrate|sit|coloring`: hold Nutmeg's body pose on the stage (head/neck close-ups).
+    static var forcedPose: NutmegPose? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-PTPose"), i + 1 < args.count else { return nil }
+        return NutmegPose(rawValue: args[i + 1])
+    }
+
     /// `-PTPreview <i>`: open the kit page preview on page i once the pages land (screenshots).
     static var previewPage: Int? {
         let args = ProcessInfo.processInfo.arguments

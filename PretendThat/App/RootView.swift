@@ -117,7 +117,7 @@ struct RootView: View {
                     faceFocus: model.nutmegState.basePose.faceFocus,
                     frame: { g in stageFrame(g) }, itemCount: stageItems.count) {
             NutmegCharacter(state: model.nutmegState, mouthLevel: model.mouthLevel, mouthShape: model.mouthShape,
-                            isSpeaking: model.isSpeaking, cue: model.cue, showsGround: true)
+                            isSpeaking: model.isSpeaking, cue: model.cue, forcedPose: debugPose, showsGround: true)
                 .onTapGesture { if case .stepBack = store.phase { Task { _ = await store.helpRequested() } } }
         } overlay: { g, L in
             if model.inConversation {
@@ -132,6 +132,14 @@ struct RootView: View {
                 classicContent(g, L)
             }
         }
+    }
+
+    private var debugPose: NutmegPose? {
+        #if DEBUG
+        return DemoDriver.forcedPose
+        #else
+        return nil
+        #endif
     }
 
     /// The frame (shot + lane) this phase asks the one stage camera for.
