@@ -310,7 +310,7 @@ struct SuggestionsTests {
             #expect(TurnCheck.mentionsGoPlay(line), "\(line)")
             #expect(TurnCheck.nudge(for: line, step: .props) != nil)
         }
-        #expect(!TurnCheck.mentionsGoPlay(AdventureStore.kitReadyLine))
+        #expect(!TurnCheck.mentionsGoPlay(AdventureStore.kitReadyLine.replacingOccurrences(of: "Let's play", with: "")))
         #expect(AdventureStore.kitReadyLine.contains("Print"))
         #expect(Realtime.instructions.contains("NEVER say \"go play\""))
     }
@@ -388,7 +388,7 @@ struct SuggestionsTests {
         store.beginConversation()
         let early = await store.apply(.startPlay)
         #expect(early.contains("Almost ready") && store.phase == .pickGame)     // never before the kit exists
-        #expect(AdventureStore.kitReadyLine == "Your kit is ready! Tap Print, or tell me when you're ready to play!")
+        #expect(AdventureStore.kitReadyLine == "Your kit is ready! Tap Print to print it, then tap Let's play when you're set!")
         #expect(Realtime.instructions.contains("call start_play"))
         #expect(Realtime.instructions.contains("call print_kit"))
     }

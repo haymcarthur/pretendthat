@@ -73,7 +73,7 @@ struct SceneView: View {
                     .frame(width: geo.size.width, height: geo.size.height)
                 }
                 .frame(height: paper.height + 20)
-                PTSceneDoneButton(allChecked: store.checkedSteps.count == n, busy: store.autoChecking) { Task { await model.sceneDone() } }
+                PTChecklistActions(model: model, allChecked: store.checkedSteps.count == n)
                     .frame(width: width)
             }
             // Measure every tier's natural height at this width (hidden), then use the densest one that's needed.
@@ -142,6 +142,34 @@ struct PTSceneDoneButton: View {
     }
 }
 
+/// Round 16 (Haylee): the checklist's bottom row, on the stage card and in the chat panel's Checklist tab: "Hear it
+/// again" (Nutmeg reads the title and the steps left, for kids who can't read yet) beside "Done!". Same 64 pt height
+/// as Done! alone, so the round 14 fit (no clipping, long lists) is unchanged.
+struct PTChecklistActions: View {
+    let model: AppModel
+    var allChecked: Bool
+    var body: some View {
+        HStack(spacing: Theme.Space.s) {
+            PTHearAgainButton { model.repeatChecklist() }
+            PTSceneDoneButton(allChecked: allChecked, busy: model.store.autoChecking) { Task { await model.sceneDone() } }
+        }
+    }
+}
+
+/// "Hear it again": speaker icon + label, a 64 pt tall secondary pill (well over the 44 pt minimum).
+struct PTHearAgainButton: View {
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            Label("Hear it again", systemImage: "speaker.wave.2.fill")
+        }
+        .buttonStyle(PTButtonStyle(kind: .secondary, size: 19))
+        .fixedSize(horizontal: true, vertical: false)
+        .accessibilityLabel("Hear it again")
+        .accessibilityHint("Nutmeg reads the checklist out loud")
+    }
+}
+
 /// Round 10 rule (Haylee): every interactive card pinned in the chat panel (prop, kit, checklist, hand-off) shares
 /// one treatment: the panel's full width, a white rounded card with a hairline, readable sizes.
 struct PTPinnedCardStyle: ViewModifier {
@@ -176,9 +204,7 @@ struct PTScenePinnedCard: View {
         if let scene = store.kit?.scenes[index] {
             VStack(spacing: Theme.Space.m) {
                 PTSceneChecklist(model: model, scene: scene, tier: scene.steps.count <= 4 ? 1 : 3)   // the panel is narrower: smaller pictures, same readable text
-                PTSceneDoneButton(allChecked: store.checkedSteps.count == scene.steps.count, busy: store.autoChecking) {
-                    Task { await model.sceneDone() }
-                }
+                PTChecklistActions(model: model, allChecked: store.checkedSteps.count == scene.steps.count)
             }
             .padding(.vertical, Theme.Space.xs)
             .ptPinnedCard()

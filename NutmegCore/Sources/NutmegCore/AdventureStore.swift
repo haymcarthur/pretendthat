@@ -82,7 +82,8 @@ public final class AdventureStore {
     @ObservationIgnored private var holder: RoleID?
 
     /// The one line when the whole kit has landed (print step): about the pages, never "go play" (Haylee).
-    public nonisolated static let kitReadyLine = "Your kit is ready! Tap Print, or tell me when you're ready to play!"
+    /// Round 16 (Haylee): it names both buttons, so the kid knows to tap Let's play! after printing.
+    public nonisolated static let kitReadyLine = HandOffLines.printReady
 
     /// The FIRST prop line (round 7 choreography): asked for separately, after the roles finished playing and the card
     /// appeared with her point.
@@ -269,6 +270,7 @@ public final class AdventureStore {
         doneSnapshot = nil
         checkedSteps = snap.checked
         phase = .scene(snap.scene)
+        say(HandOffLines.backToChecklist)   // round 16: the checklist is back, so she says what to do
     }
 
     /// One quick idea for right now. Never throws; offline it uses a built-in idea.
@@ -551,12 +553,12 @@ public final class AdventureStore {
     }
 
     private func goToScene(_ i: Int) {
-        guard let kit, i < kit.scenes.count else { phase = .end; sayInPlay("The end! What a show! Take a bow!"); return }
+        guard let kit, i < kit.scenes.count else { phase = .end; sayInPlay(HandOffLines.end(canGoBack: canGoBackToChecklist)); return }
         // Hand-offs are by role (round 8: "iPad", and she says which button to tap; the card's button reads "I'm the Captain!").
         let owner = kit.scenes[i].owner.role
         if playerCount > 1, let owner, owner != holder, let role = plan?.role(for: owner) {
             phase = .handoff(sceneIndex: i)
-            sayInPlay("Pass the iPad to \(role.spoken)! Then tap I'm \(role.spoken)!")
+            sayInPlay(HandOffLines.handoff(spokenRole: role.spoken))
         } else {
             enterScene(i)
         }
@@ -565,7 +567,7 @@ public final class AdventureStore {
     private func enterScene(_ i: Int) {
         checkedSteps = []; doneSnapshot = nil
         phase = .scene(i)
-        if let s = kit?.scenes[i] { sayInPlay(s.nutmegSays) }
+        if let s = kit?.scenes[i] { sayInPlay(HandOffLines.checklist(sceneLine: s.nutmegSays, firstScene: i == 0)) }
     }
 
     private func say(_ line: String) {

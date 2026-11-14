@@ -291,6 +291,30 @@ final class AppModel {
         }
     }
     @ObservationIgnored private var cheerTask: Task<Void, Never>?
+
+    /// Round 16 (Haylee): "Hear it again" on the checklist. She reads the scene title and the steps not checked yet
+    /// (all of them if every one is checked). A pending cheer is dropped (never said late), the line waits for anything
+    /// she's saying to finish, and repeated taps are ignored while one is queued or just sent: one reply per tap.
+    func repeatChecklist() {
+        guard case .scene(let i) = store.phase, let scene = store.kit?.scenes[i], !store.autoChecking else { return }
+        guard repeatTask == nil, Date().timeIntervalSince(lastRepeatAt) > 2.5 else { return }
+        cheerTask?.cancel(); cheerTask = nil
+        lastRepeatAt = Date()
+        wakeUp()
+        repeatTask = Task { @MainActor in
+            defer { repeatTask = nil }
+            for _ in 0..<160 where (realtime.isLive ? realtime.voiceBusy : isSpeaking) && !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(50))   // never over another line (≤ 8 s)
+            }
+            guard !Task.isCancelled, case .scene(i) = store.phase else { return }
+            let line = HandOffLines.repeatText(title: scene.title, steps: scene.steps.map(\.text), checked: store.checkedSteps)
+            lastRepeatAt = Date()
+            rtLog("checklist repeat: \(line)")
+            if realtime.isLive { realtime.say(line) } else { speak(line) }
+        }
+    }
+    @ObservationIgnored private var repeatTask: Task<Void, Never>?
+    @ObservationIgnored private var lastRepeatAt = Date.distantPast
     /// The scene whose overall congratulations has been said (the last step checked normally).
     @ObservationIgnored private var congratulatedScene: Int?
 
@@ -355,7 +379,14 @@ final class AppModel {
             // Round 7: the ready line only now that the whole kit exists; about printing, never "go play".
             // Round 9: exactly once, even across a lock/background (deferred until the session is back).
             guard !kitReadySaid else { return }
+            // Round 16 (Haylee: at print-ready she said nothing): never over a kit progress line or a reply still
+            // playing; wait for quiet (≤ 6 s), then the one ready line naming both buttons.
+            for _ in 0..<120 where realtime.isLive && realtime.voiceBusy && !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(50))
+            }
+            guard !Task.isCancelled, !kitReadySaid else { return }
             kitReadySaid = true
+            rtLog("print ready line: \(AdventureStore.kitReadyLine)")
             speak(AdventureStore.kitReadyLine, deferIfAway: true)
         }
     }
