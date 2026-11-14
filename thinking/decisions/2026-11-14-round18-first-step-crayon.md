@@ -10,3 +10,6 @@
 - **What we found:** no stray red crayon in `nutmeg-body-writing.svg` or `nutmeg-writing-fingers.svg` (the body's only red path is a tiny shoulder sliver, not near the paw). The crayon layer is already the only crayon. The round 10 rock (~2.5° around the tip) swung the top end while the short visible middle near the tip (between paw and board) barely moved, so with the paw still it read as a stuck piece.
 - **Decision:** the safe fallback in Haylee's brief. The crayon no longer rocks relative to the paw. It moves with the body (breathing, transform) only. No art files changed, so there's no `.before-r18` backup.
 - **Later (idea):** a real scribble would need the fingers and crayon to move together as one unit.
+
+## Doubled valance (Haylee, 07:33)
+Round 15 added a curtain copy above the floor, and that copy also redrew the valance slightly out of line, so the top looked doubled. The copy now skips the valance (`PTCurtain(showsValance: false)`). Commit after e294f29/dab790e, pushed at 07:34.
