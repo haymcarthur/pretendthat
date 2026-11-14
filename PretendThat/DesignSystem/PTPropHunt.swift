@@ -205,20 +205,21 @@ struct PTPropDoneChip: View {
     var width: CGFloat = 180
 
     var body: some View {
-        HStack(spacing: Theme.Space.s) {
+        HStack(spacing: 8) {
             Group {
                 if let image = item.image { Image(uiImage: image).resizable().scaledToFit() } else { PTShimmer(tint: item.tint) }
             }
-            .frame(width: 44, height: 44)
+            .frame(width: 42, height: 42)
             .saturation(item.isPretend ? 0 : 1).opacity(item.isPretend ? 0.5 : 1)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(item.title).font(Theme.uiFont(15)).foregroundStyle(Theme.ink).lineLimit(1).minimumScaleFactor(0.7)
+            .overlay(alignment: .bottomTrailing) { PTPropBadge(item: item, side: 20).offset(x: 5, y: 5) }
+            VStack(alignment: .leading, spacing: 1) {
+                Text(item.title).font(Theme.uiFont(14)).foregroundStyle(Theme.ink).lineLimit(2).minimumScaleFactor(0.8)
+                    .fixedSize(horizontal: false, vertical: true)
                 if item.isPretend {
-                    Text("We'll pretend").font(Theme.uiFont(12, .medium)).foregroundStyle(Theme.inkMuted).lineLimit(1).minimumScaleFactor(0.6)
+                    Text("We'll pretend").font(Theme.uiFont(11, .medium)).foregroundStyle(Theme.inkMuted).lineLimit(1).minimumScaleFactor(0.7)
                 }
             }
             Spacer(minLength: 0)
-            badge
         }
         .padding(.horizontal, 10).padding(.vertical, 8)
         .frame(width: width)
@@ -227,7 +228,6 @@ struct PTPropDoneChip: View {
         .accessibilityElement(children: .combine)
     }
 
-    private var badge: some View { PTPropBadge(item: item) }
 }
 
 extension PTStageItem {

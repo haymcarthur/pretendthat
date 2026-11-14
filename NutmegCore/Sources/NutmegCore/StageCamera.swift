@@ -237,7 +237,7 @@ public enum PTStageDirector {
 
     /// Prop hunt zones (chat closed): the DONE stack on the left (≥ 24 pt from the rail), the ACTIVE card on the right
     /// (≥ 32 pt inside the curtain).
-    public static let doneStackWidth: CGFloat = 150, railGap: CGFloat = 24, curtainGap: CGFloat = 32
+    public static let doneStackWidth: CGFloat = 160, railGap: CGFloat = 24, curtainGap: CGFloat = 32
     public static func huntCardWidth(_ g: PTStageGeometry) -> CGFloat { min(320, max(240, g.size.width * 0.2)) }
     /// Chat open: a row of small round done thumbnails along the top of the stage.
     public static let thumbRow: CGFloat = 92
@@ -282,7 +282,7 @@ public enum PTStageDirector {
             // The active card docks in the chat panel; done props are a thumbnail row along the top.
             return PTStageFrame(shot: .medium, topReserve: thumbRow)
         }
-        return PTStageFrame(shot: .medium, leftReserve: railGap + doneStackWidth + 16,
+        return PTStageFrame(shot: .medium, leftReserve: 8 + doneStackWidth + 20,
                             rightReserve: huntCardWidth(g) + curtainGap + curtainInset + 20)
     }
 }
