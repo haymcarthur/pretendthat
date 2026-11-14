@@ -56,6 +56,12 @@ final class RealtimeSession {
     /// stores nothing). Lives on this @Observable, @MainActor session, the same instance the panel reads.
     private(set) var chat = RealtimeTranscript()
     var transcript: [RealtimeTranscript.Line] { chat.lines }
+    #if DEBUG
+    /// Demo screenshots: a realistic transcript (Nutmeg / kid turns alternate).
+    func debugSeedTranscript(_ turns: [String]) {
+        for (i, t) in turns.enumerated() { _ = chat.apply(i % 2 == 0 ? .transcriptDone(t) : .kidTranscript(t)) }
+    }
+    #endif
 
     /// Function call handler: returns the output for the model and whether Nutmeg should answer afterwards.
     @ObservationIgnored var onCall: (@MainActor (String, String) async -> (output: String, respond: Bool))?
