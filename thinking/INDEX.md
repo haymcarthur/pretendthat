@@ -79,6 +79,8 @@ The map. Read this first, then open only what you need.
 - [Round 17: the close (X) moves to the top-left corner; Repeat ("Hear it again") takes its slot in the control pill](decisions/2026-11-14-round17-close-corner-repeat-pill.md): Haylee (Claude's calls noted)
 - [Face art method: eyes/mouth only on green, attach the current eye sheet, swap one eye at a time; focus-face redo pending](decisions/2026-11-14-face-art-method.md): Haylee
 
+- [Launch prep: iPad install, pretendthat.app site, public repo + README, deck refresh](decisions/2026-11-14-launch-ipad-site-repo.md): Haylee
+
 ## Work queue
 - [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–15 done (round 15 = skip reassurance, varied kit lines, checklist cheers, floor behind the curtains)
 
