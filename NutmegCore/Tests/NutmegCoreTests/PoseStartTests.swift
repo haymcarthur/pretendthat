@@ -31,3 +31,15 @@ struct PoseStartTests {
         #expect(blinks >= 2)
     }
 }
+
+/// Prop lines (fix round 2): only the first prop explains "say found it / tell me if you don't".
+struct PropLineTests {
+    @Test func onlyFirstPropExplains() {
+        let first = AdventureStore.nextPropOutput(id: "plate", item: "Plate", becomes: "the steering wheel", n: 1)
+        let second = AdventureStore.nextPropOutput(id: "spoon", item: "Spoon", becomes: "the big stirrer", n: 2)
+        #expect(first.contains("explain ONCE"))
+        #expect(second.contains("Next, can you find a spoon? It'll be the big stirrer!"))
+        #expect(second.contains("Do NOT repeat"))
+        #expect(!second.contains("explain ONCE"))
+    }
+}

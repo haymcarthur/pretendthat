@@ -73,6 +73,17 @@ public final class AdventureStore {
     @ObservationIgnored private var retryAction: (() async -> Void)?
     @ObservationIgnored private var holder: RoleID?
 
+    /// What she says for a new prop card (prop-gathering-flow.md, fix round 2): only the FIRST prop explains how to
+    /// answer; later props stay short ("Next, can you find a spoon? It'll be the big stirrer!").
+    public nonisolated static func nextPropOutput(id: String, item: String, becomes: String, n: Int) -> String {
+        let how = n == 1
+            ? "This is the FIRST prop: say what to find and what it becomes, then explain ONCE: say 'found it' when you have it, or tell me if you don't."
+            : "This is prop \(n): keep it SHORT, like \"Next, can you find a \(item.lowercased())? It'll be \(becomes)!\" Do NOT repeat 'say found it' or 'tell me if you don't have it' (they already know)."
+        return "Card \(id) is on screen (prop \(n)). \(how) Then wait. Found: mark_found then show_next_prop. Missing: "
+            + "swap_prop (one alternate) or skip_prop, then show_next_prop. After 3 to 5 props, finish_planning."
+            + (n >= 3 ? " (You have \(n); finishing after this one is fine.)" : "")
+    }
+
     public static let oops = "Oops, my clipboard got mixed up! Let's try that again."
 
     public init(service: PhaseService?) { self.service = service }
@@ -275,7 +286,7 @@ public final class AdventureStore {
             phase = .players; presenting = .none; planningStep = .props
             let cast = plan!.roles.map { $0.count > 1 ? "\($0.count) \($0.roleName)s" : $0.roleName }.joined(separator: ", ")
             let short = drafts.count < playerCount ? " You gave \(drafts.count) roles for \(playerCount) kids, so the last role is shared." : ""
-            return "Roles set: \(cast).\(short) Step 4: announce the roles with excitement (there are no role cards; kids pick their own badge after printing) and end with a quick \"Sound good?\". Then step 5: show_props."
+            return "Roles set: \(cast).\(short) Step 4: announce the roles with excitement (there are no role cards; kids pick their own badge after printing) and end with a quick \"Sound good?\". Do NOT name any prop in this turn: wait for their answer, then step 5: show_next_prop."
         case .showProps(let drafts):
             var used = Set<String>()
             let list: [Prop] = drafts.enumerated().compactMap { i, d in
@@ -311,10 +322,7 @@ public final class AdventureStore {
             props = p; currentPropID = id
             phase = .props; presenting = .props; planningStep = .props
             let n = p.props.count
-            return "Card \(id) is on screen (prop \(n)). Say what to find and what it becomes, and end by asking them to say "
-                + "'found it' or tell you if they don't have it. Then wait. Found: mark_found then show_next_prop. Missing: "
-                + "swap_prop (one alternate) or skip_prop, then show_next_prop. After 3 to 5 props, finish_planning."
-                + (n >= 3 ? " (You have \(n); finishing after this one is fine.)" : "")
+            return Self.nextPropOutput(id: id, item: PropLibrary.name(d.itemID) ?? d.itemID, becomes: d.becomes, n: n)
         case .markFound(let id):
             guard let p = props, let prop = p.props.first(where: { $0.id == id || $0.libraryID == id }) ?? p.props.first(where: { $0.id == currentPropID }) else {
                 return "No prop with id \(id)."
