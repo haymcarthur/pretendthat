@@ -11,12 +11,33 @@ struct ComponentGallery: View {
     @State private var confetti = 0
     @State private var typing = false
     @State private var paperRun = 0
+    @State private var startRun = 0
+    @State private var curtain = 0.5
 
     private var plan: GamePlan { Fallback.airplane.plan }
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: Theme.Space.xl) {
+                section("Start screen: PTToyChestScene (tap Replay), PTTitleCard + PTLogo (builds in), PTStartButton, PTCurtain (slider: closed → framed)") {
+                    VStack(alignment: .leading, spacing: Theme.Space.m) {
+                        PTToyChestScene(toys: PTStartArt.demoToys, onStart: {}) { waving in
+                            NutmegCharacter(state: .idle, forcedPose: waving ? .wave : nil)
+                        }
+                        .id(startRun)
+                        .frame(width: 900, height: 620).clipShape(RoundedRectangle(cornerRadius: Theme.smallRadius))
+                        Button("Replay") { startRun += 1 }.buttonStyle(.ptSecondary)
+                        HStack(spacing: Theme.Space.l) {
+                            PTTitleCard(logoTime: nil, logoWidth: 300)
+                            PTStartButton {}
+                            PTLogo().frame(width: 200)
+                        }
+                        Slider(value: $curtain, in: 0...1).frame(width: 300)
+                        ZStack { Theme.startSky; PTCurtain(progress: curtain) }
+                            .frame(width: 600, height: 400).clipped()
+                    }
+                    .padding().background(Theme.canvas)
+                }
                 section("Layout chrome (Emote style): PTStepRail states (current = star-yellow FFC93C, bold ink), PTControlBar states") {
                     HStack(alignment: .top, spacing: Theme.Space.l) {
                         PTStepRail(current: .game, reached: .game) { _ in }

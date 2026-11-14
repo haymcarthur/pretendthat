@@ -59,6 +59,10 @@ for f in sorted(glob.glob(os.path.join(SRC, "actions", "*.svg"))):   # checklist
     put(os.path.basename(f)[:-4], strip_hidden(open(f).read())); n += 1
 for f in sorted(glob.glob(os.path.join(SRC, "props", "*.svg"))):
     put(os.path.basename(f)[:-4], open(f).read()); n += 1
+for f in sorted(glob.glob(os.path.join(SRC, "startscreen", "*.svg"))):   # start screen: chest, lids, toys, curtains
+    put(os.path.basename(f)[:-4], strip_hidden(open(f).read())); n += 1
+for f in sorted(glob.glob(os.path.join(SRC, "logo", "*.svg"))):   # logo: full + per-letter parts (logo-layout.json)
+    put(os.path.basename(f)[:-4], open(f).read()); n += 1
 # Placeholder layers the new art doesn't use (ears/tail are drawn into head-base and the bodies).
 for old in ["nutmeg-tail", "nutmeg-ears-normal", "nutmeg-ears-perked", "nutmeg-peek"]:
     d = os.path.join(DST, f"{old}.imageset")

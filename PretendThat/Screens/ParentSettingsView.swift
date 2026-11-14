@@ -12,6 +12,10 @@ struct ParentSettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    PTLogo().frame(maxWidth: 320).frame(maxWidth: .infinity)
+                        .listRowBackground(Color.clear)
+                }
                 Section("Connections") {
                     LabeledContent("Story brain (Claude)", value: model.hasClaude ? "Key set ✓" : "Not set: using the built-in airplane game")
                     LabeledContent("Kit pictures (OpenAI)", value: !model.hasImages ? "Not set: app-drawn pages"

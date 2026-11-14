@@ -23,7 +23,10 @@ struct RootView: View {
                 Group {
                     // The conversation stage spans the whole area left of the chat panel so Nutmeg centers on the
                     // screen (and the control pill); it keeps its cards clear of the rail and pill itself.
-                    if model.inConversation { conversation.transition(.opacity) } else {
+                    if store.phase == .hello {
+                        // Start screen: full-bleed toy-chest scene, no step rail or control pill.
+                        HelloView(model: model, onGrownUps: { showSettings = true }).transition(.opacity)
+                    } else if model.inConversation { conversation.transition(.opacity) } else {
                         classic.transition(.opacity)
                             .padding(.leading, chromeVisible ? 104 : 0)
                             .padding(.bottom, chromeVisible ? 92 : 0)
@@ -162,7 +165,7 @@ struct RootView: View {
 
     @ViewBuilder private var stage: some View {
         switch store.phase {
-        case .hello: HelloView(model: model)
+        case .hello: EmptyView()   // the start screen replaces the classic stage (see body)
         case .pickGame: PickGameView(model: model)
         case .players: PlayersView(model: model)
         case .props: PropsView(model: model)
@@ -175,9 +178,6 @@ struct RootView: View {
     }
 
     @ViewBuilder private var bottomBar: some View {
-        if store.phase == .hello {
-            PTParentGate(label: "Grown-ups", symbol: "gearshape") { showSettings = true }
-        }
         if store.lastError != nil {
             Button { Task { await store.retry() } } label: { Label("Try again", systemImage: "arrow.clockwise") }.buttonStyle(.ptSecondary)
             Button { store.useFallback() } label: { Label("Play airplane", systemImage: "airplane") }.buttonStyle(.ptQuiet)

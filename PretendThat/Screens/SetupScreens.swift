@@ -5,14 +5,32 @@ import NutmegCore
 
 struct HelloView: View {
     let model: AppModel
+    var onGrownUps: () -> Void = {}
+    /// Six of the ten toys, a new mix each launch (fixed while a DEBUG frame is frozen).
+    @State private var toys: [String] = {
+        #if DEBUG
+        if DemoDriver.startFreeze != nil { return PTStartArt.demoToys }
+        #endif
+        return Array(PTStartArt.toys.shuffled().prefix(6))
+    }()
+
     var body: some View {
-        VStack(spacing: Theme.Space.l) {
-            PTText("PretendThat", .hero)
-            PTSpeechBubble(text: "Hi! I'm Nutmeg! Let's put on a show!")
-            Button("Let's play!") { Task { await model.startConversation() } }
-                .buttonStyle(.ptSecondary)
-                .ptPopIn(index: 1)
+        PTToyChestScene(toys: toys, frozenAt: freeze, onStart: { Task { await model.startConversation() } }) { waving in
+            NutmegCharacter(state: .idle, forcedPose: waving ? .wave : nil)
         }
+        .overlay(alignment: .topTrailing) {
+            // Over the right curtain, under the valance: clear of the toys and the title card.
+            PTParentGate(label: "Grown-ups", symbol: "gearshape", onComplete: onGrownUps)
+                .padding(.top, 84).padding(.trailing, Theme.Space.m)
+        }
+    }
+
+    private var freeze: Double? {
+        #if DEBUG
+        return DemoDriver.startFreeze
+        #else
+        return nil
+        #endif
     }
 }
 

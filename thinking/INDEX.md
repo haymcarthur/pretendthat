@@ -44,6 +44,7 @@ The map. Read this first, then open only what you need.
 - [Fix round 1: stage camera, kit grid, page preview, page fill](decisions/fix-round-1.md): Haylee
 - Mascot update (rest pose, brief gestures, pop swaps) in [Mascot: Nutmeg](decisions/mascot-nutmeg.md): Haylee
 - [Roles, not names](decisions/roles-not-names.md): Haylee (no kids' names; kid count decides roles; badges with role title + blank name line; hand-offs by role; only prop cards on stage)
+- [Start screen: curtains, toy chest, logo](decisions/start-screen.md): Haylee (sequence, art); Claude's calls noted
 - [Checklist and scene pictures, no emoji](decisions/checklist-pictures.md): Haylee (prop / action / kit pictures; cut-outs generated one per item; confetti uses stage art)
 
 ## Research

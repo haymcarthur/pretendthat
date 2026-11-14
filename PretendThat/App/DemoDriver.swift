@@ -19,6 +19,13 @@ enum DemoDriver {
         switch args[i + 1] { case "closeUp": return .closeUp; case "medium": return .medium; case "wide": return .wide; default: return nil }
     }
 
+    /// `-PTStartAt <seconds>`: hold the start screen's opening sequence at that time (screenshots).
+    static var startFreeze: Double? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-PTStartAt"), i + 1 < args.count else { return nil }
+        return Double(args[i + 1])
+    }
+
     /// `-PTChat`: open the chat panel at launch (screenshots).
     static var chatOpen: Bool { ProcessInfo.processInfo.arguments.contains("-PTChat") }
 

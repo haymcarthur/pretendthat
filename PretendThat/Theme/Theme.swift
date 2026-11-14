@@ -30,6 +30,10 @@ enum Theme {
     static let chipGray = Color(red: 0xED / 255, green: 0xED / 255, blue: 0xED / 255)
     /// Ground oval under Nutmeg.
     static let ground = Color(red: 0xE7 / 255, green: 0xE5 / 255, blue: 0xE1 / 255)
+    /// Start screen sky (PTToyChestScene). Swap here to change it, e.g. to teal `Color(hex: 0xA8DDD6)`.
+    static let startSky = Color(hex: 0xCDEBF5)
+    /// Start screen floor ellipse under the toy chest.
+    static let startFloor = cream
     /// Primary call-to-action pill.
     static let cta = Color(red: 0x11 / 255, green: 0x11 / 255, blue: 0x11 / 255)
     /// UI label fonts: calmer medium/semibold rounded (heavy display only for big moments).

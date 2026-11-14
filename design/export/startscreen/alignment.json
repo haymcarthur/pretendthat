@@ -1,0 +1,12 @@
+{
+  "source": "Figma 8e4btNgdUzrGeaA6TYH8Zq: image 17 [Vectorized] (chest parts), image 18 (toys), image 19 (closed curtains); hidden backups *-backup-before-startscreen / -before-curtains",
+  "chestFrame": {"width": 650, "height": 620, "note": "chest-body, chest-lid-closed and chest-lid-open share this frame and scale 1:1; stack them at (0,0)."},
+  "fromSourceImage": {"origin": [37, -45], "lidClosedShift": [-725.5, -99], "lidOpenShift": [-1451.5, -226], "note": "frame px = image px - origin (+ shift for the lids). Lids centered on the body (x 362 in the image); closed lid bottom at image y 362 (covers the opening, clasps stack); open lid hinge (bottom) at image y 262, tucked behind the body's back rim."},
+  "bodyArt": {"x": 18, "y": 290, "width": 614, "height": 326},
+  "openingFrontEdgeY": 372,
+  "openingX": [100, 550],
+  "openLidHingeY": 307,
+  "layering": "lid-open (behind) -> body -> Nutmeg (clipped above y 372) -> lid-closed (on top while closed)",
+  "toys": "tight frames; final toy set = 8 new toys + prop-stuffed-animal + prop-toy-car",
+  "curtains": "curtain-closed-left/right 544x970 each, same height"
+}
