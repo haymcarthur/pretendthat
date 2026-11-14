@@ -16,6 +16,25 @@ def put(name, svg_text):
     json.dump({"images": [{"filename": f"{name}.svg", "idiom": "universal"}], "info": {"author": "xcode", "version": 1},
                "properties": {"preserves-vector-representation": True}}, open(os.path.join(d, "Contents.json"), "w"), indent=2)
 
+HIDDEN = re.compile(r'display\s*[:=]\s*"?\s*none|visibility\s*[:=]\s*"?\s*hidden|\bid="eyes-old"', re.I)
+
+def strip_hidden(svg):
+    """Drops hidden content (display:none, visibility:hidden, a group id'd eyes-old) so Figma's hidden layers never render."""
+    tags = list(re.finditer(r'<(/?)([a-zA-Z]+)\b[^>]*?(/?)>', svg))
+    skip_until, depth, res, pos = None, 0, [], 0
+    for t in tags:
+        closing, selfclose, tag = t.group(1) == "/", t.group(3) == "/" or t.group(0).endswith("/>"), t.group(0)
+        if skip_until is None:
+            if not closing and HIDDEN.search(tag):
+                res.append(svg[pos:t.start()])
+                if selfclose: pos = t.end(); continue
+                skip_until, depth = t.group(2), 1; continue
+        else:
+            if t.group(2) == skip_until and not selfclose: depth += -1 if closing else 1
+            if depth == 0: skip_until, pos = None, t.end()
+    res.append(svg[pos:] if skip_until is None else "")
+    return "".join(res)
+
 def split_face(svg):
     head, body_end = svg[:svg.index(">") + 1], "</svg>"
     els = re.findall(r'<(?:path|ellipse|circle|rect)\b[^>]*?/>', svg, re.S)
@@ -26,7 +45,7 @@ def split_face(svg):
 
 n = 0
 for f in sorted(glob.glob(os.path.join(SRC, "nutmeg", "*.svg"))):
-    name = os.path.basename(f)[:-4]; svg = open(f).read()
+    name = os.path.basename(f)[:-4]; svg = strip_hidden(open(f).read())
     if name.startswith("nutmeg-face-"):
         eyes, mouth = split_face(svg)
         put(name, eyes); put(name + "-mouth", mouth); n += 2
@@ -37,7 +56,7 @@ for f in sorted(glob.glob(os.path.join(SRC, "stage", "*.svg"))):
     if name == "stage-beam": continue
     put(name, open(f).read()); n += 1
 for f in sorted(glob.glob(os.path.join(SRC, "actions", "*.svg"))):   # checklist action pictures (action-<id>)
-    put(os.path.basename(f)[:-4], open(f).read()); n += 1
+    put(os.path.basename(f)[:-4], strip_hidden(open(f).read())); n += 1
 for f in sorted(glob.glob(os.path.join(SRC, "props", "*.svg"))):
     put(os.path.basename(f)[:-4], open(f).read()); n += 1
 # Placeholder layers the new art doesn't use (ears/tail are drawn into head-base and the bodies).
