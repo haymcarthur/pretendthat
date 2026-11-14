@@ -70,9 +70,10 @@ enum NutmegPose: String, CaseIterable, Identifiable {
         case .coloring: CGSize(width: 0, height: 12)
         }
     }
-    /// The neck plug: a fur-colored oval drawn BEHIND the body under the chin (canvas px, follows the head nudge), so
-    /// no background shows in the chin/shoulder junction at any head tilt.
-    static let neckPlug = CGRect(x: 600 - 180, y: 790 - 60, width: 360, height: 120)
+    /// The neck plug: a SMALL fur-colored oval behind the body, fully hidden under the chin and behind the vest (it must
+    /// never reach past the shoulder outline; a wide one showed as a brown lump on the shoulders). The chin overlap
+    /// itself comes from `headOffset`.
+    static let neckPlug = CGRect(x: 600 - 80, y: 800 - 35, width: 160, height: 70)
     var headRotation: Double {
         switch self { case .idle, .wave, .celebrate: 0; case .point: 3; case .sit: -4; case .coloring: 5 }
     }
