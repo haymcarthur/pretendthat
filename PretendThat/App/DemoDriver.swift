@@ -120,6 +120,8 @@ enum DemoDriver {
             if turn == "#done" { await model.sceneDone(); continue }
             // Round 15: "#check N": the kid checks step N of the current scene's checklist.
             if turn.hasPrefix("#check "), let n = Int(turn.dropFirst(7)) { model.checkStep(n); continue }
+            // Round 16: "#repeat": the checklist's Hear it again button.
+            if turn == "#repeat" { model.repeatChecklist(); continue }
             if turn == "#scenes" {   // the kit's scene intro lines (round 13: each says "Pretend that")
                 for (i, sc) in (model.store.kit?.scenes ?? []).enumerated() { rtLog("SCENE[\(i)] \(sc.nutmegSays)") }
                 continue

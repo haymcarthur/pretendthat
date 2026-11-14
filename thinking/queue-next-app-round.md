@@ -100,3 +100,6 @@ Art ready in design/export/ to import:
 2. KIT COMMENTARY ALWAYS THE SAME: 30+ lines per real page kind, random, no repeats, only about pages being made. **DONE R15** (42 lines).
 3. CHECKLIST CHECK-OFFS: short varied "good job" + next step; overall congrats on the last check or an early Done!; one reply per action, no overlap, in the chat. **DONE R15.**
 4. FLOOR IN FRONT OF THE CURTAINS (The End, any pulled-back camera): curtains/valance/tie-backs always above the floor. **DONE R15.**
+## Round 16 (Haylee's daughter's test, 2026-11-14 morning) — DONE R16 (decisions/2026-11-14-round16-handoff-speech-repeat.md)
+1. NEVER HAND OFF IN SILENCE: whenever a button appears or the screen waits on the kid, Nutmeg says the next step out loud with the real button labels (print ready, hand-off card, checklist appearing, The End; audit found Back to the checklist too). One line, in the chat. **DONE R16.**
+2. CHECKLIST "HEAR IT AGAIN": speaker pill (stage card beside Done!, chat panel's Checklist tab under Done!) reads the title + the unchecked steps (all if all checked); cancels a stale cheer, debounced, one reply per tap. No Back existed on the checklist card to move (noted). **DONE R16.**

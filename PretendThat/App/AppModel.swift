@@ -298,6 +298,8 @@ final class AppModel {
     func repeatChecklist() {
         guard case .scene(let i) = store.phase, let scene = store.kit?.scenes[i], !store.autoChecking else { return }
         guard repeatTask == nil, Date().timeIntervalSince(lastRepeatAt) > 2.5 else { return }
+        // A tap while the read-aloud itself is still playing doesn't queue a second one.
+        if Date().timeIntervalSince(lastRepeatAt) < 20 && (realtime.isLive ? realtime.isSpeaking : isSpeaking) { return }
         cheerTask?.cancel(); cheerTask = nil
         lastRepeatAt = Date()
         wakeUp()
