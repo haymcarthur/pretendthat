@@ -54,4 +54,15 @@ testing round 14 (f7644fc). Implementation details are Claude's calls, noted.
 - NutmegCore: 189 green (was 178): + Round15LinesTests (kit pool size and rules, only-in-progress topics, random with
   no repeats, no same topic twice, deck cycling, skip reassurance and note, kit lead-in freshness, deferred tap turn,
   checklist cheer wording and variety, early-Done congratulations).
-- Live check: see "Live run" below.
+- Live check: see "Live run" below (189 still green after its two fixes).
+
+## Live run (typed harness on a second simulator, /tmp/pt-round15/live1/console.log)
+- Turns: airplane, moon, "just me", Found, Don't have (swap), Don't have again 0.7 s later (while the swap reply was
+  still running), Found, kit, Let's play, check step 0, check step 1 quickly, early Done!.
+- Swap: one reply ("A bag works too as the pilot cap."). Quick second tap: `deferred turn` fired, then one reply:
+  "That's okay, we'll just pretend that your hands are the pilot cap! Can you find a blanket?..." In the chat.
+- Kit lines: two different random lines (sign, badges), each in the chat.
+- Checklist: "Good job! Next up: hang up the Moon Airlines sign!", then "Look at you go! Now, set the box by your
+  seat!" (no overlap); early Done!: "Hooray, you did the whole scene! Pretend that teddy passengers..." (one line).
+- Two bugs found and fixed after the run: the kit lead-in repeated the reassurance after the skip reply had already
+  said it (now cleared whenever the next prop card comes out), and "the the pilot cap" (articles stripped).

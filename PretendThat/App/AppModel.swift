@@ -383,6 +383,9 @@ final class AppModel {
             _ = await store.apply(.markFound(cur))
             rtLog("hunt: show_next_prop without mark_found: \(cur) checked off")
         }
+        // Round 15: the skip's reassurance goes with the next prop card; only a hunt that ends right after the skip
+        // (finish_planning) uses it as the kit line's lead-in (live run: it was said twice).
+        if case .showNextProp = call { store.kitLeadIn = nil }
         let output = await store.apply(call)
         realtime.huntMode = store.huntActive
         if case .showNextProp = call {

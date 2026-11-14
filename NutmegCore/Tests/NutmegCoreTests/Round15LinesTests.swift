@@ -111,6 +111,7 @@ struct SeededRNG: RandomNumberGenerator {
         seen.insert(line)
     }
     #expect(seen.count == PropSkip.templates(item: "x", becomes: "y").count)   // varied
+    #expect(!PropSkip.templates(item: "Hat", becomes: "the pilot cap").contains { $0.contains("the the") })
     let note = PropSkip.note(item: "Pillow", becomes: "seats", then: "call show_next_prop for the next prop")
     #expect(note.contains("That's okay, we'll just pretend that") && note.contains("show_next_prop") && note.contains("don't call skip_prop"))
 }

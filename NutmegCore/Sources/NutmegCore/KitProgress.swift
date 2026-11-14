@@ -106,7 +106,11 @@ public enum KitProgress {
 /// "making your kit" line starts with it).
 public enum PropSkip {
     public static func templates(item: String, becomes: String) -> [String] {
-        let item = item.lowercased(), becomes = becomes.lowercased()
+        let item = item.lowercased()
+        var becomes = becomes.lowercased().trimmingCharacters(in: .whitespaces)
+        for article in ["the ", "a ", "an ", "your ", "our "] where becomes.hasPrefix(article) {   // "the the pilot cap" (live run)
+            becomes = String(becomes.dropFirst(article.count))
+        }
         let thing = becomes.isEmpty ? item : becomes
         return ["That's okay, we'll just pretend that we have a magic \(item)!",
                 "That's okay, we'll just pretend that your hands are the \(thing)!",
