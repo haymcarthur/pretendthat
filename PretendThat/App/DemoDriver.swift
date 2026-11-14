@@ -70,6 +70,7 @@ enum DemoDriver {
     }
 
     @MainActor static func drive(_ store: AdventureStore, model: AppModel, to target: String) async {
+        if !target.hasPrefix("conv") { model.realtime.debugSeedTranscript(demoTranscript) }
         if target.hasPrefix("conv") { await conversation(store, model: model, to: target); return }
         if target == "coloring" {   // the kit loader: Nutmeg coloring, clipboard back
             await drive(store, model: model, to: "props")
@@ -111,17 +112,20 @@ enum DemoDriver {
         }
     }
 
-    /// Conversation stage shots: convClose (close-up), convIdeas, convRoles, convProps.
-    @MainActor static func conversation(_ store: AdventureStore, model: AppModel, to target: String) async {
-        model.forceConversation = true
-        store.beginConversation()
-        model.realtime.debugSeedTranscript([
+    static let demoTranscript = [
             "Hi! I'm Nutmeg! What should we pretend today?", "An airplane!",
             "Ooh, an airplane! How many friends are flying with us?", "Three!",
             "Three! We need a Captain, a Flight Attendant and a Passenger. Ready to find props?", "Yes!",
             "First, can you find a plate? It'll be the steering wheel! Say 'found it' or tell me if you don't have it.", "Found it!",
             "Yay! Next, can you find a chair? It'll be the plane seats!", "We don't have one.",
-            "No problem, we'll pretend! Next, can you find a tray? It'll be the snack cart!"])
+            "No problem, we'll pretend! Next, can you find a tray? It'll be the snack cart!"]
+
+
+    /// Conversation stage shots: convClose (close-up), convIdeas, convRoles, convProps.
+    @MainActor static func conversation(_ store: AdventureStore, model: AppModel, to target: String) async {
+        model.forceConversation = true
+        store.beginConversation()
+        model.realtime.debugSeedTranscript(demoTranscript)
         if target == "convClose" { return }
         _ = await store.apply(.showGameIdeas([GameIdea(id: "a", title: "Airplane", emoji: "", pitch: "fly to the beach"),
                                               GameIdea(id: "b", title: "Cozy Café", emoji: "", pitch: "serve yummy snacks"),

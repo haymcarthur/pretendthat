@@ -118,3 +118,46 @@ extension View {
         }
     }
 }
+
+/// The kit papers docked at the top of the chat panel (chat open): a horizontal strip of page thumbnails (tap to open
+/// the full-size preview) and the black hold-to-print pill. Chat closed keeps the fan beside Nutmeg.
+struct PTKitPinnedCard<Page: View>: View {
+    let count: Int
+    var onTap: (Int) -> Void
+    var onPrint: () -> Void
+    var onPlay: () -> Void
+    /// Page i drawn at `PTKitPinnedCard.thumb` size.
+    @ViewBuilder var page: (Int) -> Page
+    static var thumb: CGSize { CGSize(width: 74, height: 96) }
+
+    var body: some View {
+        VStack(spacing: Theme.Space.s) {
+            ScrollView(.horizontal) {
+                HStack(spacing: Theme.Space.xs) {
+                    ForEach(0..<count, id: \.self) { i in
+                        page(i)
+                            .frame(width: Self.thumb.width, height: Self.thumb.height)
+                            .background(Theme.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Theme.line, lineWidth: 1))
+                            .rotationEffect(.degrees(i % 2 == 0 ? -2 : 2))
+                            .padding(.vertical, 4)
+                            .contentShape(Rectangle())
+                            .onTapGesture { onTap(i) }
+                            .accessibilityLabel("Page \(i + 1)")
+                            .accessibilityAddTraits(.isButton)
+                    }
+                }
+                .padding(.horizontal, 4)
+            }
+            .scrollIndicators(.hidden)
+            HStack(spacing: Theme.Space.xs) {
+                PTParentGate(label: "Print", onComplete: onPrint)
+                Button("Let's play!", action: onPlay).buttonStyle(.ptSecondary)
+            }
+        }
+        .padding(Theme.Space.s)
+        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Theme.white))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Theme.line, lineWidth: 1.5))
+    }
+}

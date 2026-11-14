@@ -37,15 +37,9 @@ public enum PoseRules {
 }
 
 extension PoseRules {
-    /// The coloring pose appears ONLY during a planning beat or while the kit is being made (planning-beats.md,
-    /// no-text-overlays.md). Everything else (including the start of the conversation) rests in idle.
-    public static func isColoring(phase: Phase, planningBeat: Bool, kitBeat: PTStageDirector.KitBeat) -> Bool {
-        if planningBeat { return true }
-        switch phase {
-        case .makingKit, .kitReady: return kitBeat == .coloring
-        default: return false
-        }
-    }
+    /// Coloring is retired (Haylee, revert-animation.md): no coloring pose, crayon or focus face in the conversation
+    /// or while the kit is made. She rests in idle with her expressions.
+    public static func isColoring(phase: Phase, planningBeat: Bool, kitBeat: PTStageDirector.KitBeat) -> Bool { false }
 }
 
 /// Resting motion (motion-and-surface.md) as plain numbers, so it can be checked: subtle breathing and a blink at a

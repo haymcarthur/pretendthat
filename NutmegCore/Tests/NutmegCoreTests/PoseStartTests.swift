@@ -2,7 +2,7 @@ import Testing
 @testable import NutmegCore
 
 /// Regression (Haylee's recording): the conversation must start in the idle pose with live resting motion; the
-/// coloring pose only appears during a planning beat or while the kit is made.
+/// coloring pose is retired.
 struct PoseStartTests {
     @Test func conversationStartsIdle() {
         for phase in [Phase.pickGame, .players, .props] {
@@ -12,11 +12,12 @@ struct PoseStartTests {
         }
     }
 
-    @Test func coloringOnlyInBeatsAndKit() {
-        #expect(PoseRules.isColoring(phase: .pickGame, planningBeat: true, kitBeat: .papers))
-        #expect(PoseRules.isColoring(phase: .makingKit, planningBeat: false, kitBeat: .coloring))
-        #expect(!PoseRules.isColoring(phase: .kitReady, planningBeat: false, kitBeat: .lookUp))
-        #expect(!PoseRules.isColoring(phase: .scene(0), planningBeat: false, kitBeat: .coloring))
+    @Test func neverColoring() {   // revert-animation.md: idle with expressions, also while the kit is made
+        for phase in [Phase.pickGame, .props, .makingKit, .kitReady, .scene(0)] {
+            for beat in [PTStageDirector.KitBeat.coloring, .lookUp, .papers] {
+                #expect(!PoseRules.isColoring(phase: phase, planningBeat: true, kitBeat: beat))
+            }
+        }
     }
 
     @Test func idleMotionIsActive() {

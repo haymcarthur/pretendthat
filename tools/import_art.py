@@ -74,6 +74,7 @@ n = 0
 for f in sorted(glob.glob(os.path.join(SRC, "nutmeg", "*.svg"))):
     name = os.path.basename(f)[:-4]; svg = strip_hidden(open(f).read())
     if name.endswith(".v1") or ".before" in name: continue   # superseded art / Figma backups kept for reference
+    if name.startswith("nutmeg-body-coloring") or name.startswith("nutmeg-coloring-"): continue   # coloring retired (revert-animation.md)
     if name.startswith("nutmeg-face-"):
         eyes, mouth = split_face(svg)
         put(name, eyes); put(name + "-mouth", mouth); n += 2

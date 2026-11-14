@@ -499,16 +499,6 @@ final class RealtimeSession {
             chat.apply(event)
         case .speechStarted: kidIsTalking = true; silenceTask?.cancel()
         case .speechStopped: kidIsTalking = false; if !huntMode { kidTurnEnded() }
-        case .functionCall(let name, let callID, let args) where name == "start_planning":
-            let topic = (try? JSONSerialization.jsonObject(with: Data(args.utf8)) as? [String: Any])?["topic"] as? String ?? "props"
-            let beat = onPlanningBeat
-            beatRunning = true
-            // No automatic replies while she colors (room noise or a kid would otherwise start a turn mid-beat).
-            if !huntMode { socket?.send(Realtime.autoRespond(false)) }
-            beatTask = Task { await beat?(topic) }
-            pendingOutputs.append((callID, "You planned it on your clipboard. Look up and announce it now (and call "
-                                   + (topic == "roles" ? "set_roles" : "show_next_prop") + ")."))
-            wantsResponse = true
         case .functionCall(let name, let callID, let args) where name == "set_expression":
             // Silent and instant: never waits on the app, never blocks audio.
             if let d = NutmegExpression.decode(name: name, arguments: args) { setExpression(d.expression, seconds: d.seconds, fromModel: true) }

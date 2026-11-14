@@ -21,14 +21,16 @@ public struct PTStageFrame: Equatable, Sendable {
     public var topReserve: CGFloat = 0
     /// Presented cards in two columns beside her (wide shot only).
     public var cards: Int = 0
-    /// Close-up: aim at this canvas point instead of the pose's face (kit coloring aims at face + clipboard top).
-    public init(shot: PTCameraShot, leftReserve: CGFloat = 0, rightReserve: CGFloat = 0, topReserve: CGFloat = 0, cards: Int = 0) {
+    /// The landing from the start screen (whole body on the start screen's floor; the only frame below the minimum).
+    public var landing = false
+    public init(shot: PTCameraShot, leftReserve: CGFloat = 0, rightReserve: CGFloat = 0, topReserve: CGFloat = 0, cards: Int = 0,
+                landing: Bool = false) {
         self.shot = shot; self.leftReserve = leftReserve; self.rightReserve = rightReserve
-        self.topReserve = topReserve; self.cards = cards
+        self.topReserve = topReserve; self.cards = cards; self.landing = landing
     }
     public static let closeUp = PTStageFrame(shot: .closeUp)
     /// The reference shot: she stands centered, whole body, feet on the stage floor (where the start screen lands her).
-    public static let arrival = PTStageFrame(shot: .wide)
+    public static let arrival = PTStageFrame(shot: .wide, landing: true)
 }
 
 /// The stage's free area and fixed chrome, in the stage view's coordinates.
@@ -152,6 +154,11 @@ public enum PTStageCamera {
         return Composition(nutmeg: L, reference: ref, floor: WorldMove(from: ref, to: L).apply(g.floor))
     }
 
+    /// Her MINIMUM scale in every phase (Haylee): the chat-open hunt's medium shot, head to knees ~70% of the stage
+    /// height. Only the arrival (the 0.9 s landing from the start screen, which must match the start screen's floor)
+    /// is smaller.
+    public static func minK(_ g: PTStageGeometry) -> CGFloat { g.size.height * 0.70 / (kneeY - headTop) }
+
     /// The whole-body scale at the arrival shot: ~70% of the screen height, kept above the pill and inside the width.
     static func wideK(_ g: PTStageGeometry) -> CGFloat {
         let F = g.free
@@ -188,19 +195,24 @@ public enum PTStageCamera {
             // Head to knees ~70% of the stage height, never wider than the lane, ears below any top reserve.
             let roomH = F.maxY + 60 - laneMinY   // the knees may dip a little behind the pill
             k = min(size.height * 0.70, roomH) / (kneeY - headTop)
-            k = min(k, (laneW - 8) / (extentRight - extentLeft))
+            k = max(minK(g), min(k, (laneW - 8) / (extentRight - extentLeft)))
             let span = (kneeY - headTop) * k
             let top = laneMinY + max(8, (F.maxY + 30 - laneMinY - span) / 2)
             origin = CGPoint(x: centeredX(k), y: top - headTop * k)
         case .wide:
             let n = frame.cards
             if n == 0 {
-                // Whole body, feet on the floor line; smaller when the lane is narrow.
-                k = min(wideK(g), (laneW - 16) / (extentRight - extentLeft))
-                origin = CGPoint(x: centeredX(k), y: floorY - feet.y * k)
-                if frame.leftReserve == 0 && frame.rightReserve == 0 && frame.topReserve == 0 {
-                    // The arrival shot centers her visual center on the screen (as the start screen lands her).
-                    origin.x = size.width / 2 - bodyFocus.x * k
+                if frame.landing {
+                    // The arrival: whole body, feet on the start screen's floor line, visual center on the screen.
+                    k = wideK(g)
+                    origin = CGPoint(x: size.width / 2 - bodyFocus.x * k, y: floorY - feet.y * k)
+                } else {
+                    // Never smaller than the minimum; feet on the floor line unless that would crop her ears, then
+                    // her ears stay just inside the top (the floor moves with her either way).
+                    k = max(minK(g), min(wideK(g), (laneW - 16) / (extentRight - extentLeft)))
+                    origin = CGPoint(x: centeredX(k), y: floorY - feet.y * k)
+                    let headY = origin.y + headTop * k
+                    if headY < F.minY + 8 { origin.y += F.minY + 8 - headY }
                 }
             } else {
                 // Presented cards in two columns beside her, Nutmeg between them, feet on the floor line.
@@ -211,9 +223,11 @@ public enum PTStageCamera {
                 cardW = max(140, min(210, fitW, size.width * 0.19))
                 let edgeL = F.minX + 12, edgeR = size.width - 12
                 let half = min(center.x - edgeL - cardW - 20, edgeR - cardW - 20 - center.x)
-                k = max(0.18, min(wideK(g) * 0.82, half / halfWidth))
+                k = max(minK(g), min(wideK(g) * 0.82, half / halfWidth))
                 let nutHalf = halfWidth * k
                 origin = CGPoint(x: center.x - bodyFocus.x * k, y: floorY - feet.y * k)
+                let headY = origin.y + headTop * k
+                if headY < F.minY + 8 { origin.y += F.minY + 8 - headY }
                 let xl = max(edgeL + cardW / 2, center.x - nutHalf - 20 - cardW / 2)
                 let xr = min(edgeR - cardW / 2, center.x + nutHalf + 20 + cardW / 2)
                 let h = cardHeight(cardW)
@@ -238,12 +252,14 @@ public enum PTStageDirector {
     /// Prop hunt zones (chat closed): the DONE stack on the left (≥ 24 pt from the rail), the ACTIVE card on the right
     /// (≥ 32 pt inside the curtain).
     public static let doneStackWidth: CGFloat = 160, railGap: CGFloat = 24, curtainGap: CGFloat = 32
-    public static func huntCardWidth(_ g: PTStageGeometry) -> CGFloat { min(320, max(240, g.size.width * 0.2)) }
+    public static func huntCardWidth(_ g: PTStageGeometry) -> CGFloat { min(320, max(230, g.size.width * 0.2)) }
     /// Chat open: a row of small round done thumbnails along the top of the stage.
     public static let thumbRow: CGFloat = 92
 
-    /// Share of the free stage Nutmeg's lane keeps when content sits beside her (kit papers, play, hand-off).
-    public static let sideLane: CGFloat = 0.36
+    /// Width of Nutmeg's lane when content sits beside her (kit papers, play, hand-off): her width at the minimum scale.
+    public static func sideLane(_ g: PTStageGeometry) -> CGFloat {
+        (PTStageCamera.extentRight - PTStageCamera.extentLeft) * PTStageCamera.minK(g) + 24
+    }
 
     /// - conversationShot: the planning camera's current pick (close-up, wide with cards, arrival).
     public static func frame(phase: Phase, conversation: Bool, conversationShot: PTCameraShot, cards: Int,
@@ -260,7 +276,8 @@ public enum PTStageDirector {
         case .hello: return .arrival
         case .makingKit, .kitReady:
             if kitBeat != .papers { return .closeUp }
-            return side(g)
+            // Chat open: the papers (and Print / Let's play) dock in the panel, so she stands centered.
+            return g.chatOpen ? PTStageFrame(shot: .wide) : side(g)
         default:
             return side(g)
         }
@@ -268,12 +285,12 @@ public enum PTStageDirector {
 
     /// Nutmeg whole-body on the left, content on the right.
     public static func side(_ g: PTStageGeometry) -> PTStageFrame {
-        PTStageFrame(shot: .wide, rightReserve: g.free.width * (1 - sideLane))
+        PTStageFrame(shot: .wide, rightReserve: max(0, g.free.width - sideLane(g)))
     }
     /// Where the content beside her goes (kit papers, checklist, hand-off card): the free stage right of her lane.
     public static func sideContent(_ g: PTStageGeometry, curtainInset: CGFloat) -> CGRect {
         let F = g.free
-        let x = F.minX + F.width * sideLane
+        let x = F.minX + sideLane(g)
         return CGRect(x: x, y: F.minY, width: max(100, F.maxX - curtainInset - x), height: F.height)
     }
 
@@ -283,6 +300,6 @@ public enum PTStageDirector {
             return PTStageFrame(shot: .medium, topReserve: thumbRow)
         }
         return PTStageFrame(shot: .medium, leftReserve: 8 + doneStackWidth + 20,
-                            rightReserve: huntCardWidth(g) + curtainGap + curtainInset + 20)
+                            rightReserve: huntCardWidth(g) + curtainGap + curtainInset + 12)
     }
 }

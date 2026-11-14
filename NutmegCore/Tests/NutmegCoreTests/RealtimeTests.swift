@@ -13,7 +13,7 @@ import Testing
     let input = try #require(audio["input"] as? [String: Any])
     #expect((input["turn_detection"] as? [String: Any])?["type"] as? String == "server_vad")
     let names = (session["tools"] as? [[String: Any]])?.compactMap { $0["name"] as? String }
-    #expect(names == ["show_game_ideas", "set_game", "set_theme", "set_player_count", "set_roles", "show_next_prop", "mark_found", "swap_prop", "skip_prop", "finish_planning", "start_planning", "set_expression"])
+    #expect(names == ["show_game_ideas", "set_game", "set_theme", "set_player_count", "set_roles", "show_next_prop", "mark_found", "swap_prop", "skip_prop", "finish_planning", "set_expression"])
     #expect(Realtime.json(s).contains("\"laundry-basket\""))   // the prop library is an enum in the schema
     // Serializes cleanly.
     #expect(Realtime.json(s).contains("\"server_vad\""))

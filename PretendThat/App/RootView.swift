@@ -13,6 +13,8 @@ struct RootView: View {
     @State private var lastShotChange = Date.distantPast
     @State private var shotTask: Task<Void, Never>?
     @Namespace private var huntSpace
+    /// Full-size kit page preview (opened from the fan or from the chat panel's pinned papers).
+    @State private var kitPreview: PTPreviewTarget?
 
     private var store: AdventureStore { model.store }
 
@@ -47,9 +49,7 @@ struct RootView: View {
                     PTChatPanel(lines: model.realtime.transcript.map { PTChatPanel.Line(id: $0.id, fromNutmeg: $0.fromNutmeg, text: $0.text) },
                                 onSend: { text in Task { await model.typed(text) } },
                                 onClose: { chatOpen = false },
-                                pinned: huntOnStage ? stageItems.last { !$0.isDone } : nil,
-                                onHunt: { found in model.huntReply(found: found) },
-                                namespace: huntSpace)
+                                pinnedKey: pinnedKey, pinned: pinnedCard)
                         .padding([.vertical, .trailing], Theme.Space.m)
                         .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
@@ -149,6 +149,31 @@ struct RootView: View {
                               curtainInset: curtainInset(g), g)
     }
 
+    /// What's docked at the top of the chat panel: the hunt's active prop, or the kit papers once they're out.
+    private var pinnedKey: String? {
+        if huntOnStage, let active = stageItems.last(where: { !$0.isDone }) { return active.id }
+        if model.kitPapersOut { return "kit-papers" }
+        return nil
+    }
+    private var pinnedCard: AnyView? {
+        if huntOnStage, let active = stageItems.last(where: { !$0.isDone }) {
+            return AnyView(PTPropPinnedCard(item: active, onHunt: active.huntButtons ? { model.huntReply(found: $0) } : nil)
+                .matchedGeometryEffect(id: ptHuntActiveID, in: huntSpace))
+        }
+        if model.kitPapersOut {
+            let pages = model.kitPages
+            return AnyView(PTKitPinnedCard(count: pages.count, onTap: { i in
+                var tx = Transaction(); tx.disablesAnimations = true
+                withTransaction(tx) { kitPreview = PTPreviewTarget(index: i) }
+            }, onPrint: { model.printKit() }, onPlay: { store.beginPlay() }) { i in
+                KitPageView(page: pages[i], art: model.art.images[pages[i].item.id], cutouts: model.art.cutoutImages(pages[i].item))
+                    .scaleEffect(PTKitPinnedCard<EmptyView>.thumb.width / KitPageView.size.width)
+                    .frame(width: PTKitPinnedCard<EmptyView>.thumb.width, height: PTKitPinnedCard<EmptyView>.thumb.height)
+            })
+        }
+        return nil
+    }
+
     /// The prop hunt layout is on stage (the camera has moved to the hunt's medium shot).
     private var huntOnStage: Bool { model.inConversation && store.huntActive && shot == .medium }
 
@@ -225,7 +250,7 @@ struct RootView: View {
     /// Screen-space content right of her lane. Kit: nothing while she colors in the close-up (the papers wait for the
     /// whole kit, no-text-overlays.md); the papers fly off her clipboard once the camera has zoomed out.
     @ViewBuilder private func classicContent(_ g: PTStageGeometry, _ L: PTStageCamera.Layout) -> some View {
-        let r = PTStageDirector.sideContent(g, curtainInset: curtainInset(g))
+        let r = PTStageDirector.sideContent(g, curtainInset: g.chatOpen ? 12 : curtainInset(g))   // the panel hides the curtain
         let kitWaiting = (store.phase == .makingKit || store.phase == .kitReady) && model.kitBeat != .papers
         VStack(spacing: Theme.Space.m) {
             ViewThatFits(in: .vertical) {
@@ -236,12 +261,18 @@ struct RootView: View {
             .id(stageID)
             if store.lastError != nil { HStack(spacing: Theme.Space.l) { bottomBar } }
         }
+        // Content needs ~460 pt; beside her (minimum size) with the chat open it scales down to fit.
+        .frame(width: max(r.width, Self.contentWidth), height: r.height / fit(r))
+        .scaleEffect(fit(r))
         .frame(width: r.width, height: r.height)
         .position(x: r.midX, y: r.midY)
         .opacity(kitWaiting ? 0 : 1)
         .animation(Theme.bouncy, value: stageID)
         .sensoryFeedback(.impact(flexibility: .soft), trigger: stageID)
     }
+
+    private static let contentWidth: CGFloat = 460
+    private func fit(_ r: CGRect) -> CGFloat { min(1, r.width / Self.contentWidth) }
 
     /// Her clipboard (idle pose, canvas px) relative to the content rect's center: where the papers fly from.
     private func clipboard(_ L: PTStageCamera.Layout, in r: CGRect) -> CGPoint {
@@ -255,7 +286,7 @@ struct RootView: View {
         case .pickGame: PickGameView(model: model)
         case .players: PlayersView(model: model)
         case .props: PropsView(model: model)
-        case .makingKit, .kitReady: KitView(model: model, clipboard: clipboard)
+        case .makingKit, .kitReady: KitView(model: model, clipboard: clipboard, chatOpen: chatOpen && chromeVisible, preview: $kitPreview)
         case .handoff(let i): HandoffView(model: model, sceneIndex: i)
         case .scene(let i): SceneView(model: model, index: i)
         case .stepBack: StepBackView(model: model)

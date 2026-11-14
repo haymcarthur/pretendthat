@@ -169,11 +169,10 @@ struct PTChatPanel: View {
     var lines: [Line]
     var onSend: (String) -> Void
     var onClose: () -> Void
-    /// The prop hunt's active card, docked at the top while the panel is open (prop-gathering-flow.md).
-    var pinned: PTStageItem? = nil
-    var onHunt: ((Bool) -> Void)? = nil
-    /// Shared with the stage so the active card animates between the stage and the panel.
-    var namespace: Namespace.ID? = nil
+    /// A card docked at the top while the panel is open: the hunt's active prop (prop-gathering-flow.md) or the kit
+    /// papers with the Print pill. The transcript scrolls beneath it. `pinnedKey` changes animate it in place.
+    var pinnedKey: String? = nil
+    var pinned: AnyView? = nil
     @State private var draft = ""
     @FocusState private var focused: Bool
     @State private var following = true
@@ -189,18 +188,12 @@ struct PTChatPanel: View {
                 Spacer()
                 PTIconButton(symbol: "xmark", label: "Close chat", size: 44, action: onClose)
             }
-            if let pinned {
-                Group {
-                    if let namespace {
-                        PTPropPinnedCard(item: pinned, onHunt: onHunt).matchedGeometryEffect(id: ptHuntActiveID, in: namespace)
-                    } else {
-                        PTPropPinnedCard(item: pinned, onHunt: onHunt)
-                    }
-                }
-                // Sticky above the transcript; the next prop animates in place; it slides away when the hunt ends.
-                .id(pinned.id)
-                .transition(.asymmetric(insertion: .scale(scale: 0.85).combined(with: .opacity),
-                                        removal: .move(edge: .top).combined(with: .opacity)))
+            if let pinned, let pinnedKey {
+                pinned
+                    // Sticky above the transcript; the next prop animates in place; it slides away when it ends.
+                    .id(pinnedKey)
+                    .transition(.asymmetric(insertion: .scale(scale: 0.85).combined(with: .opacity),
+                                            removal: .move(edge: .top).combined(with: .opacity)))
             }
             ScrollViewReader { proxy in
                 ScrollView {
@@ -228,7 +221,7 @@ struct PTChatPanel: View {
                 }
                 .onAppear { proxy.scrollTo(Self.bottomID, anchor: .bottom) }
                 // The newest line stays in view when the panel opens or the pinned hunt card appears / changes height.
-                .task(id: "\(pinned?.id ?? "")-\(lines.isEmpty)") {
+                .task(id: "\(pinnedKey ?? "")-\(lines.isEmpty)") {
                     try? await Task.sleep(for: .milliseconds(150))
                     following = true; hasUnseen = false
                     withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(Self.bottomID, anchor: .bottom) }
@@ -262,7 +255,7 @@ struct PTChatPanel: View {
                 .accessibilityLabel("Send")
             }
         }
-        .animation(.spring(response: 0.45, dampingFraction: 0.8), value: pinned?.id)
+        .animation(.spring(response: 0.45, dampingFraction: 0.8), value: pinnedKey)
         .padding(Theme.Space.m)
         .frame(width: 360)
         .frame(maxHeight: .infinity)

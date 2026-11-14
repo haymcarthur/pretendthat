@@ -57,6 +57,26 @@ struct StageCameraTests {
         #expect(checked > 100)
     }
 
+    @Test func neverSmallerThanTheHuntMediumShot() {
+        for g in Self.geometries() {
+            let curtain = g.size.height * 238 / 448 * 0.34 * 0.55
+            for phase in Self.phases {
+                for conv in [false, true] {
+                    for shot in [PTCameraShot.closeUp, .medium, .wide] {
+                        for cards in [0, 4] {
+                            for beat in [PTStageDirector.KitBeat.coloring, .papers] {
+                                let f = PTStageDirector.frame(phase: phase, conversation: conv, conversationShot: shot, cards: cards,
+                                                              hunt: shot == .medium, kitBeat: beat, curtainInset: curtain, g)
+                                if f == .arrival { continue }   // the 0.9 s landing from the start screen
+                                #expect(PTStageCamera.layout(f, g).k >= PTStageCamera.minK(g) - 0.0001, "\(f) too small on \(g.size)")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     @Test func arrivalShotStandsOnTheStartScreenFloor() {
         for g in Self.geometries() where !g.chatOpen {
             let c = PTStageCamera.compose(.arrival, g)

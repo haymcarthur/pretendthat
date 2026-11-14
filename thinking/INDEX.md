@@ -49,7 +49,8 @@ The map. Read this first, then open only what you need.
 - [Conversation camera and expressions](decisions/conversation-camera-and-expressions.md): Haylee (stay zoomed in, true camera move, set_expression faces, lip sync, shadow)
 - [Conversation structure](decisions/conversation-structure.md): Haylee (fixed steps, every turn ends with a question + suggestions or an instruction; app-side nudges)
 - [Prop gathering flow](decisions/prop-gathering-flow.md): Haylee (one prop at a time, answer only when talked to, active card + done stack)
-- [Planning beats](decisions/planning-beats.md): Haylee (start_planning: coloring on the clipboard, then look up and announce)
+- [Planning beats](decisions/planning-beats.md): Haylee · **superseded by revert-animation**
+- [Revert to the old animation](decisions/revert-animation.md): Haylee (no coloring beats or kit coloring; idle + expressions; rig cancelled)
 - [No caption cards or loading text](decisions/no-text-overlays.md): Haylee (voice and animation only; papers wait for the final kit)
 - [Conversation samples](research/conversation-samples.md): live typed transcripts checked against the step and turn-ending rules
 - [Checklist and scene pictures, no emoji](decisions/checklist-pictures.md): Haylee (prop / action / kit pictures; cut-outs generated one per item; confetti uses stage art)

@@ -39,7 +39,6 @@ final class AppModel {
             guard let self, Self.isPlanning(self.store.phase) else { return nil }
             return TurnCheck.nudge(for: text, step: self.store.planningStep)
         }
-        realtime.onPlanningBeat = { [weak self] topic in await self?.planningBeat(topic) }
         realtime.onSilence = { [weak self] in
             guard let self, Self.isPlanning(self.store.phase), self.store.planningStep != .finish else { return nil }
             return TurnCheck.silenceNudge(step: self.store.planningStep)
@@ -92,7 +91,7 @@ final class AppModel {
     /// Leave activity: hang up and go home. Nothing is kept.
     func leave() {
         realtime.disconnect()
-        shownProps = 0; beat = .none; kitBeatTask?.cancel(); kitBeat = .coloring
+        shownProps = 0; kitBeatTask?.cancel(); kitBeat = .coloring
         voice.stop()
         art.reset()
         stickers.reset()
@@ -131,6 +130,20 @@ final class AppModel {
     /// looks up (crayon down), the camera zooms out, and the papers fly off her clipboard.
     private(set) var kitBeat: PTStageDirector.KitBeat = .coloring
     @ObservationIgnored private var kitBeatTask: Task<Void, Never>?
+    /// The printable pages for the current kit.
+    var kitPages: [KitPage] {
+        guard let kit = store.kit else { return [] }
+        return KitLayout.pages(for: kit, roles: store.plan?.roles ?? [], playerCount: store.playerCount)
+    }
+    /// Grown-up hold-to-print: the whole kit as one PDF to AirPrint.
+    func printKit() {
+        let pdf = KitPrinter.pdf(pages: kitPages, art: art.images,
+                                 cutouts: Dictionary(uniqueKeysWithValues: (store.kit?.items ?? []).map { ($0.id, art.cutoutImages($0)) }))
+        KitPrinter.print(pdf, jobName: "PretendThat \(store.plan?.gameTitle ?? "kit")")
+    }
+    /// The papers are out (kit final, she looked up, the camera zoomed out).
+    var kitPapersOut: Bool { kitFinal && kitBeat == .papers }
+
     /// Every page's art has landed or definitively fallen back.
     var kitFinal: Bool { store.phase == .kitReady && store.kit != nil && art.finished }
     func kitFinalChanged(_ final: Bool) {
@@ -161,47 +174,36 @@ final class AppModel {
         #if DEBUG
         if let s = DemoDriver.forcedState { return s }
         #endif
-        // Coloring ONLY during a planning beat or while the kit is made (PoseRules.isColoring); then she looks up.
-        if PoseRules.isColoring(phase: store.phase, planningBeat: beat == .coloring, kitBeat: kitBeat) { return .coloring }
-        if (store.phase == .makingKit || store.phase == .kitReady) && kitBeat == .lookUp { return .excited }
+        // Kit (revert-animation.md): no coloring. She waits in idle with a thinking face in the close shot, then looks
+        // up (excited) before the papers fly.
+        if store.phase == .makingKit || store.phase == .kitReady {
+            switch kitBeat { case .coloring: return realtime.isSpeaking ? .idle : .thinking; case .lookUp: return .excited; case .papers: break }
+        }
         if realtime.isLive {
             // Conversation faces (decisions/conversation-camera-and-expressions.md): listening while the kid talks,
             // thinking in the gap before her reply, then the face the model chose (eyes and brows; the live mouth
             // animates on top), happy by default.
             if realtime.kidIsTalking { return .listening }
-            switch beat { case .coloring: return .coloring; case .lookUp: return .excited; case .none: break }
             if let e = realtime.expression { return Self.state(for: e) }
             if realtime.thinkingGap { return .thinking }
             if realtime.isSpeaking { return .idle }
         }
         if listener.isListening { return .listening }
         // Kit: she colors until every page is final (the papers wait for it, no-text-overlays.md).
-        if store.phase == .makingKit || (store.phase == .kitReady && !art.finished) { return .coloring }
         if store.isWorking { return .thinking }
         if voice.isSpeaking { return .talking }
         if store.lastError != nil { return .oops }
         switch store.phase {
-        case .makingKit: return .coloring
+        case .makingKit: return .thinking
         case .stepBack: return .napping
         case .kitReady, .end: return .excited
         default: return .idle
         }
     }
 
-    /// Planning beat (planning-beats.md): coloring on her clipboard, then a look-up.
-    enum Beat { case none, coloring, lookUp }
-    private(set) var beat: Beat = .none
-
-    /// She finishes her lead-in, colors with her eyes down for 2.5–3.5 s, looks up (crayon down: the pose pops back to
-    /// idle with the clipboard), and only then does the function result go back so she announces the plan.
-    func planningBeat(_ topic: String) async {
-        for _ in 0..<80 where realtime.isSpeaking { try? await Task.sleep(for: .milliseconds(50)) }   // lead-in done
-        beat = .coloring
-        try? await Task.sleep(for: .seconds(Double.random(in: 2.5...3.5)))
-        beat = .lookUp
-        try? await Task.sleep(for: .milliseconds(700))
-        beat = .none
-    }
+    /// Planning beats are retired (revert-animation.md); kept only so the DEBUG live driver's wait compiles.
+    enum Beat { case none }
+    let beat: Beat = .none
 
     /// Prop cards on stage. A new card waits until the turn that was playing when it was requested has finished (never
     /// mid-sentence about the roles): it appears with her prop line, or once playback drains.
