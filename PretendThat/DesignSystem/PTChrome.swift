@@ -128,36 +128,113 @@ struct PTStepRail: View {
 
 // MARK: - Control pill
 
-/// Floating white pill with round gray icon buttons: mute/unmute (coral when muted, a small lime listening dot),
-/// chat panel toggle (dark ring when open), leave.
+/// Floating white control pill (decisions/2026-11-13-push-to-talk.md, Haylee round 6): close LEFT (asks first:
+/// `PTLeaveDialog`) · the big red push-to-talk mic CENTER (`PTMicButton`, larger than the others) · chat toggle RIGHT
+/// (dark ring when open). The white backing hugs the buttons: `PTMicPillShape`, a pill that swells into a circle
+/// around the mic with smooth concave fillets.
 struct PTControlBar: View {
-    var isMuted: Bool
-    var isListening: Bool
     var chatOpen: Bool
-    var micAvailable = true
-    var onMute: () -> Void
+    var mic: PTMicButton.Mode
     var onChat: () -> Void
+    var onMicPress: () -> Void = {}
+    var onMicRelease: () -> Void = {}
+    var onClose: () -> Void
+
+    static let side: CGFloat = 64, micSize: CGFloat = 92, inset: CGFloat = 10, gap: CGFloat = 20
+
+    var body: some View {
+        // Tight (Haylee): ~10 pt between a side button and the mic's circular backing.
+        HStack(spacing: Self.gap) {
+            PTIconButton(symbol: "xmark", label: "Leave the game", size: Self.side, action: onClose)
+            PTMicButton(mode: mic, size: Self.micSize, onPress: onMicPress, onRelease: onMicRelease)
+            PTIconButton(symbol: "bubble.left.and.bubble.right", label: chatOpen ? "Hide chat" : "Show chat",
+                         selected: chatOpen, size: Self.side, action: onChat)
+        }
+        .padding(.horizontal, Self.inset)
+        .padding(.vertical, Self.inset)
+        .background(PTMicPillShape(pillHeight: Self.side + Self.inset * 2, circleRadius: Self.micSize / 2 + Self.inset)
+            .fill(Theme.white)
+            .shadow(color: Theme.panelShadow, radius: 10, y: 3))
+    }
+}
+
+/// A horizontal pill (height `pillHeight`, capsule ends) whose middle swells into a circle (`circleRadius`), joined by
+/// concave fillets (`fillet`) so there are no hard corners. Drawn in the frame's full height (the circle's diameter),
+/// the pill centered vertically. Arcs are sampled as points so the geometry is explicit (y down, angles clockwise).
+struct PTMicPillShape: Shape {
+    var pillHeight: CGFloat
+    var circleRadius: CGFloat
+    var fillet: CGFloat = 14
+
+    func path(in rect: CGRect) -> Path {
+        let a = min(pillHeight / 2, rect.height / 2), R = max(circleRadius, a), f = fillet
+        let cx = rect.midX, cy = rect.midY, L = rect.minX + a, Rt = rect.maxX - a
+        // Fillet centers sit outside the pill edge (distance a + f from the axis) and touch the circle externally.
+        let xf = ((R + f) * (R + f) - (a + f) * (a + f)).squareRoot()
+        var p = Path()
+        func arc(_ c: CGPoint, _ r: CGFloat, _ from: Double, _ to: Double) {
+            let steps = 24
+            for k in 0...steps {
+                let t = (from + (to - from) * Double(k) / Double(steps)) * .pi / 180
+                let pt = CGPoint(x: c.x + r * CGFloat(cos(t)), y: c.y + r * CGFloat(sin(t)))
+                if p.isEmpty { p.move(to: pt) } else { p.addLine(to: pt) }
+            }
+        }
+        func deg(_ y: CGFloat, _ x: CGFloat) -> Double { Double(atan2(y, x)) * 180 / .pi }
+        guard R > a + 0.5, cx - xf > L, cx + xf < Rt else {   // no swell (or too narrow): a plain capsule
+            return Capsule().path(in: CGRect(x: rect.minX, y: cy - a, width: rect.width, height: 2 * a))
+        }
+        arc(CGPoint(x: L, y: cy), a, 90, 270)                                              // left cap
+        p.addLine(to: CGPoint(x: cx - xf, y: cy - a))
+        arc(CGPoint(x: cx - xf, y: cy - a - f), f, 90, deg(a + f, xf))                     // top-left fillet
+        arc(CGPoint(x: cx, y: cy), R, deg(-(a + f), -xf) + 360, deg(-(a + f), xf) + 360)   // circle, top
+        arc(CGPoint(x: cx + xf, y: cy - a - f), f, deg(a + f, -xf), 90)                    // top-right fillet
+        p.addLine(to: CGPoint(x: Rt, y: cy - a))
+        arc(CGPoint(x: Rt, y: cy), a, 270, 450)                                            // right cap
+        p.addLine(to: CGPoint(x: cx + xf, y: cy + a))
+        arc(CGPoint(x: cx + xf, y: cy + a + f), f, 270, deg(-(a + f), -xf) + 360)          // bottom-right fillet
+        arc(CGPoint(x: cx, y: cy), R, deg(a + f, xf), deg(a + f, -xf))                     // circle, bottom
+        arc(CGPoint(x: cx - xf, y: cy + a + f), f, deg(-(a + f), xf), -90)                 // bottom-left fillet
+        p.closeSubpath()
+        return p
+    }
+}
+
+/// "Leave the game?" (decisions/2026-11-13-push-to-talk.md): a friendly kid-and-grown-up confirm in the app's style
+/// (white rounded panel over a soft scrim, big words, the black primary pill to stay). Tapping the scrim keeps playing.
+struct PTLeaveDialog: View {
+    var onStay: () -> Void
     var onLeave: () -> Void
 
     var body: some View {
-        HStack(spacing: Theme.Space.m) {
-            PTIconButton(symbol: isMuted || !micAvailable ? "mic.slash" : "mic", label: isMuted ? "Unmute" : "Mute",
-                         fill: isMuted ? Theme.coral : nil, action: onMute)
-                .overlay(alignment: .topTrailing) {
-                    if isListening && !isMuted {
-                        Circle().fill(Theme.lime).frame(width: 14, height: 14)
-                            .overlay(Circle().strokeBorder(Theme.white, lineWidth: 2.5))
-                            .transition(.scale)
-                    }
+        ZStack {
+            Theme.scrim.ignoresSafeArea()
+                .onTapGesture(perform: onStay)
+                .accessibilityLabel("Keep playing")
+                .accessibilityAddTraits(.isButton)
+            VStack(spacing: Theme.Space.m) {
+                HStack(spacing: Theme.Space.s) {
+                    Image("stage-star").resizable().scaledToFit().frame(width: 36, height: 36).rotationEffect(.degrees(-12))
+                    Text("Leave the game?").font(Theme.displayFont(34)).foregroundStyle(Theme.ink)
+                    Image("stage-star").resizable().scaledToFit().frame(width: 36, height: 36).rotationEffect(.degrees(12))
                 }
-            PTIconButton(symbol: "bubble.left.and.bubble.right", label: chatOpen ? "Hide chat" : "Show chat",
-                         selected: chatOpen, action: onChat)
-            PTIconButton(symbol: "xmark", label: "Leave", action: onLeave)
+                .accessibilityElement(children: .combine)
+                .accessibilityAddTraits(.isHeader)
+                Text("If you leave now, you'll start a new game next time.")
+                    .font(Theme.uiFont(20, .medium)).foregroundStyle(Theme.inkMuted)
+                    .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: Theme.Space.s) {
+                    Button("Leave", action: onLeave).buttonStyle(.ptSecondary)
+                    Button("Keep playing", action: onStay).buttonStyle(.ptPrimary)
+                }
+                .padding(.top, Theme.Space.xs)
+            }
+            .padding(.horizontal, Theme.Space.l).padding(.vertical, Theme.Space.l)
+            .frame(maxWidth: 460)
+            .ptPanel(radius: 32)
+            .padding(Theme.Space.m)
+            .accessibilityAddTraits(.isModal)
         }
-        .padding(10)
-        .background(Capsule().fill(Theme.white))
-        .shadow(color: Theme.panelShadow, radius: 10, y: 3)
-        .animation(Theme.springy, value: isListening)
     }
 }
 
@@ -331,7 +408,9 @@ struct PTItemCard: View {
                 .lineLimit(2).minimumScaleFactor(0.5).allowsTightening(true).multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity).fixedSize(horizontal: false, vertical: true)
             if let sub = item.isPretend ? "We'll pretend!" : item.subtitle {
-                Text(sub).font(Theme.uiFont(14, .medium)).foregroundStyle(Theme.inkMuted).lineLimit(1).minimumScaleFactor(0.7)
+                // Never truncated (Haylee, round 6): wraps and the card grows.
+                Text(sub).font(Theme.uiFont(14, .medium)).foregroundStyle(Theme.inkMuted)
+                    .multilineTextAlignment(.center).frame(maxWidth: .infinity).fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(.horizontal, Theme.Space.s).padding(.bottom, Theme.Space.m)

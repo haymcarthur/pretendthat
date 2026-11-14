@@ -66,10 +66,34 @@ enum DemoDriver {
         for turn in turns {
             // Wait for Nutmeg to start and then finish her line.
             for _ in 0..<100 where !model.realtime.isSpeaking { try? await Task.sleep(for: .milliseconds(100)) }
-            for _ in 0..<300 where model.realtime.isSpeaking || model.beat != .none { try? await Task.sleep(for: .milliseconds(100)) }
-            try? await Task.sleep(for: .milliseconds(600))
+            // ...and stay settled (no response, beat or reply pending) for 1.5 s: her chained tool responses finish first.
+            var calm = 0
+            for _ in 0..<600 where calm < 15 {
+                try? await Task.sleep(for: .milliseconds(100))
+                calm = model.realtime.isSpeaking || model.realtime.isBusy || model.beat != .none ? 0 : calm + 1
+            }
+            // "#wait N": stay quiet N seconds (checks the spoken-only silence reminder, round 7).
+            if turn.hasPrefix("#wait "), let secs = Double(turn.dropFirst(6)) {
+                try? await Task.sleep(for: .seconds(secs))
+                for _ in 0..<100 where model.realtime.isSpeaking { try? await Task.sleep(for: .milliseconds(100)) }
+                continue
+            }
+            // "#kit": wait for the whole kit to land (print step), then keep going (e.g. "Let's play!").
+            if turn == "#kit" {
+                for _ in 0..<1800 where !model.kitPapersOut { try? await Task.sleep(for: .milliseconds(100)) }
+                for _ in 0..<100 where !model.realtime.isSpeaking { try? await Task.sleep(for: .milliseconds(100)) }
+                for _ in 0..<200 where model.realtime.isSpeaking { try? await Task.sleep(for: .milliseconds(100)) }
+                try? await Task.sleep(for: .seconds(1))
+                continue
+            }
+            guard model.store.phase != .makingKit else { rtLog("(kit being made, skipped: \(turn))"); continue }
             model.realtime.sendText(turn)
         }
+        // Dump the chat panel's lines (what the kid sees), so live runs can show what's in the transcript.
+        for _ in 0..<100 where !model.realtime.isSpeaking { try? await Task.sleep(for: .milliseconds(100)) }
+        for _ in 0..<300 where model.realtime.isSpeaking { try? await Task.sleep(for: .milliseconds(100)) }
+        try? await Task.sleep(for: .seconds(2))
+        for (i, line) in model.realtime.transcript.enumerated() { rtLog("CHAT[\(i)] \(line.fromNutmeg ? "Nutmeg" : "Kid"): \(line.text)") }
     }
 
     @MainActor static func drive(_ store: AdventureStore, model: AppModel, to target: String) async {
@@ -140,6 +164,10 @@ enum DemoDriver {
                                          .init(roleName: "Flight Attendant", job: "Serve snacks"),
                                          .init(roleName: "Passenger", job: "Enjoy the trip")]))
         if target == "convRoles" { return }
+        if target == "convHuntLong" {   // round 6: the longest real description must show in full (never truncated)
+            _ = await store.apply(.showNextProp(.init(itemID: "tray", becomes: "a serving tray for delivering orders across the restaurant", forRole: "all")))
+            return
+        }
         if target.hasPrefix("convHunt") {   // the one-at-a-time prop hunt: convHunt1, convHunt3 (2 done), convHuntLast
             let hunt: [(String, String)] = [("plate", "the steering wheel"), ("chair", "the plane seats"), ("tray", "the snack cart"), ("backpack", "a suitcase")]
             let upTo = target == "convHunt1" ? 1 : (target == "convHunt3" ? 3 : 4)

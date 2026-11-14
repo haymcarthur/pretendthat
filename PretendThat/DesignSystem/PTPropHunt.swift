@@ -81,7 +81,7 @@ struct PTPropPinnedCard: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.title).font(Theme.displayFont(21)).foregroundStyle(Theme.ink).lineLimit(1).minimumScaleFactor(0.6)
                     if let sub = item.subtitle {
-                        Text(sub).font(Theme.uiFont(15, .medium)).foregroundStyle(Theme.inkMuted).lineLimit(2)
+                        Text(sub).font(Theme.uiFont(15, .medium)).foregroundStyle(Theme.inkMuted)   // never truncated
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -176,7 +176,7 @@ struct PTPropActiveCard: View {
                 .lineLimit(1).minimumScaleFactor(0.6)
             if let sub = item.subtitle {
                 Text(sub).font(Theme.uiFont(19, .medium)).foregroundStyle(Theme.inkMuted)
-                    .multilineTextAlignment(.center).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                    .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)   // never truncated: the card grows
             }
             if let onHunt {
                 // Side by side when the card is wide enough, stacked otherwise: labels never truncate or wrap.

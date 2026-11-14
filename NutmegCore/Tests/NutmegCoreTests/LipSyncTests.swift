@@ -88,25 +88,31 @@ struct ConversationStepTests {
         #expect(TurnCheck.nudge(for: "What do you want to play?", step: .game) != nil)              // no examples
         #expect(TurnCheck.nudge(for: "That sounds so fun.", step: .theme) != nil)                    // no question
         #expect(TurnCheck.nudge(for: "Ooh! A bakery on the moon, under the sea, or in a castle?", step: .theme) == nil)
-        #expect(TurnCheck.nudge(for: "Yay! Is it just you, or two, or three friends?", step: .players) == nil)
-        #expect(TurnCheck.nudge(for: "You're the Baker and the Customer! Sound good?", step: .roles) == nil)
+        // Round 7: the count question is open; a closed list sounds like the maximum.
+        #expect(TurnCheck.nudge(for: "Yay! Is it just you, or two, or three friends?", step: .players) != nil)
+        #expect(TurnCheck.nudge(for: "Ooh, a moon bakery! How many friends are playing today?", step: .players) == nil)
+        // Round 7: no permission checks after the roles (or anywhere).
+        #expect(TurnCheck.nudge(for: "You're the Baker and the Customer! Sound good?", step: .roles) != nil)
+        #expect(TurnCheck.nudge(for: "You're the Baker and the Customer! Sound good?", step: .props) != nil)
         #expect(TurnCheck.nudge(for: "Go find a pillow and a plate, and tell me when you're back!", step: .props) == nil)
         #expect(TurnCheck.nudge(for: "Here are your props.", step: .props) != nil)
         #expect(TurnCheck.nudge(for: "Want to start with the check-in desk, the exam room, or the rest spot?", step: .props) != nil)
         #expect(TurnCheck.nudge(for: "What do you feel like playing? Maybe a bakery, a rocket, or a jungle?", step: .game) == nil)
+        // Push-to-talk reminder at the end: the question before it is what counts.
+        #expect(TurnCheck.nudge(for: "What should we play: a rocket, a bakery, or a jungle? Hold the red button and tell me!", step: .game) == nil)
+        #expect(TurnCheck.nudge(for: "That sounds fun. Hold the red button and tell me!", step: .game) != nil)
+        #expect(TurnCheck.nudge(for: "Hold the red button and tell me!", step: .game) == nil)
+        // Only a turn with no question and no instruction at all gets a continuation; never the reminder or a question.
+        #expect(TurnCheck.needsCompletion(for: "Ooh, a pet rescue, so sweet!", step: .theme))
+        #expect(!TurnCheck.needsCompletion(for: "Ooh! What twist: a jungle, a farm, or a zoo?", step: .theme))
+        #expect(!TurnCheck.needsCompletion(for: "What twist? Hold the red button and tell me!", step: .theme))
+        #expect(!TurnCheck.needsCompletion(for: "Go find a pillow and tell me when you're back!", step: .props))
+        #expect(!TurnCheck.silenceNudge(step: .game).contains(PlanningStep.game.goal))   // never the full question again
+        #expect(TurnCheck.nudge(for: "Hiya, I'm Nutmeg, ready for a show! What do you feel like playing today, maybe a rocket trip, a bakery, or a pet shop? Hold the red button and tell me!", step: .game) == nil)
     }
 }
 
 struct HuntTests {
-    @Test func gateHearsOnlyLinesForNutmeg() {
-        #expect(!HuntGate.addressed("Mom, where's the big plate?"))
-        #expect(!HuntGate.addressed("Look at this cool rock"))
-        #expect(HuntGate.addressed("Nutmeg, we found it!"))
-        #expect(HuntGate.addressed("we don't have one"))
-        #expect(HuntGate.addressed("Got it!"))
-        #expect(HuntGate.addressed("I can’t find it"))
-    }
-
     @MainActor @Test func oneAtATime() async {
         let store = AdventureStore(service: nil)
         store.beginConversation()

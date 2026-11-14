@@ -56,6 +56,11 @@ public final class AdventureStore {
     public private(set) var usingFallback = false
     /// Which players' props have been checked off (prop ids).
     public var foundProps: Set<String> = []
+    /// The prop card being hunted is settled (found or skipped): the next show_next_prop is due (round 7).
+    public var currentPropDone: Bool {
+        guard let id = currentPropID, let p = props?.props.first(where: { $0.id == id }) else { return false }
+        return foundProps.contains(id) || p.skipped == true
+    }
     /// The prop the hunt is on right now (one at a time, prop-gathering-flow.md).
     public private(set) var currentPropID: String?
     /// The sequential hunt is running: Nutmeg answers only lines meant for her.
@@ -68,18 +73,33 @@ public final class AdventureStore {
 
     public enum Presentation: Equatable, Sendable { case none, props }
 
+    /// Today's theme ideas (round 7), picked by the app when the game is set and given to Nutmeg in the set_game result.
+    public var themeIdeas: [Suggestion] = []
+
     @ObservationIgnored private let service: PhaseService?
     @ObservationIgnored private var failures: [String: Int] = [:]
     @ObservationIgnored private var retryAction: (() async -> Void)?
     @ObservationIgnored private var holder: RoleID?
 
+    /// The one line when the whole kit has landed (print step): about the pages, never "go play" (Haylee).
+    public nonisolated static let kitReadyLine = "Your kit is ready! Tap Print, or tell me when you're ready to play!"
+
+    /// The FIRST prop line (round 7 choreography): asked for separately, after the roles finished playing and the card
+    /// appeared with her point.
+    public nonisolated static func firstPropLine(item: String, becomes: String) -> String {
+        "(Silent coaching, don't mention it.) The \(item.lowercased()) card is on screen now and you're pointing at it. Start "
+            + "RIGHT AWAY with the first prop line (no lead-in like \"let's start the hunt\"), like \"First, can you find a \(item.lowercased())? It'll be \(becomes)!\", then explain "
+            + "ONCE: say 'found it' when you have it, or tell me if you don't. Don't repeat the roles, no check-in, no narration. "
+            + "If you already named this prop, say only the 'found it' explanation."
+    }
+
     /// What she says for a new prop card (prop-gathering-flow.md, fix round 2): only the FIRST prop explains how to
     /// answer; later props stay short ("Next, can you find a spoon? It'll be the big stirrer!").
     public nonisolated static func nextPropOutput(id: String, item: String, becomes: String, n: Int) -> String {
         let how = n == 1
-            ? "This is the FIRST prop: say what to find and what it becomes, then explain ONCE: say 'found it' when you have it, or tell me if you don't."
+            ? "This is the FIRST prop. Its card stays hidden for now. Speak ONLY the roles now, in one or two excited sentences as a set of parts the kids share (\"Our crew is a Captain, a Navigator, and an Island Explorer! Pick who's who!\"; for one kid: \"You'll be the Captain!\"), never \"You're the X, the Y, and the Z\" (that sounds like one kid gets every role), no \"All set!\". Do NOT mention props, cards or the hunt at all (no \"the first prop is coming up\"), and don't ask anything: when your roles line finishes, the card appears and you'll be asked for the prop line."
             : "This is prop \(n): keep it SHORT, like \"Next, can you find a \(item.lowercased())? It'll be \(becomes)!\" Do NOT repeat 'say found it' or 'tell me if you don't have it' (they already know)."
-        return "Card \(id) is on screen (prop \(n)). \(how) Then wait. Found: mark_found then show_next_prop. Missing: "
+        return "Card \(id) is ready (prop \(n)). \(how) Then wait. Found: mark_found then show_next_prop. Missing: "
             + "swap_prop (one alternate) or skip_prop, then show_next_prop. After 3 to 5 props, finish_planning."
             + (n >= 3 ? " (You have \(n); finishing after this one is fine.)" : "")
     }
@@ -164,8 +184,9 @@ public final class AdventureStore {
             kit = try await svc.kit(ctx: context)
         } fallback: { [self] in useFallbackGame() }
         if kit != nil {
+            // Round 7: the ready line waits for the whole kit (pages and art), so the app says it at kitFinal
+            // (`kitReadyLine`), and it's about printing, never "go play" (that's only the play step).
             phase = .kitReady
-            say(kit!.nutmegSays)
         }
     }
 
@@ -217,7 +238,7 @@ public final class AdventureStore {
 
     public func newGame() {
         phase = .hello
-        playerCount = 0; gameTitle = nil; planningStep = .game
+        playerCount = 0; gameTitle = nil; planningStep = .game; themeIdeas = []
         ideas = nil; plan = nil; props = nil; kit = nil
         choices = []; lastError = nil; usingFallback = false
         foundProps = []; checkedSteps = []; failures = [:]; retryAction = nil; holder = nil
@@ -265,17 +286,19 @@ public final class AdventureStore {
         case .setGame(let title):
             gameTitle = title; plan = nil; props = nil
             phase = .pickGame; presenting = .none; planningStep = .theme
-            return "Game set: \(title). Step 2: react in one short sentence, then ask what theme or twist it should have, with 2 or 3 example themes that fit this game. Call set_theme when they pick."
+            let ideas = themeIdeas.isEmpty ? "with 2 or 3 example themes that fit this game"
+                : "suggesting ONLY today's theme ideas, and make it sound open (\"Any twist you like! Maybe \(Suggestions.spoken(themeIdeas))?\"; say them so they fit this game; no other examples)"
+            return "Game set: \(title). Step 2: react in one short sentence, then ask what theme or twist it should have, \(ideas). If the kids say their own theme, take it. Call set_theme when they pick."
         case .setTheme(let title):
             gameTitle = title; plan = nil; props = nil
             phase = .players; presenting = .none; planningStep = .players
-            return "Theme set: \(title). Step 3: react in one short sentence, then ask how many kids are playing, with an example (just you, or two, or three friends?). Never ask for names."
+            return "Theme set: \(title). Step 3: react in one short sentence, then ask an OPEN question like \"How many friends are playing today?\" (never a list of numbers like 'just you, or two, or three?': any number works). Never ask for names."
         case .setPlayerCount(let count):
             playerCount = max(1, min(count, Players.max))
             plan = nil; props = nil
             phase = .players; presenting = .none; planningStep = .roles
             let shared = playerCount > RoleID.allCases.count ? " With more than 4 kids, repeat a role that makes sense to share." : ""
-            return "\(playerCount) kid\(playerCount == 1 ? "" : "s"). Invent exactly \(playerCount) role\(playerCount == 1 ? "" : "s") for this game and call set_roles.\(shared) Never ask for names."
+            return "\(playerCount) kid\(playerCount == 1 ? "" : "s"). Say ONE short line like \"Great, let me put some plans together!\" and call start_planning (topic roles) now (nothing longer, no other narration); after it, invent exactly \(playerCount) role\(playerCount == 1 ? "" : "s") for this game, call set_roles, then show_next_prop, and only then announce the roles and the first prop in ONE turn.\(shared) Never ask for names."
         case .setRoles(let drafts):
             if playerCount == 0 { playerCount = max(1, min(drafts.count, Players.max)) }
             let roles = drafts.enumerated().map { i, d in
@@ -286,7 +309,7 @@ public final class AdventureStore {
             phase = .players; presenting = .none; planningStep = .props
             let cast = plan!.roles.map { $0.count > 1 ? "\($0.count) \($0.roleName)s" : $0.roleName }.joined(separator: ", ")
             let short = drafts.count < playerCount ? " You gave \(drafts.count) roles for \(playerCount) kids, so the last role is shared." : ""
-            return "Roles set: \(cast).\(short) Step 4: announce the roles with excitement (there are no role cards; kids pick their own badge after printing) and end with a quick \"Sound good?\". Do NOT name any prop in this turn: wait for their answer, then step 5: show_next_prop."
+            return "Roles set: \(cast).\(short) Step 4: announce the roles with excitement (there are no role cards; kids pick their own badge after printing). Now, WITHOUT speaking yet and without waiting for the kids, call show_next_prop for the FIRST prop. Then, in ONE turn, announce the roles and go straight into the first prop. Never ask \"Sound good?\", \"Okay?\" or \"Ready?\": there is nothing to approve."
         case .showProps(let drafts):
             var used = Set<String>()
             let list: [Prop] = drafts.enumerated().compactMap { i, d in
@@ -329,7 +352,8 @@ public final class AdventureStore {
             }
             foundProps.insert(prop.id)
             let n = p.props.count
-            return "Checked off \(prop.householdItem). Cheer in a few words, then " + (n >= 3 ? "show_next_prop or finish_planning." : "show_next_prop.")
+            return "Checked off \(prop.householdItem). Don't speak yet: call " + (n >= 3 ? "show_next_prop (or finish_planning if that's enough props)" : "show_next_prop")
+                + " FIRST, then cheer in a few words and ask about the new prop in the same turn. Never narrate (\"let me grab the next prop\")."
         case .swapProp(let oldID, let newID, let becomes):
             guard var p = props, let i = p.props.firstIndex(where: { $0.id == oldID || $0.libraryID == oldID }) else {
                 return "No prop with id \(oldID). Ids: \(props?.props.map(\.id).joined(separator: ", ") ?? "none")."
@@ -342,20 +366,28 @@ public final class AdventureStore {
             p.props[i].swapped = true
             p.props[i].alternates = p.props[i].alternates?.filter { $0 != newID }
             props = p; presenting = .props
-            return "Swapped (the card still uses id \(p.props[i].id))."
+            return "Swapped (the card still uses id \(p.props[i].id)). Say what the new item becomes and ask if they can find it."
         case .skipProp(let id):
             guard var p = props, let i = p.props.firstIndex(where: { $0.id == id || $0.libraryID == id }) else {
                 return "No prop with id \(id)."
             }
             p.props[i].skipped = true
             props = p; presenting = .props
-            return "Marked as pretend. Keep going cheerfully."
+            return "Marked as pretend. Don't speak yet: call show_next_prop (or finish_planning) FIRST, then say you'll pretend that one and ask about the new prop in the same turn."
         case .finishPlanning:
             presenting = .none; planningStep = .finish
             if gameTitle == nil { gameTitle = "Airplane" }
             if playerCount == 0 { playerCount = max(1, plan?.kidCount ?? 1) }
             Task { await self.makeKit() }
             return "Making the kit now. Say nothing."
+        case .justTalk:
+            return "Nothing changes. Reply kindly in ONE short line (no narration), then ask the current step's question again."
+        case .startPlay:
+            guard phase == .kitReady else { return "Not yet: the kit isn't ready. Say only \"Almost ready!\"" }
+            beginPlay()
+            return "Play started. The app runs the scenes now. Say nothing."
+        case .printKit:
+            return "The print screen is open. Say one short line like \"Here's the print screen!\""
         }
     }
 

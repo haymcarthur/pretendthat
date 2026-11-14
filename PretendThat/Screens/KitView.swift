@@ -11,6 +11,8 @@ struct KitView: View {
     /// Chat panel open: the papers dock in the panel's pinned card (with the Print pill) instead of the fan here.
     var chatOpen = false
     @Binding var preview: PTPreviewTarget?
+    /// The papers have landed: RootView throws the confetti as its topmost overlay (above the chat panel, rail, pill).
+    var onCelebrate: () -> Void = {}
     @State private var landed = false
     /// The papers fly out only once the WHOLE kit is final: every page's AI art landed or definitively fell back
     /// (never the fallback first and then a swap). Until then Nutmeg colors (no-text-overlays.md).
@@ -54,7 +56,8 @@ struct KitView: View {
                 .overlay {
                     let layout = stacked ? AnyLayout(VStackLayout(spacing: Theme.Space.s)) : AnyLayout(HStackLayout(spacing: Theme.Space.m))
                     layout {
-                        PTParentGate(label: "Hold to print") { model.printKit() }
+                        // One tap opens the iOS print screen (decisions/2026-11-13-single-tap-print.md).
+                        Button { model.printKit() } label: { Label("Print", systemImage: "printer") }.buttonStyle(.ptPrimary)
                         Button("Let's play!") { store.beginPlay() }.buttonStyle(.ptSecondary)
                     }
                     .frame(height: rowH)
@@ -71,7 +74,6 @@ struct KitView: View {
             .animation(.spring(response: 0.5, dampingFraction: 0.85), value: chatOpen)
         }
         .animation(Theme.bouncy, value: landed)
-        .overlay { if store.phase == .kitReady && landed { PTConfetti().ignoresSafeArea() } }
         .ptPagePreview($preview, count: pages.count) { i in
             KitPageView(page: pages[i], art: model.art.images[pages[i].item.id], cutouts: model.art.cutoutImages(pages[i].item))
         }
@@ -80,6 +82,7 @@ struct KitView: View {
         .onChange(of: landed) { _, l in if l, let i = DemoDriver.previewPage { preview = PTPreviewTarget(index: i) } }
         #endif
         .onChange(of: revealed) { _, r in if !r { landed = false } }
+        .onChange(of: landed) { _, l in if l && store.phase == .kitReady { onCelebrate() } }
         .task(id: model.kitBeat == .papers) {
             guard model.kitBeat == .papers else { cameraSettled = false; return }
             try? await Task.sleep(for: .milliseconds(650))

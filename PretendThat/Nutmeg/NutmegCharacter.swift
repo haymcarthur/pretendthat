@@ -60,19 +60,19 @@ struct NutmegCharacter: View {
             gestureTask?.cancel()
             requestSwap(to: new)
         }
-        .onChange(of: cue) { _, cue in if let cue { play(cue.gesture) } }
+        .onChange(of: cue) { _, cue in if let cue { play(cue.gesture, hold: cue.hold) } }
         .accessibilityElement()
         .accessibilityLabel("Nutmeg the mouse")
     }
 
     // MARK: Pose swaps
 
-    private func play(_ gesture: NutmegGesture) {
+    private func play(_ gesture: NutmegGesture, hold: TimeInterval? = nil) {
         guard forcedPose == nil, PoseRules.allowsGesture(over: PoseName(rawValue: basePose.rawValue) ?? .idle) else { return }
         gestureTask?.cancel()
         gestureTask = Task { @MainActor in
             await swap(to: NutmegPose(gesture.pose))
-            try? await Task.sleep(for: .seconds(PoseRules.hold(gesture)))
+            try? await Task.sleep(for: .seconds(hold ?? PoseRules.hold(gesture)))
             guard !Task.isCancelled else { return }
             await swap(to: basePose)
         }

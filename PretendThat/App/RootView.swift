@@ -15,6 +15,11 @@ struct RootView: View {
     @Namespace private var huntSpace
     /// Full-size kit page preview (opened from the fan or from the chat panel's pinned papers).
     @State private var kitPreview: PTPreviewTarget?
+    /// Close asks first (decisions/2026-11-13-push-to-talk.md).
+    @State private var confirmLeave = false
+    /// Kit-ready confetti, drawn as the topmost overlay (above the chat panel, step rail and control pill).
+    @State private var confettiRun = 0
+    @State private var confettiOn = false
 
     private var store: AdventureStore { model.store }
 
@@ -59,21 +64,33 @@ struct RootView: View {
                     .padding(.leading, Theme.Space.m)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
                     .transition(.move(edge: .leading).combined(with: .opacity))
-                PTControlBar(isMuted: model.realtime.isMuted, isListening: model.realtime.kidIsTalking, chatOpen: chatOpen,
-                             micAvailable: model.realtime.isLive,
-                             onMute: { if model.realtime.isLive { model.realtime.isMuted.toggle() } else { chatOpen = true } },
+                PTControlBar(chatOpen: chatOpen, mic: micMode,
                              onChat: { chatOpen.toggle() },
-                             onLeave: { chatOpen = false; model.leave() })
+                             onMicPress: { model.talkPressed() },
+                             onMicRelease: { model.talkReleased() },
+                             onClose: { confirmLeave = true })
                     .padding(.bottom, Theme.Space.m)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                     // Writing moment: the pill steps aside so the screen's bottom edge crops just below the clipboard
-                    // top (her paws out of frame, the crayon's top end visible); the mic keeps listening.
+                    // top (her paws out of frame, the crayon's top end visible). Hiding it releases a held mic.
                     .opacity(model.isWriting ? 0 : 1)
                     .allowsHitTesting(!model.isWriting)
                     .animation(.easeInOut(duration: 0.25), value: model.isWriting)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
+            if confirmLeave {
+                PTLeaveDialog(onStay: { confirmLeave = false },
+                              onLeave: { confirmLeave = false; chatOpen = false; model.leave() })
+                    .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                    .zIndex(20)
+            }
+            // Confetti last: the topmost layer, never blocks a tap.
+            if confettiOn {
+                PTConfetti().id(confettiRun).ignoresSafeArea().allowsHitTesting(false).zIndex(30)
+                    .accessibilityHidden(true)
+            }
         }
+        .animation(.easeOut(duration: 0.2), value: confirmLeave)
         .animation(.spring(response: 0.5, dampingFraction: 0.85), value: chatOpen)
         .animation(.spring(response: 0.5, dampingFraction: 0.85), value: chromeVisible)
         .animation(.easeInOut(duration: 0.4), value: model.inConversation)
@@ -90,15 +107,17 @@ struct RootView: View {
             default: break
             }
         }
-        .onChange(of: store.presenting) { _, p in if p != .none { model.gesture(.point) } }
         .onChange(of: desiredShot) { _, _ in scheduleShot() }
-        .onChange(of: store.currentPropID) { _, id in if id != nil { model.gesture(.point) } }   // toward the new card
+        // Round 7: the point toward a prop card is tied to the card's reveal and her prop line (AppModel.pointAtCard).
         .onChange(of: model.inConversation) { _, live in
             if live { scheduleShot(arrival: true) } else { shotTask?.cancel(); cameraShot = .wide; lastShotChange = .distantPast }
         }
         .onChange(of: store.kit) { _, _ in model.kitChanged() }
         .onChange(of: model.kitFinal) { _, final in model.kitFinalChanged(final) }
-        .onChange(of: model.isWriting) { _, on in model.scribble.setPlaying(on, ducked: model.isSpeaking) }
+        .onChange(of: model.isWriting) { _, on in
+            model.scribble.setPlaying(on, ducked: model.isSpeaking)
+            if on { model.talkReleased() }   // the pill steps aside: a held mic is let go (sent or cleared)
+        }
         .onChange(of: model.isSpeaking) { _, talking in if model.isWriting { model.scribble.setPlaying(true, ducked: talking) } }
         .onChange(of: presentedSubjects) { _, _ in requestStickers() }
         .task {
@@ -302,7 +321,8 @@ struct RootView: View {
         case .pickGame: EmptyView()   // games are talked about only: no idea cards, no caption (no-text-overlays.md)
         case .players: PlayersView(model: model)
         case .props: PropsView(model: model)
-        case .makingKit, .kitReady: KitView(model: model, clipboard: clipboard, chatOpen: chatOpen && chromeVisible, preview: $kitPreview)
+        case .makingKit, .kitReady: KitView(model: model, clipboard: clipboard, chatOpen: chatOpen && chromeVisible, preview: $kitPreview,
+                                            onCelebrate: { celebrate() })
         case .handoff(let i): HandoffView(model: model, sceneIndex: i)
         case .scene(let i): SceneView(model: model, index: i)
         case .stepBack: StepBackView(model: model)
@@ -325,6 +345,21 @@ struct RootView: View {
         case .makingKit, .kitReady: "kit"
         default: "\(store.phase)"
         }
+    }
+
+    /// Kit-ready confetti over everything for one run (PTConfetti draws ~2.6 s), then it's removed.
+    private func celebrate() {
+        confettiRun += 1
+        confettiOn = true
+        let run = confettiRun
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(3))
+            if run == confettiRun { confettiOn = false }
+        }
+    }
+
+    private var micMode: PTMicButton.Mode {
+        switch model.micState { case .idle: .idle; case .listening: .listening; case .disabled: .disabled }
     }
 
     /// Step rail and control pill show from the first step on (not on Hello).

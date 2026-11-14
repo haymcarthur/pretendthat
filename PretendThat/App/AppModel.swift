@@ -17,6 +17,8 @@ final class AppModel {
     @ObservationIgnored let scribble = ScribbleSound()
     let voiceSettings = VoiceSettings()
     @ObservationIgnored private let openAIKey: String?
+    /// Only the IDs of last session's suggested games/themes (UserDefaults), so the next session differs. Nothing about kids.
+    @ObservationIgnored private let suggestionMemory = SuggestionMemory()
 
     init(info: [String: Any] = Bundle.main.infoDictionary ?? [:]) {
         let config = ClaudeConfig.from(info: info)
@@ -38,14 +40,34 @@ final class AppModel {
             let k = k.trimmingCharacters(in: .whitespaces); return k.isEmpty || k.hasPrefix("$(") ? nil : k
         }
         realtime.onTurnDone = { [weak self] text in
-            guard let self, Self.isPlanning(self.store.phase) else { return nil }
-            return TurnCheck.nudge(for: text, step: self.store.planningStep)
+            guard let self, Self.isPlanning(self.store.phase), !self.realtime.propLinePending else { return nil }
+            // Round 7: roles set but no prop yet → she continues straight into the first prop (no "Sound good?" wait).
+            return TurnCheck.review(text, step: self.store.planningStep, rolesSet: self.store.plan != nil,
+                                    propsShown: self.store.props?.props.count ?? 0, currentPropDone: self.store.currentPropDone)
         }
         realtime.onSilence = { [weak self] in
             guard let self, Self.isPlanning(self.store.phase), self.store.planningStep != .finish else { return nil }
-            return TurnCheck.silenceNudge(step: self.store.planningStep)
+            return TurnCheck.silenceLine   // spoken only, never in the chat (round 7)
         }
         realtime.onPlanningBeat = { [weak self] topic in await self?.planningBeat(topic) }
+        realtime.onPropLine = { [weak self] in self?.revealFirstProp() ?? "" }
+        // Tool-first kid turns (round 7): no narration is ever heard; she speaks after the tool result.
+        realtime.onKidTurnTools = { [weak self] in
+            guard let self, Self.isPlanning(self.store.phase) else { return nil }
+            return Realtime.kidTurnTools(step: self.store.planningStep, huntActive: self.store.huntActive)
+        }
+        realtime.onPostPlanningTurn = { [weak self] in
+            guard let self else { return nil }
+            switch self.store.phase {
+            case .kitReady:
+                return "(Silent coaching, don't mention it.) The kit is ready on screen (print step). If they want to play, "
+                    + "call start_play; if they want to print, call print_kit. Otherwise answer in ONE short line. No \"go play\" yet."
+            case .handoff, .scene, .stepBack, .end:
+                return "(Silent coaching, don't mention it.) They're playing now. Answer in ONE short, fun line that helps the "
+                    + "current scene. No tools."
+            default: return nil
+            }
+        }
         realtime.onCall = { [weak self] name, args in
             guard let self else { return ("ok", true) }
             return await self.handleCall(name: name, arguments: args)
@@ -79,13 +101,19 @@ final class AppModel {
     func startConversation() async {
         store.beginConversation()
         guard let key = openAIKey else { await store.start(); return }
+        // Fresh suggestions every session (round 7): 3 games picked now (never last session's), injected as today's ideas.
+        let games = suggestionMemory.pickGames()
+        #if DEBUG
+        rtLog("today's games: \(games.map(\.id).joined(separator: ", "))")
+        #endif
         let ok = await realtime.connect(apiKey: key, voice: voiceSettings.voice, shape: voiceSettings.shape,
-                                        speed: voiceSettings.speed, echoCancel: voiceSettings.echoCancel)
+                                        speed: voiceSettings.speed, echoCancel: voiceSettings.echoCancel,
+                                        instructions: Realtime.instructions(todayGames: games))
         guard store.phase == .pickGame else { return }   // left while connecting
         if ok {
             realtime.micWanted = true
             gesture(.wave)
-            realtime.kickOff()
+            realtime.kickOff(games: games)
         } else {
             await store.start()   // tap screens (and the bundled airplane game if Claude is off too)
         }
@@ -103,11 +131,18 @@ final class AppModel {
 
     /// Typed fallback goes into the live conversation when there is one.
     func typed(_ text: String) async {
-        if realtime.isLive && Self.isPlanning(store.phase) { realtime.sendText(text) } else { await handleSpeech(text) }
+        if realtime.isLive && Self.isPlanning(store.phase) { realtime.sendText(text); return }
+        if realtime.isLive && store.phase != .makingKit { realtime.sendText(text); return }   // print step, play
+        // Kit being made (round 7): a tiny "Almost ready!" at most, never a new conversation turn.
+        if realtime.isLive && store.phase == .makingKit { if !realtime.isSpeaking { realtime.say("Almost ready!") }; return }
+        await handleSpeech(text)
     }
 
     func phaseChanged() {
-        realtime.micWanted = Self.isPlanning(store.phase)
+        // Round 7 (Haylee): the mic only looks disabled while connecting. Kit making: pressable, "Almost ready!" at most.
+        realtime.micWanted = true
+        realtime.quickReplyOnly = store.phase == .makingKit
+        if store.phase == .makingKit { startKitProgress() } else if store.phase != .kitReady { kitWait?.cancel() }
         // (A fast kit can skip straight to kitReady between two observations; it still gets its writing beat.)
         if (store.phase == .makingKit || store.phase == .kitReady) && kitBeat == .coloring && !kitWriting && kitWritingTask == nil {
             startKitWriting()
@@ -140,12 +175,26 @@ final class AppModel {
         guard let kit = store.kit else { return }
         let title = store.plan?.gameTitle ?? store.gameTitle ?? "Pretend"
         Task { await art.generate(kit: kit, gameTitle: title) }
-        // A long wait gets one or two short reassuring lines, never more.
+    }
+
+    /// Round 7: light progress commentary while the kit is being made (KitProgress): every ~13 s, about a page still
+    /// being drawn, at most 4, never repeated; stops as soon as the whole kit has landed.
+    private func startKitProgress() {
         kitWait?.cancel()
         kitWait = Task { @MainActor in
-            for line in ["Almost done! These are going to be so fun to color!", "Just a few more lines and they're ready!"] {
-                try? await Task.sleep(for: .seconds(20))
-                guard !Task.isCancelled, !art.finished, store.kit != nil else { return }
+            var said: [String] = []
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(KitProgress.interval))
+                guard !Task.isCancelled, store.phase == .makingKit || store.phase == .kitReady, !kitFinal else { return }
+                if isSpeaking { continue }
+                // While the kit's pages are still being written, every page is in progress; then the ones still drawing.
+                let pending = store.kit == nil ? KitRecipe.allCases : (store.kit?.items ?? []).filter { item in
+                    item.recipe == .cutouts ? art.cutoutImages(item).contains { $0 == nil } : art.images[item.id] == nil
+                }.compactMap(\.recipe)
+                guard said.count < KitProgress.maxLines else { return }
+                guard let line = KitProgress.line(pending: pending, said: said) else { continue }   // keep waiting
+                rtLog("kit progress: \(line)")
+                said.append(line)
                 speak(line)
             }
         }
@@ -161,7 +210,7 @@ final class AppModel {
         guard let kit = store.kit else { return [] }
         return KitLayout.pages(for: kit, roles: store.plan?.roles ?? [], playerCount: store.playerCount)
     }
-    /// Grown-up hold-to-print: the whole kit as one PDF to AirPrint.
+    /// Print (single tap, decisions/2026-11-13-single-tap-print.md): the whole kit as one PDF to the iOS print screen.
     func printKit() {
         let pdf = KitPrinter.pdf(pages: kitPages, art: art.images,
                                  cutouts: Dictionary(uniqueKeysWithValues: (store.kit?.items ?? []).map { ($0.id, art.cutoutImages($0)) }))
@@ -196,6 +245,8 @@ final class AppModel {
             try? await Task.sleep(for: .milliseconds(900))
             guard !Task.isCancelled else { return }
             kitBeat = .papers                                   // zoom out; the papers fly once the camera settles
+            // Round 7: the ready line only now that the whole kit exists; about printing, never "go play".
+            speak(AdventureStore.kitReadyLine)
         }
     }
 
@@ -204,11 +255,30 @@ final class AppModel {
             return ("I couldn't use that. Try again with the right fields.", true)
         }
         let before = realtime.responseSerial
+        if case .printKit = call {
+            guard store.phase == .kitReady || kitFinal else { return ("Not yet: the kit isn't ready. Say only \"Almost ready!\"", true) }
+            printKit()
+        }
+        if case .setGame = call {
+            // Theme ideas for this game (round 7): 3 twists, never last time's; delivered in the set_game result.
+            store.themeIdeas = suggestionMemory.pickTwists()
+            #if DEBUG
+            rtLog("today's themes: \(store.themeIdeas.map(\.id).joined(separator: ", "))")
+            #endif
+        }
         let output = await store.apply(call)
         realtime.huntMode = store.huntActive
-        if case .showNextProp = call { revealProps(after: before) }
+        if case .showNextProp = call {
+            if realtime.isLive && (store.props?.props.count ?? 0) == 1 && shownProps == 0 {
+                // First prop (round 7): she says the roles first; the card waits for that line to finish + 1 s.
+                realtime.holdFirstPropLine()
+            } else {
+                revealProps(after: before)
+            }
+        }
         if store.props == nil { shownProps = 0 }
-        return (output, call != .finishPlanning)
+        // finish_planning and start_play end her turn: the app speaks the kit and scene lines.
+        return (output, call != .finishPlanning && call != .startPlay)
     }
 
     /// Nutmeg's on-screen state, derived from everything that's happening.
@@ -268,10 +338,18 @@ final class AppModel {
         beat = .writing
         let base = topic == "roles" ? 2.3 : PoseRules.minPlanningBeat
         try? await Task.sleep(for: .seconds(Double.random(in: base...(base + 0.6))))
-        beat = .lookUp
-        try? await Task.sleep(for: .milliseconds(550))
-        beat = .none
+        // Round 7: ONE continuous writing state. The beat's result goes back now (set_roles → show_next_prop run
+        // silently), but she keeps writing until her roles line actually starts playing; only then does she look up.
+        beatEndTask?.cancel()
+        beatEndTask = Task { @MainActor in
+            for _ in 0..<240 where !realtime.isSpeaking && !Task.isCancelled { try? await Task.sleep(for: .milliseconds(50)) }   // ≤ 12 s
+            guard !Task.isCancelled else { return }
+            beat = .lookUp
+            try? await Task.sleep(for: .milliseconds(550))
+            beat = .none
+        }
     }
+    @ObservationIgnored private var beatEndTask: Task<Void, Never>?
 
     /// Prop cards on stage. A new card waits until the turn that was playing when it was requested has finished (never
     /// mid-sentence about the roles): it appears with her prop line, or once playback drains.
@@ -282,8 +360,17 @@ final class AppModel {
         Task { @MainActor in
             // A new prop card waits for the writing beat too: it appears as she looks up and announces it.
             while beat != .none || (realtime.isSpeaking && realtime.audioResponseSerial <= serial) { try? await Task.sleep(for: .milliseconds(50)) }
-            shownProps = store.props?.props.count ?? 0
+            let n = store.props?.props.count ?? 0
+            if n > shownProps { shownProps = n; pointAtCard() }   // the card appears as her prop line starts
         }
+    }
+
+    /// The roles line finished playing (+1 s): show the first card, point at it, and return the note for her prop line.
+    private func revealFirstProp() -> String {
+        shownProps = store.props?.props.count ?? 0
+        pointAtCard()
+        let p = store.props?.props.first
+        return AdventureStore.firstPropLine(item: p?.householdItem ?? "prop", becomes: p?.becomes ?? "something fun")
     }
 
     /// Backup buttons on the current prop card (noisy rooms): the one planning tap.
@@ -308,7 +395,22 @@ final class AppModel {
     var cue: NutmegCue?
     /// Bumped on celebration moments; stage props bounce once.
     var celebrations = 0
-    func gesture(_ g: NutmegGesture) { cue = NutmegCue(gesture: g) }
+    func gesture(_ g: NutmegGesture, hold: TimeInterval? = nil) { cue = NutmegCue(gesture: g, hold: hold) }
+
+    /// Round 7 choreography: the card appears and she points; the point holds through her prop line (until it has
+    /// finished playing) plus a few seconds, then she rests.
+    @ObservationIgnored private var pointTask: Task<Void, Never>?
+    func pointAtCard() {
+        gesture(.point, hold: 60)
+        pointTask?.cancel()
+        pointTask = Task { @MainActor in
+            for _ in 0..<160 where !realtime.isSpeaking { try? await Task.sleep(for: .milliseconds(50)) }   // her line starts (≤ 8 s)
+            while realtime.isSpeaking && !Task.isCancelled { try? await Task.sleep(for: .milliseconds(50)) }
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled else { return }
+            gesture(.point, hold: 0)   // release
+        }
+    }
 
     /// Nutmeg's voice for app-written lines. With a live Realtime session she keeps her conversation voice;
     /// during planning she speaks for herself, so app lines are skipped there.
@@ -348,6 +450,27 @@ final class AppModel {
     /// The live voice's lip-synced mouth (nil: fall back to the amplitude mouth from `mouthLevel`).
     var mouthShape: NutmegMouth? { realtime.isLive ? NutmegMouth(rawValue: realtime.mouth.rawValue) : nil }
     var isSpeaking: Bool { realtime.isLive ? realtime.isSpeaking : voice.isSpeaking }
+
+    // MARK: Push-to-talk (decisions/2026-11-13-push-to-talk.md)
+
+    /// The red mic in the control pill. Live conversation: stream to Realtime while held. Without one (tap fallback):
+    /// the on-device listener, same hold gesture.
+    enum MicState { case idle, listening, disabled }
+    var micState: MicState {
+        if realtime.isLive {
+            // Round 7: never disabled in a live session (only while connecting): print step and play take voice too.
+            return realtime.kidIsTalking ? .listening : .idle
+        }
+        if realtime.status == .connecting { return .disabled }
+        guard listener.available, store.phase != .hello else { return .disabled }
+        return listener.isListening ? .listening : .idle
+    }
+    func talkPressed() {
+        if realtime.isLive { realtime.beginTalk() } else if listener.available { micPressed() }
+    }
+    func talkReleased() {
+        if realtime.isLive { realtime.endTalk() } else if listener.isListening { micReleased() }
+    }
 
     func micPressed() { listener.startListening(stopping: voice) }
 

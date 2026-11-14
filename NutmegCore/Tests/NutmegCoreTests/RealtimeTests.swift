@@ -11,19 +11,43 @@ import Testing
     #expect(output["voice"] as? String == Realtime.defaultVoice)   // unknown voice → default
     #expect((output["speed"] as? NSNumber)?.doubleValue == 1.5)                     // clamped
     let input = try #require(audio["input"] as? [String: Any])
-    #expect((input["turn_detection"] as? [String: Any])?["type"] as? String == "server_vad")
+    #expect(input["turn_detection"] is NSNull)   // push-to-talk: no server VAD
     let names = (session["tools"] as? [[String: Any]])?.compactMap { $0["name"] as? String }
-    #expect(names == ["show_game_ideas", "set_game", "set_theme", "set_player_count", "set_roles", "show_next_prop", "mark_found", "swap_prop", "skip_prop", "finish_planning", "start_planning", "set_expression"])
+    #expect(names == ["show_game_ideas", "set_game", "set_theme", "set_player_count", "set_roles", "show_next_prop", "mark_found", "swap_prop", "skip_prop", "finish_planning", "just_talk", "start_play", "print_kit", "start_planning", "set_expression"])
     #expect(Realtime.json(s).contains("\"laundry-basket\""))   // the prop library is an enum in the schema
-    // Serializes cleanly.
-    #expect(Realtime.json(s).contains("\"server_vad\""))
-    #expect(Realtime.json(s).contains("\"threshold\":0.6"))   // no 0.59999999999999998
+    // Serializes cleanly: turn detection is an explicit JSON null, never server VAD.
+    #expect(Realtime.json(s).contains("\"turn_detection\":null"))
+    #expect(!Realtime.json(s).contains("server_vad") && !Realtime.json(s).contains("create_response"))
+}
+
+/// Push-to-talk client events (decisions/2026-11-13-push-to-talk.md).
+@Test func pushToTalkEvents() throws {
+    #expect(Realtime.inputCommit["type"] as? String == "input_audio_buffer.commit")
+    #expect(Realtime.inputClear["type"] as? String == "input_audio_buffer.clear")
+    #expect(Realtime.responseCancel["type"] as? String == "response.cancel")
+    #expect(Realtime.appendAudio(Data([1, 2]))["type"] as? String == "input_audio_buffer.append")
+    let t = Realtime.truncate(itemID: "item_1", audioEndMs: 1234)
+    #expect(t["type"] as? String == "conversation.item.truncate" && t["item_id"] as? String == "item_1")
+    #expect(t["content_index"] as? Int == 0 && t["audio_end_ms"] as? Int == 1234)
+    #expect(Realtime.truncate(itemID: "x", audioEndMs: -5)["audio_end_ms"] as? Int == 0)
+    #expect(Realtime.minHoldSeconds == 0.3)
+    #expect(Realtime.parse(#"{"type":"response.output_item.added","item":{"id":"item_9","type":"message"}}"#) == .outputItemAdded(id: "item_9"))
+    #expect(Realtime.parse(#"{"type":"response.output_item.added","item":{"id":"fc_1","type":"function_call"}}"#)
+            == .other("response.output_item.added"))
+}
+
+/// She tells kids to hold the red button, never to "just talk"; prop descriptions stay short.
+@Test func instructionsDescribePushToTalk() {
+    #expect(Realtime.instructions.contains("Hold the red button and tell me"))
+    #expect(Realtime.instructions.contains("ONLY in your very first question"))
+    #expect(!Realtime.instructions.lowercased().contains("you only hear the lines meant for you"))
+    let prop = Realtime.tools.first { $0["name"] as? String == "show_next_prop" }
+    #expect((prop?["description"] as? String)?.contains("6 words or fewer") == true)
 }
 
 @Test func parsesServerEvents() {
     #expect(Realtime.parse(#"{"type":"session.updated"}"#) == .sessionReady)
     #expect(Realtime.parse(#"{"type":"response.output_audio.delta","delta":"AAEC"}"#) == .audioDelta(Data([0, 1, 2])))
-    #expect(Realtime.parse(#"{"type":"input_audio_buffer.speech_started"}"#) == .speechStarted)
     #expect(Realtime.parse(#"{"type":"conversation.item.input_audio_transcription.completed","transcript":"hi"}"#) == .kidTranscript("hi"))
     #expect(Realtime.parse(#"{"type":"response.function_call_arguments.done","name":"set_game","call_id":"c1","arguments":"{\"title\":\"Zoo\"}"}"#)
             == .functionCall(name: "set_game", callID: "c1", arguments: #"{"title":"Zoo"}"#))
@@ -157,4 +181,56 @@ import Testing
     #expect(Realtime.apiSpeed(method: .timePitch, requested: 1.3) == 1.3)
     #expect(Realtime.defaultPitchMethod == .varispeed && Realtime.defaultVarispeedRate == 1.20 && Realtime.defaultVoice == "coral")
     #expect(Realtime.instructions.contains("8–9 years old"))
+}
+
+/// Round 6 regression (Haylee): she repeated the question 2-3 times in one turn. Exactly one spoken reply per kid turn.
+@Test func oneSpokenReplyPerKidTurn() {
+    var g = ResponseGate()
+    var creates = 0, spoken = 0
+    func create(_ yes: Bool) { if yes { creates += 1 } }
+    // Greeting: one response that speaks; no follow-up (the turn-ending nudge no longer asks for one).
+    g.newTurn(); create(g.request()); g.created(); g.spoke(); spoken += 1
+    create(g.done())
+    #expect(creates == 1 && spoken == 1)
+    // Kid turn with tools: response 1 calls set_expression + set_game silently (no audio) → ONE follow-up that speaks.
+    creates = 0; spoken = 0
+    g.newTurn(); create(g.request()); g.created()
+    create(g.done())                                  // no audio yet: she still owes her answer
+    g.created(); g.spoke(); spoken += 1
+    create(g.done())                                  // spoke: nothing more, even if it also called set_expression
+    #expect(creates == 2 && spoken == 1)
+    // A response that speaks AND calls a tool never gets a second spoken response.
+    creates = 0
+    g.newTurn(); create(g.request()); g.created(); g.spoke()
+    create(g.done())
+    #expect(creates == 1)
+    // No overlapping responses: a request while one is active waits for done.
+    var h = ResponseGate()
+    h.newTurn(); let r1 = h.request(); #expect(r1); h.created()
+    let r2 = h.request(); #expect(!r2)                             // second request while active: not sent
+    let r3 = h.done(); #expect(r3)                                 // sent once the first is done (nothing spoken yet)
+    h.created(); h.spoke(); let r4 = h.done(); #expect(!r4)
+    // Silent tool loops are capped.
+    var k = ResponseGate(); k.newTurn(); _ = k.request(); k.created()
+    var loops = 0; while k.done() { loops += 1; k.created() }
+    #expect(loops == ResponseGate.maxFollowUps)
+    // The writing beat's announcement is the one deliberate second part.
+    var b = ResponseGate(); b.newTurn(); _ = b.request(); b.created(); b.spoke(); _ = b.done()
+    b.forceFollowUp(); let r5 = b.request(); #expect(r5)
+    // Held mic / interrupt: no follow-up (the release asks).
+    var p = ResponseGate(); p.newTurn(); _ = p.request(); p.created(); let r6 = p.done(allowFollowUp: false); #expect(!r6)
+    // A typed turn while her previous reply is still streaming still gets its own answer.
+    var t = ResponseGate(); t.newTurn(); _ = t.request(); t.created()
+    t.newTurn(); let r7 = t.request(); #expect(!r7); t.spoke()      // old response's audio: not this turn's
+    let r8 = t.done(); #expect(r8)
+}
+
+/// A silence re-ask is its own bubble, never glued onto her last reply (it read as repetition, round 6).
+@Test func silenceReaskGetsItsOwnBubble() {
+    var t = RealtimeTranscript()
+    t.apply(.transcriptDone("What should we play: a rocket, a bakery, or a zoo?"))
+    t.breakTurn()
+    t.apply(.transcriptDelta("Still here! "))
+    t.apply(.transcriptDone("Still here! A rocket, a bakery, or a zoo?"))
+    #expect(t.lines.count == 2 && t.lines[1].text == "Still here! A rocket, a bakery, or a zoo?")
 }

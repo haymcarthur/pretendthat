@@ -180,7 +180,8 @@ struct PTStageItemCard: View {
             PTText(item.title, .headline)
                 .lineLimit(2).minimumScaleFactor(0.7).multilineTextAlignment(.center)
             if let subtitle = item.isPretend ? "We'll pretend!" : item.subtitle {
-                PTText(subtitle, .caption, tone: .muted).lineLimit(1).minimumScaleFactor(0.7)
+                PTText(subtitle, .caption, tone: .muted)   // never truncated: wraps, the card grows
+                    .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(Theme.Space.s)

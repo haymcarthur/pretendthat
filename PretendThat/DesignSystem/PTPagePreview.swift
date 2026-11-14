@@ -122,7 +122,7 @@ extension View {
 }
 
 /// The kit papers docked at the top of the chat panel (chat open): a horizontal strip of page thumbnails (tap to open
-/// the full-size preview) and the black hold-to-print pill. Chat closed keeps the fan beside Nutmeg.
+/// the full-size preview) and the black Print pill (one tap opens the iOS print screen). Chat closed keeps the fan beside Nutmeg.
 struct PTKitPinnedCard<Page: View>: View {
     let count: Int
     var onTap: (Int) -> Void
@@ -136,7 +136,7 @@ struct PTKitPinnedCard<Page: View>: View {
         VStack(spacing: Theme.Space.s) {
             // Buttons above the paper thumbnails (same order as the stage's kit reveal).
             HStack(spacing: Theme.Space.xs) {
-                PTParentGate(label: "Print", onComplete: onPrint)
+                Button(action: onPrint) { Label("Print", systemImage: "printer") }.buttonStyle(.ptPrimary)   // single tap
                 Button("Let's play!", action: onPlay).buttonStyle(.ptSecondary)
             }
             ScrollView(.horizontal) {

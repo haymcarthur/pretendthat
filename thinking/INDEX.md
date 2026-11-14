@@ -58,7 +58,19 @@ The map. Read this first, then open only what you need.
 - [Checklist and scene pictures, no emoji](decisions/checklist-pictures.md): Haylee (prop / action / kit pictures; cut-outs generated one per item; confetti uses stage art)
 - [Push-to-talk + mic/chat/close pill + exit warning](decisions/2026-11-13-push-to-talk.md): Haylee
 - [Single tap to print](decisions/2026-11-13-single-tap-print.md): Haylee
+- [Writing body recolor + wave arm swap](decisions/2026-11-13-writing-recolor.md): Haylee
 - [New writing body (one paw writes)](decisions/2026-11-13-writing-body.md): Haylee
+- [Round 6 build: push-to-talk, one reply per turn, one silence reminder, mic pill shape, leave dialog, tap-to-print, prop text, confetti](decisions/round6-push-to-talk.md): Haylee (Claude's calls noted)
+- [Round 7 conversation: fresh game/theme suggestions every session, open player count, no permission checks, spoken-only silence reminder, no narration, prop cards from show_next_prop](decisions/round7-conversation.md): Haylee (Claude's calls noted)
+- [Curtain tie-back art (rope + tassel)](decisions/2026-11-13-tiebacks-art.md): Haylee (art); export, crop and placement Claude's call
+- [Wave body v6: cleanup, body transform, clipboard layer split](decisions/2026-11-13-wave-v6-cleanup.md): Claude's call (cleanup-only rule is Haylee's)
+- [Conversation rules (late): open suggestions, no permission checks, no sound words, no "go play" before Play, narration exceptions, roles → pause → card + point](decisions/2026-11-13-conversation-rules-late.md): Haylee
+- [Kit pages fit, pages step uses prop-card camera, confetti on top, prop text](decisions/2026-11-13-kit-pages-and-stage.md): Haylee
+- [Art: clipboard above head, arm-in-front wave, head stays, writing body](decisions/2026-11-13-art-layering-and-head.md): Haylee
+- [Approved polish: star sparkle, tie-backs, sleepy Nutmeg, game survives lock](decisions/2026-11-13-stage-polish-ideas-approved.md): Haylee
+
+## Work queue
+- [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–6 done; round 7 (conversation) running; round 8 = art (tie-backs, writing body, wave, clipboard layers, stars); round 9 = sleepy Nutmeg + lock/background
 
 ## Research
 - [Competitor analysis](research/competitor-analysis.md): competitors, white space, novelty angles, pricing
@@ -66,9 +78,10 @@ The map. Read this first, then open only what you need.
 
 ## Ideas
 - [Later and stretch ideas](ideas/later-ideas.md): photo scan, accounts, cloud voice, B2B, pricing
+- [Save the current game to disk](ideas/save-game-to-disk.md): stretch, only if time (Haylee)
 
 ## Open
-- [Open questions](open-questions.md): names in image prompts, keys, relay
+- [Open questions](open-questions.md): keys/credits, relay, domain, font, shared-simulator testing, wave art leftovers
 
 ## Docs
 - [Design spec](../docs/superpowers/specs/2026-11-13-pretendthat-design.md)

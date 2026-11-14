@@ -137,7 +137,6 @@ struct PTPropCard: View {
                 Label { Text(prop.becomes) } icon: { Image(systemName: "arrow.right") }
                     .font(Theme.bodyFont(Theme.TextSize.body)).foregroundStyle(Theme.inkMuted)
                     .labelStyle(.titleAndIcon)
-                    .lineLimit(2).minimumScaleFactor(0.7)
                     .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity)
@@ -267,61 +266,63 @@ struct PTReplayButton: View {
     }
 }
 
-/// Hold-to-talk microphone: a chunky coral button that sinks while held and pulses rings while listening.
-/// When speech isn't available it becomes a keyboard button: tap to type instead (`onTypeInstead`).
+/// The big red push-to-talk mic (decisions/2026-11-13-push-to-talk.md), center of the control pill.
+/// The whole circle is one press-and-hold target (DragGesture, minimumDistance 0): press → `onPress` with a haptic,
+/// release (or the gesture being cancelled) → `onRelease`. `@GestureState` resets on its own, so a cancelled touch
+/// always releases. Listening: it sinks a little and a red ring pulses. Disabled (connecting, after planning): gray.
 struct PTMicButton: View {
-    let isListening: Bool
-    let isAvailable: Bool
-    let onPress: () -> Void
-    let onRelease: () -> Void
-    var onTypeInstead: (() -> Void)? = nil
+    enum Mode: Equatable { case idle, listening, disabled }
+    var mode: Mode
+    var size: CGFloat = 92
+    var onPress: () -> Void = {}
+    var onRelease: () -> Void = {}
+    @GestureState private var pressing = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    var body: some View {
-        if isAvailable {
-            face(symbol: isListening ? "waveform" : "mic.fill", fill: isListening ? Theme.accent : Theme.primary,
-                 edge: isListening ? Theme.yellowShade : Theme.coralShade, ink: isListening ? Theme.ink : Theme.inkOnBrand,
-                 sunk: isListening)
-                .onLongPressGesture(minimumDuration: 600, maximumDistance: 200, perform: {}) { pressing in
-                    pressing ? onPress() : onRelease()
-                }
-                .sensoryFeedback(.impact(weight: .medium), trigger: isListening)
-                .accessibilityLabel(isListening ? "Listening" : "Hold to talk to Nutmeg")
-                .accessibilityAddTraits(.isButton)
-        } else {
-            Button { onTypeInstead?() } label: {
-                face(symbol: "keyboard.fill", fill: Theme.white, edge: Theme.line, ink: Theme.ink, sunk: false)
-            }
-            .buttonStyle(TileButtonStyle())
-            .disabled(onTypeInstead == nil)
-            .accessibilityLabel("Type to Nutmeg")
-        }
-    }
+    private var enabled: Bool { mode != .disabled }
+    private var listening: Bool { enabled && (mode == .listening || pressing) }
 
-    private func face(symbol: String, fill: Color, edge: Color, ink: Color, sunk: Bool) -> some View {
-        TimelineView(.animation(paused: !isListening || reduceMotion)) { ctx in
-            let t = ctx.date.timeIntervalSinceReferenceDate
-            ZStack {
-                if isListening && !reduceMotion {
-                    ForEach(0..<2, id: \.self) { i in
-                        let phase = (t / 1.2 + Double(i) / 2).truncatingRemainder(dividingBy: 1)
-                        Circle().stroke(Theme.accent, lineWidth: 6)
-                            .scaleEffect(1 + phase * 0.5).opacity(1 - phase)
+    var body: some View {
+        ZStack {
+            if listening {
+                if reduceMotion {
+                    Circle().strokeBorder(Theme.micRed.opacity(0.5), lineWidth: 5).padding(-9)
+                } else {
+                    TimelineView(.animation) { ctx in
+                        let t = ctx.date.timeIntervalSinceReferenceDate
+                        ZStack {
+                            ForEach(0..<2, id: \.self) { i in
+                                let phase = (t / 1.1 + Double(i) / 2).truncatingRemainder(dividingBy: 1)
+                                Circle().stroke(Theme.micRed, lineWidth: 4)
+                                    .scaleEffect(1 + phase * 0.45).opacity(0.7 * (1 - phase))
+                            }
+                        }
                     }
                 }
-                Circle().fill(edge).offset(y: Theme.depth)
-                ZStack {
-                    Circle().fill(fill)
-                    Circle().strokeBorder(fill == Theme.white ? Theme.line : .clear, lineWidth: Theme.borderWidth)
-                    Image(systemName: symbol).font(Theme.displayFont(44)).foregroundStyle(ink)
-                        .symbolEffect(.variableColor.iterative, isActive: isListening && !reduceMotion)
-                }
-                .offset(y: sunk ? Theme.depth : 0)
             }
+            Circle().fill(enabled ? Theme.micRed : Theme.disabled)
+            Circle().strokeBorder(Theme.white.opacity(listening ? 0.9 : 0), lineWidth: 3).padding(5)
+            Image(systemName: listening ? "waveform" : "mic.fill")
+                .font(.system(size: size * 0.4, weight: .semibold))
+                .foregroundStyle(enabled ? Theme.white : Theme.disabledInk)
+                .contentTransition(.symbolEffect(.replace))
+                .symbolEffect(.variableColor.iterative, isActive: listening && !reduceMotion)
         }
-        .frame(width: Theme.Size.mic, height: Theme.Size.mic)
-        .padding(.bottom, Theme.depth)
-        .animation(Theme.press, value: sunk)
+        .frame(width: size, height: size)
+        .scaleEffect(listening ? 0.92 : 1)
+        .shadow(color: Theme.panelShadow, radius: 8, y: 3)
+        .contentShape(Circle())
+        .gesture(DragGesture(minimumDistance: 0).updating($pressing) { _, state, _ in state = true },
+                 including: enabled ? .all : .none)
+        .onChange(of: pressing) { _, isDown in isDown ? onPress() : onRelease() }
+        .sensoryFeedback(.impact(weight: .medium), trigger: pressing) { _, new in new }
+        .sensoryFeedback(.impact(weight: .light, intensity: 0.6), trigger: pressing) { old, new in old && !new }
+        .animation(Theme.press, value: listening)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(mode == .listening ? "Listening. Let go to send" : "Hold to talk to Nutmeg")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { mode == .listening ? onRelease() : onPress() }   // VoiceOver: tap to start, tap to send
+        .disabled(!enabled)
     }
 }
 

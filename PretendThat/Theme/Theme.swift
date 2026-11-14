@@ -9,6 +9,8 @@ enum Theme {
     static let coral = Color(hex: BrandPalette.coral)
     static let coralStrong = Color(hex: BrandPalette.coralStrong)
     static let coralShade = Color(hex: BrandPalette.coralShade)
+    /// The push-to-talk mic button: a true red with a white glyph (≥ 4.5:1), so "hold the red button" is unmistakable.
+    static let micRed = Color(hex: 0xD93025)
     static let purple = Color(hex: BrandPalette.purple)
     static let purpleShade = Color(hex: BrandPalette.purpleShade)
     static let yellow = Color(hex: BrandPalette.yellow)

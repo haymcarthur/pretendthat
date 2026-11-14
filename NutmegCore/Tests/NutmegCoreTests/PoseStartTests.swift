@@ -39,7 +39,9 @@ struct PropLineTests {
     @Test func onlyFirstPropExplains() {
         let first = AdventureStore.nextPropOutput(id: "plate", item: "Plate", becomes: "the steering wheel", n: 1)
         let second = AdventureStore.nextPropOutput(id: "spoon", item: "Spoon", becomes: "the big stirrer", n: 2)
-        #expect(first.contains("explain ONCE"))
+        // Round 7: the first prop explanation moved to its own line, asked after the roles finish playing.
+        #expect(AdventureStore.firstPropLine(item: "Plate", becomes: "the steering wheel").contains("explain ONCE"))
+        #expect(first.contains("Speak ONLY the roles"))
         #expect(second.contains("Next, can you find a spoon? It'll be the big stirrer!"))
         #expect(second.contains("Do NOT repeat"))
         #expect(!second.contains("explain ONCE"))

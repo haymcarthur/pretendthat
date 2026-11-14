@@ -1,0 +1,482 @@
+{
+  "version": 1,
+  "canvas": {
+    "width": 1178,
+    "height": 1335,
+    "note": "shared Nutmeg canvas; same origin as nutmeg-head-base"
+  },
+  "conventions": {
+    "sides": "L = viewer's left, R = viewer's right",
+    "rotation": "degrees, positive = counter-clockwise on screen; 0 = segment hanging straight down",
+    "pivots": "in each part's own frame coordinates (px); segments are drawn vertically with the pivot at top center; 'end' is the child joint (elbow/wrist)",
+    "scale": "all parts at canvas scale 1"
+  },
+  "drawOrder": [
+    "rig-tail",
+    "backArm.upperarm",
+    "backArm.forearm",
+    "backArm.hand",
+    "body-base",
+    "frontArm.upperarm",
+    "frontArm.forearm",
+    "frontArm.prop (clipboard)",
+    "frontArm.hand",
+    "head (nutmeg-head-base)",
+    "face",
+    "crayon",
+    "rig-hand-fingers-front"
+  ],
+  "parts": {
+    "rig-body-stand": {
+      "file": "rig-body-stand.svg",
+      "frameSize": [
+        1178,
+        1335
+      ],
+      "pivot": [
+        0,
+        0
+      ],
+      "kind": "body-base",
+      "attach": {
+        "canvas": [
+          0,
+          0
+        ]
+      },
+      "shoulderSocket": {
+        "L": [
+          500,
+          822
+        ],
+        "R": [
+          733.7,
+          815.2
+        ]
+      },
+      "tailBase": [
+        400,
+        1102
+      ]
+    },
+    "rig-body-jump": {
+      "file": "rig-body-jump.svg",
+      "frameSize": [
+        1178,
+        1335
+      ],
+      "pivot": [
+        0,
+        0
+      ],
+      "kind": "body-base",
+      "attach": {
+        "canvas": [
+          0,
+          0
+        ]
+      },
+      "shoulderSocket": {
+        "L": [
+          486,
+          868
+        ],
+        "R": [
+          778,
+          850
+        ]
+      },
+      "tailBase": [
+        418,
+        1077
+      ],
+      "note": "tail base estimated from celebrate pose"
+    },
+    "rig-body-sit": {
+      "file": "rig-body-sit.svg",
+      "frameSize": [
+        1178,
+        1335
+      ],
+      "pivot": [
+        0,
+        0
+      ],
+      "kind": "body-base",
+      "attach": {
+        "canvas": [
+          0,
+          0
+        ]
+      },
+      "shoulderSocket": null,
+      "tailBase": [
+        460,
+        1170
+      ],
+      "note": "arms are baked into the knee hug (merged with the leg fur in the source art); only tail and floor clipboard were removed"
+    },
+    "rig-tail": {
+      "file": "rig-tail.svg",
+      "frameSize": [
+        260,
+        325
+      ],
+      "pivot": [
+        235.6,
+        292.3
+      ],
+      "kind": "tail",
+      "attach": {
+        "onBody": "tailBase",
+        "sourceCanvas": [
+          400,
+          1102
+        ]
+      }
+    },
+    "rig-upperarm-L": {
+      "file": "rig-upperarm-L.svg",
+      "frameSize": [
+        81,
+        177
+      ],
+      "pivot": [
+        40.5,
+        39
+      ],
+      "kind": "upperarm",
+      "attach": {
+        "onBody": "shoulderSocket.L"
+      },
+      "points": {
+        "end": [
+          40.5,
+          137
+        ]
+      },
+      "lengthToElbow": 98,
+      "jointCapRadius": 31,
+      "points_note": "end = elbow (attach point for forearm)"
+    },
+    "rig-forearm-L": {
+      "file": "rig-forearm-L.svg",
+      "frameSize": [
+        80,
+        177
+      ],
+      "pivot": [
+        40,
+        39
+      ],
+      "kind": "forearm",
+      "parent": "rig-upperarm-L",
+      "attach": {
+        "onParent": "end (elbow)"
+      },
+      "points": {
+        "end": [
+          40,
+          137
+        ]
+      },
+      "lengthToWrist": 98,
+      "jointCapRadius": 31,
+      "points_note": "end = wrist (attach point for hand)"
+    },
+    "rig-hand-relaxed-L": {
+      "file": "rig-hand-relaxed-L.svg",
+      "frameSize": [
+        141,
+        164
+      ],
+      "pivot": [
+        70.5,
+        39
+      ],
+      "kind": "hand",
+      "parent": "rig-forearm-L",
+      "attach": {
+        "onParent": "end (wrist)"
+      }
+    },
+    "rig-hand-open-L": {
+      "file": "rig-hand-open-L.svg",
+      "frameSize": [
+        132,
+        161
+      ],
+      "pivot": [
+        66,
+        38.8
+      ],
+      "kind": "hand",
+      "parent": "rig-forearm-L",
+      "attach": {
+        "onParent": "end (wrist)"
+      }
+    },
+    "rig-hand-point-L": {
+      "file": "rig-hand-point-L.svg",
+      "frameSize": [
+        96,
+        157
+      ],
+      "pivot": [
+        48,
+        38.8
+      ],
+      "kind": "hand",
+      "parent": "rig-forearm-L",
+      "attach": {
+        "onParent": "end (wrist)"
+      }
+    },
+    "rig-hand-grip-L": {
+      "file": "rig-hand-grip-L.svg",
+      "frameSize": [
+        186,
+        140
+      ],
+      "pivot": [
+        93,
+        39
+      ],
+      "kind": "hand",
+      "parent": "rig-forearm-L",
+      "attach": {
+        "onParent": "end (wrist)"
+      },
+      "points": {
+        "clipboardGrip": [
+          128.3,
+          82
+        ]
+      }
+    },
+    "rig-upperarm-R": {
+      "file": "rig-upperarm-R.svg",
+      "frameSize": [
+        81,
+        177
+      ],
+      "pivot": [
+        40.5,
+        39
+      ],
+      "kind": "upperarm",
+      "attach": {
+        "onBody": "shoulderSocket.R"
+      },
+      "points": {
+        "end": [
+          40.5,
+          137
+        ]
+      },
+      "lengthToElbow": 98,
+      "jointCapRadius": 31,
+      "points_note": "end = elbow (attach point for forearm)"
+    },
+    "rig-forearm-R": {
+      "file": "rig-forearm-R.svg",
+      "frameSize": [
+        80,
+        177
+      ],
+      "pivot": [
+        40,
+        39
+      ],
+      "kind": "forearm",
+      "parent": "rig-upperarm-R",
+      "attach": {
+        "onParent": "end (elbow)"
+      },
+      "points": {
+        "end": [
+          40,
+          137
+        ]
+      },
+      "lengthToWrist": 98,
+      "jointCapRadius": 31,
+      "points_note": "end = wrist (attach point for hand)"
+    },
+    "rig-hand-relaxed-R": {
+      "file": "rig-hand-relaxed-R.svg",
+      "frameSize": [
+        141,
+        164
+      ],
+      "pivot": [
+        70.5,
+        39
+      ],
+      "kind": "hand",
+      "parent": "rig-forearm-R",
+      "attach": {
+        "onParent": "end (wrist)"
+      }
+    },
+    "rig-hand-open-R": {
+      "file": "rig-hand-open-R.svg",
+      "frameSize": [
+        132,
+        161
+      ],
+      "pivot": [
+        66,
+        38.8
+      ],
+      "kind": "hand",
+      "parent": "rig-forearm-R",
+      "attach": {
+        "onParent": "end (wrist)"
+      }
+    },
+    "rig-hand-point-R": {
+      "file": "rig-hand-point-R.svg",
+      "frameSize": [
+        96,
+        157
+      ],
+      "pivot": [
+        48,
+        38.8
+      ],
+      "kind": "hand",
+      "parent": "rig-forearm-R",
+      "attach": {
+        "onParent": "end (wrist)"
+      }
+    },
+    "rig-hand-grip-R": {
+      "file": "rig-hand-grip-R.svg",
+      "frameSize": [
+        186,
+        140
+      ],
+      "pivot": [
+        93,
+        39
+      ],
+      "kind": "hand",
+      "parent": "rig-forearm-R",
+      "attach": {
+        "onParent": "end (wrist)"
+      },
+      "points": {
+        "clipboardGrip": [
+          57.7,
+          82
+        ]
+      }
+    },
+    "rig-hand-fingers-front": {
+      "file": "rig-hand-fingers-front.svg",
+      "frameSize": [
+        153,
+        148
+      ],
+      "pivot": [
+        90.2,
+        16
+      ],
+      "kind": "hand-overlay",
+      "attach": {
+        "sourceCanvas": [
+          612,
+          842
+        ],
+        "note": "coloring pose: curled front fingers drawn over the crayon; pivot is top-center"
+      }
+    },
+    "rig-clipboard": {
+      "file": "rig-clipboard.svg",
+      "frameSize": [
+        264,
+        354
+      ],
+      "pivot": [
+        98.2,
+        228.1
+      ],
+      "kind": "prop",
+      "attach": {
+        "onParent": "points.clipboardGrip of rig-hand-grip-*",
+        "note": "pivot IS the grip point"
+      },
+      "gripPoint": [
+        98.2,
+        228.1
+      ]
+    },
+    "rig-crayon": {
+      "file": "rig-crayon.svg",
+      "frameSize": [
+        159,
+        129
+      ],
+      "pivot": [
+        77.6,
+        68.7
+      ],
+      "kind": "prop",
+      "attach": {
+        "note": "pivot IS the grip point; place it between palm and rig-hand-fingers-front"
+      },
+      "points": {
+        "tip": [
+          149.2,
+          118.2
+        ]
+      },
+      "gripPoint": [
+        77.6,
+        68.7
+      ],
+      "tipPoint": [
+        149.2,
+        118.2
+      ]
+    }
+  },
+  "testPoses": {
+    "idle": {
+      "body": "rig-body-stand",
+      "backArm": {
+        "side": "R",
+        "upper": 29.3,
+        "fore": 30.5,
+        "hand": [
+          "rig-hand-relaxed-R",
+          29.9
+        ]
+      },
+      "frontArm": {
+        "side": "L",
+        "upper": -62.7,
+        "fore": 0.6,
+        "hand": [
+          "rig-hand-grip-L",
+          0
+        ],
+        "prop": "rig-clipboard"
+      }
+    },
+    "wave": {
+      "body": "rig-body-stand",
+      "backArm": {
+        "side": "R",
+        "upper": 60,
+        "fore": 105,
+        "hand": [
+          "rig-hand-open-R",
+          140
+        ]
+      },
+      "frontArm": "same as idle"
+    }
+  }
+}

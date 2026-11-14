@@ -38,15 +38,17 @@ struct ComponentGallery: View {
                     }
                     .padding().background(Theme.canvas)
                 }
-                section("Layout chrome (Emote style): PTStepRail states (current = star-yellow FFC93C, bold ink), PTControlBar states") {
+                section("Layout chrome (Emote style): PTStepRail states (current = star-yellow FFC93C, bold ink), PTControlBar states (close · mic · chat) + PTMicPillShape") {
                     HStack(alignment: .top, spacing: Theme.Space.l) {
                         PTStepRail(current: .game, reached: .game) { _ in }
                         PTStepRail(current: .getReady, reached: .print) { _ in }
                         PTStepRail(current: .play, reached: .play) { _ in }
                         VStack(spacing: Theme.Space.m) {
-                            PTControlBar(isMuted: false, isListening: false, chatOpen: false, onMute: {}, onChat: {}, onLeave: {})
-                            PTControlBar(isMuted: false, isListening: true, chatOpen: true, onMute: {}, onChat: {}, onLeave: {})
-                            PTControlBar(isMuted: true, isListening: false, chatOpen: false, onMute: {}, onChat: {}, onLeave: {})
+                            PTControlBar(chatOpen: false, mic: .idle, onChat: {}, onClose: {})
+                            PTControlBar(chatOpen: true, mic: .listening, onChat: {}, onClose: {})
+                            PTControlBar(chatOpen: false, mic: .disabled, onChat: {}, onClose: {})
+                            PTMicPillShape(pillHeight: 84, circleRadius: 56).fill(Theme.white)
+                                .shadow(color: Theme.panelShadow, radius: 10, y: 3).frame(width: 360, height: 112)
                             HStack {
                                 Button("Print") {}.buttonStyle(.ptPrimary)
                                 Button { } label: { Label("Chat", systemImage: "bubble.left") }.buttonStyle(.ptSecondary)
@@ -169,12 +171,16 @@ struct ComponentGallery: View {
                     PTChecklistRow(text: "Show everyone a seat", isChecked: .constant(true)) { PTPictureTile(image: UIImage(named: "prop-chair")) }
                 }
                 section("PTHandoffCard") { PTHandoffCard(role: plan.roles[0], figure: { Image("nutmeg-body-point").resizable().scaledToFit() }, onTap: {}) }
-                section("PTMicButton (idle / listening / unavailable = type instead)") {
-                    HStack(spacing: Theme.Space.l) {
-                        PTMicButton(isListening: false, isAvailable: true, onPress: {}, onRelease: {})
-                        PTMicButton(isListening: true, isAvailable: true, onPress: {}, onRelease: {})
-                        PTMicButton(isListening: false, isAvailable: false, onPress: {}, onRelease: {}, onTypeInstead: { typing = true })
+                section("PTMicButton: push-to-talk (idle / listening / disabled while connecting); hold the first one") {
+                    HStack(spacing: Theme.Space.xl) {
+                        PTMicButton(mode: listening ? .listening : .idle, onPress: { listening = true }, onRelease: { listening = false })
+                        PTMicButton(mode: .listening)
+                        PTMicButton(mode: .disabled)
                     }
+                    .padding(Theme.Space.l)
+                }
+                section("PTLeaveDialog (close button confirm)") {
+                    PTLeaveDialog(onStay: {}, onLeave: {}).frame(width: 640, height: 380).clipShape(RoundedRectangle(cornerRadius: Theme.smallRadius))
                 }
                 section("PTParentGate / PTReplayButton") {
                     HStack(spacing: Theme.Space.l) {

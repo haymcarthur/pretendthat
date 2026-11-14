@@ -5,9 +5,11 @@ import NutmegCore
 
 /// Hands-free voice conversation with Nutmeg over OpenAI's Realtime API (decisions D1, D2, D7).
 /// WebSocket (URLSessionWebSocketTask) + AVAudioEngine, no third-party code.
-/// - Mic: input node with voice processing (echo cancellation) → 24 kHz PCM16 mono → `input_audio_buffer.append`.
-///   The mic is NOT sent while Nutmeg's audio plays (plus a short tail), so she never hears herself. Server VAD
-///   decides when the kid has finished talking.
+/// - Mic (push-to-talk, decisions/2026-11-13-push-to-talk.md): input node → 24 kHz PCM16 mono →
+///   `input_audio_buffer.append`, ONLY while the kid holds the red mic button (`beginTalk` / `endTalk`). Release →
+///   `input_audio_buffer.commit` + `response.create`; a hold under `Realtime.minHoldSeconds` → `input_audio_buffer.clear`.
+///   Pressing while Nutmeg talks interrupts her: `response.cancel`, playback stops, and her item is truncated at what
+///   was actually heard. No server VAD, so background chatter never reaches the model or the transcript.
 /// - Speaker: PCM16 deltas (24 kHz float, same rate as the Realtime output, so nothing is resampled before the
 ///   mixer's one high-quality conversion to the hardware rate) → player node → pitch unit (Varispeed by default,
 ///   TimePitch or none for comparison) → mixer.
@@ -29,26 +31,32 @@ final class RealtimeSession {
     /// The mouth shape to show right now, in sync with what the speaker is playing.
     private(set) var mouth: MouthShape = .closed
     private(set) var isSpeaking = false
-    /// Server VAD heard the kid start talking (ears perk).
+    /// The kid is holding the mic button (ears perk, the button pulses).
     private(set) var kidIsTalking = false
     /// The kid finished a turn and her reply hasn't started yet (shown as thinking after a short beat, so a quick reply
     /// doesn't flash it).
     private(set) var thinkingGap = false
     /// The face for her current turn: set by the model's `set_expression`, or a blip from an exclamation ("Ooh!").
     private(set) var expression: NutmegExpression?
-    /// Prop hunt (prop-gathering-flow.md): no automatic replies; she answers only lines meant for her (`HuntGate`).
-    var huntMode = false {
-        didSet {
-            guard huntMode != oldValue else { return }
-            socket?.send(Realtime.autoRespond(!huntMode))
-            rtLog("hunt mode \(huntMode ? "on" : "off")")
-        }
-    }
+    /// Prop hunt (prop-gathering-flow.md): only changes how long she waits before a gentle check-in (the hunt takes a
+    /// while). Push-to-talk replaced the old addressee gate: everything the kid says while holding is meant for her.
+    var huntMode = false
+    /// Tool-first kid turns (round 7): the app names the tools for the FIRST response to a kid turn (nil = normal).
+    /// That response's audio is never played and its words never reach the chat (they'd be "let me set that up…");
+    /// its item is truncated to 0 ms so the model knows nobody heard it. She speaks in the follow-up.
+    @ObservationIgnored var onKidTurnTools: (@MainActor () -> [String]?)?
+    @ObservationIgnored private var forcedTools: [String]?
+    @ObservationIgnored private var silentPending = false
+    @ObservationIgnored private var silentResponse = false
+    @ObservationIgnored private var silentItems: [String] = []
+    /// Kit being made (round 7): the mic stays pressable, but a kid line gets only "Almost ready!".
+    var quickReplyOnly = false
+    /// After planning (print step, play): a silent context note goes before her reply.
+    @ObservationIgnored var onPostPlanningTurn: (@MainActor () -> String?)?
     /// Serial of the latest response, and of the response whose audio is playing (card reveal timing).
     private(set) var responseSerial = 0
     private(set) var audioResponseSerial = 0
-    var isMuted = false { didSet { updateGate() } }
-    /// Planning is over: stop sending the mic (kids tap from here on, D3), keep the voice for Nutmeg's lines.
+    /// Planning is over: no more push-to-talk (kids tap from here on, D3), keep the voice for Nutmeg's lines.
     var micWanted = true { didSet { updateGate() } }
     private(set) var lastError: String?
 
@@ -66,8 +74,10 @@ final class RealtimeSession {
     /// Function call handler: returns the output for the model and whether Nutmeg should answer afterwards.
     @ObservationIgnored var onCall: (@MainActor (String, String) async -> (output: String, respond: Bool))?
     /// Checks how her finished turn ended (conversation-structure.md); returns a silent nudge, or nil when it's fine.
-    @ObservationIgnored var onTurnDone: (@MainActor (String) -> String?)?
-    /// The kids have been quiet ~8 s after her turn; returns the gentle re-ask nudge (nil = don't).
+    @ObservationIgnored var onTurnDone: (@MainActor (String) -> (note: String, complete: Bool)?)?
+    /// The kids have been quiet ~20 s after her turn; returns the ONE reminder line (nil = don't). Round 7: a fixed
+    /// out-of-band line in her voice (no context, so it can't improvise), shown in the chat as its own bubble (Haylee:
+    /// everything she says out loud is in the chat).
     @ObservationIgnored var onSilence: (@MainActor () -> String?)?
     /// A planning beat (planning-beats.md): she colors on her clipboard; the function result waits for it.
     @ObservationIgnored var onPlanningBeat: (@MainActor (String) async -> Void)?
@@ -77,15 +87,14 @@ final class RealtimeSession {
     /// The prop list is planned once per adventure (one writing beat before the first prop).
     @ObservationIgnored private var propsPlanned = false
 
-    /// Starts a writing beat: no automatic replies while she writes (room noise would otherwise start a turn mid-beat);
-    /// the pending function results go back when it ends (`.responseDone`).
+    /// Starts a writing beat; the pending function results go back when it ends (`.responseDone`).
     private func startBeat(_ topic: String) {
         guard !beatRunning else { return }
-        if topic == "props" { propsPlanned = true }
+        // Round 7: one writing beat plans the roles AND the prop list, so the first prop follows the roles at once.
+        propsPlanned = true
         let beat = onPlanningBeat
         beatRunning = true
         lastBeatAt = Date()
-        if !huntMode { socket?.send(Realtime.autoRespond(false)) }
         beatTask = Task { await beat?(topic) }
     }
 
@@ -102,8 +111,9 @@ final class RealtimeSession {
     @ObservationIgnored private var configObserver: NSObjectProtocol?
     @ObservationIgnored private var tailTask: Task<Void, Never>?
     @ObservationIgnored private var pendingOutputs: [(String, String)] = []
-    @ObservationIgnored private var wantsResponse = false
-    @ObservationIgnored private var responseActive = false
+    /// Exactly one spoken reply per kid turn, never two responses at once (NutmegCore `ResponseGate`, round 6).
+    @ObservationIgnored private var gate = ResponseGate()
+    private var responseActive: Bool { gate.active }
     @ObservationIgnored private var receiveTask: Task<Void, Never>?
     @ObservationIgnored private var analyzer = LipSyncAnalyzer(sampleRate: Realtime.sampleRate)
     @ObservationIgnored private var shaper = MouthShaper()
@@ -119,21 +129,67 @@ final class RealtimeSession {
     @ObservationIgnored private var modelChoseExpression = false
     /// The current response produced audio (an expression-only response needs a follow-up to actually speak).
     @ObservationIgnored private var responseHadAudio = false
-    @ObservationIgnored private var expressionNeedsFollowUp = false
     @ObservationIgnored private var replyStarted = false
     @ObservationIgnored private var expressionSetAt = Date.distantPast
     @ObservationIgnored private var responseLineStart = 0
     @ObservationIgnored private var nudgesThisTurn = 0
     @ObservationIgnored private var reasks = 0
     @ObservationIgnored private var silenceTask: Task<Void, Never>?
+    /// The silence reminder (round 7): sent, then playing (no turn check, no truncate: it isn't in the conversation).
+    @ObservationIgnored private var reminderPending = false
+    @ObservationIgnored private var reminderPlaying = false
+    /// Round 7 choreography: the first prop's line waits for the roles line to finish playing + 1 s, then the card
+    /// appears with her point (`onPropLine` reveals it and returns the note) and the prop line is requested.
+    private(set) var propLinePending = false
+    @ObservationIgnored private var propLineSerial = 0
+    @ObservationIgnored var onPropLine: (@MainActor () -> String)?
+    func holdFirstPropLine() { propLinePending = true; propLineSerial = responseSerial }
+
+    /// The silent tool-first response ended: send its tool outputs and ask for her one spoken reply.
+    private func silentTurnDone() {
+        if !pendingOutputs.isEmpty, let socket {
+            for (id, out) in pendingOutputs { socket.send(Realtime.functionOutput(callID: id, output: out)) }
+            pendingOutputs = []
+        }
+        let followUp = gate.done(allowFollowUp: holdStartedAt == nil && !dropAudio && !beatRunning)
+        rtLog("tool-first done: followUp=\(followUp)")
+        if followUp { socket?.send(Realtime.responseCreate) }
+    }
+
+    private func startPropLine() {
+        Task { [weak self] in
+            guard let self else { return }
+            for _ in 0..<600 where self.isSpeaking { try? await Task.sleep(for: .milliseconds(50)) }   // roles audio ends
+            try? await Task.sleep(for: .seconds(1))
+            guard self.propLinePending, self.isLive else { return }
+            self.propLinePending = false
+            let note = self.onPropLine?() ?? ""
+            rtLog("prop line: card shown, asking for the first prop line")
+            self.chat.breakTurn()   // the prop line comes after a pause: its own bubble
+            if !note.isEmpty { self.socket?.send(Realtime.systemNote(note)) }
+            self.gate.forceFollowUp()
+            self.requestResponse()
+        }
+    }
+    // Push-to-talk state.
+    @ObservationIgnored private var holdStartedAt: Date?
+    @ObservationIgnored private var releaseTask: Task<Void, Never>?
+    /// Her in-conversation audio item that is playing (truncated on interrupt), and where it starts in player samples.
+    @ObservationIgnored private var audioItemID: String?
+    @ObservationIgnored private var audioItemStart: Double?
+    /// Audio of a response the kid interrupted still trickles in: drop it until the next response starts.
+    @ObservationIgnored private var dropAudio = false
     @ObservationIgnored private let playFormat = AVAudioFormat(standardFormatWithSampleRate: Realtime.sampleRate, channels: 1)!
 
     var isLive: Bool { status == .live }
+    /// A response is running, a writing beat is on, or her reply is still due (live-test driver waits on this).
+    var isBusy: Bool { gate.active || beatRunning || awaitingReply || reminderPending }
 
     // MARK: Lifecycle
 
     /// Connects, configures the session and starts the audio. Returns false (with `status = .failed`) on any problem.
-    func connect(apiKey: String, voice: String, shape: VoiceShape, speed: Double, echoCancel: Bool = false) async -> Bool {
+    func connect(apiKey: String, voice: String, shape: VoiceShape, speed: Double, echoCancel: Bool = false,
+                 instructions: String = Realtime.instructions) async -> Bool {
         disconnect()
         chat.clear()
         status = .connecting
@@ -145,7 +201,8 @@ final class RealtimeSession {
         req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         let socket = RealtimeSocket(request: req)
         self.socket = socket
-        socket.send(Realtime.sessionUpdate(voice: voice, speed: Realtime.apiSpeed(method: shape.method, requested: speed)))
+        socket.send(Realtime.sessionUpdate(voice: voice, speed: Realtime.apiSpeed(method: shape.method, requested: speed),
+                                           instructions: instructions))
 
         // Wait for session.updated (or an error) before starting the audio.
         let ready = await withTaskGroup(of: Bool.self) { group in
@@ -184,32 +241,31 @@ final class RealtimeSession {
             engine.stop()
         }
         engine = nil
-        speakingUntil = .distantPast; tailTask?.cancel(); pendingOutputs = []; wantsResponse = false; responseActive = false
+        speakingUntil = .distantPast; tailTask?.cancel(); pendingOutputs = []; gate = ResponseGate()
         isSpeaking = false; kidIsTalking = false; level = 0
+        holdStartedAt = nil; releaseTask?.cancel(); releaseTask = nil; audioItemID = nil; audioItemStart = nil; dropAudio = false
         resetMouth(); silenceTask?.cancel(); huntMode = false; beatTask?.cancel(); beatTask = nil; beatRunning = false; propsPlanned = false; lastBeatAt = .distantPast
         gapTask?.cancel(); expressionTask?.cancel(); expression = nil; thinkingGap = false; awaitingReply = false
+        reminderPending = false; reminderPlaying = false; propLinePending = false
+        forcedTools = nil; silentPending = false; silentResponse = false; silentItems = []; quickReplyOnly = false
         if status != .idle, case .failed = status {} else { status = .idle }
     }
 
     /// Nutmeg speaks first (greeting) without waiting for the kid.
-    func kickOff() {
+    /// Round 7: today's game ideas go IN the greeting (one response), so the intro bubble carries the suggestions.
+    func kickOff(games: [Suggestion] = []) {
         guard let socket, isLive else { return }
-        socket.send(Realtime.userText("(The kids just opened the app and can hear you now. Say hi in your own words and find out what they feel like playing.)"))
+        let ideas = games.isEmpty ? "" : " with today's ideas as open sparks (\"You can pick anything! Maybe \(Suggestions.spoken(games))?\")"
+        socket.send(Realtime.userText("(The kids just opened the app and can hear you now. They talk to you by holding the big red button. In ONE short turn: say hi in your own words, ask what they feel like playing,\(ideas), and tell them to hold the red button and tell you.)"))
+        gate.newTurn()
         requestResponse()
     }
 
     /// Typed turn (keyboard fallback, simulator, demo safety).
     func sendText(_ text: String) {
-        guard let socket, isLive else { return }
+        guard let socket, isLive, micWanted else { return }
         socket.send(Realtime.userText(text))
         chat.kidTyped(text)
-        if huntMode && !HuntGate.addressed(text) {
-            rtLog("hunt: ignored chatter")
-            #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("-PTLive") { rtLog("KID: \(text)  (ignored)") }
-            #endif
-            return
-        }
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-PTLive") { rtLog("KID: \(text)") }
         #endif
@@ -222,13 +278,91 @@ final class RealtimeSession {
     private func requestResponse() {
         // During a planning beat she's coloring silently; the beat's own result asks for her next turn.
         if beatRunning { return }
-        if responseActive { wantsResponse = true; return }
-        responseActive = true
+        // The kid is holding the mic: her reply waits for the release (which asks for it).
+        if holdStartedAt != nil { return }
+        guard gate.request() else { return }   // one is active: it follows on response.done if still owed
+        if let tools = forcedTools {
+            // Round 7: the kid's answer is handled by a tool FIRST; this response is silent (see onKidTurnTools).
+            forcedTools = nil
+            silentPending = true
+            socket?.send(Realtime.responseCreate(requiring: tools))
+            rtLog("tool-first (silent) response: \(tools.joined(separator: ","))")
+            return
+        }
         socket?.send(Realtime.responseCreate)
+    }
+
+    // MARK: Push-to-talk
+
+    /// The kid pressed the mic button: interrupt her if she's talking, then stream the mic until release.
+    func beginTalk() {
+        guard isLive, micWanted, holdStartedAt == nil else { return }
+        releaseTask?.cancel(); releaseTask = nil
+        if responseActive || isSpeaking { interrupt() }
+        silenceTask?.cancel()
+        holdStartedAt = Date()
+        kidIsTalking = true
+        rtLog("ptt: hold")
+        updateGate()
+    }
+
+    /// The kid let go: a short tail keeps the last word, then commit + reply; a tap-length hold sends nothing.
+    func endTalk() {
+        guard let started = holdStartedAt else { return }
+        let held = Date().timeIntervalSince(started)
+        kidIsTalking = false
+        releaseTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(120))   // the mic tap delivers ~50 ms chunks: catch the last one
+            guard let self, !Task.isCancelled else { return }
+            self.holdStartedAt = nil
+            self.updateGate()
+            self.releaseTask = nil
+            guard let socket = self.socket, self.isLive else { return }
+            if self.quickReplyOnly {
+                // Kit being made: nothing to plan; one tiny line at most.
+                socket.send(Realtime.inputClear)
+                if !self.isSpeaking { self.say("Almost ready!") }
+                rtLog("ptt: kit making, cleared + Almost ready")
+                return
+            }
+            if held < Realtime.minHoldSeconds {
+                socket.send(Realtime.inputClear)
+                rtLog("ptt: too short (\(String(format: "%.2f", held)) s), cleared")
+                self.startSilenceTimer()
+                return
+            }
+            socket.send(Realtime.inputCommit)
+            rtLog("ptt: commit (\(String(format: "%.2f", held)) s) + response.create")
+            self.kidTurnEnded()
+            self.requestResponse()
+        }
+    }
+
+    /// Stops her mid-sentence: cancel the response, silence the speaker, truncate her item at what was heard.
+    private func interrupt() {
+        if responseActive { socket?.send(Realtime.responseCancel); rtLog("ptt: response.cancel") }
+        if let id = audioItemID, let start = audioItemStart {
+            var heard = start
+            if let render = player.lastRenderTime, render.isHostTimeValid, let pt = player.playerTime(forNodeTime: render) {
+                heard = Double(pt.sampleTime)
+            }
+            let ms = Int(max(0, min(heard, scheduledEnd) - start) / Realtime.sampleRate * 1000)
+            socket?.send(Realtime.truncate(itemID: id, audioEndMs: ms))
+            rtLog("ptt: truncate at \(ms) ms")
+        }
+        audioItemID = nil; audioItemStart = nil
+        dropAudio = true
+        player.stop(); player.play()
+        tailTask?.cancel()
+        speakingUntil = .distantPast
+        isSpeaking = false; level = 0
+        resetMouth()
+        updateGate()
     }
 
     func say(_ line: String) {
         guard let socket, isLive, !line.isEmpty else { return }
+        chat.breakTurn()   // each app line (kit progress, ready line) is its own bubble
         socket.send(Realtime.sayExactly(line))
     }
 
@@ -327,12 +461,16 @@ final class RealtimeSession {
     }
 
     private func updateGate() {
-        mic.open = isLive && !isMuted && micWanted && !isSpeaking
+        // Push-to-talk: the mic only streams while the button is held (plus the short release tail).
+        mic.open = isLive && micWanted && holdStartedAt != nil
     }
 
     // MARK: Expressions (decisions/conversation-camera-and-expressions.md)
 
     private func kidTurnEnded() {
+        gate.newTurn()
+        forcedTools = onKidTurnTools?()
+        if forcedTools == nil, let note = onPostPlanningTurn?() { socket?.send(Realtime.systemNote(note)) }
         awaitingReply = true; replyStarted = false
         nudgesThisTurn = 0; reasks = 0; silenceTask?.cancel()
         modelChoseExpression = false
@@ -366,19 +504,23 @@ final class RealtimeSession {
         }
     }
 
-    /// After her turn, if the kids stay quiet ~8 s during planning, she gently re-asks (at most twice per turn).
+    /// After her turn, if the kids stay quiet ~20 s during planning (45 s in the hunt), ONE short "hold the red button"
+    /// reminder (never the question again); then she waits for the kid.
     private func startSilenceTimer() {
         silenceTask?.cancel()
         let hunting = huntMode
-        guard micWanted, reasks < (hunting ? 1 : 2) else { return }
+        guard micWanted, reasks < 1 else { return }   // ONE short reminder per question, then quiet until the kid talks
         silenceTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(hunting ? 45 : 8))   // the hunt takes a while: one gentle check-in
-            guard let self, !Task.isCancelled, self.isLive, self.micWanted, !self.isSpeaking, !self.kidIsTalking,
-                  !self.awaitingReply, !self.responseActive, let note = self.onSilence?() else { return }
+            try? await Task.sleep(for: .seconds(hunting ? 45 : 20))   // push-to-talk: time to find the button   // the hunt takes a while: one gentle check-in
+            guard let self, !Task.isCancelled, self.isLive, self.micWanted, !self.isSpeaking, self.holdStartedAt == nil,
+                  !self.awaitingReply, !self.responseActive, !self.beatRunning, let line = self.onSilence?() else { return }
+            // Round 7: a fixed out-of-band line in her voice; its own chat bubble.
+            guard self.gate.request() else { return }
+            self.chat.breakTurn()
             self.reasks += 1
-            rtLog("nudge: silence")
-            self.socket?.send(Realtime.systemNote(note))
-            self.requestResponse()
+            self.reminderPending = true
+            rtLog("nudge: silence (fixed line, own chat bubble)")
+            self.socket?.send(Realtime.sayExactly(line))
         }
     }
 
@@ -435,6 +577,14 @@ final class RealtimeSession {
         return !(mouthQueue.isEmpty && shaper.shape == .closed && shaper.envelope < 0.01)
     }
 
+    /// The player's current position in source samples (where a new item's audio starts if nothing is queued).
+    private func currentSample() -> Double {
+        if let render = player.lastRenderTime, render.isHostTimeValid, let pt = player.playerTime(forNodeTime: render) {
+            return Double(pt.sampleTime)
+        }
+        return scheduledEnd
+    }
+
     private func resetMouth() {
         mouthClock?.cancel(); mouthClock = nil
         mouthQueue = []; scheduledEnd = 0
@@ -488,17 +638,27 @@ final class RealtimeSession {
         case .functionCall(let name, _, _): rtLog("call \(name)")
         case .transcriptDone(let t):
             // Live tests only (typed turns): her words in the console for the transcript samples.
-            if ProcessInfo.processInfo.arguments.contains("-PTLive") { rtLog("NUTMEG: \(t)") } else { rtLog("said a line") }
+            if ProcessInfo.processInfo.arguments.contains("-PTLive") { rtLog(silentResponse ? "SILENT (never played, not in chat): \(t)" : "NUTMEG: \(t)") } else { rtLog("said a line") }
         default: rtLog("\(event)")
         }
         #endif
         switch event {
+        case .audioDelta where dropAudio || holdStartedAt != nil || silentResponse:
+            break   // the kid interrupted this response (or is holding the mic): never play it
         case .audioDelta(let data):
+            if audioItemStart == nil { audioItemStart = max(scheduledEnd, currentSample()) }
+            gate.spoke()
             responseHadAudio = true
             audioResponseSerial = responseSerial
             silenceTask?.cancel()
             replyBegan()
             play(data)
+        case .transcriptDelta where silentResponse, .transcriptDone where silentResponse:
+            break   // the silent tool-first response: its words were never heard, so never in the chat
+        case .outputItemAdded(let id) where silentResponse:
+            silentItems.append(id)
+        case .outputItemAdded where reminderPlaying:
+            audioItemID = nil; audioItemStart = nil   // out of band: nothing in the conversation to truncate
         case .transcriptDelta where !modelChoseExpression && expression == nil:
             chat.apply(event)
             // Only the first few characters of her reply count ("Ooh!", "Wow,", "Yes!").
@@ -506,24 +666,23 @@ final class RealtimeSession {
             if line.count >= 3, line.count <= 14, let blip = NutmegExpression.blip(forReplyStart: line) {
                 setExpression(blip, seconds: 1.2, fromModel: false)
             }
-        case .kidTranscript(let text) where huntMode:
-            chat.apply(event)
-            if HuntGate.addressed(text) { kidTurnEnded(); requestResponse() } else { rtLog("hunt: ignored chatter") }
         case .transcriptDelta, .transcriptDone, .kidTranscript:
             // Out-of-band lines (sayExactly: kit ready, scene lines) also stream here; they're Nutmeg's words too.
             chat.apply(event)
-        case .speechStarted: kidIsTalking = true; silenceTask?.cancel()
-        case .speechStopped: kidIsTalking = false; if !huntMode { kidTurnEnded() }
+        case .outputItemAdded(let id):
+            audioItemID = id; audioItemStart = nil
         case .functionCall(let name, let callID, let args) where name == "start_planning":
             // Writing moment (round 5): she writes on her clipboard; the result waits for the beat (the pause is natural).
             let topic = (try? JSONSerialization.jsonObject(with: Data(args.utf8)) as? [String: Any])?["topic"] as? String ?? "props"
             // Props are planned ONCE (before the first prop, Haylee); a repeat call returns at once, no beat.
             if topic != "props" || !propsPlanned { startBeat(topic) }
-            pendingOutputs.append((callID, "You wrote it on your clipboard. Look up, call "
-                                   + (topic == "roles" ? "set_roles" : "show_next_prop") + " now, then announce it."))
-            wantsResponse = true
-        case .functionCall(let name, _, _) where !beatRunning && Date().timeIntervalSince(lastBeatAt) > 8
-                && (name == "set_roles" || (name == "show_next_prop" && !propsPlanned)):
+            pendingOutputs.append((callID, topic == "roles" || !propsPlanned
+                ? "You wrote the roles and the prop list on your clipboard. Look up, call set_roles, then show_next_prop "
+                    + "for the first prop, then announce both in ONE turn (no \"Sound good?\")."
+                : "Your prop list is already planned. Call show_next_prop now."))
+        case .functionCall(let name, _, _) where !beatRunning && !propsPlanned
+                && (name == "set_roles" || name == "show_next_prop"):
+            // (Round 7: only if no beat ran yet this adventure: a second beat after the first made the writing flicker.)
             // She skipped start_planning: the app still runs the writing beat (EVERY planning moment, Haylee), holding
             // this call's result until it ends. Then handle the call as usual.
             startBeat(name == "set_roles" ? "roles" : "props")
@@ -531,34 +690,51 @@ final class RealtimeSession {
         case .functionCall(let name, let callID, let args) where name == "set_expression":
             // Silent and instant: never waits on the app, never blocks audio.
             if let d = NutmegExpression.decode(name: name, arguments: args) { setExpression(d.expression, seconds: d.seconds, fromModel: true) }
-            pendingOutputs.append((callID, "ok"))
-            expressionNeedsFollowUp = true
+            pendingOutputs.append((callID, "ok"))   // never asks for a response by itself
         case .functionCall(let name, let callID, let args):
             let result = await onCall?(name, args) ?? (output: "ok", respond: true)
             // She already spoke before the tool (against the instructions): the follow-up must not react again, so the
             // two parts read as ONE reply (the chat panel joins them into one bubble).
             let spokeFirst = responseHadAudio
-            pendingOutputs.append((callID, result.output + (spokeFirst
+            pendingOutputs.append((callID, result.output + (name == "set_roles"
+                ? " Don't speak yet: call show_next_prop for the first prop first, then announce the roles and that prop together."
+                : name == "set_player_count" || name == "mark_found" || name == "skip_prop" ? ""   // its output already says: start_planning, set_roles, show_next_prop, then speak
+                : spokeFirst
                 ? " You ALREADY reacted out loud this turn: now say ONLY the next question with suggestions (or the instruction), no new reaction, no greeting."
-                : " Speak once now: one short reaction, then the next question with suggestions.")))
-            if result.respond { wantsResponse = true }
+                : " Speak once now: one short reaction, then the next question (or the instruction).")))
+            if result.respond { gate.toolCalled() } else { gate.endTurn() }   // finish_planning: she stops talking   // a real step tool: her next words must follow its output
         case .responseCreated:
-            responseActive = true
+            if reminderPending { reminderPending = false; reminderPlaying = true }
+            if silentPending { silentPending = false; silentResponse = true; silentItems = [] }
+            gate.created()
+            dropAudio = false
             responseHadAudio = false
             responseSerial += 1
             responseLineStart = chat.lines.count
+        case .responseDone where silentResponse:
+            // Nobody heard it: cut its audio items to 0 ms, send the tool outputs, then her real (spoken) reply.
+            silentResponse = false
+            for id in silentItems { socket?.send(Realtime.truncate(itemID: id, audioEndMs: 0)) }
+            silentItems = []
+            silentTurnDone()
+        case .responseDone where reminderPlaying:
+            // The spoken-only reminder ended: no turn check, no follow-up unless the kid asked meanwhile.
+            reminderPlaying = false
+            chat.breakTurn()   // her next reply starts its own bubble too
+            if gate.done(allowFollowUp: holdStartedAt == nil && !beatRunning) { socket?.send(Realtime.responseCreate) }
         case .responseDone:
-            responseActive = false
             if let beat = beatTask {
+                _ = gate.done(allowFollowUp: false)
                 // The pending result IS the pause: send it (and let her continue) only when the coloring beat ends.
                 beatTask = nil
-                let outs = pendingOutputs; pendingOutputs = []; wantsResponse = false; expressionNeedsFollowUp = false
+                let outs = pendingOutputs; pendingOutputs = []
                 Task { [weak self] in
                     await beat.value
                     guard let self, let socket = self.socket else { return }
                     for (id, out) in outs { socket.send(Realtime.functionOutput(callID: id, output: out)) }
                     self.beatRunning = false
-                    if !self.huntMode { socket.send(Realtime.autoRespond(true)) }
+                    self.chat.breakTurn()   // speech after the writing moment is its own bubble (round 7)
+                    self.gate.forceFollowUp()   // announcing the plan is this turn's answer
                     self.requestResponse()
                 }
                 return
@@ -567,20 +743,54 @@ final class RealtimeSession {
                 for (id, out) in pendingOutputs { socket.send(Realtime.functionOutput(callID: id, output: out)) }
                 pendingOutputs = []
             }
-            // A response that only set her face (no audio) gets a follow-up so she actually answers.
-            if expressionNeedsFollowUp && !responseHadAudio { wantsResponse = true }
-            expressionNeedsFollowUp = false
+            if propLinePending && responseHadAudio && !dropAudio && holdStartedAt == nil {
+                _ = gate.done(allowFollowUp: false)
+                if propLineSerial < responseSerial {
+                    rtLog("prop line: roles spoken, waiting for playback to end")
+                    startPropLine()
+                } else {
+                    // She spoke before the tools in the same response (narration): now the roles only, then the prop.
+                    socket?.send(Realtime.systemNote("(Silent coaching, don't mention it.) Now announce ONLY the roles in "
+                        + "one or two excited sentences. Don't mention any prop yet, don't ask anything, no narration."))
+                    gate.continueTurn()
+                    requestResponse()
+                }
+                return
+            }
+            // One follow-up when this kid turn hasn't spoken yet (tools / face only so far), or (round 7) when she
+            // spoke, called a step tool, and her words didn't finish the step ("let me grab the next prop." + mark_found).
+            // Never while the mic is held or after an interrupt: the release asks.
+            let canCheck = responseHadAudio && !dropAudio && holdStartedAt == nil && nudgesThisTurn < 1
+            // Her latest line (a late kid transcript can land after it, so not simply the last line).
+            let check = canCheck ? chat.lines.last(where: \.fromNutmeg).flatMap { onTurnDone?($0.text) } : nil
+            let toolAfterSpeech = gate.toolThisResponse && gate.turnSpoke
+            let followUp = gate.done(allowFollowUp: holdStartedAt == nil && !dropAudio && !beatRunning,
+                                     spokenTurnIncomplete: check?.complete == true)
             #if DEBUG
-            rtLog("turn check: requested=\(wantsResponse) audio=\(responseHadAudio) nudges=\(nudgesThisTurn) newLine=\(responseHadAudio)")
+            rtLog("turn check: followUp=\(followUp) audio=\(responseHadAudio) spoke=\(gate.turnSpoke) toolAfterSpeech=\(toolAfterSpeech)")
             #endif
-            if wantsResponse { wantsResponse = false; requestResponse() }
-            else if responseHadAudio, nudgesThisTurn < 1, let line = chat.lines.last, line.fromNutmeg,
-                    responseHadAudio, let note = onTurnDone?(line.text) {
-                // Her turn broke the turn-ending rule: one silent nudge and a short follow-up (never a loop).
+            if followUp {
+                if toolAfterSpeech, let check {
+                    nudgesThisTurn += 1
+                    socket?.send(Realtime.systemNote(check.note))
+                    gate.continueTurn()   // a silent tool-only continuation still gets its spoken reply
+                    rtLog("nudge: spoke then called a tool, turn unfinished: one continuation")
+                }
+                socket?.send(Realtime.responseCreate)
+            }
+            else if let check {
                 nudgesThisTurn += 1
-                rtLog("nudge: turn ending")
-                socket?.send(Realtime.systemNote(note))
-                requestResponse()
+                socket?.send(Realtime.systemNote(check.note))
+                if check.complete {
+                    // No question and no instruction at all: ONE short continuation of the same turn (only the missing
+                    // question; the note forbids repeating). Anything else is a silent note for her next turn: a
+                    // follow-up there made her repeat the question 2-3 times (round 6).
+                    rtLog("nudge: turn incomplete, one continuation")
+                    gate.forceFollowUp()
+                    requestResponse()
+                } else {
+                    rtLog("nudge: turn ending (silent, next turn)")
+                }
             }
         case .error(let message):
             lastError = message

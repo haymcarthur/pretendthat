@@ -12,3 +12,9 @@
 - ~~**Keys rejected**~~: fixed by Haylee (2026-11-13 PM).
 - **OpenAI has no credits (2026-11-13 PM):** image calls return 429 `credit_balance_exhausted` (not an org-verification error). Haylee: add credits at platform.openai.com → Settings → Billing. Until then the kit uses app-drawn pages automatically, and Grown-ups → Connections shows "Off (no OpenAI credits)". Model IDs listed for the key: gpt-image-2.6-flare, 2.5-flare, 2 (the app tries them in that order and remembers the first that works).
 - ~~**Names said before the players screen** (e.g. on pick-game) go to Claude untokenized, since names aren't known yet. Acceptable, or strip capitalized words there?~~ Resolved by [roles-not-names](decisions/roles-not-names.md): we never ask for names.
+
+## Added late 2026-11-13
+- **Agents' live tests share Haylee's simulator:** build agents test push-to-talk by speaking lines with macOS `say` into the Mac mic, while holding the mic in the same simulator Haylee uses. Their lines ("Three friends", "We found it!") can land in her game. Option: agents use a second simulator, or announce runs. Undecided.
+- **Wave art leftovers:** (a) the feet run ~4 px past the canvas bottom after the body transform; (b) where the waving arm crosses the brown cheek there's no outline, so the fur blends (accepted for now; would need regenerated art to improve).
+- **Both-hands paws layer:** tiny orange slivers under each paw (old clipboard edge). Probably invisible at app size; check after the round 8 import.
+- **Repeat-reply guard vs. step tools:** round 6's "one reply per turn" guard suppressed needed follow-ups after step tools (roles, props). Round 7 is fixing it; re-test the whole flow end to end after every conversation change.

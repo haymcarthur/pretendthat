@@ -40,6 +40,9 @@ enum NutmegState: String, CaseIterable, Identifiable {
 /// A one-shot gesture request. A new `id` replays it.
 struct NutmegCue: Equatable {
     var gesture: NutmegGesture
+    /// How long to hold it (nil: `PoseRules.hold`). Round 7: the point holds through her prop line; a cue with 0
+    /// releases a held point.
+    var hold: TimeInterval? = nil
     var id = UUID()
 }
 
