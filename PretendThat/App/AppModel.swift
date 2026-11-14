@@ -173,6 +173,14 @@ final class AppModel {
     /// Every page's art has landed or definitively fallen back.
     var kitFinal: Bool { store.phase == .kitReady && store.kit != nil && art.finished }
     func kitFinalChanged(_ final: Bool) {
+        #if DEBUG
+        // `-PTPDFOut`: write the print-path PDF (exactly what AirPrint gets) to tmp/kit.pdf once the kit is final.
+        if final, ProcessInfo.processInfo.arguments.contains("-PTPDFOut") {
+            let pdf = KitPrinter.pdf(pages: kitPages, art: art.images,
+                                     cutouts: Dictionary(uniqueKeysWithValues: (store.kit?.items ?? []).map { ($0.id, art.cutoutImages($0)) }))
+            try? pdf.write(to: FileManager.default.temporaryDirectory.appendingPathComponent("kit.pdf"))
+        }
+        #endif
         kitBeatTask?.cancel()
         guard final else { kitBeat = .coloring; return }
         kitBeatTask = Task { @MainActor in

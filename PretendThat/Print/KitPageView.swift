@@ -85,13 +85,13 @@ struct KitCardView: View {
     var body: some View {
         GeometryReader { geo in
             if let art {
-                // AI art is fitted whole (never cropped) and centered in its cell; the blank name line goes on its banner.
-                // Full sheets (sign, menu) fill the page's content area edge to edge (Haylee). Drawn flat on the white
-                // sheet (multiply): no tile card, no shadow.
-                let fit = fullPage ? geo.size : Self.aspectFit(art.size, in: geo.size)
+                // AI art is ALWAYS fitted whole (never cropped), as large as the cell allows and centered; full sheets
+                // (sign, menu) get the whole content area. Drawn flat on the white sheet (multiply): no tile card, no
+                // shadow. The blank name line goes on its banner.
+                let fit = Self.aspectFit(art.size, in: geo.size)
                 ZStack(alignment: .top) {
-                    Image(uiImage: art).resizable().aspectRatio(contentMode: fullPage ? .fill : .fit)
-                        .frame(width: fit.width, height: fit.height).clipped()
+                    Image(uiImage: art).resizable().scaledToFit()
+                        .frame(width: fit.width, height: fit.height)
                         .blendMode(.multiply)
                     if showsName { nameBanner(height: fit.height * 0.17).padding(.top, fit.height * 0.05) }
                     if let role = roleText {   // the role title, on the shared badge art's bottom banner

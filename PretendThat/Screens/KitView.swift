@@ -30,7 +30,10 @@ struct KitView: View {
             // the floor and the control pill. The fan keeps the row's room below it, so nothing shifts when they pop in.
             GeometryReader { geo in
                 let n = pages.count
-                let row = Self.buttonRow + Self.buttonGap
+                // A narrow zone (the prop-card step's camera, Haylee) stacks the two buttons.
+                let stacked = geo.size.width < 400
+                let rowH = stacked ? Self.buttonRow * 2 + Theme.Space.s : Self.buttonRow
+                let row = rowH + Self.buttonGap
                 let g = PTPageFan(count: n, in: CGSize(width: geo.size.width, height: max(120, geo.size.height - row)))
                 let fanTop = row / 2 - (CGFloat(g.rows - 1) / 2 * g.paper.height * PTPageFan.rowStep + g.paper.height / 2) - 6
                 PTPaperReveal(count: revealed ? n : 0, isRevealed: revealed,
@@ -49,15 +52,16 @@ struct KitView: View {
                 .offset(y: row / 2)
                 .frame(width: geo.size.width, height: geo.size.height)
                 .overlay {
-                    HStack(spacing: Theme.Space.m) {
+                    let layout = stacked ? AnyLayout(VStackLayout(spacing: Theme.Space.s)) : AnyLayout(HStackLayout(spacing: Theme.Space.m))
+                    layout {
                         PTParentGate(label: "Hold to print") { model.printKit() }
                         Button("Let's play!") { store.beginPlay() }.buttonStyle(.ptSecondary)
                     }
-                    .frame(height: Self.buttonRow)
+                    .frame(height: rowH)
                     .opacity(landed && !chatOpen ? 1 : 0)
                     .scaleEffect(landed && !chatOpen ? 1 : 0.8)
                     .allowsHitTesting(landed && !chatOpen)
-                    .position(x: geo.size.width / 2, y: geo.size.height / 2 + fanTop - Self.buttonGap - Self.buttonRow / 2)
+                    .position(x: geo.size.width / 2, y: geo.size.height / 2 + fanTop - Self.buttonGap - rowH / 2)
                 }
             }
             .frame(maxHeight: .infinity)

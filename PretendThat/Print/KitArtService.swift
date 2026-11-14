@@ -30,9 +30,37 @@ final class KitArtService {
 
     func cutout(_ itemID: String, _ index: Int) -> UIImage? { cutouts[itemID]?[index] }
     /// The cut-out images of an item in order (nil where not drawn yet).
+    #if DEBUG
+    /// `-PTFakeArt`: test images at the real AI sizes (an off-white sheet with a soft shadow, a red edge frame and a
+    /// label touching the bottom edge), so the print path can be checked for clipping without paid image calls.
+    private func fakeArt(_ kit: Kit) {
+        func make(_ size: String, _ label: String) -> UIImage {
+            let p = size.split(separator: "x").compactMap { Double($0) }
+            let s = CGSize(width: p.first ?? 1024, height: p.last ?? 1024)
+            return PaperWhite.normalize(UIGraphicsImageRenderer(size: s).image { c in
+                UIColor(white: 0.95, alpha: 1).setFill(); c.fill(CGRect(origin: .zero, size: s))
+                UIColor(white: 0.86, alpha: 1).setFill(); c.fill(CGRect(x: s.width * 0.2, y: s.height * 0.3, width: s.width * 0.6, height: s.height * 0.4))
+                UIColor.red.setStroke(); c.cgContext.setLineWidth(12); c.cgContext.stroke(CGRect(origin: .zero, size: s).insetBy(dx: 6, dy: 6))
+                let a: [NSAttributedString.Key: Any] = [.font: UIFont.boldSystemFont(ofSize: s.width / 9), .foregroundColor: UIColor.black]
+                let t = NSAttributedString(string: label, attributes: a); let ts = t.size()
+                t.draw(at: CGPoint(x: (s.width - ts.width) / 2, y: s.height - ts.height - 14))
+            })
+        }
+        for item in kit.items {
+            if item.recipe == .cutouts, !KitArtPrompt.cutoutLabels(item).isEmpty {
+                for n in KitArtPrompt.cutoutLabels(item).indices { cutouts[item.id, default: [:]][n] = make("1024x1024", "BOTTOM") }
+            } else { images[item.id] = make(KitArtPrompt.size(for: item), "BOTTOM") }
+        }
+        finished = true
+    }
+    #endif
+
     func cutoutImages(_ item: KitItem) -> [UIImage?] { KitArtPrompt.cutoutLabels(item).indices.map { cutouts[item.id]?[$0] } }
 
     func generate(kit: Kit, gameTitle: String) async {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-PTFakeArt") { fakeArt(kit); return }
+        #endif
         guard let client else { finished = true; return }   // app-drawn pages: final right away
         guard !isGenerating else { return }
         isGenerating = true
@@ -80,7 +108,7 @@ final class KitArtService {
 
 
 /// Paper-white AI art (Haylee, page preview fix): the image model paints near-white, off-white or light-gray paper and
-/// soft drop shadows behind items. A tone curve lifts everything above ~88% luminance to pure white, so every tile
+/// soft drop shadows behind items. A tone curve lifts everything above ~84% luminance to pure white, so every tile
 /// sits flat on the one white sheet (dark line art is unchanged).
 enum PaperWhite {
     private static let context = CIContext(options: [.useSoftwareRenderer: false])
@@ -91,8 +119,8 @@ enum PaperWhite {
         f.setValue(CIVector(x: 0, y: 0), forKey: "inputPoint0")
         f.setValue(CIVector(x: 0.3, y: 0.3), forKey: "inputPoint1")
         f.setValue(CIVector(x: 0.6, y: 0.62), forKey: "inputPoint2")
-        f.setValue(CIVector(x: 0.8, y: 0.88), forKey: "inputPoint3")
-        f.setValue(CIVector(x: 0.88, y: 1), forKey: "inputPoint4")
+        f.setValue(CIVector(x: 0.76, y: 0.84), forKey: "inputPoint3")
+        f.setValue(CIVector(x: 0.84, y: 1), forKey: "inputPoint4")
         guard let out = f.outputImage, let cg = context.createCGImage(out, from: input.extent) else { return image }
         return UIImage(cgImage: cg, scale: image.scale, orientation: image.imageOrientation)
     }

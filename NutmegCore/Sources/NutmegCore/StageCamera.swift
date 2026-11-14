@@ -294,8 +294,9 @@ public enum PTStageDirector {
         case .hello: return .arrival
         case .makingKit, .kitReady:
             if kitBeat != .papers { return .closeUp }
-            // Chat open: the papers (and Print / Let's play) dock in the panel, so she stands centered.
-            return g.chatOpen ? PTStageFrame(shot: .wide) : side(g)
+            // The pages step reuses the prop-card step's camera EXACTLY (Haylee): same scale, position and floor; only
+            // the content on the right differs (the page fan where the hunt card was; chat open: the pinned card).
+            return huntFrame(curtainInset: curtainInset, g)
         default:
             return side(g)
         }
@@ -310,6 +311,13 @@ public enum PTStageDirector {
         let F = g.free
         let x = F.minX + sideLane(g)
         return CGRect(x: x, y: F.minY, width: max(100, F.maxX - curtainInset - x), height: F.height)
+    }
+
+    /// The prop-card step's content zone right of her (chat closed): where the active hunt card sits, reused by the
+    /// kit pages step.
+    public static func huntContent(_ g: PTStageGeometry, nutmeg L: PTStageCamera.Layout, curtainInset: CGFloat) -> CGRect {
+        let x0 = L.maxX + 20, x1 = g.size.width - curtainInset - curtainGap
+        return CGRect(x: x0, y: g.free.minY, width: max(160, x1 - x0), height: g.free.height)
     }
 
     public static func huntFrame(curtainInset: CGFloat, _ g: PTStageGeometry) -> PTStageFrame {

@@ -261,7 +261,10 @@ struct RootView: View {
     /// Screen-space content right of her lane. Kit: nothing while she colors in the close-up (the papers wait for the
     /// whole kit, no-text-overlays.md); the papers fly off her clipboard once the camera has zoomed out.
     @ViewBuilder private func classicContent(_ g: PTStageGeometry, _ L: PTStageCamera.Layout) -> some View {
-        let r = PTStageDirector.sideContent(g, curtainInset: g.chatOpen ? 12 : curtainInset(g))   // the panel hides the curtain
+        let kitStep = store.phase == .makingKit || store.phase == .kitReady
+        let r = kitStep ? PTStageDirector.huntContent(g, nutmeg: L, curtainInset: curtainInset(g))   // the hunt card's zone
+                        : PTStageDirector.sideContent(g, curtainInset: g.chatOpen ? 12 : curtainInset(g))   // the panel hides the curtain
+        let minW = kitStep ? Self.kitContentWidth : Self.contentWidth
         let kitWaiting = (store.phase == .makingKit || store.phase == .kitReady) && model.kitBeat != .papers
         VStack(spacing: Theme.Space.m) {
             ViewThatFits(in: .vertical) {
@@ -273,8 +276,8 @@ struct RootView: View {
             if store.lastError != nil { HStack(spacing: Theme.Space.l) { bottomBar } }
         }
         // Content needs ~460 pt; beside her (minimum size) with the chat open it scales down to fit.
-        .frame(width: max(r.width, Self.contentWidth), height: r.height / fit(r))
-        .scaleEffect(fit(r))
+        .frame(width: max(r.width, minW), height: r.height / min(1, r.width / minW))
+        .scaleEffect(min(1, r.width / minW))
         .frame(width: r.width, height: r.height)
         .position(x: r.midX, y: r.midY)
         .opacity(kitWaiting ? 0 : 1)
@@ -283,6 +286,8 @@ struct RootView: View {
     }
 
     private static let contentWidth: CGFloat = 460
+    /// The kit pages zone is the hunt card's (narrower): the fan and the stacked buttons need ~280 pt.
+    private static let kitContentWidth: CGFloat = 280
     private func fit(_ r: CGRect) -> CGFloat { min(1, r.width / Self.contentWidth) }
 
     /// Her clipboard (idle pose, canvas px) relative to the content rect's center: where the papers fly from.

@@ -27,3 +27,7 @@
 - Hold to print / Let's play sit ABOVE the page fan (and above the thumbnails in the chat-open pinned card). (Haylee)
 - Page preview: one white sheet, rounded corners, one shadow; AI art normalized to paper white (tone curve) and drawn
   flat (multiply); full sheets (sign, menu) fill the content area edge to edge. (Haylee)
+- Fix: AI art is ALWAYS aspect-fit (never cropped), full sheets as large as fits; print-path PDF checked with
+  `-PTFakeArt -PTPDFOut` (DEBUG; /tmp/pt-round5/pdf-sheet.png). Paper-white curve lifts ≥ 84% luminance to white.
+- The pages step reuses the prop-card step's camera exactly (huntFrame; pages in the hunt card's zone, buttons stacked
+  above the fan when narrow). (Haylee)

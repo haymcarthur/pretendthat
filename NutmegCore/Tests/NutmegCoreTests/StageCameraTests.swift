@@ -115,8 +115,11 @@ struct StageCameraTests {
                                       kitBeat: .coloring, curtainInset: 80, g).shot == .closeUp)
         #expect(PTStageDirector.frame(phase: .kitReady, conversation: false, conversationShot: .wide, cards: 0, hunt: false,
                                       kitBeat: .lookUp, curtainInset: 80, g).shot == .closeUp)
-        #expect(PTStageDirector.frame(phase: .kitReady, conversation: false, conversationShot: .wide, cards: 0, hunt: false,
-                                      kitBeat: .papers, curtainInset: 80, g).shot == .wide)
+        // The pages step reuses the prop-card step's camera exactly (Haylee, round 5).
+        for g in Self.geometries() {
+            #expect(PTStageDirector.frame(phase: .kitReady, conversation: false, conversationShot: .wide, cards: 0, hunt: false,
+                                          kitBeat: .papers, curtainInset: 80, g) == PTStageDirector.huntFrame(curtainInset: 80, g))
+        }
     }
 
     /// Round 5 writing moment: a close shot of her head and the clipboard top; her paws are below the screen's bottom
