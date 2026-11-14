@@ -98,7 +98,10 @@ public final class AdventureStore {
     public nonisolated static func nextPropOutput(id: String, item: String, becomes: String, n: Int) -> String {
         let how = n == 1
             ? "This is the FIRST prop. Its card stays hidden for now. Speak ONLY the roles now, in one or two excited sentences as a set of parts the kids share (\"Our crew is a Captain, a Navigator, and an Island Explorer! Pick who's who!\"; for one kid: \"You'll be the Captain!\"), never \"You're the X, the Y, and the Z\" (that sounds like one kid gets every role), no \"All set!\". Do NOT mention props, cards or the hunt at all (no \"the first prop is coming up\"), and don't ask anything: when your roles line finishes, the card appears and you'll be asked for the prop line."
-            : "This is prop \(n): keep it SHORT, like \"Next, can you find a \(item.lowercased())? It'll be \(becomes)!\" Do NOT repeat 'say found it' or 'tell me if you don't have it' (they already know)."
+            : n % 3 == 0
+            // Round 13: "Pretend that" on about 1 prop in 3 (props 3 and 6), decided by the app so it really happens.
+            ? "This is prop \(n): keep it SHORT and use the words \"pretend that\" this time, like \"Can you find a \(item.lowercased())? Let's pretend that it's \(becomes)!\" Do NOT repeat 'say found it' or 'tell me if you don't have it' (they already know)."
+            : "This is prop \(n): keep it SHORT, like \"Next, can you find a \(item.lowercased())? It'll be \(becomes)!\" Do NOT repeat 'say found it' or 'tell me if you don't have it' (they already know). Don't say \"pretend that\" for this one."
         return "Card \(id) is ready (prop \(n)). \(how) Then wait. Found: mark_found then show_next_prop. Missing: "
             + "swap_prop (one alternate) or skip_prop, then show_next_prop. After 3 to 5 props, finish_planning."
             + (n >= 3 ? " (You have \(n); finishing after this one is fine.)" : "")

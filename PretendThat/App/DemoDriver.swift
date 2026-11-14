@@ -75,6 +75,12 @@ enum DemoDriver {
     }
 
     @MainActor static func live(_ model: AppModel, turns: [String]) async {
+        // Round 13: "-PTLetsPlayAfter N": sit on the start screen N s (the socket pre-connects), then tap Let's play!.
+        let args = ProcessInfo.processInfo.arguments
+        if let i = args.firstIndex(of: "-PTLetsPlayAfter"), i + 1 < args.count, let secs = Double(args[i + 1]) {
+            model.preconnect()
+            try? await Task.sleep(for: .seconds(secs))
+        }
         await model.startConversation()
         for turn in turns {
             // Wait for Nutmeg to start and then finish her line.
@@ -98,6 +104,21 @@ enum DemoDriver {
                 for _ in 0..<100 where !model.realtime.isSpeaking { try? await Task.sleep(for: .milliseconds(100)) }
                 for _ in 0..<200 where model.realtime.isSpeaking { try? await Task.sleep(for: .milliseconds(100)) }
                 try? await Task.sleep(for: .seconds(1))
+                continue
+            }
+            // Round 13 taps: "#found" / "#missing" (prop card buttons), "#play" (print step Let's play!), "#handoff"
+            // (the hand-off card's I'm the ___! button). Timed like real taps.
+            if turn == "#found" || turn == "#missing" { model.huntReply(found: turn == "#found"); continue }
+            if turn == "#done" { await model.store.sceneDone(); continue }
+            if turn == "#scenes" {   // the kit's scene intro lines (round 13: each says "Pretend that")
+                for (i, sc) in (model.store.kit?.scenes ?? []).enumerated() { rtLog("SCENE[\(i)] \(sc.nutmegSays)") }
+                continue
+            }
+            if turn == "#play" { model.realtime.beginTrace("play tap"); model.store.beginPlay(); continue }
+            if turn == "#handoff" {
+                if case .handoff(let i) = model.store.phase, let t = model.store.kit?.scenes[i].owner.role {
+                    model.realtime.beginTrace("handoff tap"); model.store.badgeTapped(t)
+                }
                 continue
             }
             guard model.store.phase != .makingKit else { rtLog("(kit being made, skipped: \(turn))"); continue }

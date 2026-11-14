@@ -40,14 +40,18 @@ public enum Realtime {
 
     // MARK: Session
 
+    /// Round 13: ONE description of how Nutmeg sounds, used by the session instructions AND every app-written line
+    /// (`sayExactly`), so a kit-ready or scene line is delivered exactly like her conversation lines.
+    public static let voiceStyle = "speak like an excited, bubbly young girl cartoon character: bright and high, lively "
+        + "intonation, natural pauses; never flat or monotone. You sound like a cheerful kid around 8–9 years old: "
+        + "young, bright, bouncy, playful. Short, simple words, a quick pace."
+
     public static let instructions = """
     You are Nutmeg, a little stage-manager mouse (she/her) with a headset and a clipboard. You're talking out loud \
     with kids ages 4 to 8 to set up a pretend-play game in their real room. You are their warm, curious friend: \
     bouncy, cheerful, full of wonder.
 
-    Your voice: speak like an excited, bubbly young girl cartoon character: bright and high, lively intonation, \
-    natural pauses; never flat or monotone. You sound like a cheerful kid around 8–9 years old: \
-    young, bright, bouncy, playful. Short, simple words, a quick pace.
+    Your voice: \(voiceStyle)
     NEVER SAY SOUND EFFECTS OR STAGE DIRECTIONS AS WORDS: no "giggle", "squeak", "eee", "eep", "heehee", "teehee", \
     "hehe", "*laughs*", "(giggles)" or any mouse noises or catchphrases. A natural "Ooh!" or "Yay!" is fine.
 
@@ -170,7 +174,7 @@ public enum Realtime {
     and move on to the next step; never re-ask a step they already answered. \
     React or riff in ONE short sentence at most, then ask the current step's question. If a kid goes off topic,     answer kindly in one short line and re-ask the current step's question with suggestions.
 
-    Your face: at the START of most turns, call set_expression to show how you feel about what the kids just said     (excited after a fun idea, ooh when something amazes you, thinking while you choose roles or props, oops when you     didn't understand, happy otherwise). It is silent and instant: never mention it, and keep talking in the same turn.
+    Your face follows your words on its own: never call a tool just to set your face, never wait for one.
 
     Prop safety: only use items from the item list (they're all safe household things). Never suggest knives, \
     scissors, glass, electronics, cords, food, medicine, or anything up high.
@@ -311,9 +315,22 @@ public enum Realtime {
     }
     /// A response that must call one of `names` first (no speech): `tool_choice: required` over just those tools.
     public static func responseCreate(requiring names: [String]) -> [String: Any] {
+        // Round 13: TEXT only, so no audio is generated for a response nobody hears (it was 2–3 s of narration audio
+        // before the tool call); its text items are deleted afterwards.
         ["type": "response.create",
-         "response": ["tool_choice": "required", "tools": tools.filter { names.contains($0["name"] as? String ?? "") }] as [String: Any]]
+         "response": ["tool_choice": "required", "output_modalities": ["text"],
+                      "tools": tools.filter { names.contains($0["name"] as? String ?? "") }] as [String: Any]]
     }
+    /// Round 13: a spoken response without `set_expression` (a face-only tool call ended the response and cost a whole
+    /// extra round trip before she spoke). `tools: false` = speak right away, no tools at all (greeting, tap replies).
+    public static func responseCreateSpoken(tools allowTools: Bool = true) -> [String: Any] {
+        ["type": "response.create",
+         "response": (allowTools
+            ? ["tool_choice": "auto", "tools": tools.filter { ($0["name"] as? String) != "set_expression" }]
+            : ["tool_choice": "none"]) as [String: Any]]
+    }
+    /// Removes an item from the conversation (the silent pass's text, which nobody heard).
+    public static func deleteItem(_ id: String) -> [String: Any] { ["type": "conversation.item.delete", "item_id": id] }
     /// Speak a fixed line in Nutmeg's voice without adding it to the conversation (out-of-band response).
     /// A silent steering note for the model (never shown in the chat, never spoken as is).
     public static func systemNote(_ text: String) -> [String: Any] {
@@ -339,7 +356,13 @@ public enum Realtime {
          "response": ["conversation": "none", "output_modalities": ["audio"],
                       // No conversation context (round 7): with it, the silence reminder improvised game ideas.
                       "input": [] as [Any],
-                      "instructions": "Say exactly this like an excited, bubbly young girl cartoon character (bright and high, lively), and nothing else; never add sound effects or words like giggle: \"\(line)\""] as [String: Any]]
+                      // Round 13: the SAME voice description as the session (an out-of-band response's instructions
+                      // replace the session's, so a shorter one made app lines sound like a different character).
+                      "instructions": sayExactlyInstructions(line)] as [String: Any]]
+    }
+    public static func sayExactlyInstructions(_ line: String) -> String {
+        "You are Nutmeg, a little stage-manager mouse (she/her). Your voice: \(voiceStyle) Say exactly this line, word for "
+            + "word, and nothing else; never add sound effects or words like giggle: \"\(line)\""
     }
 
     public static func json(_ obj: [String: Any]) -> String {

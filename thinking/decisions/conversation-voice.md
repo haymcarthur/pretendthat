@@ -33,3 +33,8 @@
 - Why it sounded lower: the app was uninstalled and reinstalled on the simulator during the start-screen launch-image
   work, which wiped her Grown-ups settings (coral, faster rate) back to the old code defaults (shimmer, 1.12). The
   audio path (player → Varispeed → mixer) did not change. Making her choice the built-in default fixes it for good.
+
+## Update 2026-11-14 (round 13)
+- Still coral + Varispeed 1.20. App-written lines (kit, scenes, hand-offs, reminder) now carry the SAME voice
+  description as the conversation (`Realtime.voiceStyle`); before, their out-of-band instructions replaced it and she
+  sounded like a different character. See round13-voice-latency.md.

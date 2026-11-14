@@ -102,8 +102,30 @@ final class AppModel {
     /// Grown-ups: hear `voice` say the sample line through the conversation's audio path and pitch settings.
     func auditionVoice(_ voice: String) async {
         guard let key = openAIKey else { return }
-        await realtime.audition(apiKey: key, voice: voice, shape: voiceSettings.shape, speed: voiceSettings.speed)
+        realtime.dropPrepared()   // its voice may change; the start screen pre-connects again afterwards
+        var c = voiceConfig; c.voice = voice
+        await realtime.audition(apiKey: key, config: c)
     }
+
+    /// Round 13: Nutmeg's voice for every connect (first, pre-connect, reconnect, audition), from the Grown-ups settings.
+    var voiceConfig: VoiceConfig {
+        VoiceConfig(voice: voiceSettings.voice, method: voiceSettings.method, rate: voiceSettings.rate,
+                    cents: voiceSettings.pitchCents, requestedSpeed: voiceSettings.speed)
+    }
+    /// The voice this game's conversation started with: a silent reconnect uses exactly this one.
+    @ObservationIgnored private var gameVoice: VoiceConfig?
+
+    /// Round 13: while the start screen shows, open the Realtime socket with today's ideas, so "Let's play!" only
+    /// starts the audio and the greeting.
+    func preconnect() {
+        #if DEBUG
+        if DemoDriver.autoStart || DemoDriver.requestedPhase != nil { return }
+        #endif
+        guard let key = openAIKey, store.phase == .hello else { return }
+        if preparedGames.isEmpty { preparedGames = suggestionMemory.pickGames() }
+        realtime.preconnect(apiKey: key, config: voiceConfig, instructions: Realtime.instructions(todayGames: preparedGames))
+    }
+    @ObservationIgnored private var preparedGames: [Suggestion] = []
     /// DEBUG screenshots: show the conversation stage without a live session.
     var forceConversation = false
 
@@ -123,16 +145,20 @@ final class AppModel {
         #if DEBUG
         if DemoDriver.autoStart { forceConversation = true; store.beginConversation(); return }   // frame strips: no voice
         #endif
+        realtime.beginTrace("let's play")
         store.beginConversation()
         guard let key = openAIKey else { await store.start(); return }
         // Fresh suggestions every session (round 7): 3 games picked now (never last session's), injected as today's ideas.
-        let games = suggestionMemory.pickGames()
+        // Round 13: the start screen already picked them for the pre-connected socket.
+        let games = preparedGames.isEmpty ? suggestionMemory.pickGames() : preparedGames
+        preparedGames = []
         todayGames = games
         #if DEBUG
         rtLog("today's games: \(games.map(\.id).joined(separator: ", "))")
         #endif
-        let ok = await realtime.connect(apiKey: key, voice: voiceSettings.voice, shape: voiceSettings.shape,
-                                        speed: voiceSettings.speed, echoCancel: voiceSettings.echoCancel,
+        let config = voiceConfig
+        gameVoice = config
+        let ok = await realtime.connect(apiKey: key, config: config, echoCancel: voiceSettings.echoCancel,
                                         instructions: Realtime.instructions(todayGames: games))
         guard store.phase == .pickGame else { return }   // left while connecting
         if ok {
@@ -148,6 +174,7 @@ final class AppModel {
     /// Leave activity: hang up and go home. Nothing is kept.
     func leave() {
         realtime.disconnect()
+        gameVoice = nil
         kitReadySaid = false; deferredLine = nil; doze.wake(); dozeStage = .awake; wokePop = false; endKitBackgroundTask()
         shownProps = 0; beat = .none; kitBeatTask?.cancel(); kitBeat = .coloring; kitWriting = false; kitWritingTask?.cancel(); kitWritingTask = nil
         voice.stop()
@@ -298,6 +325,13 @@ final class AppModel {
             rtLog("today's themes: \(store.themeIdeas.map(\.id).joined(separator: ", "))")
             #endif
         }
+        // Round 13: the text-only hunt pass sometimes moves straight to the next prop without mark_found (seen live:
+        // "We found it!" → show_next_prop only). Moving on from an open card means it was found: check it off first.
+        if case .showNextProp = call, store.huntActive, let cur = store.currentPropID, !store.foundProps.contains(cur),
+           store.props?.props.first(where: { $0.id == cur })?.isSkipped == false {
+            _ = await store.apply(.markFound(cur))
+            rtLog("hunt: show_next_prop without mark_found: \(cur) checked off")
+        }
         let output = await store.apply(call)
         realtime.huntMode = store.huntActive
         if case .showNextProp = call {
@@ -408,10 +442,41 @@ final class AppModel {
     }
 
     /// Backup buttons on the current prop card (noisy rooms): the one planning tap.
+    /// Round 13 (Haylee: taps felt slow): the card changes AT ONCE (local state first), then her line follows. No
+    /// tool-first pass for what the app already knows: a swap she just says (one response); after a check-off or a
+    /// skip only the next prop is hers to pick (a cheap text-only pass, then her line).
     func huntReply(found: Bool) {
-        guard let p = store.props?.props.first(where: { $0.id == store.currentPropID }) else { return }
+        guard realtime.isLive, let p = store.props?.props.first(where: { $0.id == store.currentPropID }) else { return }
         let name = p.householdItem.lowercased()
-        realtime.sendText(found ? "Nutmeg, we found the \(name)!" : "Nutmeg, we don't have a \(name).")
+        let count = store.props?.props.count ?? 0
+        let next = count >= 3 ? ["show_next_prop", "finish_planning"] : ["show_next_prop"]
+        let then = count >= 3 ? "call show_next_prop for the next prop (or finish_planning if that's enough props)" : "call show_next_prop for the next prop"
+        Task { @MainActor in
+            if found {
+                _ = await store.apply(.markFound(p.id))
+                realtime.tapTurn(kidLine: "We found the \(name)!",
+                                 note: "(Silent coaching, don't mention it.) The kids tapped Found it: the \(name) is ALREADY checked off "
+                                    + "on screen (don't call mark_found). Say nothing yet: \(then) FIRST, then cheer in a few words and ask "
+                                    + "about the new prop in the same turn. Never narrate.",
+                                 requiring: next)
+            } else if !p.isSkipped, !(p.swapped ?? false), let alt = p.alternates?.first(where: { PropLibrary.contains($0) }) {
+                _ = await store.apply(.swapProp(oldID: p.id, newID: alt, becomes: ""))
+                let altName = (PropLibrary.name(alt) ?? alt).lowercased()
+                realtime.tapTurn(kidLine: "We don't have a \(name).",
+                                 note: "(Silent coaching, don't mention it.) The kids tapped Don't have it. The card ALREADY changed to "
+                                    + "a \(altName) (it'll still be \(p.becomes)). No tools: in ONE short turn say a \(altName) works too and ask "
+                                    + "if they can find one.",
+                                 requiring: nil)
+            } else {
+                _ = await store.apply(.skipProp(p.id))
+                realtime.tapTurn(kidLine: "We don't have a \(name).",
+                                 note: "(Silent coaching, don't mention it.) The kids tapped Don't have it: the \(name) is ALREADY marked "
+                                    + "as pretend on screen (don't call skip_prop). Say nothing yet: \(then) FIRST, then say you'll "
+                                    + "pretend that one and ask about the new prop in the same turn.",
+                                 requiring: next)
+            }
+            realtime.huntMode = store.huntActive
+        }
     }
 
     static func state(for e: NutmegExpression) -> NutmegState {
@@ -455,9 +520,22 @@ final class AppModel {
             return
         }
         if realtime.isLive {
-            if !Self.isPlanning(store.phase) { realtime.say(text) }
+            if !Self.isPlanning(store.phase) {
+                // Round 13: a scene / hand-off line follows a kid's tap: the thinking state shows until it plays.
+                let tapped: Bool = { switch store.phase { case .handoff, .scene, .end: true; default: false } }()
+                realtime.say(text, thinking: tapped)
+            }
             return
         }
+        // Round 13: every line in her ONE Realtime voice. A session that dropped comes back (silent reconnect) and the
+        // line waits for it; the device voice is only for a run with no Realtime at all.
+        if hasRealtime && gameVoice != nil && Self.wasLive(store.phase) {
+            deferredLine = text
+            rtLog("line deferred: session not live (\(realtime.status)), reconnecting")
+            Task { await reconnectSilently() }
+            return
+        }
+        rtLog("AVSpeech fallback (no Realtime session): \(text.prefix(40))")
         Task { await voice.say(text) }
     }
 
@@ -575,8 +653,13 @@ final class AppModel {
         defer { resuming = false }
         let ctx = ResumeContext(store: store, transcript: realtime.transcript)
         rtLog("reconnect: silent, step \(store.planningStep), phase \(store.phase), \(ctx.recent.count) recent lines, no kick-off")
-        let ok = await realtime.connect(apiKey: key, voice: voiceSettings.voice, shape: voiceSettings.shape,
-                                        speed: voiceSettings.speed, echoCancel: voiceSettings.echoCancel,
+        // Round 13: exactly the voice this game started with (never a changed setting or a default).
+        let config = gameVoice ?? voiceConfig
+        #if DEBUG
+        rtLog("reconnect: voice identical to first connect: \(gameVoice == nil || config == realtime.connectedConfig ?? config)")
+        assert(gameVoice == nil || config == gameVoice, "reconnect must use the first connect's voice")
+        #endif
+        let ok = await realtime.connect(apiKey: key, config: config, echoCancel: voiceSettings.echoCancel,
                                         instructions: Realtime.resumeInstructions(todayGames: todayGames, context: ctx),
                                         keepChat: true)
         guard store.phase != .hello else { realtime.disconnect(); return }   // left meanwhile

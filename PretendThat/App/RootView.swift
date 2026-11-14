@@ -63,7 +63,7 @@ struct RootView: View {
                     PTChatPanel(lines: model.realtime.transcript.map { PTChatPanel.Line(id: $0.id, fromNutmeg: $0.fromNutmeg, text: $0.text) },
                                 onSend: { text in Task { await model.typed(text) } },
                                 onClose: { chatOpen = false },
-                                pinnedKey: pinnedKey, pinned: pinnedCard)
+                                pinnedKey: pinnedKey, pinned: pinnedCard, typing: model.realtime.thinkingGap)
                         .padding([.vertical, .trailing], Theme.Space.m)
                         .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
@@ -124,6 +124,8 @@ struct RootView: View {
             }
         }
         .onChange(of: scenePhase) { _, phase in model.scenePhaseChanged(phase) }
+        // Round 13: pre-connect the voice session while the start screen shows.
+        .task(id: store.phase == .hello) { if store.phase == .hello { model.preconnect() } }
         .onChange(of: store.phase) { _, _ in model.updateIdleTimer() }
         .onChange(of: model.kitPapersOut) { _, _ in model.updateIdleTimer() }
         .onChange(of: desiredShot) { _, _ in scheduleShot() }
@@ -147,7 +149,7 @@ struct RootView: View {
             #endif
             await model.listener.requestAuth()
         }
-        .sheet(isPresented: $showSettings) { ParentSettingsView(model: model) }
+        .sheet(isPresented: $showSettings, onDismiss: { model.preconnect() }) { ParentSettingsView(model: model) }
         .sheet(isPresented: $showTyping) { PTTypeSheet { text in Task { await model.typed(text) } } }
         .preferredColorScheme(.light)
         .statusBarHidden()

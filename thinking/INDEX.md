@@ -72,6 +72,7 @@ The map. Read this first, then open only what you need.
 - [Round 9 build: game survives lock/background (silent reconnect with state), sleepy Nutmeg, hand-off voice confirm](decisions/round9-sleepy-and-lock.md): Haylee (Claude's calls noted)
 - [Round 10 build: clipboard layer = board only, tie-backs inward, twinkle removed, writing shot, Go play removed, Done auto-check + Back, pinned hand-off/compact checklist, prop-card framing for the checklist, one shared stage animation](decisions/round10-review-fixes.md): Haylee (Claude's calls noted)
 - [Round 11: start-screen choreography (wiggle during curtains, logo + button pop with Nutmeg), every transition one move, stage audit](decisions/round11-start-and-transitions.md): Haylee (Claude's calls noted)
+- [Round 13: one voice for every line (app lines lost the voice description), pre-connect, text-only silent pass, instant taps, thinking face + typing dots, "Pretend that" scene intros](decisions/round13-voice-latency.md): Haylee (Claude's calls noted)
 
 ## Work queue
 - [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–11 done (round 11 = start choreography, one-move transitions, stage audit)

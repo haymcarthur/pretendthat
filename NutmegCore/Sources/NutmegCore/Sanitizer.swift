@@ -19,8 +19,9 @@ public enum Sanitizer {
             i.copies = min(max(i.copies, Limits.copies.lowerBound), Limits.copies.upperBound)
             return i
         }
-        k.scenes = Array(k.scenes.prefix(Limits.scenesMax)).map { scene in
+        k.scenes = Array(k.scenes.prefix(Limits.scenesMax)).enumerated().map { i, scene in
             var s = scene
+            s.nutmegSays = PretendLine.ensure(s.nutmegSays, index: i)   // round 13: every scene intro says "Pretend that"
             s.steps = Array(s.steps.prefix(Limits.stepsMax))
             s.owner = allowed(s.owner, roleCount: roleCount)
             return s
@@ -108,5 +109,26 @@ public enum RoleCast {
         while total > kids, let i = merged.lastIndex(where: { $0.count > 1 }) { merged[i].count -= 1; total -= 1 }
         if total < kids { merged[merged.count - 1].count += kids - total }
         return merged
+    }
+}
+
+
+/// Round 13 (Haylee: in the play step she never said it): every scene's intro line says "Pretend that…". The kit
+/// prompt asks for it; a line that still lacks it gets a short varied "Pretend that…" opener in front.
+public enum PretendLine {
+    public static let openers = [
+        "Pretend that the show is starting!",
+        "Pretend that the curtain just went up!",
+        "Pretend that something exciting is about to happen!",
+        "Pretend that everyone is watching!",
+        "Pretend that it's the big moment!",
+        "Pretend that the room is the stage!"
+    ]
+    public static func has(_ line: String) -> Bool { line.lowercased().contains("pretend that") }
+    public static func ensure(_ line: String, index: Int) -> String {
+        let t = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        if has(t) { return t }
+        let opener = openers[((index % openers.count) + openers.count) % openers.count]
+        return t.isEmpty ? opener : opener + " " + t
     }
 }

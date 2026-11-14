@@ -250,6 +250,8 @@ struct PTChatPanel: View {
     /// papers with the Print pill. The transcript scrolls beneath it. `pinnedKey` changes animate it in place.
     var pinnedKey: String? = nil
     var pinned: AnyView? = nil
+    /// Round 13: she's working on her reply (kid let go / sent / tapped, no audio yet): typing dots on her side.
+    var typing = false
     @State private var draft = ""
     @FocusState private var focused: Bool
     @State private var following = true
@@ -257,7 +259,7 @@ struct PTChatPanel: View {
     @State private var panelHeight: CGFloat = 0
     private static let bottomID = "chat-bottom"
     /// Changes when a line is added or the last line's text grows (streaming).
-    private var followKey: String { "\(lines.count)-\(lines.last?.text.count ?? 0)" }
+    private var followKey: String { "\(lines.count)-\(lines.last?.text.count ?? 0)-\(typing)" }
 
     var body: some View {
         VStack(spacing: Theme.Space.s) {
@@ -283,6 +285,10 @@ struct PTChatPanel: View {
                                 .frame(maxWidth: .infinity).padding(.top, Theme.Space.l)
                         }
                         ForEach(lines) { line in bubble(line).id(line.id) }
+                        if typing {
+                            HStack { PTTypingBubble(); Spacer(minLength: 40) }
+                                .transition(.opacity)
+                        }
                     }
                     .padding(.vertical, Theme.Space.xs)
                     Color.clear.frame(height: 1).id(Self.bottomID)

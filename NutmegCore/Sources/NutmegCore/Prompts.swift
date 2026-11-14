@@ -18,8 +18,9 @@ public enum Prompts {
     - At most 2 sentences, each at most 20 words. Words a 4-year-old knows. Enthusiastic and kind.
     - Never scary, violent, romantic, mean, or about brands, screens, or buying things.
     - If a kid asks for something scary or unsafe, cheerfully steer to a gentle game without repeating the unsafe words.
-    - Use the phrase "pretend that" naturally when setting up scenes and hand-offs in play ("Pretend that the plane is \
-    about to take off!", "Pretend that a hungry customer just walked in!"). Never forced, never in two lines in a row.
+    - EVERY scene's nutmegSays starts with "Pretend that" and then sets up that scene in fresh words ("Pretend that the \
+    plane is about to take off!", "Pretend that a hungry customer just walked in!"); vary everything after those two \
+    words. In other lines (choices, hand-offs) use it only now and then, never forced.
     - Never say sound effects or stage directions as words (giggle, squeak, eee, eep, heehee, *laughs*).
 
     Safety rules for props: only soft or sturdy household items (pillows, chairs, blankets, cardboard boxes, \
@@ -72,6 +73,7 @@ public enum Prompts {
         Never put names or name placeholders anywhere: the app prints each badge's role title and a blank "Name: ____" line on badges and tickets for kids to write on. Keep wording short (lines 1 to 5 words each).
         The cutouts item's lines are the 6 to 8 cut-out items (each is drawn as its own picture), so steps can point at one (cutout:N). \
         Then write 4 to 6 scenes for the play guide (never fewer than 4), each with 3 to 5 steps, each step and scene with ONE picture. Each scene belongs to the role id that leads it (owner) or "all"; call kids by their role ("Captain, check the plane!"). \
+        Every scene's nutmegSays MUST start with "Pretend that" (e.g. "Pretend that the first passengers just arrived! Captain, say hello!"), with different words after it in each scene. \
         Return Kit.
         \(contextJSON(ctx))
         """

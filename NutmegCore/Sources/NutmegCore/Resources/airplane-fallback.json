@@ -199,7 +199,7 @@
         "id": "s1",
         "owner": "R1",
         "title": "Get the plane ready",
-        "nutmegSays": "Captain, let's check the plane!",
+        "nutmegSays": "Pretend that the plane is waiting at the gate! Captain, let's check it!",
         "steps": [
           {
             "text": "Line up the seats",
@@ -232,7 +232,7 @@
         "id": "s2",
         "owner": "R2",
         "title": "Boarding time",
-        "nutmegSays": "Ooh, passengers are here! Check their tickets!",
+        "nutmegSays": "Pretend that the passengers just arrived! Check their tickets!",
         "steps": [
           {
             "text": "Check each ticket",
@@ -298,7 +298,7 @@
         "id": "s4",
         "owner": "R2",
         "title": "Snack cart",
-        "nutmegSays": "Snack time in the sky! Yum yum!",
+        "nutmegSays": "Pretend that it's snack time in the sky! Yum!",
         "steps": [
           {
             "text": "Push the snack cart",
@@ -331,7 +331,7 @@
         "id": "s5",
         "owner": "R1",
         "title": "Landing",
-        "nutmegSays": "Wow, I see the beach! Time to land, Captain!",
+        "nutmegSays": "Pretend that you can see the beach! Time to land, Captain!",
         "steps": [
           {
             "text": "Say: Get ready to land!",

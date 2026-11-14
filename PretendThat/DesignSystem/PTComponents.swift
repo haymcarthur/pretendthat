@@ -484,3 +484,29 @@ struct PTStageHeader<Picture: View>: View {
         .accessibilityElement(children: .combine)
     }
 }
+
+
+// MARK: - Typing bubble (round 13)
+
+/// Nutmeg is working on her reply: three dots in her chat-bubble style (left side, gray), pulsing in turn.
+/// Replaced by her real line when it starts. Reduce Motion: the dots stay still.
+struct PTTypingBubble: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion)) { ctx in
+            let t = ctx.date.timeIntervalSinceReferenceDate
+            HStack(spacing: 6) {
+                ForEach(0..<3, id: \.self) { i in
+                    let phase = reduceMotion ? 0 : (sin((t * 2 * .pi / 1.1) - Double(i) * 0.9) + 1) / 2
+                    Circle().fill(Theme.inkMuted)
+                        .frame(width: 9, height: 9)
+                        .opacity(0.35 + 0.65 * phase)
+                        .offset(y: -3 * phase)
+                }
+            }
+            .padding(.horizontal, 16).padding(.vertical, 14)
+            .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Theme.chipGray))
+        }
+        .accessibilityLabel("Nutmeg is thinking")
+    }
+}

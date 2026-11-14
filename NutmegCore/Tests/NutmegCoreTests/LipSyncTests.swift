@@ -63,7 +63,8 @@ struct ExpressionToolTests {
 
     @Test func toolIsDeclaredAndBlipsMatchExclamations() {
         #expect(Realtime.tools.contains { $0["name"] as? String == "set_expression" })
-        #expect(Realtime.instructions.contains("set_expression"))
+        // Round 13: faces come from her words (blips) and the app; spoken responses don't offer the face tool.
+        #expect(!(((Realtime.responseCreateSpoken()["response"] as? [String: Any])?["tools"] as? [[String: Any]]) ?? []).contains { $0["name"] as? String == "set_expression" })
         #expect(NutmegExpression.blip(forReplyStart: "Ooh! A moon bakery?") == .ooh)
         #expect(NutmegExpression.blip(forReplyStart: "Wow, that's fun") == .ooh)
         #expect(NutmegExpression.blip(forReplyStart: "Yes! Let's go") == .excited)

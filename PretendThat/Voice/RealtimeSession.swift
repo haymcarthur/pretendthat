@@ -153,7 +153,7 @@ final class RealtimeSession {
         }
         let followUp = gate.done(allowFollowUp: holdStartedAt == nil && !dropAudio && !beatRunning)
         rtLog("tool-first done: followUp=\(followUp)")
-        if followUp { socket?.send(Realtime.responseCreate) }
+        if followUp { trace.mark("spoken.create"); socket?.send(Realtime.responseCreateSpoken()) }
     }
 
     private func startPropLine() {
@@ -264,35 +264,41 @@ final class RealtimeSession {
     // MARK: Lifecycle
 
     /// Connects, configures the session and starts the audio. Returns false (with `status = .failed`) on any problem.
-    func connect(apiKey: String, voice: String, shape: VoiceShape, speed: Double, echoCancel: Bool = false,
+    func connect(apiKey: String, config: VoiceConfig, echoCancel: Bool = false,
                  instructions: String = Realtime.instructions, keepChat: Bool = false) async -> Bool {
+        // Round 13: a socket opened on the start screen with exactly this voice + instructions is used as is.
+        if let p = preparing { await p.value }
+        let reuse = prepared.flatMap { p -> RealtimeSocket? in
+            p.config == config && p.instructions == instructions && p.socket.firstError == nil
+                && Date().timeIntervalSince(p.at) < 15 * 60 ? p.socket : nil
+        }
+        if reuse == nil { prepared?.socket.close() }
+        prepared = nil
         disconnect()
         if !keepChat { chat.clear() }   // a silent reconnect (round 9) keeps the transcript
         self.echoCancel = echoCancel
         status = .connecting
         lastError = nil
         guard await AVAudioApplication.requestRecordPermission() else {
+            reuse?.close()
             return fail("Microphone permission is off")
         }
-        var req = URLRequest(url: Realtime.url())
-        req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        let socket = RealtimeSocket(request: req)
-        self.socket = socket
-        socket.send(Realtime.sessionUpdate(voice: voice, speed: Realtime.apiSpeed(method: shape.method, requested: speed),
-                                           instructions: instructions))
-
-        // Wait for session.updated (or an error) before starting the audio.
-        let ready = await withTaskGroup(of: Bool.self) { group in
-            group.addTask { await socket.waitForReady() }
-            group.addTask { try? await Task.sleep(for: .seconds(8)); return false }
-            let first = await group.next() ?? false
-            group.cancelAll()
-            return first
+        let socket: RealtimeSocket
+        let ready: Bool
+        if let reuse {
+            socket = reuse; ready = true
+            rtLog("connect: pre-connected socket reused")
+        } else {
+            socket = Self.openSocket(apiKey: apiKey)
+            socket.send(config.sessionUpdate(instructions: instructions))
+            ready = await Self.waitReady(socket)
         }
+        self.socket = socket
         guard ready else { return fail(socket.firstError ?? "Couldn't reach OpenAI Realtime") }
 
-        self.shape = shape
-        rtLog("voice: \(voice), method \(shape.method.rawValue), rate \(shape.rate), cents \(shape.cents), api speed \(Realtime.apiSpeed(method: shape.method, requested: speed))")
+        self.shape = VoiceShape(method: config.method, cents: config.cents, rate: config.rate)
+        connectedConfig = config
+        rtLog("voice: \(config)")
         do { try startAudio(echoCancel: echoCancel) } catch { return fail("Audio: \(error.localizedDescription)") }
         status = .live
         #if DEBUG
@@ -304,6 +310,52 @@ final class RealtimeSession {
         }
         updateGate()
         return true
+    }
+
+    /// The voice of the live session (DEBUG check: a silent reconnect must use the same one).
+    private(set) var connectedConfig: VoiceConfig?
+
+    // MARK: Pre-connect (round 13: the greeting fires the moment "Let's play!" is tapped)
+
+    private struct Prepared { let socket: RealtimeSocket; let config: VoiceConfig; let instructions: String; let at: Date }
+    @ObservationIgnored private var prepared: Prepared?
+    @ObservationIgnored private var preparing: Task<Void, Never>?
+
+    /// Opens the socket and sends session.update (voice + instructions) while the start screen shows. No audio and no
+    /// mic permission yet: `connect` with the same config and instructions picks it up.
+    func preconnect(apiKey: String, config: VoiceConfig, instructions: String) {
+        guard status == .idle || { if case .failed = status { return true }; return false }(), preparing == nil else { return }
+        if let p = prepared, p.config == config, p.instructions == instructions, p.socket.firstError == nil,
+           Date().timeIntervalSince(p.at) < 10 * 60 { return }
+        prepared?.socket.close(); prepared = nil
+        preparing = Task { [weak self] in
+            let socket = Self.openSocket(apiKey: apiKey)
+            socket.send(config.sessionUpdate(instructions: instructions))
+            let ok = await Self.waitReady(socket)
+            guard let self else { socket.close(); return }
+            self.preparing = nil
+            if ok { self.prepared = Prepared(socket: socket, config: config, instructions: instructions, at: Date()); rtLog("pre-connect: ready (\(config))") }
+            else { socket.close(); rtLog("pre-connect: failed (\(socket.firstError ?? "-"))") }
+        }
+    }
+
+    func dropPrepared() { prepared?.socket.close(); prepared = nil }
+
+    private static func openSocket(apiKey: String) -> RealtimeSocket {
+        var req = URLRequest(url: Realtime.url())
+        req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        return RealtimeSocket(request: req)
+    }
+
+    /// Waits for session.updated (or an error), at most 8 s.
+    private static func waitReady(_ socket: RealtimeSocket) async -> Bool {
+        await withTaskGroup(of: Bool.self) { group in
+            group.addTask { await socket.waitForReady() }
+            group.addTask { try? await Task.sleep(for: .seconds(8)); return false }
+            let first = await group.next() ?? false
+            group.cancelAll()
+            return first
+        }
     }
 
     func disconnect() {
@@ -328,18 +380,35 @@ final class RealtimeSession {
         let ideas = games.isEmpty ? "" : " with today's ideas as open sparks (\"You can pick anything! Maybe \(Suggestions.spoken(games))?\")"
         socket.send(Realtime.userText("(The kids just opened the app and can hear you now. They talk to you by holding the big red button. In ONE short turn: say hi in your own words, ask what they feel like playing,\(ideas), and tell them to hold the red button and tell you.)"))
         gate.newTurn()
+        nextResponseNoTools = true   // round 13: the greeting speaks at once (a face-only tool call cost ~1.4 s)
         requestResponse()
     }
 
     /// Typed turn (keyboard fallback, simulator, demo safety).
     func sendText(_ text: String) {
         guard let socket, isLive, micWanted else { return }
+        trace.begin("typed")
         socket.send(Realtime.userText(text))
         chat.kidTyped(text)
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-PTLive") { rtLog("KID: \(text)") }
         #endif
         kidTurnEnded()
+        requestResponse()
+    }
+
+    /// Round 13: a tap on the prop card the app has ALREADY applied (the card changed at once). The kid's words go in
+    /// the chat, the note tells her what happened. `requiring` = tools she still has to call first (the next prop is
+    /// her pick: a cheap text-only pass); nil = she speaks straight away with no tools (one response).
+    func tapTurn(kidLine: String, note: String, requiring tools: [String]?) {
+        guard let socket, isLive, micWanted else { return }
+        trace.begin("tap")
+        if responseActive || isSpeaking { interrupt() }
+        socket.send(Realtime.userText(kidLine))
+        chat.kidTyped(kidLine)
+        socket.send(Realtime.systemNote(note))
+        kidTurnEnded(tools: .some(tools))
+        if tools == nil { nextResponseNoTools = true }
         requestResponse()
     }
 
@@ -356,11 +425,20 @@ final class RealtimeSession {
             forcedTools = nil
             silentPending = true
             socket?.send(Realtime.responseCreate(requiring: tools))
-            rtLog("tool-first (silent) response: \(tools.joined(separator: ","))")
+            trace.mark("silent.create")
+            rtLog("tool-first (silent, text-only) response: \(tools.joined(separator: ","))")
             return
         }
-        socket?.send(Realtime.responseCreate)
+        let noTools = nextResponseNoTools
+        nextResponseNoTools = false
+        trace.mark("spoken.create")
+        socket?.send(Realtime.responseCreateSpoken(tools: !noTools))
     }
+    /// Round 13: the next spoken response gets no tools at all (greeting, a tap the app already handled).
+    @ObservationIgnored private var nextResponseNoTools = false
+    /// Round 13: latency of the current turn (release / send / tap → first audio heard), DEBUG log only.
+    @ObservationIgnored private var trace = LatencyTrace()
+    func beginTrace(_ kind: String) { trace.begin(kind) }
 
     // MARK: Push-to-talk
 
@@ -382,6 +460,7 @@ final class RealtimeSession {
         guard let started = holdStartedAt else { return }
         let held = Date().timeIntervalSince(started)
         kidIsTalking = false
+        trace.begin("voice")
         releaseTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(120))   // the mic tap delivers ~50 ms chunks: catch the last one
             guard let self, !Task.isCancelled else { return }
@@ -403,6 +482,7 @@ final class RealtimeSession {
                 return
             }
             socket.send(Realtime.inputCommit)
+            self.trace.mark("commit")
             rtLog("ptt: commit (\(String(format: "%.2f", held)) s) + response.create")
             self.kidTurnEnded()
             self.requestResponse()
@@ -431,10 +511,14 @@ final class RealtimeSession {
         updateGate()
     }
 
-    func say(_ line: String) {
+    /// `thinking`: a kid is waiting on this line (a hand-off or Let's play! tap): show the thinking face + dots until it plays.
+    func say(_ line: String, thinking: Bool = false) {
         guard let socket, isLive, !suspended, !line.isEmpty else { return }
+        if thinking { thinkingGap = true }
         chat.breakTurn()   // each app line (kit progress, ready line) is its own bubble
+        if !trace.running { trace.begin("app line") }
         socket.send(Realtime.sayExactly(line))
+        trace.mark("say.create")
     }
 
     /// Applies pitch changes right away (a method change takes effect on the next conversation).
@@ -448,10 +532,10 @@ final class RealtimeSession {
 
     /// Grown-ups voice audition: a short session with `voice` that plays the fixed sample line through the same
     /// audio path and pitch settings, then hangs up. (The Realtime voice can't change inside a session.)
-    func audition(apiKey: String, voice: String, shape: VoiceShape, speed: Double) async {
+    func audition(apiKey: String, config: VoiceConfig) async {
         guard status != .live, status != .connecting else { return }
         micWanted = false
-        guard await connect(apiKey: apiKey, voice: voice, shape: shape, speed: speed) else { return }
+        guard await connect(apiKey: apiKey, config: config) else { return }
         socket?.send(Realtime.sayExactly(Realtime.auditionLine))
         for _ in 0..<80 where !isSpeaking { try? await Task.sleep(for: .milliseconds(100)) }
         for _ in 0..<300 where isSpeaking { try? await Task.sleep(for: .milliseconds(100)) }
@@ -548,23 +632,22 @@ final class RealtimeSession {
 
     // MARK: Expressions (decisions/conversation-camera-and-expressions.md)
 
-    private func kidTurnEnded() {
+    /// `tools`: nil = the step's usual tool-first rule; `.some(x)` = the caller decides (taps).
+    private func kidTurnEnded(tools override: [String]?? = nil) {
         reminderDoneAt = nil; reminderAwaitingEnd = false
         if let note = noteForNextKidTurn { noteForNextKidTurn = nil; socket?.send(Realtime.systemNote(note)); rtLog("note: woke up") }
         gate.newTurn()
-        forcedTools = onKidTurnTools?()
-        if forcedTools == nil, let note = onPostPlanningTurn?() { socket?.send(Realtime.systemNote(note)) }
+        if let override { forcedTools = override } else { forcedTools = onKidTurnTools?() }
+        if override == nil, forcedTools == nil, let note = onPostPlanningTurn?() { socket?.send(Realtime.systemNote(note)) }
         awaitingReply = true; replyStarted = false
         nudgesThisTurn = 0; reasks = 0; silenceTask?.cancel()
         modelChoseExpression = false
         expressionTask?.cancel(); expression = nil
         gapTask?.cancel()
-        gapTask = Task { [weak self] in
-            try? await Task.sleep(for: .milliseconds(250))
-            guard let self, !Task.isCancelled, self.awaitingReply else { return }
-            self.thinkingGap = true
-            rtLog("face thinking (gap)")
-        }
+        // Round 13 (Haylee): she shows she's working on it from the moment the kid lets go (thinking face + typing
+        // dots) until her first audio plays.
+        thinkingGap = true
+        rtLog("face thinking (gap)")
     }
 
     private func replyBegan() {
@@ -629,6 +712,11 @@ final class RealtimeSession {
         let start = max(scheduledEnd, nowSample)
         scheduledEnd = start + Double(frames)
         let base = nowTime + (start - nowSample) / sr / rate + latency
+        if trace.running && !trace.has("heard") {
+            trace.mark("heard", at: base)   // when the first sample actually leaves the speaker
+            rtLog(trace.summary())
+            trace.end()
+        }
         let features = analyzer.analyze(Array(UnsafeBufferPointer(start: data, count: frames)))
         mouthQueue.append(contentsOf: features.map { (base + $0.offset / rate, $0) })
         startMouthClock()
@@ -723,7 +811,7 @@ final class RealtimeSession {
         #if DEBUG   // event kinds only (no audio, no transcripts): live-test diagnostics in the simulator console
         switch event {
         case .audioDelta, .transcriptDelta, .other: break
-        case .functionCall(let name, _, _): rtLog("call \(name)")
+        case .functionCall(let name, _, _): rtLog("call \(name)"); trace.mark("tool \(name)")
         case .transcriptDone(let t):
             // Live tests only (typed turns): her words in the console for the transcript samples.
             if ProcessInfo.processInfo.arguments.contains("-PTLive") { rtLog(silentResponse ? "SILENT (never played, not in chat): \(t)" : "NUTMEG: \(t)") } else { rtLog("said a line") }
@@ -741,6 +829,8 @@ final class RealtimeSession {
             silenceTask?.cancel()
             if !reminderPlaying { reminderDoneAt = nil; reminderAwaitingEnd = false }
             replyBegan()
+            thinkingGap = false
+            if trace.running && !trace.has("first delta") { trace.mark("first delta") }
             play(data)
         case .transcriptDelta where silentResponse, .transcriptDone where silentResponse:
             break   // the silent tool-first response: its words were never heard, so never in the chat
@@ -795,6 +885,7 @@ final class RealtimeSession {
         case .responseCreated:
             if reminderPending { reminderPending = false; reminderPlaying = true }
             if silentPending { silentPending = false; silentResponse = true; silentItems = [] }
+            trace.mark(silentResponse ? "silent.created" : "created")
             gate.created()
             dropAudio = false
             responseHadAudio = false
@@ -803,15 +894,17 @@ final class RealtimeSession {
         case .responseDone where silentResponse:
             // Nobody heard it: cut its audio items to 0 ms, send the tool outputs, then her real (spoken) reply.
             silentResponse = false
-            for id in silentItems { socket?.send(Realtime.truncate(itemID: id, audioEndMs: 0)) }
+            // Round 13: the pass is text-only, so its (unheard) words are deleted from the conversation.
+            for id in silentItems { socket?.send(Realtime.deleteItem(id)) }
             silentItems = []
             silentTurnDone()
+            if !gate.active { thinkingGap = false }   // her turn ended without a reply (finish_planning, start_play)
         case .responseDone where reminderPlaying:
             // The spoken-only reminder ended: no turn check, no follow-up unless the kid asked meanwhile.
             reminderPlaying = false
             reminderAwaitingEnd = true   // sleepy Nutmeg's clock starts when its audio has finished (round 9)
             chat.breakTurn()   // her next reply starts its own bubble too
-            if gate.done(allowFollowUp: holdStartedAt == nil && !beatRunning) { socket?.send(Realtime.responseCreate) }
+            if gate.done(allowFollowUp: holdStartedAt == nil && !beatRunning) { socket?.send(Realtime.responseCreateSpoken()) }
         case .responseDone:
             if let beat = beatTask {
                 _ = gate.done(allowFollowUp: false)
@@ -866,7 +959,7 @@ final class RealtimeSession {
                     gate.continueTurn()   // a silent tool-only continuation still gets its spoken reply
                     rtLog("nudge: spoke then called a tool, turn unfinished: one continuation")
                 }
-                socket?.send(Realtime.responseCreate)
+                socket?.send(Realtime.responseCreateSpoken())
             }
             else if let check {
                 nudgesThisTurn += 1
@@ -882,6 +975,7 @@ final class RealtimeSession {
                     rtLog("nudge: turn ending (silent, next turn)")
                 }
             }
+            if !gate.active && !responseHadAudio { thinkingGap = false }   // nothing more is coming this turn
         case .error(let message):
             lastError = message
         default: break
@@ -1058,4 +1152,25 @@ struct VoiceShape: Equatable {
     var method: Realtime.PitchMethod = Realtime.defaultPitchMethod
     var cents: Double = Realtime.defaultPitchCents
     var rate: Double = Realtime.defaultVarispeedRate
+}
+
+
+/// Round 13: one turn's timing, from the kid's release / send / tap (or an app line) to the first sample heard.
+/// DEBUG log only ("LAT voice: commit +0.12 s, silent.create +0.12 s, ...").
+struct LatencyTrace {
+    private(set) var kind = ""
+    private var t0: Double?
+    private var marks: [(String, Double)] = []
+    var running: Bool { t0 != nil }
+    mutating func begin(_ kind: String) { self.kind = kind; t0 = CACurrentMediaTime(); marks = [] }
+    mutating func mark(_ name: String, at time: Double = CACurrentMediaTime()) {
+        guard t0 != nil, marks.count < 24 else { return }
+        marks.append((name, time))
+    }
+    func has(_ name: String) -> Bool { marks.contains { $0.0 == name } }
+    mutating func end() { t0 = nil; marks = [] }
+    func summary() -> String {
+        guard let t0 else { return "LAT -" }
+        return "LAT \(kind): " + marks.map { "\($0.0) +\(String(format: "%.2f", $0.1 - t0)) s" }.joined(separator: ", ")
+    }
 }
