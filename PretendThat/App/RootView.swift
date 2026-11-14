@@ -83,11 +83,18 @@ struct RootView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
                     .transition(.move(edge: .leading).combined(with: .opacity))
                     .ignoresSafeArea(.keyboard)   // round 11: stays put under the keyboard
-                PTControlBar(chatOpen: chatOpen, mic: micMode,
+                // Round 17 (Haylee): the close (X) lives in the top-left corner, below the valance and above the rail.
+                PTCornerClose { confirmLeave = true }
+                    .padding(.top, PTCurtain.metrics(screenSize == .zero ? rootSize : screenSize).valance + Theme.Space.s)
+                    .padding(.leading, Theme.Space.m + Theme.Space.s + (72 - PTCornerClose.size) / 2)   // centered over the rail
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .transition(.move(edge: .leading).combined(with: .opacity))
+                    .ignoresSafeArea(.keyboard)
+                PTControlBar(chatOpen: chatOpen, mic: micMode, canRepeat: model.repeatTarget.isAvailable,
                              onChat: { chatOpen.toggle() },
                              onMicPress: { model.talkPressed() },
                              onMicRelease: { model.talkReleased() },
-                             onClose: { confirmLeave = true })
+                             onRepeat: { model.repeatTapped() })
                     .padding(.bottom, Theme.Space.m)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                     // Writing moment: the pill steps aside so the screen's bottom edge crops just below the clipboard

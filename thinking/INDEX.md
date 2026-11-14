@@ -76,6 +76,7 @@ The map. Read this first, then open only what you need.
 - [Round 13: one voice for every line (app lines lost the voice description), pre-connect, text-only silent pass, instant taps, thinking face + typing dots, "Pretend that" scene intros](decisions/round13-voice-latency.md): Haylee (Claude's calls noted)
 - [Round 15: skipped-prop reassurance (lost tap reply fixed), 42 random kit lines, checklist cheers + one congrats, floor always behind the curtains](decisions/2026-11-14-round15-skip-kit-checklist-curtains.md): Haylee (Claude's calls noted)
 - [Round 16: Nutmeg says the next step at every hand-off (print ready, hand-off, checklist, The End, back to the checklist) + checklist "Hear it again"](decisions/2026-11-14-round16-handoff-speech-repeat.md): Haylee (Claude's calls noted)
+- [Round 17: the close (X) moves to the top-left corner; Repeat ("Hear it again") takes its slot in the control pill](decisions/2026-11-14-round17-close-corner-repeat-pill.md): Haylee (Claude's calls noted)
 - [Face art method: eyes/mouth only on green, attach the current eye sheet, swap one eye at a time; focus-face redo pending](decisions/2026-11-14-face-art-method.md): Haylee
 
 ## Work queue

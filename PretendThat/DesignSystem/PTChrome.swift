@@ -46,7 +46,7 @@ struct PTIconButton: View {
         Button(action: action) {
             Image(systemName: symbol)
                 .font(.system(size: size * 0.36, weight: .regular))
-                .foregroundStyle(fill == nil || fill == Theme.chipGray ? Theme.ink : Theme.white)
+                .foregroundStyle(fill == nil || fill == Theme.chipGray || fill == Theme.white ? Theme.ink : Theme.white)
                 .contentTransition(.symbolEffect(.replace))
                 .frame(width: size, height: size)
                 .background(Circle().fill(fill ?? Theme.chipGray))
@@ -128,24 +128,29 @@ struct PTStepRail: View {
 
 // MARK: - Control pill
 
-/// Floating white control pill (decisions/2026-11-13-push-to-talk.md, Haylee round 6): close LEFT (asks first:
-/// `PTLeaveDialog`) · the big red push-to-talk mic CENTER (`PTMicButton`, larger than the others) · chat toggle RIGHT
-/// (dark ring when open). The white backing hugs the buttons: `PTMicPillShape`, a pill that swells into a circle
-/// around the mic with smooth concave fillets.
+/// Floating white control pill (decisions/2026-11-13-push-to-talk.md, Haylee round 6; round 17): Repeat LEFT ("Hear it
+/// again": the checklist read-aloud during play, else her last line again; dimmed when there's nothing to repeat or she's
+/// busy) · the big red push-to-talk mic CENTER (`PTMicButton`, larger than the others) · chat toggle RIGHT (dark ring when
+/// open). The close (X) moved to the screen's top-left corner in round 17 (`PTCornerClose`). The white backing hugs the
+/// buttons: `PTMicPillShape`, a pill that swells into a circle around the mic with smooth concave fillets.
 struct PTControlBar: View {
     var chatOpen: Bool
     var mic: PTMicButton.Mode
+    var canRepeat: Bool = true
     var onChat: () -> Void
     var onMicPress: () -> Void = {}
     var onMicRelease: () -> Void = {}
-    var onClose: () -> Void
+    var onRepeat: () -> Void
 
     static let side: CGFloat = 64, micSize: CGFloat = 92, inset: CGFloat = 10, gap: CGFloat = 20
 
     var body: some View {
         // Tight (Haylee): ~10 pt between a side button and the mic's circular backing.
         HStack(spacing: Self.gap) {
-            PTIconButton(symbol: "xmark", label: "Leave the game", size: Self.side, action: onClose)
+            PTIconButton(symbol: "speaker.wave.2.fill", label: "Hear it again", size: Self.side, action: onRepeat)
+                .opacity(canRepeat ? 1 : 0.4)
+                .disabled(!canRepeat)
+                .accessibilityHint("Nutmeg says it again")
             PTMicButton(mode: mic, size: Self.micSize, onPress: onMicPress, onRelease: onMicRelease)
             PTIconButton(symbol: "bubble.left.and.bubble.right", label: chatOpen ? "Hide chat" : "Show chat",
                          selected: chatOpen, size: Self.side, action: onChat)
@@ -155,6 +160,17 @@ struct PTControlBar: View {
         .background(PTMicPillShape(pillHeight: Self.side + Self.inset * 2, circleRadius: Self.micSize / 2 + Self.inset)
             .fill(Theme.white)
             .shadow(color: Theme.panelShadow, radius: 10, y: 3))
+    }
+}
+
+/// Round 17 (Haylee): the close (X) in the screen's top-left corner, a small round white button (56 pt) below the
+/// valance, above the step rail. It still asks first (`PTLeaveDialog`: the game can't be resumed).
+struct PTCornerClose: View {
+    var action: () -> Void
+    static let size: CGFloat = 56
+    var body: some View {
+        PTIconButton(symbol: "xmark", label: "Leave the game", fill: Theme.white, size: Self.size, action: action)
+            .shadow(color: Theme.panelShadow, radius: 8, y: 2)
     }
 }
 

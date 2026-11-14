@@ -103,3 +103,7 @@ Art ready in design/export/ to import:
 ## Round 16 (Haylee's daughter's test, 2026-11-14 morning) — DONE R16 (decisions/2026-11-14-round16-handoff-speech-repeat.md)
 1. NEVER HAND OFF IN SILENCE: whenever a button appears or the screen waits on the kid, Nutmeg says the next step out loud with the real button labels (print ready, hand-off card, checklist appearing, The End; audit found Back to the checklist too). One line, in the chat. **DONE R16.**
 2. CHECKLIST "HEAR IT AGAIN": speaker pill (stage card beside Done!, chat panel's Checklist tab under Done!) reads the title + the unchecked steps (all if all checked); cancels a stale cheer, debounced, one reply per tap. No Back existed on the checklist card to move (noted). **DONE R16.**
+## Round 17 (Haylee, 2026-11-14 before the freeze) — DONE R17 (decisions/2026-11-14-round17-close-corner-repeat-pill.md)
+1. MOVE THE X: the close (X) leaves the control pill for the screen's top-left corner (56 pt white circle, below the valance, above the step rail); same leave warning. **DONE R17.**
+2. REPEAT IN THE PILL: speaker button in the X's old slot ("Hear it again"): checklist read-aloud during play (round 16 behavior), else her last line again (same voice, no duplicate bubble); dimmed when nothing to repeat or she's busy. **DONE R17.**
+3. REMOVE round 16's checklist "Hear it again" pills (stage card + chat panel tab); Done! back to its round 15 layout. **DONE R17.**

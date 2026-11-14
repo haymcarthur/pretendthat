@@ -44,9 +44,9 @@ struct ComponentGallery: View {
                         PTStepRail(current: .getReady, reached: .print) { _ in }
                         PTStepRail(current: .play, reached: .play) { _ in }
                         VStack(spacing: Theme.Space.m) {
-                            PTControlBar(chatOpen: false, mic: .idle, onChat: {}, onClose: {})
-                            PTControlBar(chatOpen: true, mic: .listening, onChat: {}, onClose: {})
-                            PTControlBar(chatOpen: false, mic: .disabled, onChat: {}, onClose: {})
+                            PTControlBar(chatOpen: false, mic: .idle, onChat: {}, onRepeat: {})
+                            PTControlBar(chatOpen: true, mic: .listening, onChat: {}, onRepeat: {})
+                            PTControlBar(chatOpen: false, mic: .disabled, onChat: {}, onRepeat: {})
                             PTMicPillShape(pillHeight: 84, circleRadius: 56).fill(Theme.white)
                                 .shadow(color: Theme.panelShadow, radius: 10, y: 3).frame(width: 360, height: 112)
                             HStack {

@@ -317,6 +317,35 @@ final class AppModel {
     }
     @ObservationIgnored private var repeatTask: Task<Void, Never>?
     @ObservationIgnored private var lastRepeatAt = Date.distantPast
+
+    // MARK: Repeat in the control pill (round 17, Haylee)
+
+    /// The last line the app gave her to say (the fallback when there's no chat transcript, e.g. the device voice).
+    private(set) var lastAppLine: String?
+    /// What the pill's Repeat ("Hear it again") does right now; `.none` dims it (nothing yet, or she's busy).
+    var repeatTarget: RepeatTarget {
+        let inChecklist: Bool = { if case .scene = store.phase, !store.huntActive { return true } else { return false } }()
+        let busy = isSpeaking || micState == .listening || store.autoChecking || repeatTask != nil
+            || (realtime.isLive && (realtime.isBusy || realtime.thinkingGap))
+        let last = realtime.transcript.last(where: \.fromNutmeg)?.text
+        return RepeatTarget.choose(inChecklist: inChecklist, busy: busy, transcriptLast: last, appLast: lastAppLine)
+    }
+    /// The pill's Repeat: the checklist read-aloud during play (round 16), else her last line again, in the same app
+    /// line path and voice (no duplicate chat bubble). Debounced: one repeat per tap.
+    func repeatTapped() {
+        switch repeatTarget {
+        case .none: return
+        case .checklist: repeatChecklist()
+        case .lastLine(let line):
+            guard Date().timeIntervalSince(lastRepeatAt) > RepeatTarget.debounce else { return }
+            if realtime.isLive && realtime.voiceBusy { return }
+            lastRepeatAt = Date()
+            wakeUp()
+            rtLog("repeat last line: \(line)")
+            if realtime.isLive { realtime.say(line, echo: true) }
+            else if !(hasRealtime && gameVoice != nil && Self.wasLive(store.phase)) { Task { await voice.say(line) } }
+        }
+    }
     /// The scene whose overall congratulations has been said (the last step checked normally).
     @ObservationIgnored private var congratulatedScene: Int?
 
@@ -603,6 +632,7 @@ final class AppModel {
     /// Nutmeg's voice for app-written lines. With a live Realtime session she keeps her conversation voice;
     /// during planning she speaks for herself, so app lines are skipped there.
     func speak(_ text: String, deferIfAway: Bool = false) {
+        if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { lastAppLine = text }
         // Round 9: away (background, or reconnecting): an important line (kit ready) waits for the session; others drop.
         if realtime.suspended || (realtime.status == .connecting && Self.wasLive(store.phase)) || resuming {
             if deferIfAway { deferredLine = text; rtLog("line deferred until the session is back") }

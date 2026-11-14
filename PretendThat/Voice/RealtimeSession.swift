@@ -368,7 +368,7 @@ final class RealtimeSession {
         holdStartedAt = nil; releaseTask?.cancel(); releaseTask = nil; audioItemID = nil; audioItemStart = nil; dropAudio = false
         resetMouth(); silenceTask?.cancel(); huntMode = false; beatTask?.cancel(); beatTask = nil; beatRunning = false; propsPlanned = false; lastBeatAt = .distantPast
         gapTask?.cancel(); expressionTask?.cancel(); expression = nil; thinkingGap = false; awaitingReply = false
-        reminderPending = false; reminderPlaying = false; propLinePending = false
+        reminderPending = false; reminderPlaying = false; propLinePending = false; echoPending = false; echoActive = false
         forcedTools = nil; silentPending = false; silentResponse = false; silentItems = []; quickReplyOnly = false
         if status != .idle, case .failed = status {} else { status = .idle }
     }
@@ -512,15 +512,19 @@ final class RealtimeSession {
     }
 
     @ObservationIgnored private var lastSayAt = Date.distantPast
+    /// Round 17: a Repeat (echo) line was sent / is the response playing now: its words stay out of the chat.
+    @ObservationIgnored private var echoPending = false
+    @ObservationIgnored private var echoActive = false
     /// Round 15: something is being said or is about to be (a response running, audio playing, or an app line sent in
     /// the last moment whose audio hasn't started): a new app line waits, so two lines never overlap.
     var voiceBusy: Bool { isSpeaking || gate.active || Date().timeIntervalSince(lastSayAt) < 1.5 }
 
     /// `thinking`: a kid is waiting on this line (a hand-off or Let's play! tap): show the thinking face + dots until it plays.
-    func say(_ line: String, thinking: Bool = false) {
+    /// `echo` (round 17, the pill's Repeat): a line she already said, said again: heard, but not a second chat bubble.
+    func say(_ line: String, thinking: Bool = false, echo: Bool = false) {
         guard let socket, isLive, !suspended, !line.isEmpty else { return }
         if thinking { thinkingGap = true }
-        chat.breakTurn()   // each app line (kit progress, ready line) is its own bubble
+        if echo { echoPending = true } else { chat.breakTurn() }   // each app line (kit progress, ready line) is its own bubble
         if !trace.running { trace.begin("app line") }
         lastSayAt = Date()
         socket.send(Realtime.sayExactly(line))
@@ -842,7 +846,9 @@ final class RealtimeSession {
             break   // the silent tool-first response: its words were never heard, so never in the chat
         case .outputItemAdded(let id) where silentResponse:
             silentItems.append(id)
-        case .outputItemAdded where reminderPlaying:
+        case .transcriptDelta where echoActive, .transcriptDone where echoActive:
+            break   // round 17: a repeat of a line already in the chat (no duplicate bubble)
+        case .outputItemAdded where reminderPlaying || echoActive:
             audioItemID = nil; audioItemStart = nil   // out of band: nothing in the conversation to truncate
         case .transcriptDelta where !modelChoseExpression && expression == nil:
             chat.apply(event)
@@ -891,6 +897,7 @@ final class RealtimeSession {
         case .responseCreated:
             if reminderPending { reminderPending = false; reminderPlaying = true }
             if silentPending { silentPending = false; silentResponse = true; silentItems = [] }
+            echoActive = echoPending; echoPending = false   // round 17: only the response the repeat asked for
             trace.mark(silentResponse ? "silent.created" : "created")
             gate.created()
             dropAudio = false
