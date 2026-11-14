@@ -104,3 +104,16 @@ struct NutmegLook: Equatable {
     var ears: NutmegEars
     var mouth: NutmegMouth { face.fixedMouth ?? .closed }
 }
+
+extension NutmegPose {
+    /// Her face center (eyes and nose) in canvas px for this pose: the rest-pose face center turned with the head
+    /// around the neck anchor, plus the head nudge. The close-up camera centers this point (PTStageCamera).
+    var faceFocus: CGPoint {
+        let f = PTStageCamera.faceFocus
+        let a = CGPoint(x: neckAnchor.x * Self.canvas.width, y: neckAnchor.y * Self.canvas.height)
+        let r = headRotation * .pi / 180
+        let dx = f.x - a.x, dy = f.y - a.y
+        return CGPoint(x: a.x + dx * cos(r) - dy * sin(r) + headOffset.width,
+                       y: a.y + dx * sin(r) + dy * cos(r) + headOffset.height)
+    }
+}

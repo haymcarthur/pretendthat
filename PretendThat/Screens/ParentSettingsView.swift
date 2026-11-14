@@ -35,7 +35,11 @@ struct ParentSettingsView: View {
                     .pickerStyle(.segmented)
                     if vs.method == .varispeed {
                         LabeledContent("Varispeed rate") {
-                            Slider(value: $vs.rate, in: 1.0...1.25, step: 0.01) { Text("Rate") }
+                            // Live preview: changes apply to a live voice right away; letting go plays the sample.
+                            Slider(value: $vs.rate, in: 1.0...1.25, step: 0.01, label: { Text("Rate") },
+                                   onEditingChanged: { editing in
+                                       if !editing, !model.realtime.isLive { Task { await model.auditionVoice(vs.voice) } }
+                                   })
                                 .onChange(of: vs.rate) { _, _ in model.realtime.setShape(vs.shape) }
                             Text(String(format: "%.2f×", vs.rate)).monospacedDigit().frame(width: 110, alignment: .trailing)
                         }
@@ -48,6 +52,18 @@ struct ParentSettingsView: View {
                         }
                     }
                     Toggle("Echo cancellation (dulls her voice a little)", isOn: $vs.echoCancel)
+                    // Voice audition: every Realtime voice, each playable at the current rate.
+                    ForEach(Realtime.voices, id: \.self) { v in
+                        HStack {
+                            Text(v.capitalized + (v == Realtime.defaultVoice ? " (default)" : ""))
+                            Spacer()
+                            if v == vs.voice { Image(systemName: "checkmark").foregroundStyle(.tint) }
+                            Button { vs.voice = v; Task { await model.auditionVoice(v) } } label: { Image(systemName: "play.circle") }
+                                .buttonStyle(.borderless)
+                                .disabled(!model.hasRealtime || model.realtime.isLive || model.realtime.status == .connecting)
+                                .accessibilityLabel("Play \(v)")
+                        }
+                    }
                     LabeledContent("Speed") {
                         Slider(value: $vs.speed, in: 0.8...1.5, step: 0.05) { Text("Speed") }
                         Text(String(format: "%.2f×", vs.speed)).monospacedDigit().frame(width: 110, alignment: .trailing)

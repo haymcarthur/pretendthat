@@ -28,9 +28,10 @@ final class RealtimeSession {
     var micWanted = true { didSet { updateGate() } }
     private(set) var lastError: String?
 
-    /// Live transcript for the chat panel: in memory only, cleared on disconnect (PretendThat stores nothing).
-    struct Line: Identifiable, Equatable { let id = UUID(); let fromNutmeg: Bool; let text: String }
-    private(set) var transcript: [Line] = []
+    /// Live transcript for the chat panel: in memory only, cleared when a new conversation starts (PretendThat
+    /// stores nothing). Lives on this @Observable, @MainActor session, the same instance the panel reads.
+    private(set) var chat = RealtimeTranscript()
+    var transcript: [RealtimeTranscript.Line] { chat.lines }
 
     /// Function call handler: returns the output for the model and whether Nutmeg should answer afterwards.
     @ObservationIgnored var onCall: (@MainActor (String, String) async -> (output: String, respond: Bool))?
@@ -60,6 +61,7 @@ final class RealtimeSession {
     /// Connects, configures the session and starts the audio. Returns false (with `status = .failed`) on any problem.
     func connect(apiKey: String, voice: String, shape: VoiceShape, speed: Double, echoCancel: Bool = false) async -> Bool {
         disconnect()
+        chat.clear()
         status = .connecting
         lastError = nil
         guard await AVAudioApplication.requestRecordPermission() else {
@@ -69,7 +71,7 @@ final class RealtimeSession {
         req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         let socket = RealtimeSocket(request: req)
         self.socket = socket
-        socket.send(Realtime.sessionUpdate(voice: voice, speed: speed))
+        socket.send(Realtime.sessionUpdate(voice: voice, speed: Realtime.apiSpeed(method: shape.method, requested: speed)))
 
         // Wait for session.updated (or an error) before starting the audio.
         let ready = await withTaskGroup(of: Bool.self) { group in
@@ -110,7 +112,6 @@ final class RealtimeSession {
         engine = nil
         speakingUntil = .distantPast; tailTask?.cancel(); pendingOutputs = []; wantsResponse = false; responseActive = false
         isSpeaking = false; kidIsTalking = false; level = 0
-        transcript = []
         if status != .idle, case .failed = status {} else { status = .idle }
     }
 
@@ -125,7 +126,7 @@ final class RealtimeSession {
     func sendText(_ text: String) {
         guard let socket, isLive else { return }
         socket.send(Realtime.userText(text))
-        transcript.append(Line(fromNutmeg: false, text: text))
+        chat.kidTyped(text)
         requestResponse()
     }
 
@@ -291,7 +292,7 @@ final class RealtimeSession {
     private func handle(_ event: Realtime.Event) async {
         #if DEBUG   // event kinds only (no audio, no transcripts): live-test diagnostics in the simulator console
         switch event {
-        case .audioDelta, .other: break
+        case .audioDelta, .transcriptDelta, .other: break
         case .functionCall(let name, _, _): rtLog("call \(name)")
         case .transcriptDone: rtLog("said a line")
         default: rtLog("\(event)")
@@ -299,11 +300,9 @@ final class RealtimeSession {
         #endif
         switch event {
         case .audioDelta(let data): play(data)
-        case .transcriptDone(let text):
-            if !text.isEmpty { transcript.append(Line(fromNutmeg: true, text: text)) }
-        case .kidTranscript(let text):
-            let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !t.isEmpty { transcript.append(Line(fromNutmeg: false, text: t)) }
+        case .transcriptDelta, .transcriptDone, .kidTranscript:
+            // Out-of-band lines (sayExactly: kit ready, scene lines) also stream here; they're Nutmeg's words too.
+            chat.apply(event)
         case .speechStarted: kidIsTalking = true
         case .speechStopped: kidIsTalking = false
         case .functionCall(let name, let callID, let args):

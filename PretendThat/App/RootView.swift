@@ -73,6 +73,7 @@ struct RootView: View {
         .onChange(of: presentedSubjects) { _, _ in requestStickers() }
         .task {
             #if DEBUG
+            if DemoDriver.chatOpen { chatOpen = true }
             if let demo = DemoDriver.requestedPhase { await DemoDriver.drive(store, model: model, to: demo) }
             if let turns = DemoDriver.liveTurns { await DemoDriver.live(model, turns: turns) }
             #endif
@@ -89,6 +90,7 @@ struct RootView: View {
     private var conversation: some View {
         PTConversationStage(backdrop: .clear, shot: shot, items: stageItems,
                             leadingInset: chromeVisible ? 132 : 0, bottomInset: chromeVisible ? 108 : 0,
+                            faceFocus: model.nutmegState.basePose.faceFocus, centerBetweenChrome: chatOpen && chromeVisible,
                             onTapItem: { id in silentTap(id) }) {
             NutmegCharacter(state: model.nutmegState, mouthLevel: model.mouthLevel,
                             isSpeaking: model.isSpeaking, cue: model.cue, showsGround: true)

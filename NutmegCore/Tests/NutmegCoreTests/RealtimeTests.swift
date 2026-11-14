@@ -115,3 +115,40 @@ import Testing
     store.goTo(.play)
     #expect(store.phase == .hello)             // can't jump ahead
 }
+
+/// Chat panel transcript from Realtime event fixtures: typed, spoken and streamed turns, in order.
+@Test func transcriptShowsEveryTurnInOrder() {
+    var t = RealtimeTranscript()
+    let fixtures = [
+        #"{"type":"response.output_audio_transcript.delta","delta":"Hi! I'm "}"#,
+        #"{"type":"response.output_audio_transcript.delta","delta":"Nutmeg!"}"#,
+        #"{"type":"response.output_audio_transcript.done","transcript":"Hi! I'm Nutmeg!"}"#,
+    ]
+    for f in fixtures { t.apply(Realtime.parse(f)) }
+    #expect(t.lines.map(\.text) == ["Hi! I'm Nutmeg!"])
+    t.kidTyped("A vet clinic for dinosaurs!")
+    #expect(t.lines.last == .init(id: t.lines.last!.id, fromNutmeg: false, text: "A vet clinic for dinosaurs!"))
+    // Nutmeg starts answering, then the kid's spoken turn finishes transcribing: it lands before her reply.
+    t.apply(Realtime.parse(#"{"type":"response.output_audio_transcript.delta","delta":"Ooh, dinos"}"#))
+    t.apply(Realtime.parse(#"{"type":"conversation.item.input_audio_transcription.completed","transcript":"There are 3 of us"}"#))
+    t.apply(Realtime.parse(#"{"type":"response.output_audio_transcript.delta","delta":"aurs!"}"#))
+    t.apply(Realtime.parse(#"{"type":"response.output_audio_transcript.done","transcript":"Ooh, dinosaurs!"}"#))
+    t.apply(Realtime.parse(#"{"type":"conversation.item.input_audio_transcription.completed","transcript":"  "}"#))   // empty: ignored
+    #expect(t.lines.map(\.text) == ["Hi! I'm Nutmeg!", "A vet clinic for dinosaurs!", "There are 3 of us", "Ooh, dinosaurs!"])
+    #expect(t.lines.map(\.fromNutmeg) == [true, false, false, true])
+    // A done without deltas still adds the line.
+    t.apply(Realtime.parse(#"{"type":"response.output_audio_transcript.done","transcript":"Let's go!"}"#))
+    #expect(t.lines.last?.text == "Let's go!" && t.lines.count == 5)
+}
+
+@Test func sessionTranscribesKidSpeech() {
+    let json = Realtime.json(Realtime.sessionUpdate(voice: "marin", speed: 1))
+    #expect(json.contains("\"transcription\""))
+}
+
+@Test func varispeedAndApiSpeedNeverStack() {
+    #expect(Realtime.apiSpeed(method: .varispeed, requested: 1.3) == 1.0)
+    #expect(Realtime.apiSpeed(method: .timePitch, requested: 1.3) == 1.3)
+    #expect(Realtime.defaultPitchMethod == .varispeed && Realtime.defaultVarispeedRate == 1.12)
+    #expect(Realtime.instructions.contains("8–9 years old"))
+}

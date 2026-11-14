@@ -37,6 +37,11 @@ struct PTConversationStage<Character: View, Bar: View>: View {
     /// Floating chrome to keep cards clear of: the step rail on the left, the control pill at the bottom.
     var leadingInset: CGFloat = 0
     var bottomInset: CGFloat = 0
+    /// Close-up anchor: Nutmeg's FACE center (eyes and nose) in canvas px for her CURRENT pose (head offset and
+    /// rotation about the neck applied). The close-up puts this point at the center of the free stage.
+    var faceFocus: CGPoint = PTStageCamera.faceFocus
+    /// The chat panel is open: center her between the rail and the panel (the stage is already narrowed by it).
+    var centerBetweenChrome = false
     var onTapItem: ((String) -> Void)? = nil
     @ViewBuilder var character: Character
     @ViewBuilder var bar: Bar
@@ -45,7 +50,8 @@ struct PTConversationStage<Character: View, Bar: View>: View {
     var body: some View {
         GeometryReader { geo in
             let L = PTStageCamera.layout(shot: shot, itemCount: items.count, size: geo.size,
-                                         leadingInset: leadingInset, bottomInset: bottomInset)
+                                         leadingInset: leadingInset, bottomInset: bottomInset,
+                                         faceFocus: faceFocus, centerBetweenChrome: centerBetweenChrome)
             ZStack(alignment: .topLeading) {
                 // (Her ground oval is drawn inside NutmegCharacter(showsGround:) so it moves with her as one unit.)
                 // 2–3 static stars around her, never over her face (positions in art-canvas px).
@@ -60,7 +66,8 @@ struct PTConversationStage<Character: View, Bar: View>: View {
                 // One render transform for all of her (no per-layer layout animation, so nothing trails): she is laid
                 // out once at the largest (close-up) size and scaled down per shot, which keeps the vectors crisp.
                 let big = PTStageCamera.layout(shot: .closeUp, itemCount: 0, size: geo.size,
-                                               leadingInset: leadingInset, bottomInset: bottomInset)
+                                               leadingInset: leadingInset, bottomInset: bottomInset,
+                                               faceFocus: faceFocus, centerBetweenChrome: false)
                 character
                     .frame(width: big.canvas.width, height: big.canvas.height)
                     .scaleEffect(L.k / big.k)
@@ -125,8 +132,13 @@ enum PTStageCamera {
     static let art = CGSize(width: 1178, height: 1335)
     /// Her VISUAL center: the horizontal mass center of head and body (the tail on her left skews the bounding box).
     static let bodyFocus = CGPoint(x: 578, y: 663)
-    /// Her head's center (ears included), the anchor for the close-up.
+    /// Her head's center (ears included).
     static let headFocus = CGPoint(x: 566, y: 410)
+    /// Her FACE center (eyes, brows and nose; face SVG bounds x 397–863, y 294–635, nose ~y 560) in the rest pose:
+    /// the close-up anchor. The face is right of the head's center (3/4 view), so centering the head left it off-center.
+    static let faceFocus = CGPoint(x: 630, y: 470)
+    /// How far her head reaches from the face center (ears x 61–1055, top y 15, chin y ~800), canvas px.
+    static let faceToLeftEar: CGFloat = 569, faceToRightEar: CGFloat = 425, faceToTop: CGFloat = 455
     /// Visible art height and her widest half-width from the visual center, in canvas px.
     static let visibleHeight: CGFloat = 1296
     static let halfWidth: CGFloat = 517
@@ -168,10 +180,11 @@ enum PTStageCamera {
     /// Card height for a width (art square + tag strip + 2-line title + subtitle + padding).
     static func cardHeight(_ w: CGFloat) -> CGFloat { w * 0.72 + 128 }
 
-    static func layout(shot: PTCameraShot, itemCount n: Int, size: CGSize, leadingInset: CGFloat, bottomInset: CGFloat) -> Layout {
+    static func layout(shot: PTCameraShot, itemCount n: Int, size: CGSize, leadingInset: CGFloat, bottomInset: CGFloat,
+                       faceFocus: CGPoint = faceFocus, centerBetweenChrome: Bool = false) -> Layout {
         let top: CGFloat = 16
         let availH = max(200, size.height - bottomInset - top)
-        let center = CGPoint(x: size.width / 2, y: top + availH / 2)
+        var center = CGPoint(x: size.width / 2, y: top + availH / 2)
         // Default: whole body ~70% of the screen height, kept above the control pill and inside the width.
         let mediumH = min(size.height * 0.70, availH * 0.94, (size.width / 2 - 24) / halfWidth * visibleHeight) / visibleHeight * art.height
         var canvasH: CGFloat
@@ -180,9 +193,15 @@ enum PTStageCamera {
         var cards: [(CGPoint, Double)] = []
         switch shot {
         case .closeUp:
-            // Head fills most of the screen; head centered both ways.
-            canvasH = min(size.height * 0.80 / headHeight, (size.width * 0.94) / headWidth) * art.height
-            focus = headFocus
+            // Her FACE centered both ways in the free stage (between the rail and the chat panel when it's open), the
+            // head as big as fits: ears inside the stage (the far ear may crop by up to ~6%), top of the head inside.
+            if centerBetweenChrome { center.x = (leadingInset + size.width) / 2 }
+            let leftRoom = center.x - (centerBetweenChrome ? leadingInset + 8 : 0)
+            let rightRoom = size.width - center.x
+            let k = min(availH / 2 / faceToTop, leftRoom / (faceToLeftEar * 1.02), rightRoom / (faceToRightEar * 0.94),
+                        size.height * 0.85 / headHeight)
+            canvasH = k * art.height
+            focus = faceFocus
         case .medium:
             canvasH = mediumH
             focus = bodyFocus

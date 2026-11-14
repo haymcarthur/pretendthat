@@ -19,6 +19,16 @@ enum DemoDriver {
         switch args[i + 1] { case "closeUp": return .closeUp; case "medium": return .medium; case "wide": return .wide; default: return nil }
     }
 
+    /// `-PTChat`: open the chat panel at launch (screenshots).
+    static var chatOpen: Bool { ProcessInfo.processInfo.arguments.contains("-PTChat") }
+
+    /// `-PTState talking|listening|idle`: hold Nutmeg's state (close-up screenshots).
+    static var forcedState: NutmegState? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-PTState"), i + 1 < args.count else { return nil }
+        return NutmegState(rawValue: args[i + 1])
+    }
+
     /// `-PTPreview <i>`: open the kit page preview on page i once the pages land (screenshots).
     static var previewPage: Int? {
         let args = ProcessInfo.processInfo.arguments

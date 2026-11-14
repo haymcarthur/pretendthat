@@ -117,6 +117,9 @@ final class AppModel {
 
     /// Nutmeg's on-screen state, derived from everything that's happening.
     var nutmegState: NutmegState {
+        #if DEBUG
+        if let s = DemoDriver.forcedState { return s }
+        #endif
         if realtime.isLive {
             if realtime.kidIsTalking { return .listening }
             if realtime.isSpeaking { return .talking }

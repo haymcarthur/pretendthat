@@ -13,20 +13,23 @@ public enum Realtime {
     /// Built-in voices (OpenAI Realtime docs, checked 2026-11-13: alloy, ash, ballad, coral, echo, sage, shimmer, verse,
     /// marin, cedar; "for best quality, we recommend marin or cedar"). Marin is the natural, expressive female voice;
     /// the squeak now comes from the voice and the delivery instructions, not heavy processing (conversation-voice.md).
-    public static let voices = ["marin", "shimmer", "coral", "cedar", "sage", "ballad", "alloy", "verse", "ash", "echo"]
-    public static let defaultVoice = "marin"
+    public static let voices = ["shimmer", "coral", "marin", "cedar", "sage", "ballad", "alloy", "verse", "ash", "echo"]
+    /// Marin sounded realistic but too old (an adult woman); shimmer is the brightest, youngest-sounding pick to start
+    /// from. Haylee confirms by ear in the Grown-ups voice audition.
+    public static let defaultVoice = "shimmer"
     /// How the app raises Nutmeg's pitch on the device. TimePitch (time-stretching) sounded phasey/robotic at +350
     /// cents; Varispeed resamples (pitch and speed together), which is artifact-free.
     public enum PitchMethod: String, CaseIterable, Sendable { case off, varispeed, timePitch
         public var label: String { switch self { case .off: "Off"; case .varispeed: "Varispeed"; case .timePitch: "TimePitch" } }
     }
     public static let defaultPitchMethod = PitchMethod.varispeed
-    /// Varispeed playback rate: 1.06 ≈ one semitone up and 6% quicker.
-    public static let defaultVarispeedRate: Double = 1.06
+    /// Varispeed playback rate: 1.12 ≈ two semitones up and 12% quicker, which reads as a younger voice.
+    public static let defaultVarispeedRate: Double = 1.12
     /// TimePitch cents (only used with the TimePitch method; kept subtle).
     public static let defaultPitchCents: Double = 100
-    /// Server-side speech speed (Varispeed already adds 6%).
+    /// Server-side speech speed. Forced to 1.0 while Varispeed is on so the two never stack into an unnatural pace.
     public static let defaultSpeed: Double = 1.0
+    public static func apiSpeed(method: PitchMethod, requested: Double) -> Double { method == .varispeed ? 1.0 : requested }
     /// The fixed line the Grown-ups voice audition plays.
     public static let auditionLine = "Ooh, hi! I'm Nutmeg! Pretend that we're flying over the ocean... wheee! What should we play?"
 
@@ -42,7 +45,8 @@ public enum Realtime {
     bouncy, giggly, full of wonder.
 
     Your voice: speak like an excited, bubbly young girl cartoon character: bright and high, lively intonation, \
-    playful giggles, natural pauses; never flat or monotone.
+    playful giggles, natural pauses; never flat or monotone. You sound like a cheerful kid around 8–9 years old: \
+    young, bright, bouncy, playful. Short, simple words, a quick pace, giggles.
 
     How you talk (this matters most):
     - React to what the kids ACTUALLY said. Pick up their specific words and details, get excited about them, and \
@@ -175,6 +179,8 @@ public enum Realtime {
         case sessionReady
         case audioDelta(Data)
         case audioDone
+        /// Nutmeg's words streaming in (audio transcript delta), then the whole line.
+        case transcriptDelta(String)
         case transcriptDone(String)
         case kidTranscript(String)
         case speechStarted, speechStopped
@@ -193,7 +199,10 @@ public enum Realtime {
         case "response.output_audio.delta":
             return .audioDelta((obj["delta"] as? String).flatMap { Data(base64Encoded: $0) } ?? Data())
         case "response.output_audio.done": return .audioDone
+        case "response.output_audio_transcript.delta", "response.output_text.delta":
+            return .transcriptDelta(obj["delta"] as? String ?? "")
         case "response.output_audio_transcript.done": return .transcriptDone(obj["transcript"] as? String ?? "")
+        case "response.output_text.done": return .transcriptDone(obj["text"] as? String ?? "")
         case "conversation.item.input_audio_transcription.completed": return .kidTranscript(obj["transcript"] as? String ?? "")
         case "input_audio_buffer.speech_started": return .speechStarted
         case "input_audio_buffer.speech_stopped": return .speechStopped
@@ -266,4 +275,50 @@ public enum PlanningCall: Equatable, Sendable {
         default: return nil
         }
     }
+}
+
+/// The chat panel's transcript (in memory only; PretendThat stores nothing). Every turn in order: the kid's typed
+/// messages the moment they're sent, the kid's SPOKEN turns when Realtime's input transcription completes, and
+/// Nutmeg's replies streamed from the audio-transcript deltas, finalized by the done event.
+public struct RealtimeTranscript: Equatable, Sendable {
+    public struct Line: Identifiable, Equatable, Sendable {
+        public let id: UUID; public let fromNutmeg: Bool; public var text: String
+        public init(id: UUID = UUID(), fromNutmeg: Bool, text: String) { self.id = id; self.fromNutmeg = fromNutmeg; self.text = text }
+    }
+    public private(set) var lines: [Line] = []
+    /// Index of Nutmeg's line that is still streaming.
+    private var streaming: Int?
+    public init() {}
+
+    public mutating func kidTyped(_ text: String) {
+        let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !t.isEmpty { lines.append(Line(fromNutmeg: false, text: t)) }
+    }
+
+    /// Feeds one server event; returns true if the transcript changed.
+    @discardableResult
+    public mutating func apply(_ event: Realtime.Event) -> Bool {
+        switch event {
+        case .transcriptDelta(let d):
+            guard !d.isEmpty else { return false }
+            if let i = streaming { lines[i].text += d } else { lines.append(Line(fromNutmeg: true, text: d)); streaming = lines.count - 1 }
+            return true
+        case .transcriptDone(let text):
+            let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            defer { streaming = nil }
+            if let i = streaming { if !t.isEmpty { lines[i].text = t }; return true }
+            guard !t.isEmpty else { return false }
+            lines.append(Line(fromNutmeg: true, text: t)); return true
+        case .kidTranscript(let text):
+            let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !t.isEmpty else { return false }
+            // A spoken turn finishes transcribing after Nutmeg may have started answering: keep it before her reply.
+            if let i = streaming { lines.insert(Line(fromNutmeg: false, text: t), at: i); streaming = i + 1 }
+            else { lines.append(Line(fromNutmeg: false, text: t)) }
+            return true
+        default: return false
+        }
+    }
+
+    public mutating func clear() { lines = []; streaming = nil }
 }

@@ -3,7 +3,7 @@ import Observation
 import NutmegCore
 
 /// Grown-ups tuning for Nutmeg's Realtime voice (D7, conversation-voice.md). Device settings only; nothing about
-/// kids is stored. Keys are versioned (v2) so the old +350-cent TimePitch default doesn't carry over.
+/// kids is stored. Keys are versioned (v3) so older defaults (TimePitch +350, marin 1.06) don't carry over.
 @Observable @MainActor
 final class VoiceSettings {
     var voice: String { didSet { defaults.set(voice, forKey: Keys.voice) } }
@@ -20,8 +20,8 @@ final class VoiceSettings {
 
     @ObservationIgnored private let defaults: UserDefaults
     private enum Keys {
-        static let voice = "nutmeg.v2.voice", method = "nutmeg.v2.method", pitch = "nutmeg.v2.pitchCents"
-        static let rate = "nutmeg.v2.rate", speed = "nutmeg.v2.speed", echo = "nutmeg.v2.echo"
+        static let voice = "nutmeg.v3.voice", method = "nutmeg.v3.method", pitch = "nutmeg.v3.pitchCents"
+        static let rate = "nutmeg.v3.rate", speed = "nutmeg.v3.speed", echo = "nutmeg.v3.echo"
     }
 
     init(defaults: UserDefaults = .standard) {
