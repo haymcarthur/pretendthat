@@ -25,7 +25,7 @@ struct StageCameraTests {
         }
     }
 
-    static let phases: [Phase] = [.pickGame, .players, .props, .makingKit, .kitReady, .handoff(sceneIndex: 0), .scene(0), .stepBack(0), .end]
+    static let phases: [Phase] = [.pickGame, .players, .props, .makingKit, .kitReady, .handoff(sceneIndex: 0), .scene(0), .end]
 
     @Test func feetOnTheFloorInEveryPhaseAndShot() {
         var checked = 0

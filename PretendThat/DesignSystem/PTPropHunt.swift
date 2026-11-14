@@ -60,8 +60,8 @@ struct PTPropHuntStage: View {
             }
         }
         .frame(width: g.size.width, height: g.size.height, alignment: .topLeading)
-        .animation(reduceMotion ? .easeInOut(duration: 0.25) : .spring(response: 0.55, dampingFraction: 0.8), value: done.map(\.id))
-        .animation(reduceMotion ? .easeInOut(duration: 0.25) : .spring(response: 0.5, dampingFraction: 0.75), value: active?.id)
+        .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: done.map(\.id))
+        .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: active?.id)
     }
 }
 

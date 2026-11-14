@@ -254,6 +254,7 @@ struct PTChatPanel: View {
     @FocusState private var focused: Bool
     @State private var following = true
     @State private var hasUnseen = false
+    @State private var panelHeight: CGFloat = 0
     private static let bottomID = "chat-bottom"
     /// Changes when a line is added or the last line's text grows (streaming).
     private var followKey: String { "\(lines.count)-\(lines.last?.text.count ?? 0)" }
@@ -267,6 +268,7 @@ struct PTChatPanel: View {
             }
             if let pinned, let pinnedKey {
                 pinned
+                    .environment(\.ptPinnedCap, panelHeight > 0 ? panelHeight * 0.5 : .infinity)   // round 10: ≤ ~50%
                     // Sticky above the transcript; the next prop animates in place; it slides away when it ends.
                     .id(pinnedKey)
                     .transition(.asymmetric(insertion: .scale(scale: 0.85).combined(with: .opacity),
@@ -332,10 +334,11 @@ struct PTChatPanel: View {
                 .accessibilityLabel("Send")
             }
         }
-        .animation(.spring(response: 0.45, dampingFraction: 0.8), value: pinnedKey)
+        .animation(Theme.stageMove, value: pinnedKey)
         .padding(Theme.Space.m)
         .frame(width: 360)
         .frame(maxHeight: .infinity)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { panelHeight = $0 }
         .ptPanel(radius: 28)
     }
 

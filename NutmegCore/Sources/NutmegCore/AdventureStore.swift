@@ -3,7 +3,7 @@ import Observation
 
 public enum Phase: Equatable, Sendable {
     case hello, pickGame, players, props, makingKit, kitReady
-    case handoff(sceneIndex: Int), scene(Int), stepBack(Int), end
+    case handoff(sceneIndex: Int), scene(Int), end
 
     /// Which of the 4 journey steps (step rail) this phase belongs to.
     public var step: JourneyStep? {
@@ -12,7 +12,7 @@ public enum Phase: Equatable, Sendable {
         case .pickGame, .players: .game
         case .props: .getReady
         case .makingKit, .kitReady: .print
-        case .handoff, .scene, .stepBack, .end: .play
+        case .handoff, .scene, .end: .play
         }
     }
 }
@@ -203,24 +203,64 @@ public final class AdventureStore {
         enterScene(i)
     }
 
+    /// Tap a step to check it; tap a checked step again to uncheck it (round 10).
     public func toggleStep(_ index: Int) {
+        guard !autoChecking else { return }
         if checkedSteps.contains(index) { checkedSteps.remove(index) } else { checkedSteps.insert(index) }
     }
 
-    public func sceneDone() {
-        guard case .scene(let i) = phase else { return }
-        phase = .stepBack(i)
-        say("Go play! Tap me when you're ready for more.")
+    /// The checklist as it was when "Done!" was tapped (before the auto-check), so the hand-off card's
+    /// "← Back to the checklist" restores it exactly. Kept until the next role confirms (or the next scene starts).
+    public struct DoneSnapshot: Equatable, Sendable { public let scene: Int; public let checked: Set<Int> }
+    public private(set) var doneSnapshot: DoneSnapshot?
+    /// "Done!" is quickly checking the remaining steps (the rows animate; taps are ignored meanwhile).
+    public private(set) var autoChecking = false
+    /// Auto-check timing: one step every `autoCheckStep`, then `autoCheckHold` before the hand-off card.
+    public var autoCheckStep: Duration = .milliseconds(140)
+    public var autoCheckHold: Duration = .milliseconds(350)
+
+    /// Round 10 (Haylee): no "Go play!" screen. "Done!" is always available: steps not checked yet are checked
+    /// quickly for the kid, then it moves straight on to the next "Pass the iPad to the …" card (or the next scene
+    /// for the same role, or the finale after the last scene). The checklist from before the auto-check is kept.
+    public func sceneDone() async {
+        guard case .scene(let i) = phase, !autoChecking, let scene = kit?.scenes[i] else { return }
+        doneSnapshot = DoneSnapshot(scene: i, checked: checkedSteps)
+        let remaining = scene.steps.indices.filter { !checkedSteps.contains($0) }
+        if !remaining.isEmpty {
+            autoChecking = true
+            for step in remaining {
+                checkedSteps.insert(step)
+                try? await Task.sleep(for: autoCheckStep)
+            }
+            try? await Task.sleep(for: autoCheckHold)
+            autoChecking = false
+            guard case .scene(i) = phase else { return }   // left the scene meanwhile (step rail, leave)
+        }
+        goToScene(i + 1)
+        if case .scene = phase { doneSnapshot = nil }   // same role continues: no hand-off card to go back from
     }
 
-    public func nextScene() {
-        guard case .stepBack(let i) = phase else { return }
-        goToScene(i + 1)
+    /// "← Back to the checklist" is offered (hand-off card or finale right after a Done!).
+    public var canGoBackToChecklist: Bool {
+        guard let snap = doneSnapshot else { return false }
+        switch phase {
+        case .handoff(let i): return i == snap.scene + 1
+        case .end: return snap.scene == (kit?.scenes.count ?? 0) - 1
+        default: return false
+        }
+    }
+
+    /// Back to the previous scene's checklist, checkmarks restored exactly as they were before "Done!".
+    public func backToChecklist() {
+        guard canGoBackToChecklist, let snap = doneSnapshot else { return }
+        doneSnapshot = nil
+        checkedSteps = snap.checked
+        phase = .scene(snap.scene)
     }
 
     /// One quick idea for right now. Never throws; offline it uses a built-in idea.
     public func helpRequested() async -> String {
-        guard case .stepBack(let i) = phase, let scene = kit?.scenes[i] else { return "" }
+        guard case .scene(let i) = phase, let scene = kit?.scenes[i] else { return "" }
         var line = Self.offlineHelp[i % Self.offlineHelp.count]
         if let service, !usingFallback {
             isWorking = true
@@ -232,7 +272,7 @@ public final class AdventureStore {
     }
 
     public func playAgain() {
-        checkedSteps = []
+        checkedSteps = []; doneSnapshot = nil
         beginPlay()
     }
 
@@ -241,7 +281,7 @@ public final class AdventureStore {
         playerCount = 0; gameTitle = nil; planningStep = .game; themeIdeas = []
         ideas = nil; plan = nil; props = nil; kit = nil
         choices = []; lastError = nil; usingFallback = false
-        foundProps = []; checkedSteps = []; failures = [:]; retryAction = nil; holder = nil
+        foundProps = []; checkedSteps = []; doneSnapshot = nil; failures = [:]; retryAction = nil; holder = nil
         nutmegLine = ""; presenting = .none; reachedStep = nil; lastPlayPhase = nil
     }
 
@@ -508,7 +548,7 @@ public final class AdventureStore {
     }
 
     private func enterScene(_ i: Int) {
-        checkedSteps = []
+        checkedSteps = []; doneSnapshot = nil
         phase = .scene(i)
         if let s = kit?.scenes[i] { say(s.nutmegSays) }
     }
@@ -523,7 +563,7 @@ public final class AdventureStore {
         case .players: "how many kids and their roles"
         case .props: "props hunt"
         case .makingKit, .kitReady: "printable kit"
-        case .handoff, .scene, .stepBack: "playing"
+        case .handoff, .scene: "playing"
         case .end: "the end"
         }
     }

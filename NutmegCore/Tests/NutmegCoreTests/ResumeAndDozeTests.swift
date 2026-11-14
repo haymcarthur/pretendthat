@@ -135,12 +135,13 @@ struct HandoffVoiceTests {
         await store.confirmProps()
         let early = await store.apply(.confirmHandoff)
         #expect(early.contains("no hand-off"))
+        store.autoCheckStep = .zero; store.autoCheckHold = .zero
         store.beginPlay()
         var guardCount = 0
         while true {
             guardCount += 1
             if case .handoff = store.phase { break }
-            if case .scene = store.phase { store.sceneDone(); store.nextScene() }
+            if case .scene = store.phase { await store.sceneDone() }
             if store.phase == .end || guardCount > 10 { Issue.record("no hand-off in the bundled game"); return }
         }
         guard case .handoff(let i) = store.phase else { return }

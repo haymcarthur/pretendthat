@@ -18,14 +18,14 @@ func storeWithKit(owners: [SceneOwner], players: Int, llm: FakeLLM = FakeLLM()) 
 }
 
 @MainActor
-func walk(_ store: AdventureStore) -> [Phase] {
+func walk(_ store: AdventureStore) async -> [Phase] {
     var seen: [Phase] = []
+    store.autoCheckStep = .zero; store.autoCheckHold = .zero
     store.beginPlay()
     for i in 0..<(store.kit?.scenes.count ?? 0) {
         seen.append(store.phase)
         if case .handoff = store.phase, let owner = store.kit?.scenes[i].owner.role { store.badgeTapped(owner) }
-        store.sceneDone()
-        store.nextScene()
+        await store.sceneDone()
     }
     return seen
 }
@@ -56,12 +56,12 @@ func walk(_ store: AdventureStore) -> [Phase] {
 
 @Test @MainActor func singlePlayerSkipsHandoff() async {
     let store = await storeWithKit(owners: [.R1, .all, .R1, .R1], players: 1)
-    #expect(walk(store).allSatisfy { if case .scene = $0 { true } else { false } })
+    #expect(await walk(store).allSatisfy { if case .scene = $0 { true } else { false } })
 }
 
 @Test @MainActor func handoffOnlyWhenOwnerChanges() async {
     let store = await storeWithKit(owners: [.R1, .R1, .R2, .all, .R2], players: 2)
-    #expect(walk(store) == [.handoff(sceneIndex: 0), .scene(1), .handoff(sceneIndex: 2), .scene(3), .scene(4)])
+    #expect(await walk(store) == [.handoff(sceneIndex: 0), .scene(1), .handoff(sceneIndex: 2), .scene(3), .scene(4)])
 }
 
 @Test @MainActor func wrongBadgeDoesNotAdvance() async {
@@ -76,7 +76,7 @@ func walk(_ store: AdventureStore) -> [Phase] {
 
 @Test @MainActor func lastSceneGoesToEnd() async {
     let store = await storeWithKit(owners: [.all, .all, .all, .all], players: 2)
-    _ = walk(store)
+    _ = await walk(store)
     #expect(store.phase == .end)
 }
 
@@ -130,7 +130,7 @@ func walk(_ store: AdventureStore) -> [Phase] {
 
 @Test @MainActor func playAgainRestartsScenes() async {
     let store = await storeWithKit(owners: [.all, .all, .all, .all], players: 2)
-    _ = walk(store)
+    _ = await walk(store)
     store.playAgain()
     #expect(store.phase == .scene(0))
     #expect(store.kit != nil)
@@ -160,4 +160,71 @@ struct RefusingLLM: LLM {
     let store = AdventureStore(service: PhaseService(llm: RefusingLLM()))
     await store.start()
     #expect(store.usingFallback && store.lastError == nil)
+}
+
+// MARK: Round 10: Done! auto-checks, goes straight to the hand-off; Back restores the checklist
+
+@MainActor
+func storeAtFirstScene() async -> AdventureStore {
+    let store = await storeWithKit(owners: [.R1, .R2, .all, .R1], players: 3)
+    store.autoCheckStep = .zero; store.autoCheckHold = .zero
+    store.beginPlay()
+    if case .handoff(let i) = store.phase, let owner = store.kit?.scenes[i].owner.role { store.badgeTapped(owner) }
+    return store
+}
+
+@Test @MainActor func earlyDoneAutoChecksThenGoesToTheHandoff() async {
+    let store = await storeAtFirstScene()
+    #expect(store.phase == .scene(0))
+    store.toggleStep(0)
+    await store.sceneDone()
+    #expect(store.phase == .handoff(sceneIndex: 1))
+    #expect(store.checkedSteps.count == store.kit?.scenes[0].steps.count)
+    #expect(store.doneSnapshot == .init(scene: 0, checked: [0]))
+    #expect(store.canGoBackToChecklist)
+}
+
+@Test @MainActor func backRestoresTheChecklistExactly() async {
+    let store = await storeAtFirstScene()
+    store.toggleStep(1)
+    await store.sceneDone()
+    store.backToChecklist()
+    #expect(store.phase == .scene(0))
+    #expect(store.checkedSteps == [1])
+    #expect(!store.canGoBackToChecklist)
+    // Done again → hand-off again; the next role confirms → Back is gone.
+    await store.sceneDone()
+    guard case .handoff(let i) = store.phase, let owner = store.kit?.scenes[i].owner.role else { Issue.record("no hand-off"); return }
+    store.badgeTapped(owner)
+    #expect(store.phase == .scene(1) && store.checkedSteps.isEmpty && !store.canGoBackToChecklist)
+}
+
+@Test @MainActor func tappingACheckedStepUnchecksIt() async {
+    let store = await storeAtFirstScene()
+    store.toggleStep(0); store.toggleStep(0)
+    #expect(store.checkedSteps.isEmpty)
+}
+
+@Test @MainActor func backWorksWithVoiceConfirmAfterwards() async {
+    let store = await storeAtFirstScene()
+    await store.sceneDone()
+    store.backToChecklist()
+    await store.sceneDone()
+    let out = await store.apply(.confirmHandoff)
+    #expect(out.contains("Hand-off confirmed"))
+    #expect(store.phase == .scene(1))
+}
+
+@Test @MainActor func lastSceneDoneGoesToTheFinaleWithBack() async {
+    let store = await storeAtFirstScene()
+    let n = store.kit?.scenes.count ?? 0
+    for _ in 0..<(n - 1) {
+        await store.sceneDone()
+        if case .handoff(let i) = store.phase, let owner = store.kit?.scenes[i].owner.role { store.badgeTapped(owner) }
+    }
+    #expect(store.phase == .scene(n - 1))
+    await store.sceneDone()
+    #expect(store.phase == .end && store.canGoBackToChecklist)
+    store.backToChecklist()
+    #expect(store.phase == .scene(n - 1))
 }

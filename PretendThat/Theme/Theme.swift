@@ -137,6 +137,10 @@ enum Theme {
     static let bouncy = Animation.spring(response: 0.5, dampingFraction: 0.68)
     static let press = Animation.spring(response: 0.2, dampingFraction: 0.6)
     static let gentle = Animation.easeInOut(duration: 0.3)
+    /// Round 10 (Haylee: transitions felt phased): ONE spring for every stage move: the camera zoom, Nutmeg moving,
+    /// the floor, cards/papers/checklists entering and the chat panel sliding in all start together on this spring.
+    static let stageMove = Animation.spring(response: 0.8, dampingFraction: 0.84)
+    static let stageMoveReduced = Animation.easeInOut(duration: 0.3)
     static let stagger: Double = 0.07
     /// Slow ambient loops for stage props.
     static let swayPeriod: Double = 4.2

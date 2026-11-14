@@ -4,7 +4,7 @@ import NutmegCore
 
 /// DEBUG only: `-PTDemo <phase>` launches straight into a phase with the bundled airplane game
 /// (no network), so every screen can be screenshotted and reviewed quickly.
-/// Phases: hello, pickGame, players, roles, props, kitReady, handoff, scene, stepBack, end.
+/// Phases: hello, pickGame, players, roles, props, kitReady, handoff, scene, end; doneFlow (round 10: scene 0 with one step checked → early Done! after 3 s → hand-off → Back after 4 s more).
 enum DemoDriver {
     static var requestedPhase: String? {
         let args = ProcessInfo.processInfo.arguments
@@ -107,7 +107,7 @@ enum DemoDriver {
             return
         }
         _ = model
-        let order = ["hello", "pickGame", "players", "roles", "props", "kitReady", "handoff", "scene", "stepBack", "end"]
+        let order = ["hello", "pickGame", "players", "roles", "props", "kitReady", "handoff", "scene", "doneFlow", "end"]
         guard let stop = order.firstIndex(of: target), stop > 0 else { return }
         func reached(_ name: String) -> Bool { order.firstIndex(of: name)! >= stop }
         await store.start(); if reached("pickGame") { return }
@@ -124,20 +124,25 @@ enum DemoDriver {
             while true {
                 switch store.phase {
                 case .handoff: return
-                case .scene: store.sceneDone()
-                case .stepBack: store.nextScene()
+                case .scene: await store.sceneDone()
                 default: return
                 }
             }
         }
         if case .handoff(let i) = store.phase, let t = store.kit?.scenes[i].owner.role { store.badgeTapped(t) }
         store.toggleStep(0)
-        if reached("scene") { return }
-        store.sceneDone(); if reached("stepBack") { return }
-        while case .stepBack = store.phase {
-            store.nextScene()
+        if target == "scene" { return }
+        if target == "doneFlow" {
+            try? await Task.sleep(for: .seconds(3))
+            await store.sceneDone()
+            try? await Task.sleep(for: .seconds(4))
+            store.backToChecklist()
+            return
+        }
+        store.autoCheckStep = .zero; store.autoCheckHold = .zero
+        while case .scene = store.phase {
+            await store.sceneDone()
             if case .handoff(let i) = store.phase, let t = store.kit?.scenes[i].owner.role { store.badgeTapped(t) }
-            if case .scene = store.phase { store.sceneDone() }
         }
     }
 

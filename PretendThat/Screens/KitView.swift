@@ -85,7 +85,7 @@ struct KitView: View {
         .onChange(of: landed) { _, l in if l && store.phase == .kitReady { onCelebrate() } }
         .task(id: model.kitBeat == .papers) {
             guard model.kitBeat == .papers else { cameraSettled = false; return }
-            try? await Task.sleep(for: .milliseconds(650))
+            try? await Task.sleep(for: .milliseconds(60))   // round 10: papers fly with the zoom (was 650 ms after it)
             cameraSettled = true
         }
     }

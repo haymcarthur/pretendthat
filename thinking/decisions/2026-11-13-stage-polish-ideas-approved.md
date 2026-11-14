@@ -7,3 +7,5 @@
 - **Sleepy Nutmeg (round 9):** if nobody answers for a while (the one reminder plus ~30 s), she sits down, her eyes droop and she falls asleep (sit pose + nap face, slow breathing, no text). The mic or typing wakes her with a happy pop, and she continues where she left off. Not during the writing moment, kit generation or the Play step.
 - **Game survives lock/background (round 9):** locking the iPad or switching apps must not end the game; only fully closing the app does. State stays in memory, the Realtime session reconnects silently on return (no re-greeting), and in-flight kit generation finishes or retries. Kids may color the pages for 30+ minutes. The screen stays awake during the conversation and kit generation, and can lock in the Play step.
 - **Saving the game to disk** is only a stretch: [ideas/save-game-to-disk.md](../ideas/save-game-to-disk.md).
+
+**Update (Haylee, 2026-11-14 ~00:35):** star twinkle REMOVED. She didn't like it after seeing it (rounds 8/10). Stars stay static.

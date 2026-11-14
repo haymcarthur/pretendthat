@@ -190,16 +190,17 @@ struct NutmegCharacter: View {
     }
 
     /// The writing crayon (round 8: the one-paw writing body's own crayon, drawn under her fingers): it scribbles with a
-    /// small quick rotation around her grip (~0.26 s) plus a tiny drift, in the writing body's transform. Reduce
+    /// small quick rotation around its tip (~0.26 s, round 10), in the writing body's transform. Reduce
     /// Motion: still.
     @ViewBuilder private func crayon(t: Double, px: CGFloat) -> some View {
         if shown == .coloring, Self.writingCrayonAvailable {
             let k = (reduceMotion || !writing) ? 0 : 1.0
             let w = sin(t * 2 * .pi / 0.26)
-            // Grip (between her fingers) at art point (640, 600); the tip is at ~(725, 700).
+            // Round 10 (Haylee): the clipboard edge in the body art is cut around the crayon TIP, so moving the tip
+            // showed a notch. The crayon now rocks around its tip (art ~(760, 778), on the paper) instead of the grip:
+            // the tip stays inside its cut, the top end still scribbles (~2.5°, ~10 px at the top), no drift.
             layer("nutmeg-writing-crayon")
-                .rotationEffect(.degrees(4 * w * k), anchor: UnitPoint(x: 640 / 1178, y: 600 / 1335))
-                .offset(x: (2 * w + 3 * sin(t * 0.8)) * k * px, y: 1.5 * cos(t * 2 * .pi / 0.52) * k * px)
+                .rotationEffect(.degrees(2.5 * w * k), anchor: UnitPoint(x: 760 / 1178, y: 778 / 1335))
                 .transformEffect(NutmegPose.coloring.bodyTransform.px(px))
         }
     }

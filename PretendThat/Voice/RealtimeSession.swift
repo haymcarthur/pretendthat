@@ -138,7 +138,7 @@ final class RealtimeSession {
     /// The silence reminder (round 7): sent, then playing (no turn check, no truncate: it isn't in the conversation).
     @ObservationIgnored private var reminderPending = false
     @ObservationIgnored private var reminderPlaying = false
-    /// Round 7 choreography: the first prop's line waits for the roles line to finish playing + 1 s, then the card
+    /// Round 7 choreography: the first prop's line waits for the roles line to finish playing + 0.4 s (round 10; was 1 s), then the card
     /// appears with her point (`onPropLine` reveals it and returns the note) and the prop line is requested.
     private(set) var propLinePending = false
     @ObservationIgnored private var propLineSerial = 0
@@ -160,7 +160,7 @@ final class RealtimeSession {
         Task { [weak self] in
             guard let self else { return }
             for _ in 0..<600 where self.isSpeaking { try? await Task.sleep(for: .milliseconds(50)) }   // roles audio ends
-            try? await Task.sleep(for: .seconds(1))
+            try? await Task.sleep(for: .milliseconds(400))   // round 10 (Haylee): 1 s → ~0.4 s after the roles line
             guard self.propLinePending, self.isLive else { return }
             self.propLinePending = false
             let note = self.onPropLine?() ?? ""

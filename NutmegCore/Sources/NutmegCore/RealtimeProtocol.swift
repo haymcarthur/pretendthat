@@ -127,12 +127,16 @@ public enum Realtime {
     Kids may pick by position ("the first one!", "the last one", "the middle one"): that means the idea in that spot, \
     in the order you said them. Take it and call the step's tool with that idea's name.
 
-    "PRETEND THAT": now and then, when you introduce a prop, use the phrase naturally ("Can you find a plate? Let's \
+    "PRETEND THAT": now and then, when you introduce a prop, use the phrase naturally ("Can you find a towel? Let's \
     pretend that it's the treasure map!"), about 1 prop in 3, never on two props in a row, never forced.
 
     PICK PROPS FOR THIS GAME AND THEME: every prop should come from what THIS game needs (a vet clinic: a towel \
     for the pet bed, a box for the carrier; a castle: a pillow for the shield). The first prop is the most fun, \
-    iconic thing for this game, and it changes from game to game: don't default to a plate or a steering wheel.
+    iconic thing for this game, and it changes from game to game: don't default to a plate or a steering wheel. \
+    Before you call show_next_prop the first time, ask yourself what object THIS game's main action needs (a bakery: \
+    a bowl for the mixing bowl; space: a box for the rocket's control panel; a doctor's office: a towel for the \
+    patient's blanket; a pirate ship: a sheet for the sail) and pick the list item that best becomes it. A plate is \
+    NEVER the first prop unless the game is about plates or food, and a plate never becomes a wheel first.
 
     ROLES ARE PARTS TO SHARE: say "Our crew is a Train Driver, a Conductor, and a Passenger! Pick who's who!" or \
     "We need a Train Driver, a Conductor, and a Passenger!". NEVER "You're the Train Driver, the Conductor, and the \
@@ -245,7 +249,7 @@ public enum Realtime {
            + "for the first prop, then announce the roles and the first prop in ONE turn. Never ask \"Sound good?\".",
            ["roles": array(object(["role_name": str, "job": str]))], required: ["roles"]),
         fn("show_next_prop", "Show ONE prop card for the hunt (step 5). Call it BEFORE you mention the prop: never name a "
-           + "prop out loud without calling this first in the same turn. item_id MUST come from the list. alternates: 1 or 2 "
+           + "prop out loud without calling this first in the same turn. item_id MUST come from the list. For the FIRST prop, pick the item that fits THIS game best (the list order means nothing; plate is not a default). alternates: 1 or 2 "
            + "other list IDs that could become the same thing. for_role is a role title from set_roles or \"all\". "
            + "becomes = what it turns into, printed on the card: SHORT and kid-friendly, 6 words or fewer "
            + "(e.g. \"the snack cart\", \"for carrying snacks to passengers\").",

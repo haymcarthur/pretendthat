@@ -161,41 +161,63 @@ struct PTHandoffCard<Figure: View>: View {
     let role: Role
     @ViewBuilder var figure: Figure
     let onTap: () -> Void
+    /// Round 10: "← Back to the checklist" (undo a Done!), shown until the next role confirms.
+    var onBack: (() -> Void)? = nil
+    /// Round 10: chat open, the card is pinned at the top of the chat panel (panel width, same big button).
+    var pinned = false
     @State private var shown = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        VStack(spacing: Theme.Space.l) {
-            PTText("Pass the iPad to \(role.spoken)!", .headline, tone: .muted)
-            if Figure.self != EmptyView.self { figure.frame(height: 200) }
-            Button(action: onTap) {
-                HStack(spacing: Theme.Space.s) {
-                    Text("I'm \(role.spoken)!").multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.6)
-                    Image(systemName: "arrow.right").font(.system(size: 30, weight: .heavy))
-                }
+        if pinned {
+            VStack(spacing: Theme.Space.m) {
+                Text("Pass the iPad to \(role.spoken)!").font(Theme.headlineFont(24)).foregroundStyle(Theme.inkMuted)
+                    .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+                roleButton(minWidth: 0)
+                if let onBack { PTBackToChecklistButton(compact: true, action: onBack) }
             }
-            .buttonStyle(PTRoleButtonStyle(color: role.id.index))
-            .ptBounce(trigger: shown)
-            .accessibilityLabel("I'm \(role.spoken)")
+            .padding(.vertical, Theme.Space.s)
+            .ptPinnedCard()
+        } else {
+            VStack(spacing: Theme.Space.l) {
+                PTText("Pass the iPad to \(role.spoken)!", .headline, tone: .muted)
+                if Figure.self != EmptyView.self { figure.frame(height: 200) }
+                roleButton(minWidth: 300)
+                if let onBack { PTBackToChecklistButton(action: onBack) }
+            }
+            .ptCard(fill: Theme.white, edge: Theme.playerColor(role.id.index), padding: Theme.Space.xl)
+            .offset(x: shown || reduceMotion ? 0 : 700)
+            .rotationEffect(.degrees(shown || reduceMotion ? 0 : 8))
+            .opacity(shown || !reduceMotion ? 1 : 0)
+            .onAppear { withAnimation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove) { shown = true } }
+            .sensoryFeedback(.impact(weight: .medium), trigger: shown)
         }
-        .ptCard(fill: Theme.white, edge: Theme.playerColor(role.id.index), padding: Theme.Space.xl)
-        .offset(x: shown || reduceMotion ? 0 : 700)
-        .rotationEffect(.degrees(shown || reduceMotion ? 0 : 8))
-        .opacity(shown || !reduceMotion ? 1 : 0)
-        .onAppear { withAnimation(reduceMotion ? Theme.gentle : Theme.bouncy) { shown = true } }
-        .sensoryFeedback(.impact(weight: .medium), trigger: shown)
+    }
+
+    private func roleButton(minWidth: CGFloat) -> some View {
+        Button(action: onTap) {
+            HStack(spacing: Theme.Space.s) {
+                Text("I'm \(role.spoken)!").multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.6)
+                Image(systemName: "arrow.right").font(.system(size: 30, weight: .heavy))
+            }
+            .frame(maxWidth: minWidth == 0 ? .infinity : nil)
+        }
+        .buttonStyle(PTRoleButtonStyle(color: role.id.index, minWidth: minWidth))
+        .ptBounce(trigger: shown)
+        .accessibilityLabel("I'm \(role.spoken)")
     }
 }
 
 /// A big role-colored pill button with a darker depth edge under it; pressing sinks the face onto the edge.
 struct PTRoleButtonStyle: ButtonStyle {
     let color: Int
+    var minWidth: CGFloat = 300
     func makeBody(configuration: Configuration) -> some View {
         let pressed = configuration.isPressed, depth: CGFloat = 7
         configuration.label
             .font(Theme.headlineFont(34)).foregroundStyle(Theme.white)
-            .padding(.horizontal, Theme.Space.xl).padding(.vertical, Theme.Space.m)
-            .frame(minWidth: 300, minHeight: 88)
+            .padding(.horizontal, minWidth == 0 ? Theme.Space.m : Theme.Space.xl).padding(.vertical, Theme.Space.m)
+            .frame(minWidth: minWidth, minHeight: 88)
             .background(Capsule().fill(Theme.playerColor(color)))
             .offset(y: pressed ? depth : 0)
             .background(Capsule().fill(Theme.playerShade(color)).offset(y: depth))

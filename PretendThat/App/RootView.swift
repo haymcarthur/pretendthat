@@ -93,8 +93,9 @@ struct RootView: View {
             }
         }
         .animation(.easeOut(duration: 0.2), value: confirmLeave)
-        .animation(.spring(response: 0.5, dampingFraction: 0.85), value: chatOpen)
-        .animation(.spring(response: 0.5, dampingFraction: 0.85), value: chromeVisible)
+        // Round 10: the panel/rail slide on the same spring as the camera move they cause (one shared animation).
+        .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: chatOpen)
+        .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: chromeVisible)
         .animation(.easeInOut(duration: 0.4), value: model.inConversation)
         .environment(\.speak, SpeakAction { model.speak($0) })
         .environment(\.ptCelebrate, model.celebrations)
@@ -150,7 +151,6 @@ struct RootView: View {
             NutmegCharacter(state: model.nutmegState, mouthLevel: model.mouthLevel, mouthShape: model.mouthShape,
                             isSpeaking: model.isSpeaking, cue: model.cue, forcedPose: debugPose, showsGround: true,
                             holdsClipboard: model.nutmegHoldsClipboard, writing: model.isWriting)
-                .onTapGesture { if case .stepBack = store.phase { Task { _ = await store.helpRequested() } } }
         } overlay: { g, L in
             if model.inConversation {
                 if huntOnStage {
@@ -179,8 +179,11 @@ struct RootView: View {
 
     /// The frame (shot + lane) this phase asks the one stage camera for.
     private func stageFrame(_ g: PTStageGeometry) -> PTStageFrame {
-        // Round 8: chat open in a scene, the checklist is pinned in the panel, so she stands centered on the stage.
-        if case .scene = store.phase, g.chatOpen, !model.inConversation { return PTStageFrame(shot: .wide) }
+        // Round 8/10: chat open in a scene or hand-off, the card is pinned in the panel, so she stands centered.
+        if pinnedPlayCard, g.chatOpen, !model.inConversation { return PTStageFrame(shot: .wide) }
+        // Round 10 (Haylee): the checklist with the chat closed uses the prop-card step's framing EXACTLY (camera,
+        // Nutmeg, floor); the checklist sits where the active prop card sat.
+        if case .scene = store.phase, !model.inConversation, !model.isWriting { return PTStageDirector.huntFrame(curtainInset: curtainInset(g), g) }
         return PTStageDirector.frame(phase: store.phase, conversation: model.inConversation, conversationShot: shot,
                               cards: stageItems.count, hunt: huntOnStage, kitBeat: model.kitBeat,
                               curtainInset: curtainInset(g), writing: model.isWriting, g)
@@ -191,10 +194,17 @@ struct RootView: View {
         if huntOnStage, let active = stageItems.last(where: { !$0.isDone }) { return active.id }
         if model.kitPapersOut { return "kit-papers" }
         if case .scene(let i) = store.phase { return "scene-\(i)" }   // round 8: the checklist docks in the chat panel
+        if case .handoff(let i) = store.phase { return "handoff-\(i)" }   // round 10: so does the hand-off card
         return nil
+    }
+    /// Round 10 rule (Haylee): every interactive card (prop, kit, checklist, hand-off) has ONE chat-open treatment:
+    /// pinned at the top of the chat panel at full readable size (`.ptPinnedCard()`), never shrunk into the stage gap.
+    private var pinnedPlayCard: Bool {
+        switch store.phase { case .scene, .handoff: true; default: false }
     }
     private var pinnedCard: AnyView? {
         if case .scene(let i) = store.phase, !huntOnStage, !model.kitPapersOut { return AnyView(PTScenePinnedCard(model: model, index: i)) }
+        if case .handoff(let i) = store.phase { return AnyView(HandoffView(model: model, sceneIndex: i, pinned: true)) }
         if huntOnStage, let active = stageItems.last(where: { !$0.isDone }) {
             return AnyView(PTPropPinnedCard(item: active, onHunt: active.huntButtons ? { model.huntReply(found: $0) } : nil)
                 .matchedGeometryEffect(id: ptHuntActiveID, in: huntSpace))
@@ -229,7 +239,11 @@ struct RootView: View {
         #endif
         return cameraShot
     }
-    private var desiredShot: PTCameraShot { store.huntActive ? .medium : (stageItems.isEmpty ? .closeUp : .wide) }
+    /// Round 10: the hunt's zoom-out waits for the card it makes room for (it used to zoom during the roles line, then
+    /// the card popped in later), so the camera, Nutmeg and the card move in one animation.
+    private var desiredShot: PTCameraShot {
+        store.huntActive ? (model.visibleProps > 0 ? .medium : .closeUp) : (stageItems.isEmpty ? .closeUp : .wide)
+    }
     private static let minShotGap: TimeInterval = 2
 
     private func scheduleShot(arrival: Bool = false) {
@@ -290,9 +304,10 @@ struct RootView: View {
     /// whole kit, no-text-overlays.md); the papers fly off her clipboard once the camera has zoomed out.
     @ViewBuilder private func classicContent(_ g: PTStageGeometry, _ L: PTStageCamera.Layout) -> some View {
         let kitStep = store.phase == .makingKit || store.phase == .kitReady
-        let r = kitStep ? PTStageDirector.huntContent(g, nutmeg: L, curtainInset: curtainInset(g))   // the hunt card's zone
+        let sceneStep = isScene
+        let r = kitStep || sceneStep ? PTStageDirector.huntContent(g, nutmeg: L, curtainInset: curtainInset(g))   // the hunt card's zone
                         : PTStageDirector.sideContent(g, curtainInset: g.chatOpen ? 12 : curtainInset(g))   // the panel hides the curtain
-        let minW = kitStep ? Self.kitContentWidth : Self.contentWidth
+        let minW = kitStep ? Self.kitContentWidth : (sceneStep ? SceneView.width : Self.contentWidth)
         let kitWaiting = (store.phase == .makingKit || store.phase == .kitReady) && model.kitBeat != .papers
         VStack(spacing: Theme.Space.m) {
             ViewThatFits(in: .vertical) {
@@ -309,10 +324,11 @@ struct RootView: View {
         .frame(width: r.width, height: r.height)
         .position(x: r.midX, y: r.midY)
         .opacity(kitWaiting ? 0 : 1)
-        .animation(Theme.bouncy, value: stageID)
+        .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: stageID)
         .sensoryFeedback(.impact(flexibility: .soft), trigger: stageID)
     }
 
+    private var isScene: Bool { if case .scene = store.phase { return true } else { return false } }
     private static let contentWidth: CGFloat = 460
     /// The kit pages zone is the hunt card's (narrower): the fan and the stacked buttons need ~280 pt.
     private static let kitContentWidth: CGFloat = 280
@@ -332,9 +348,8 @@ struct RootView: View {
         case .props: PropsView(model: model)
         case .makingKit, .kitReady: KitView(model: model, clipboard: clipboard, chatOpen: chatOpen && chromeVisible, preview: $kitPreview,
                                             onCelebrate: { celebrate() })
-        case .handoff(let i): HandoffView(model: model, sceneIndex: i)
+        case .handoff(let i): if !(chatOpen && chromeVisible) { HandoffView(model: model, sceneIndex: i) }   // chat open: pinned
         case .scene(let i): if !(chatOpen && chromeVisible) { SceneView(model: model, index: i) }   // chat open: pinned in the panel
-        case .stepBack: StepBackView(model: model)
         case .end: EndView(model: model)
         }
     }
@@ -350,7 +365,6 @@ struct RootView: View {
         switch store.phase {
         case .handoff(let i): "handoff\(i)"
         case .scene(let i): "scene\(i)"
-        case .stepBack(let i): "step\(i)"
         case .makingKit, .kitReady: "kit"
         default: "\(store.phase)"
         }

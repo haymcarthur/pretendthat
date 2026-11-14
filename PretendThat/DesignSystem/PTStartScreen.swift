@@ -214,7 +214,8 @@ struct PTCurtainShape: Shape {
             let sweep = CGFloat(PTEase.inOutCubic(min(p * 1.4, 1)))
             let closed = s.width / 2 * 1.02
             topX = closed + (v - closed) * slide
-            tieX = closed + (v * 0.2 - closed) * gather
+            // Round 10 (Haylee): the tie point sits further in (0.2 → 0.34 of the swag) so the whole tassel shows on both sides.
+            tieX = closed + (v * 0.34 - closed) * gather
             tieY = s.height + (s.height * 0.45 - s.height) * gather
             bottomX = closed + (v * 0.26 - closed) * sweep
         }
@@ -529,7 +530,6 @@ struct PTToyChestScene<Nutmeg: View>: View {
                 Image(s.0).resizable().scaledToFit()
                     .frame(width: side * s.3, height: side * s.3)
                     .rotationEffect(.degrees(s.4))
-                    .ptTwinkle(index: [0, 3, 1, 4, 2][i], count: spots.count, gap: 2.0)   // one at a time, hopping sides
                     .scaleEffect(away)
                     .position(x: left + span * s.1, y: L.size.height * s.2)
             }

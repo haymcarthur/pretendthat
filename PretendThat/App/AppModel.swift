@@ -69,7 +69,7 @@ final class AppModel {
                 return "(Silent coaching, don't mention it.) The iPad is being passed to the \(role). If the kid says they're "
                     + "the \(role) or that they've got the iPad, call confirm_handoff and say nothing. Otherwise answer in ONE "
                     + "short line (remind them to tap I'm the \(role)!)."
-            case .scene, .stepBack, .end:
+            case .scene, .end:
                 return "(Silent coaching, don't mention it.) They're playing now. Answer in ONE short, fun line that helps the "
                     + "current scene. No tools."
             default: return nil
@@ -332,7 +332,6 @@ final class AppModel {
         if store.lastError != nil { return .oops }
         switch store.phase {
         case .makingKit: return .thinking
-        case .stepBack: return .napping
         case .kitReady, .end: return .excited
         default: return .idle
         }

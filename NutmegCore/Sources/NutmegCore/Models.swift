@@ -148,6 +148,9 @@ public struct Step: Codable, Equatable, Sendable {
         picture = try c.decodeIfPresent(Picture.self, forKey: .picture) ?? .point; text = try c.decode(String.self, forKey: .text)
     }
 }
+/// `Scene` clashes with SwiftUI.Scene in the app target; use `KitScene` there.
+public typealias KitScene = Scene
+
 public struct Scene: Codable, Equatable, Sendable, Identifiable {
     public var id: String; public var owner: SceneOwner; public var title: String; public var picture: Picture; public var nutmegSays: String; public var steps: [Step]
     public init(id: String, owner: SceneOwner, title: String, picture: Picture, nutmegSays: String, steps: [Step]) {

@@ -89,7 +89,9 @@ public enum PTStageCamera {
     /// (~872), canvas px. Round 8: the writing moment uses the one-paw writing body (scaled 0.69), whose clipboard
     /// bottom lands at ~1070 and writing paw at ~965; the writing shot (a medium close-up) puts the screen's bottom edge
     /// at `writeBottom`, just under the clipboard, so her head, the clipboard and the writing paw all show.
-    public static let clipboardTop: CGFloat = 777, pawsTop: CGFloat = 872, writeBottom: CGFloat = 1120
+    /// Round 10 (Haylee: too wide): halfway back toward round 7's tight crop: bottom edge at 1015 (was 1120): head, the
+    /// top ~2/3 of the clipboard and the writing paw with its crayon.
+    public static let clipboardTop: CGFloat = 777, pawsTop: CGFloat = 872, writeBottom: CGFloat = 1015
 
     public struct Star: Sendable { public let asset: String; public let point: CGPoint; public let size: CGFloat; public let maxPoints: CGFloat; public let tilt: Double }
     /// Placed clear of her head (ears end at x 59 and 1055) and body; static.

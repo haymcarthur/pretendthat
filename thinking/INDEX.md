@@ -70,9 +70,10 @@ The map. Read this first, then open only what you need.
 - [Approved polish: star sparkle, tie-backs, sleepy Nutmeg, game survives lock](decisions/2026-11-13-stage-polish-ideas-approved.md): Haylee
 - [Round 8 build: tie-backs, new wave, clipboard in front of the head, writing body + zoom out, star sparkle, faster toys, hand-off button, checklist fit](decisions/round8-art-polish.md): Haylee (Claude's calls noted)
 - [Round 9 build: game survives lock/background (silent reconnect with state), sleepy Nutmeg, hand-off voice confirm](decisions/round9-sleepy-and-lock.md): Haylee (Claude's calls noted)
+- [Round 10 build: clipboard layer = board only, tie-backs inward, twinkle removed, writing shot, Go play removed, Done auto-check + Back, pinned hand-off/compact checklist, prop-card framing for the checklist, one shared stage animation](decisions/round10-review-fixes.md): Haylee (Claude's calls noted)
 
 ## Work queue
-- [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–9 done (round 9 = lock/background, sleepy Nutmeg, hand-off voice confirm)
+- [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–10 done (round 10 = Haylee's review fixes)
 
 ## Research
 - [Competitor analysis](research/competitor-analysis.md): competitors, white space, novelty angles, pricing
