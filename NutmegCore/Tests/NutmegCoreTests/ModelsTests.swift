@@ -31,3 +31,11 @@ import Testing
     #expect(PrintSymbols.safe("rocket.fake") == "star")
     #expect(PrintSymbols.safe("airplane") == "airplane")
 }
+
+/// Games are talked about only (no idea cards), so Nutmeg's spoken line names every idea.
+@Test func spokenIdeasNameEveryIdea() {
+    let i = Fallback.airplane.ideas
+    #expect(i.spoken == "Ooh! Let's put on a show! Which one? Airplane, Restaurant, or Animal Doctor?")
+    let named = GameIdeas(nutmegSays: "Airplane or Restaurant?", ideas: Array(i.ideas.prefix(2)))
+    #expect(named.spoken == "Airplane or Restaurant?")
+}

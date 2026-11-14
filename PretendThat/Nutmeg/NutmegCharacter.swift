@@ -117,26 +117,23 @@ struct NutmegCharacter: View {
 
         ZStack(alignment: .topLeading) {
         // Her contact shadow on the floor (Haylee): a small low-contrast ellipse in a darker floor tone, ~1.1x her
-        // stance (feet span canvas x 377–745, soles at y ~1310), centered under her feet. It stays on the floor when she
+        // stance (round 4 idle: feet span canvas x ~400–805, soles at y ~1310), centered under her feet. It stays on the floor when she
         // hops (outside the hop offset) and shrinks a little while she's in the air.
         if showsGround {
             let air = min(1, abs(hop) / 12)
             PTGround()
-                .frame(width: 405 * px, height: 46 * px)
+                .frame(width: 445 * px, height: 46 * px)
                 .scaleEffect(1 - 0.2 * air)
-                .position(x: 561 * px, y: 1306 * px)
+                .position(x: 603 * px, y: 1306 * px)
         }
         ZStack(alignment: .topLeading) {
             ZStack(alignment: .topLeading) {
                 // Neck plug behind the body (fur color), riding the head nudge.
-                Ellipse().fill(Color(red: 0xA0 / 255, green: 0x62 / 255, blue: 0x3A / 255))
+                Ellipse().fill(Color(red: 0xAD / 255, green: 0x5E / 255, blue: 0x36 / 255))   // round 4 fur
                     .frame(width: NutmegPose.neckPlug.width * px, height: NutmegPose.neckPlug.height * px)
                     .position(x: (NutmegPose.neckPlug.midX + pose.headOffset.width) * px,
                               y: (NutmegPose.neckPlug.midY + pose.headOffset.height) * px)
-                ZStack(alignment: .topLeading) {
-                    layer(bodyAsset(pose))
-                    if pose == .idle { idleArm() }
-                }
+                layer(bodyAsset(pose))
                 .id(pose).transition(.opacity)
             }
             .frame(width: w, height: h)
@@ -168,24 +165,9 @@ struct NutmegCharacter: View {
         return pose.asset + "-notail"
     }
 
-    /// The new head-base export (round 3) carries the idle body's hanging right arm below the chin (the vectorizer
-    /// merged it into the head silhouette; reported to Haylee, art not patched). The app splits it by canvas region:
-    /// the head stack never draws below the chin on that side, and the idle body draws that part of head-base as its
-    /// own arm, so the arm stays with the body (no third arm on other poses, no arm swinging with a head tilt).
-    static let headArmCut = CGRect(x: 725, y: 792, width: 1178 - 725, height: 1335 - 792)
-    /// The body's copy starts higher (just below the cream), tucked under the chin, so a head tilt never shows the
-    /// arm's cut edge.
-    static let bodyArmRegion = CGRect(x: 730, y: 776, width: 1178 - 730, height: 1335 - 776)
-
-    private func idleArm() -> some View {
-        layer("nutmeg-head-base")
-            .mask(CanvasRegion(rect: Self.bodyArmRegion))   // drawn where it was drawn with this body (no head nudge)
-    }
-
     private func head(look l: NutmegLook, motion m: Motion) -> some View {
         ZStack {
-            layer("nutmeg-head-base")
-                .mask(CanvasRegion(rect: Self.headArmCut, inverted: true).fill(style: FillStyle(eoFill: true)))
+            layer("nutmeg-head-base")   // round 4: head only (no body parts in the export)
             // Oops: the right ear flops over (Haylee's nutmeg-ears-flop art draws over the normal ear).
             if l.ears == .flop { layer(NutmegEars.flop.asset) }
             layer(m.blink && l.face != .nap && l.face != .yay ? NutmegFace.nap.asset : l.face.asset)
@@ -278,21 +260,6 @@ private struct Motion {
             headTilt += 1.5 * sin(t * 5) * k
             nod = -CGFloat(min(1, max(0, level))) * 2 * CGFloat(0.6 + 0.4 * abs(sin(t * 7))) * CGFloat(k)
         }
-    }
-}
-
-/// A rectangle given in Nutmeg's 1178×1335 canvas px, scaled to the drawn frame (for masks). `inverted`: the whole
-/// frame with the rectangle cut out (fill with eoFill).
-struct CanvasRegion: Shape {
-    var rect: CGRect
-    var inverted = false
-    func path(in r: CGRect) -> Path {
-        let sx = r.width / NutmegPose.canvas.width, sy = r.height / NutmegPose.canvas.height
-        let cut = CGRect(x: r.minX + rect.minX * sx, y: r.minY + rect.minY * sy, width: rect.width * sx, height: rect.height * sy)
-        var p = Path()
-        if inverted { p.addRect(r) }
-        p.addRect(cut)
-        return p
     }
 }
 

@@ -58,6 +58,14 @@ public struct GameIdea: Codable, Equatable, Sendable, Identifiable {
 public struct GameIdeas: Codable, Equatable, Sendable {
     public var nutmegSays: String; public var ideas: [GameIdea]
     public init(nutmegSays: String, ideas: [GameIdea]) { self.nutmegSays = nutmegSays; self.ideas = ideas }
+    /// What Nutmeg says out loud: the ideas are talked about only (no game cards on screen), so the line names every
+    /// idea unless it already does ("... Which one? Airplane, Restaurant, or Animal Doctor?").
+    public var spoken: String {
+        let titles = ideas.map(\.title)
+        guard !titles.isEmpty, !titles.allSatisfy({ nutmegSays.localizedCaseInsensitiveContains($0) }) else { return nutmegSays }
+        let list = titles.count == 1 ? titles[0] : titles.dropLast().joined(separator: ", ") + (titles.count > 2 ? "," : "") + " or " + titles.last!
+        return "\(nutmegSays) \(list)?"
+    }
 }
 
 public struct Role: Codable, Equatable, Sendable, Identifiable {

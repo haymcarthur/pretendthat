@@ -277,14 +277,14 @@ struct RootView: View {
 
     /// Her clipboard (idle pose, canvas px) relative to the content rect's center: where the papers fly from.
     private func clipboard(_ L: PTStageCamera.Layout, in r: CGRect) -> CGPoint {
-        let p = L.screen(CGPoint(x: 760, y: 1010))
+        let p = L.screen(CGPoint(x: 521, y: 933))   // round 4 idle clipboard center
         return CGPoint(x: p.x - r.midX, y: p.y - r.midY)
     }
 
     @ViewBuilder private func stage(clipboard: CGPoint) -> some View {
         switch store.phase {
         case .hello: EmptyView()   // the start screen replaces the classic stage (see body)
-        case .pickGame: PickGameView(model: model)
+        case .pickGame: EmptyView()   // games are talked about only: no idea cards, no caption (no-text-overlays.md)
         case .players: PlayersView(model: model)
         case .props: PropsView(model: model)
         case .makingKit, .kitReady: KitView(model: model, clipboard: clipboard, chatOpen: chatOpen && chromeVisible, preview: $kitPreview)

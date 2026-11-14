@@ -57,25 +57,6 @@ struct HelloView: View {
     }
 }
 
-struct PickGameView: View {
-    let model: AppModel
-    var body: some View {
-        VStack(spacing: Theme.Space.l) {
-            if let ideas = model.store.ideas {
-                HStack(spacing: Theme.Space.m) {
-                    ForEach(Array(ideas.ideas.enumerated()), id: \.element.id) { i, idea in
-                        PTChoiceTile(label: idea.title) {
-                            Task { await model.store.chooseGame(idea.title) }
-                        }
-                        .ptPopIn(index: i)
-                    }
-                }
-            }
-            PTText("Hold the mic and say your own idea!", .caption, tone: .muted)
-        }
-    }
-}
-
 struct PlayersView: View {
     let model: AppModel
     private var store: AdventureStore { model.store }

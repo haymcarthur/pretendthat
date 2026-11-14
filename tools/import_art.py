@@ -43,14 +43,15 @@ def split_face(svg):
     mouth = head + "\n" + "\n".join(e for e in els if is_mouth(e)) + "\n" + body_end + "\n"
     return eyes, mouth
 
-def strip_tail(svg):
-    """A tail-less body (start screen: she stands in the chest). The tail is the only shape reaching canvas x < 200;
-    shapes drawn wholly inside its box (the tail tip) go with it."""
+def strip_tail(svg, x_max=200):
+    """A tail-less body (start screen: she stands in the chest). The tail is the only shape reaching canvas x < x_max
+    (200 for wave; 300 for the round-4 idle, whose tail starts at x 225); shapes drawn wholly inside its box (the tail
+    tip) go with it."""
     paths = list(re.finditer(r'<path\b[^>]*?/>', svg, re.S))
     def box(m):
         nums = [float(x) for x in re.findall(r'-?\d+\.?\d*', (re.search(r' d="([^"]*)"', m.group(0)) or [None, ""])[1])]
         return (min(nums[0::2]), min(nums[1::2]), max(nums[0::2]), max(nums[1::2])) if nums else None
-    tails = [box(m) for m in paths if box(m) and box(m)[0] < 200]
+    tails = [box(m) for m in paths if box(m) and box(m)[0] < x_max]
     if not tails: return svg
     tb = (min(b[0] for b in tails), min(b[1] for b in tails), max(b[2] for b in tails), max(b[3] for b in tails))
     inside = lambda b: b and b[0] >= tb[0] and b[1] >= tb[1] and b[2] <= tb[2] and b[3] <= tb[3]
@@ -81,7 +82,7 @@ for f in sorted(glob.glob(os.path.join(SRC, "nutmeg", "*.svg"))):
     else:
         put(name, svg); n += 1
         if name in ("nutmeg-body-idle", "nutmeg-body-wave"):   # the start screen's poses
-            put(name + "-notail", strip_tail(svg)); n += 1
+            put(name + "-notail", strip_tail(svg, 300 if name == "nutmeg-body-idle" else 200)); n += 1
 for f in sorted(glob.glob(os.path.join(SRC, "stage", "*.svg"))):
     name = os.path.basename(f)[:-4]
     if name == "stage-beam": continue

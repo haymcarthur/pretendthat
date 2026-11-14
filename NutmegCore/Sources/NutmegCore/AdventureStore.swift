@@ -99,7 +99,7 @@ public final class AdventureStore {
         await run("ideas", kidSaid: nil) { [self] svc in
             ideas = try await svc.ideas(kidSaid: nil)
         } fallback: { [self] in ideas = Fallback.airplane.ideas }
-        if let ideas { say(ideas.nutmegSays) }
+        if let ideas { say(ideas.spoken) }
     }
 
     /// Kid asked for something specific ("I'm bored", "dinosaurs!") on the pick-game screen.
@@ -107,7 +107,7 @@ public final class AdventureStore {
         await run("ideas", kidSaid: nil) { [self] svc in
             ideas = try await svc.ideas(kidSaid: kidSaid)
         } fallback: { [self] in ideas = Fallback.airplane.ideas }
-        if let ideas { say(ideas.nutmegSays) }
+        if let ideas { say(ideas.spoken) }
     }
 
     public func chooseGame(_ title: String) async {
@@ -396,7 +396,7 @@ public final class AdventureStore {
     public func useFallback() {
         useFallbackGame()
         switch phase {
-        case .pickGame: if let ideas { say(ideas.nutmegSays) }
+        case .pickGame: if let ideas { say(ideas.spoken) }
         case .players: if let plan { say(plan.nutmegSays) }
         case .props: if let props { say(props.nutmegSays) }
         case .makingKit: phase = .kitReady; if let kit { say(kit.nutmegSays) }
@@ -449,7 +449,7 @@ public final class AdventureStore {
 
     private func afterRetry(_ key: String) {
         switch key {
-        case "ideas": if let ideas { say(ideas.nutmegSays) }
+        case "ideas": if let ideas { say(ideas.spoken) }
         case "plan": if let plan { say(plan.nutmegSays) }
         case "props": if let props { say(props.nutmegSays) }
         case "kit": if kit != nil { phase = .kitReady; say(kit!.nutmegSays) }

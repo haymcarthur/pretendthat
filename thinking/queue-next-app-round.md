@@ -19,3 +19,10 @@ Art ready in design/export/ to import:
 ## Round 3 done (2026-11-13 night)
 - Imported head-base (new), nutmeg-headset (own top layer), idle (new), clipboard-both; clipboardBoth pose during kit making.
 - Art issues for Haylee (not patched): head-base silhouette includes the idle body's hanging right arm (app masks it); thin light sliver along the idle body's right vest edge; clipboard-both fur AD5E36 / clipboard FEC726 more than ±12 from the palette (left as drawn).
+
+## Round 5 (after round 4)
+- New headless WAVE + POINT bodies (Haylee regenerating) → cleanup/import.
+- WRITING animation, new approach: close shot framing head + top of clipboard (hands out of frame), clipboardBoth pose, crayon-v3 layer wiggling with only its top visible, scribble sound, focus face; then look up → normal view. (When: kit-making; planning moments TBD by Haylee.)
+- Fresh screenshot pass of the CURRENT app for the deck: conversation, prop hunt, kit reveal (papers), play step (checklist/hand-off), start screen with tiny gear. Then update slides 3 (all four step cards) and 5 (waving Nutmeg with new art).
+- WRITING moment runs EVERY time she is planning (roles, each prop, kit), even if quick — short beat so it flows (Haylee 2026-11-13).
+- clipboardBoth pose fixes: head too big/low/offset on this pose → per-pose head scale + offset (torso is ~55px taller; neck top 734 vs 789). LAYERING: split the clipboard-both art into body / clipboard / hands layers (layer split only, no reshaping), stack body → head → face → headset → CLIPBOARD → HANDS, so the clipboard sits in front of her chin/face and her paws grip in front of it.

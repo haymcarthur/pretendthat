@@ -52,6 +52,7 @@ The map. Read this first, then open only what you need.
 - [Planning beats](decisions/planning-beats.md): Haylee · **superseded by revert-animation**
 - [Revert to the old animation](decisions/revert-animation.md): Haylee (no coloring beats or kit coloring; idle + expressions; rig cancelled)
 - [No caption cards or loading text](decisions/no-text-overlays.md): Haylee (voice and animation only; papers wait for the final kit)
+- [Round 4 art + no game-idea cards](decisions/round4-art-no-game-cards.md): Haylee/Claude (new head/idle/celebrate, arm workaround removed, ideas spoken only)
 - [Conversation samples](research/conversation-samples.md): live typed transcripts checked against the step and turn-ending rules
 - [Checklist and scene pictures, no emoji](decisions/checklist-pictures.md): Haylee (prop / action / kit pictures; cut-outs generated one per item; confetti uses stage art)
 
