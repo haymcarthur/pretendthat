@@ -71,3 +71,13 @@ zoom-transition-sheet.png + zoomseq/.
   a 12 px bob margin widening for the state tilts): the arm and paw are only in front below it, and only the clip pieces
   painted after the arm are in front inside it. Simple nonzero polygons, 3 px overlaps so no anti-aliased hairline.
   Celebrate, wave, writing checked, not affected. Crops: /tmp/pt-round10b/crop-*.png.
+
+## Round 12 (2026-11-14, ~01:30; Haylee: "It should just be solid and the tip should be behind the clipboard")
+- Writing clipboard SOLID + in front of the crayon. `tools/split_writing_clipboard.py` (source: the backup
+  nutmeg-body-writing.before-r12.svg): the board path's bulge around the crayon tip is bridged with its straight edge
+  line, the two cut edge-highlight pieces become one straight strip, the tip shadow on the edge and the red sliver behind
+  the holding paw (a crayon-red piece) are dropped, and a hidden vest-purple strip closes the vest seam along the crayon's
+  old outline (a faint hairline showed as the crayon rocked). Mechanical repair authorized by Haylee; nothing else in
+  the art changed. New layer nutmeg-writing-clipboard.svg (board, edge strip, bottom edge, clip, highlights, holding paw;
+  plain paths, no clipPaths). Stack: body → head → crayon → clipboard → fingers (`NutmegPose.frontLayers`, same body
+  transform). Checked on the simulator: /tmp/pt-round12/tip-rock-min|mid|max.png, right-paw.png, overview.png.

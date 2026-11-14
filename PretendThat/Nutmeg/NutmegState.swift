@@ -79,7 +79,9 @@ enum NutmegPose: String, CaseIterable, Identifiable {
         case .clipboardBoth: ["nutmeg-clipboardboth-clipboard", "nutmeg-clipboardboth-paws"]
         case .idle, .point, .celebrate: ["nutmeg-\(rawValue)-clipboard"]
         case .wave: ["nutmeg-wave-arm", "nutmeg-wave-clipboard"]
-        case .coloring: ["nutmeg-writing-fingers"]   // the wiggling crayon draws just below this (NutmegCharacter)
+        // Round 12: the solid clipboard (+ holding paw) sits over the wiggling crayon (drawn just below these in
+        // NutmegCharacter), so the tip tucks behind the board edge; the writing fingers stay on top.
+        case .coloring: ["nutmeg-writing-clipboard", "nutmeg-writing-fingers"]
         default: []
         }
     }

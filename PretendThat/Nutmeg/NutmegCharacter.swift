@@ -196,9 +196,9 @@ struct NutmegCharacter: View {
         if shown == .coloring, Self.writingCrayonAvailable {
             let k = (reduceMotion || !writing) ? 0 : 1.0
             let w = sin(t * 2 * .pi / 0.26)
-            // Round 10 (Haylee): the clipboard edge in the body art is cut around the crayon TIP, so moving the tip
-            // showed a notch. The crayon now rocks around its tip (art ~(760, 778), on the paper) instead of the grip:
-            // the tip stays inside its cut, the top end still scribbles (~2.5°, ~10 px at the top), no drift.
+            // Round 10 (Haylee): the crayon rocks around its tip (art ~(760, 778)) instead of the grip, so the top end
+            // scribbles (~2.5°, ~10 px at the top) with no drift. Round 12: the board is solid (notch repaired) and its
+            // layer draws over the crayon, so the tip tucks behind the board edge (tools/split_writing_clipboard.py).
             layer("nutmeg-writing-crayon")
                 .rotationEffect(.degrees(2.5 * w * k), anchor: UnitPoint(x: 760 / 1178, y: 778 / 1335))
                 .transformEffect(NutmegPose.coloring.bodyTransform.px(px))
