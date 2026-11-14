@@ -26,6 +26,16 @@ enum DemoDriver {
         return Double(args[i + 1])
     }
 
+    /// Round 11: `-PTAutoStart`: the start screen taps "Let's play!" itself 1 s after the opening, and the conversation
+    /// starts WITHOUT a voice session (forced conversation stage, no audio): frame strips of start → game.
+    static var autoStart: Bool { ProcessInfo.processInfo.arguments.contains("-PTAutoStart") }
+    /// Round 11: `-PTAutoPlay <seconds>` (with `-PTDemo kitReady`): taps "Let's play!" on the print step after that long.
+    static var autoPlay: Double? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-PTAutoPlay"), i + 1 < args.count else { return nil }
+        return Double(args[i + 1])
+    }
+
     /// `-PTWriting`: hold the writing moment (clipboardBoth, focus face, crayon top, writing close shot) for screenshots.
     static var forceWriting: Bool { ProcessInfo.processInfo.arguments.contains("-PTWriting") }
 
@@ -118,7 +128,11 @@ enum DemoDriver {
         await store.confirmRoles()
         if let first = store.props?.props.first { store.toggleProp(first.id) }
         if reached("props") { return }
-        await store.confirmProps(); if reached("kitReady") { return }
+        await store.confirmProps()
+        if reached("kitReady") {
+            if let wait = autoPlay { try? await Task.sleep(for: .seconds(wait)); store.beginPlay() }
+            return
+        }
         store.beginPlay()
         if target == "handoff" {   // advance until someone has to pass the iPad
             while true {

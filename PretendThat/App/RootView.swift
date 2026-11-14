@@ -22,6 +22,8 @@ struct RootView: View {
     /// Kit-ready confetti, drawn as the topmost overlay (above the chat panel, step rail and control pill).
     @State private var confettiRun = 0
     @State private var confettiOn = false
+    /// Round 11: the start screen's exit is running (from the tap): the rail and pill already slide in on its move.
+    @State private var startExiting = false
 
     private var store: AdventureStore { model.store }
 
@@ -43,7 +45,7 @@ struct RootView: View {
                         // Start screen: full-bleed toy-chest scene, no step rail or control pill.
                         // Start screen → stage: the start screen's exit leaves Nutmeg exactly where the stage draws her
                         // (the arrival shot), so the swap is instant (no crossfade of two Nutmegs).
-                        HelloView(model: model, onGrownUps: { showSettings = true })
+                        HelloView(model: model, onGrownUps: { showSettings = true }, onExitBegan: { startExit() })
                             .transition(reduceMotion ? .opacity : .identity)
                     } else {
                         // ONE stage for every phase (conversation, hunt, kit, play, hand-off): same Nutmeg, floor and
@@ -77,7 +79,7 @@ struct RootView: View {
                     // top (her paws out of frame, the crayon's top end visible). Hiding it releases a held mic.
                     .opacity(model.isWriting ? 0 : 1)
                     .allowsHitTesting(!model.isWriting)
-                    .animation(.easeInOut(duration: 0.25), value: model.isWriting)
+                    .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: model.isWriting)   // round 11: with the writing shot
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
             if confirmLeave {
@@ -96,7 +98,7 @@ struct RootView: View {
         // Round 10: the panel/rail slide on the same spring as the camera move they cause (one shared animation).
         .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: chatOpen)
         .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: chromeVisible)
-        .animation(.easeInOut(duration: 0.4), value: model.inConversation)
+        .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: model.inConversation)   // round 11: one move
         .environment(\.speak, SpeakAction { model.speak($0) })
         .environment(\.ptCelebrate, model.celebrations)
         .onChange(of: store.nutmegLine) { _, line in model.speak(line) }
@@ -105,7 +107,7 @@ struct RootView: View {
             switch phase {
             case .kitReady: model.celebrations += 1   // Nutmeg celebrates when the papers have landed (KitView)
             case .end: model.gesture(.celebrate); model.celebrations += 1
-            case .hello: model.gesture(.wave)
+            case .hello: model.gesture(.wave); startExiting = false
             case .handoff: model.gesture(.point)   // toward the hand-off card
             default: break
             }
@@ -158,7 +160,7 @@ struct RootView: View {
                     PTPropHuntStage(items: stageItems, geometry: g, nutmeg: L, curtainInset: curtainInset(g), namespace: huntSpace,
                                     onHunt: { _, found in model.huntReply(found: found) })
                         .opacity(model.isWriting ? 0 : 1)
-                        .animation(.easeInOut(duration: 0.25), value: model.isWriting)
+                        .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: model.isWriting)   // round 11: with the writing shot
                 } else if shot == .wide && !model.isWriting {
                     PTPresentedCards(items: stageItems, nutmeg: L, size: g.size, onTapItem: { silentTap($0) },
                                      onHunt: { _, found in model.huntReply(found: found) })
@@ -253,7 +255,7 @@ struct RootView: View {
             guard target != cameraShot else { return }
             var wait = max(0, Self.minShotGap - Date().timeIntervalSince(lastShotChange))
             if target == .wide || target == .medium { wait = 0 }
-            if arrival { wait = max(wait, 0.9) }   // let her landing settle first
+            // Round 11: no arrival wait: the start screen's exit already landed her on the first framing.
             if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
             guard !Task.isCancelled, desiredShot != cameraShot else { return }
             cameraShot = desiredShot
@@ -386,7 +388,18 @@ struct RootView: View {
     }
 
     /// Step rail and control pill show from the first step on (not on Hello).
-    private var chromeVisible: Bool { store.phase != .hello }
+    private var chromeVisible: Bool { store.phase != .hello || startExiting }
+
+    /// Round 11 (Haylee: one move): the tap on "Let's play!" starts everything at once. The start screen's exit pushes
+    /// its camera to the game's first framing (the close-up when voice is on), so the camera is set there now, without
+    /// animation (the stage isn't on screen yet), and the rail and pill slide in on the same `Theme.stageMove` move.
+    private func startExit() {
+        if model.opensInCloseUp {
+            var tx = Transaction(); tx.disablesAnimations = true
+            withTransaction(tx) { shotTask?.cancel(); cameraShot = .closeUp; lastShotChange = Date() }
+        }
+        startExiting = true
+    }
 }
 
 extension String { var nilIfEmpty: String? { isEmpty ? nil : self } }

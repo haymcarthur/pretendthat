@@ -9,51 +9,68 @@ import SwiftUI
 // shows her, the chest and toys leave, and the same stage (`PTStageBackdrop`) carries on under the game screens.
 // Crisp and flat: no gradients, no glows (motion-and-surface.md). Art: design/export/startscreen.
 
-/// When each beat of the opening runs (seconds from launch). Slow enough that every beat reads (Haylee), ~6.8 s:
-/// curtains 1.8 (ease-in-out) → beat → chest wiggle 0.6 → lid pop 0.35 → toys overlapping (0.1 s apart, 0.6 s arcs)
-/// → beat → Nutmeg's jump 0.6 → card + logo 0.5 → start button 0.2. A tap skips to the end.
+/// When each beat of the opening runs (seconds from launch), ~3.9 s. Round 11 (Haylee): ONE cohesive opening. The
+/// chest starts wiggling WHILE the curtains draw back (not after), the lid pops as they finish, the toys overlap
+/// (round 8's 0.1 s gap, kept), and the logo card and the "Let's play!" button pop in at the SAME moment as Nutmeg's
+/// pop out of the chest, on the SAME curve (`pop(t)`), no staggered entrances after it. A tap skips to the end.
 enum PTStartTimeline {
     /// The curtains hold closed for a moment so the launch screen (the same closed curtains) hands over invisibly.
     static let curtains = 0.15...1.95
-    static let wiggle = 2.25...2.85
+    /// Round 11: starts while the curtains are still drawing back (they're ~60% open at 1.0 s).
+    static let wiggle = 1.0...1.6
     /// Lid squash, swap at `lidSwap`, then the open lid stretches and settles (lid pop = 0.35 s).
-    static let lidSquash = 2.85...2.97
-    static let lidSwap = 2.97
-    static let lidSettle = 2.97...3.2
-    static let toysStart = 3.15
+    static let lidSquash = 1.6...1.72
+    static let lidSwap = 1.72
+    static let lidSettle = 1.72...1.95
+    static let toysStart = 1.9
     /// Round 8 (Haylee): each toy's own arc is unchanged; the gap between toys is a third of round 7's 0.3 s, so they
-    /// overlap and the whole opening ends ~1 s sooner (every beat after the toys moves up by 1.0 s).
+    /// overlap.
     static let toyGap = 0.1
     static let toyFlight = 0.6
     static let toyLand = 0.15
     /// Nutmeg's jump (~0.65 s): the chest crouches (anticipation), she shoots up past her resting height, drops back
-    /// into the opening and lands with a squash.
-    static let crouch = 4.45...4.55
-    static let rise = 4.55...4.83
-    static let fall = 4.83...4.97
-    static let land = 4.97...5.1
+    /// into the opening and lands with a squash. Starts as the last toy lands (1.9 + 0.5 + 0.6 + 0.15 = 3.15).
+    static let crouch = 3.1...3.2
+    static let rise = 3.2...3.48
+    static let fall = 3.48...3.62
+    static let land = 3.62...3.75
     static var jump: ClosedRange<Double> { crouch.lowerBound...land.upperBound }
-    /// The card pops in at its final place and the logo builds on it at the same moment.
-    static let card = 5.05...5.55
-    static let logo = 5.05
-    static let button = 5.53...5.73
-    static let end = 5.75
+    /// Round 11: the card (with the logo already whole) and the button use her pop exactly: same start, same length.
+    static var pop: ClosedRange<Double> { rise.lowerBound...fall.upperBound }
+    static let end = 3.8
+
+    /// Her pop as 0 → overshoot → 1: her rise (ease-out cubic) to the peak, then the drop back to rest. The card and the
+    /// button scale on this same curve, so all three arrive as one move. `peak` is how far past 1 the top of the hop is.
+    static func pop(_ t: Double, peak: Double) -> Double {
+        if t < rise.lowerBound { return 0 }
+        if t < fall.lowerBound { return peak * PTEase.outCubic(PTEase.progress(t, rise)) }
+        let f = PTEase.progress(t, fall)
+        return peak + (1 - peak) * f * f
+    }
 }
 
-/// The "Let's play!" exit (seconds from the tap, ~1.25 s): the card and button pop away, Nutmeg crouches and hops out
-/// of the chest onto the stage, landing where the conversation screen draws her; the chest drops away and the toys
-/// scoot off the sides as she lands.
+/// The "Let's play!" exit (seconds from the tap, ~1.05 s). Round 11 (Haylee): ONE move that starts on the tap: the
+/// card and button pop away, Nutmeg crouches and hops out of the chest, the camera pushes in to the conversation's
+/// close-up on the same move (her, the floor and the stage stars share ONE camera transform), the toys scoot off and
+/// the step rail and control pill slide in (RootView, on `onExitBegan`), all starting in the same frame. The only
+/// thing that waits is the chest's drop: it falls once her feet clear the rim (it would otherwise leave her standing
+/// on air inside it).
 enum PTStartExit {
     static let popAway = 0.0...0.16
-    static let crouch = 0.06...0.2
-    static let hop = 0.2...0.8
-    static let land = 0.8...0.95
-    static let chestOff = 0.66...1.1
-    static let toysStart = 0.6
-    static let toyGap = 0.05
-    static let toyOff = 0.4
-    static let end = 1.25
+    static let crouch = 0.0...0.16
+    static let hop = 0.16...0.78
+    static let land = 0.78...0.93
+    /// The camera push (arrival framing → the game's first framing), eased like `Theme.stageMove`.
+    static let camera = 0.0...1.0
+    static let chestOff = 0.32...0.9
+    static let toysStart = 0.0
+    static let toyGap = 0.0
+    static let toyOff = 0.75
+    static let end = 1.05
 }
+
+/// Round 11: one of the game stage's stars, where the game's first framing draws it (global coordinates).
+struct PTStartStageStar { let asset: String; let tilt: Double; let center: CGPoint; let side: CGFloat }
 
 /// What the host should draw for Nutmeg at this moment of the start screen.
 struct PTStartNutmeg {
@@ -387,6 +404,14 @@ struct PTToyChestScene<Nutmeg: View>: View {
     /// DEBUG: hold the sequence at this time (seconds) for screenshots.
     var frozenAt: Double? = nil
     var handoff: CGRect? = nil
+    /// Round 11: where the game's FIRST framing draws her (global; the talking close-up when voice is on). The exit
+    /// pushes the camera from `handoff` (the arrival framing, the start screen's own scale) to this, so the game
+    /// stage takes over at rest with nothing left to zoom. nil = `handoff`.
+    var camera: CGRect? = nil
+    /// Round 11: the game stage's stars for its first framing (global): they grow in on the exit's camera move.
+    var stageStars: [PTStartStageStar] = []
+    /// Fires on the tap, when the exit starts (RootView slides the rail and pill in on the same move).
+    var onExitBegan: () -> Void = {}
     var onIntroFinished: () -> Void = {}
     var onGrownUps: (() -> Void)? = nil
     let onStart: () -> Void
@@ -417,6 +442,9 @@ struct PTToyChestScene<Nutmeg: View>: View {
             if !reduceMotion { try? await Task.sleep(for: .seconds(T.end + 0.05)) }
             finished = true
             if !skipped { onIntroFinished() }
+            #if DEBUG
+            if DemoDriver.autoStart { try? await Task.sleep(for: .seconds(1)); play() }
+            #endif
         }
     }
 
@@ -431,6 +459,7 @@ struct PTToyChestScene<Nutmeg: View>: View {
         if reduceMotion { onStart(); return }
         skipped = true
         exitStart = Date()
+        onExitBegan()
         Task {
             try? await Task.sleep(for: .seconds(X.end))
             onStart()
@@ -493,12 +522,35 @@ struct PTToyChestScene<Nutmeg: View>: View {
         }
     }
 
+    // MARK: Exit camera
+
+    /// The exit's camera push at time `e` as one uniform scale + move, in a view whose global origin is `origin`:
+    /// identity before the tap, the arrival → first-framing move (`handoff` → `camera`) at the end. Nutmeg and the floor
+    /// both go through it, so their relative size never changes.
+    struct ExitCamera {
+        var m: CGFloat = 1, t: CGPoint = .zero
+        func apply(_ p: CGPoint) -> CGPoint { CGPoint(x: p.x * m + t.x, y: p.y * m + t.y) }
+        func apply(_ r: CGRect) -> CGRect { let o = apply(r.origin); return CGRect(x: o.x, y: o.y, width: r.width * m, height: r.height * m) }
+    }
+    private func exitCamera(_ e: Double, origin: CGPoint) -> ExitCamera {
+        guard e >= 0, let a = handoff, let b = camera, a.height > 0 else { return ExitCamera() }
+        let c = CGFloat(PTEase.spring(PTEase.progress(e, X.camera), damping: 0.84))
+        let k = b.height / a.height
+        // Global: p' = b.origin + (p - a.origin) k; blended with identity by c; then expressed in local coordinates.
+        let m = 1 + c * (k - 1)
+        let tg = CGPoint(x: c * (b.minX - a.minX * k), y: c * (b.minY - a.minY * k))
+        return ExitCamera(m: m, t: CGPoint(x: tg.x + origin.x * m - origin.x, y: tg.y + origin.y * m - origin.y))
+    }
+
     // MARK: Drawing
 
     @ViewBuilder private func scene(t: Double, e: Double, size: CGSize, origin: CGPoint) -> some View {
         let L = Layout(size)
         ZStack(alignment: .topLeading) {
-            PTStageBackdrop(curtains: false)
+            // Round 11: the floor is under the exit's camera (the same transform as Nutmeg), so it ends exactly where the
+            // game stage draws it for its first framing.
+            PTStageBackdrop(curtains: false, floor: false)
+            PTStageFloor(rect: exitCamera(e, origin: origin).apply(L.floor))
             sky(L, e: e)
             chest(t: t, e: e, L, origin: origin)
                 .position(x: L.cx, y: L.chestTop + L.chestH / 2)
@@ -507,11 +559,28 @@ struct PTToyChestScene<Nutmeg: View>: View {
                     toyView(name, i: i, t: t, e: e, L).zIndex(Double(L.spot(i).y))   // nearer toys in front
                 }
             }
+            exitStars(e: e, origin: origin)
             titleCard(t: t, e: e, L)
             startButton(t: t, e: e, L)
             PTCurtain(progress: PTEase.progress(t, T.curtains))
         }
         .frame(width: size.width, height: size.height)
+    }
+
+    /// Round 11: the game stage's stars grow in on the exit's camera move, ending exactly where the game draws them.
+    private func exitStars(e: Double, origin: CGPoint) -> some View {
+        let c = e < 0 ? 0 : PTEase.spring(PTEase.progress(e, X.camera), damping: 0.84)
+        return ZStack(alignment: .topLeading) {
+            ForEach(Array(stageStars.enumerated()), id: \.offset) { _, s in
+                Image(s.asset).resizable().scaledToFit()
+                    .rotationEffect(.degrees(s.tilt))
+                    .frame(width: s.side, height: s.side)
+                    .scaleEffect(max(0.001, 0.2 + 0.8 * c))
+                    .opacity(min(c * 3, 1))
+                    .position(x: s.center.x - origin.x, y: s.center.y - origin.y)
+            }
+        }
+        .accessibilityHidden(true)
     }
 
     /// 5 static stage stars and sparkles in the upper sky, clear of the curtains and the title card. They pop away on
@@ -594,16 +663,14 @@ struct PTToyChestScene<Nutmeg: View>: View {
         // Chest-local frame of the conversation canvas (bottom center + height).
         let chestOrigin = CGPoint(x: L.cx - L.chestW / 2 - origin.x, y: L.chestTop - origin.y)
         let target = handoff.map { CGRect(x: $0.minX - chestOrigin.x, y: $0.minY - chestOrigin.y, width: $0.width, height: $0.height) }
-        let bigH = max(nH, target?.height ?? nH)
+        let bigH = max(nH, target?.height ?? nH, camera?.height ?? nH)
         let base = nH / bigH
         // Intro (relative to her resting bottom-center: x = chest center + 19 canvas px, waist on the front edge).
         let hidden = (1335 - 10) * s + 6
         let rest = (1335 - 1030) * s
         let peak = rest - 0.16 * nH
-        var y: CGFloat
-        if t < T.rise.lowerBound { y = hidden }
-        else if t < T.fall.lowerBound { y = hidden + (peak - hidden) * CGFloat(PTEase.outCubic(PTEase.progress(t, T.rise))) }
-        else { let f = PTEase.progress(t, T.fall); y = peak + (rest - peak) * CGFloat(f * f) }
+        // Round 11: the same pop curve the card and the button use (T.pop), so all three arrive as one move.
+        let y = hidden + (rest - hidden) * CGFloat(T.pop(t, peak: Double((hidden - peak) / (hidden - rest))))
         let stretch = PTEase.bump(PTEase.progress(t, T.rise.lowerBound...T.fall.upperBound))
         let landing = PTEase.bump(PTEase.progress(t, T.land))
         var sx = 1 - 0.05 * stretch + 0.07 * landing, sy = 1 + 0.07 * stretch - 0.08 * landing
@@ -629,6 +696,10 @@ struct PTToyChestScene<Nutmeg: View>: View {
             sy *= 1 - 0.09 * crouch + 0.07 * PTEase.bump(hp) - 0.07 * land2
         }
         let out = hp > 0.5
+        // Round 11: the camera push (same transform as the floor), in chest-local coordinates.
+        let cam = exitCamera(e, origin: CGPoint(x: origin.x + L.cx - L.chestW / 2, y: origin.y + L.chestTop))
+        let foot = cam.apply(CGPoint(x: x, y: bottom))
+        x = foot.x; bottom = foot.y; scale *= cam.m
         return nutmeg(PTStartNutmeg(tail: e >= 0, ground: hp >= 1))
             .frame(width: 1178 / 1335 * bigH, height: bigH)
             .scaleEffect(x: scale * sx, y: scale * sy, anchor: .bottom)
@@ -670,15 +741,19 @@ struct PTToyChestScene<Nutmeg: View>: View {
             .accessibilityHidden(true)
     }
 
+    /// The card and button overshoot a little less than her hop (her peak is ~1.2 of the way; UI 1.15 reads as a pop).
+    private static var uiPeak: Double { 1.15 }
+
     /// (5) The title card pops (scales up from small) centered at the top while the logo builds on it; it pops away on
     /// the exit. Fixed layout: only scale and opacity change. A 2-second press opens the grown-ups settings.
     private func titleCard(t: Double, e: Double, _ L: Layout) -> some View {
-        let cp = PTEase.progress(t, T.card)
+        // Round 11: pops with Nutmeg (same start, same curve); the logo is whole as it arrives (no letter build after).
+        let k = T.pop(t, peak: Self.uiPeak)
         let away = PTEase.progress(e, X.popAway)
-        let scale = (0.5 + 0.5 * PTEase.spring(cp, damping: 0.62)) * (1 - 0.6 * away)
-        return PTTitleCard(logoTime: t - T.logo, logoWidth: L.logoW)
+        let scale = (0.4 + 0.6 * k) * (1 - 0.6 * away)
+        return PTTitleCard(logoTime: nil, logoWidth: L.logoW)
             .scaleEffect(max(scale, 0.001))
-            .opacity(min(cp * 8, 1) * (1 - away))
+            .opacity(min(k * 6, 1) * (1 - away))
             .onLongPressGesture(minimumDuration: 2) { onGrownUps?() }
             .frame(width: L.size.width)
             .padding(.top, L.cardTop)
@@ -687,13 +762,14 @@ struct PTToyChestScene<Nutmeg: View>: View {
 
     /// The "Let's play!" button pops in last, centered under the chest, and pops away when tapped.
     private func startButton(t: Double, e: Double, _ L: Layout) -> some View {
-        let bp = PTEase.progress(t, T.button)
+        // Round 11: pops with Nutmeg and the card (same start, same curve).
+        let k = T.pop(t, peak: Self.uiPeak)
         let away = PTEase.progress(e, X.popAway)
-        let scale = (bp > 0 ? 0.3 + 0.7 * PTEase.spring(bp, damping: 0.55) : 0.001) * (1 - 0.6 * away)
+        let scale = (k > 0 ? 0.4 + 0.6 * k : 0.001) * (1 - 0.6 * away)
         return PTStartButton(width: L.button.width, height: L.button.height, action: play)
             .scaleEffect(max(scale, 0.001))
-            .opacity(bp > 0 ? 1 - away : 0)
-            .allowsHitTesting(bp >= 1 && e < 0)
+            .opacity(min(k * 6, 1) * (1 - away))
+            .allowsHitTesting(t >= T.pop.upperBound && e < 0)
             .position(x: L.button.midX, y: L.button.midY)
     }
 }

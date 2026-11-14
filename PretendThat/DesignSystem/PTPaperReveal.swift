@@ -18,8 +18,10 @@ struct PTPaperReveal<Paper: View>: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var flown: Set<Int> = []
 
-    static var stagger: Double { 0.15 }
-    static var flight: Double { 0.75 }
+    /// Round 11 (Haylee: every transition is ONE move): all papers fly together on `Theme.stageMove`, with the camera
+    /// move that makes room for them (was 150 ms apart on their own spring).
+    static var stagger: Double { 0 }
+    static var flight: Double { 0.8 }
 
     var body: some View {
         ZStack {
@@ -45,8 +47,7 @@ struct PTPaperReveal<Paper: View>: View {
     private func launch() {
         for i in 0..<count where !flown.contains(i) {
             let delay = reduceMotion ? 0 : Double(i) * Self.stagger
-            withAnimation(reduceMotion ? .easeOut(duration: 0.3).delay(delay)
-                          : .spring(response: Self.flight, dampingFraction: 0.78).delay(delay)) {
+            withAnimation(reduceMotion ? Theme.stageMoveReduced.delay(delay) : Theme.stageMove.delay(delay)) {
                 _ = flown.insert(i)
             }
         }

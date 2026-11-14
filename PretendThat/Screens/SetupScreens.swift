@@ -6,6 +6,8 @@ import NutmegCore
 struct HelloView: View {
     let model: AppModel
     var onGrownUps: () -> Void = {}
+    /// Round 11: the tap on "Let's play!" (the exit starts): RootView slides the rail and pill in on the same move.
+    var onExitBegan: () -> Void = {}
     /// Six of the ten toys, a new mix each launch (fixed while a DEBUG frame is frozen).
     @State private var toys: [String] = {
         #if DEBUG
@@ -18,7 +20,9 @@ struct HelloView: View {
 
     var body: some View {
         GeometryReader { geo in
-            PTToyChestScene(toys: toys, frozenAt: freeze, handoff: handoff(geo),
+            PTToyChestScene(toys: toys, frozenAt: freeze, handoff: handoff(geo, .arrival), camera: handoff(geo, firstFrame),
+                            stageStars: stageStars(geo),
+                            onExitBegan: onExitBegan,
                             onIntroFinished: { withAnimation(.easeOut(duration: 0.35)) { introDone = true } },
                             onGrownUps: onGrownUps,
                             onStart: { Task { await model.startConversation() } }) { look in
@@ -36,16 +40,38 @@ struct HelloView: View {
         }
     }
 
-    /// Where the conversation screen will draw Nutmeg (arrival shot, chrome showing), in global coordinates: this view
-    /// has the same frame the conversation stage gets, so she lands exactly there.
-    private func handoff(_ geo: GeometryProxy) -> CGRect {
+    /// Round 11: the game's first framing, so the exit's camera push lands on it and the game has nothing left to zoom:
+    /// the talking close-up when the voice conversation will run, else the arrival (the tap screens take over there).
+    private var firstFrame: PTStageFrame { model.opensInCloseUp ? .closeUp : .arrival }
+
+    /// Where the conversation screen will draw Nutmeg for `frame` (chrome showing), in global coordinates: this view has
+    /// the same frame the conversation stage gets, so she lands exactly there.
+    private func handoff(_ geo: GeometryProxy, _ frame: PTStageFrame) -> CGRect {
+        let L = PTStageCamera.layout(frame, stageGeometry(geo), faceFocus: model.nutmegRestPose.faceFocus)
+        let o = geo.frame(in: .global).origin
+        return CGRect(x: o.x + L.origin.x, y: o.y + L.origin.y, width: L.canvas.width, height: L.canvas.height)
+    }
+
+    /// Round 11: the stage stars the game shows on its first framing (global), so the exit grows them in with the camera
+    /// and the game stage takes them over in place (no pop after the landing). Same math as `PTStageView`.
+    private func stageStars(_ geo: GeometryProxy) -> [PTStartStageStar] {
+        let g = stageGeometry(geo)
+        let comp = PTStageCamera.compose(firstFrame, g, faceFocus: model.nutmegRestPose.faceFocus)
+        let o = geo.frame(in: .global).origin
+        return PTStageCamera.stars.compactMap { star in
+            let side = min(star.size * comp.reference.k, star.maxPoints) * comp.world.parallaxScale
+            let p = comp.world.apply(comp.reference.screen(star.point), parallax: 0.7)
+            guard comp.nutmeg.starFits(p, side: side, in: g.size, leadingInset: g.leadingInset, bottomInset: g.bottomInset) else { return nil }
+            return PTStartStageStar(asset: star.asset, tilt: star.tilt, center: CGPoint(x: o.x + p.x, y: o.y + p.y), side: side)
+        }
+    }
+
+    private func stageGeometry(_ geo: GeometryProxy) -> PTStageGeometry {
         let full = CGSize(width: geo.size.width + geo.safeAreaInsets.leading + geo.safeAreaInsets.trailing,
                           height: geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom)
         let g = PTStageGeometry(size: geo.size, leadingInset: PTStageCamera.chromeLeading, bottomInset: PTStageCamera.chromeBottom,
                                 floor: PTStage.floor(full).offsetBy(dx: -geo.safeAreaInsets.leading, dy: -geo.safeAreaInsets.top))
-        let L = PTStageCamera.layout(.arrival, g)
-        let o = geo.frame(in: .global).origin
-        return CGRect(x: o.x + L.origin.x, y: o.y + L.origin.y, width: L.canvas.width, height: L.canvas.height)
+        return g
     }
 
     private var freeze: Double? {

@@ -123,7 +123,7 @@ private struct PopIn: ViewModifier {
             .offset(y: shown || reduceMotion ? 0 : 24)
             .opacity(shown ? 1 : 0)
             .onAppear {
-                withAnimation(reduceMotion ? Theme.gentle : Theme.springy.delay(Double(index) * Theme.stagger)) { shown = true }
+                withAnimation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove) { shown = true }   // round 11: together, no stagger
             }
     }
 }

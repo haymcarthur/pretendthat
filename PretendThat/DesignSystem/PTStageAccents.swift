@@ -36,8 +36,7 @@ struct PTStageAccents: View {
                         .rotationEffect(.degrees(spot.tilt))
                         .scaleEffect(appeared ? (bounce ? 1.18 : 1) : 0.2)
                         .opacity(appeared ? 1 : 0)
-                        .animation(reduceMotion ? .easeOut(duration: 0.2)
-                                   : .spring(response: 0.42, dampingFraction: 0.55).delay(Double(i) * 0.08), value: appeared)
+                        .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: appeared)   // round 11: no stagger
                         .animation(.spring(response: 0.25, dampingFraction: 0.4), value: bounce)
                         .position(x: geo.size.width / 2 + side * spot.x, y: geo.size.height / 2 + side * spot.y)
                 }

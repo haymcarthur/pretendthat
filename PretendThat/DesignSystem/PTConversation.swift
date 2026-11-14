@@ -134,7 +134,9 @@ struct PTStageStar: View {
     var index = 0
     @Environment(\.ptCelebrate) private var celebrate
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var appeared = false
+    /// Round 11: no pop-in of its own: the start screen's exit grows the stars in on its camera move, and later framings
+    /// show / hide them with the camera (opacity on `Theme.stageMove`), so nothing pops after a move.
+    @State private var appeared = true
     @State private var bounce = false
 
     var body: some View {
@@ -142,8 +144,7 @@ struct PTStageStar: View {
             .rotationEffect(.degrees(tilt))
             .scaleEffect(appeared ? (bounce ? 1.18 : 1) : 0.2)
             .opacity(appeared ? 1 : 0)
-            .animation(reduceMotion ? .easeOut(duration: 0.2)
-                       : .spring(response: 0.42, dampingFraction: 0.55).delay(Double(index) * 0.08), value: appeared)
+            .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: appeared)   // round 11: together, no 80 ms stagger
             .animation(.spring(response: 0.25, dampingFraction: 0.4), value: bounce)
             .onAppear { appeared = true }
             .onChange(of: celebrate) { _, _ in

@@ -81,10 +81,7 @@ struct SceneView: View {
                 PTSceneDoneButton(allChecked: store.checkedSteps.count == n, busy: store.autoChecking) { Task { await store.sceneDone() } }
                     .frame(width: Self.width)
             }
-            .task {
-                try? await Task.sleep(for: .milliseconds(60))   // round 10: with the camera move (was 350 ms after)
-                revealed = true
-            }
+            .onAppear { revealed = true }   // round 11: in the same frame as the camera move (round 10: 60 ms after)
         }
     }
 }

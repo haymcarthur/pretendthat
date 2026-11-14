@@ -71,9 +71,10 @@ The map. Read this first, then open only what you need.
 - [Round 8 build: tie-backs, new wave, clipboard in front of the head, writing body + zoom out, star sparkle, faster toys, hand-off button, checklist fit](decisions/round8-art-polish.md): Haylee (Claude's calls noted)
 - [Round 9 build: game survives lock/background (silent reconnect with state), sleepy Nutmeg, hand-off voice confirm](decisions/round9-sleepy-and-lock.md): Haylee (Claude's calls noted)
 - [Round 10 build: clipboard layer = board only, tie-backs inward, twinkle removed, writing shot, Go play removed, Done auto-check + Back, pinned hand-off/compact checklist, prop-card framing for the checklist, one shared stage animation](decisions/round10-review-fixes.md): Haylee (Claude's calls noted)
+- [Round 11: start-screen choreography (wiggle during curtains, logo + button pop with Nutmeg), every transition one move, stage audit](decisions/round11-start-and-transitions.md): Haylee (Claude's calls noted)
 
 ## Work queue
-- [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–10 done (round 10 = Haylee's review fixes)
+- [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–11 done (round 11 = start choreography, one-move transitions, stage audit)
 
 ## Research
 - [Competitor analysis](research/competitor-analysis.md): competitors, white space, novelty angles, pricing

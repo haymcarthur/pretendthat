@@ -90,6 +90,14 @@ final class AppModel {
     // MARK: Voice conversation
 
     var hasRealtime: Bool { openAIKey != nil }
+    /// Round 11: the game opens on the talking close-up (voice conversation), so the start screen's exit pushes its
+    /// camera there. Without voice the tap screens take over from the arrival framing.
+    var opensInCloseUp: Bool {
+        #if DEBUG
+        if DemoDriver.autoStart { return true }
+        #endif
+        return hasRealtime
+    }
 
     /// Grown-ups: hear `voice` say the sample line through the conversation's audio path and pitch settings.
     func auditionVoice(_ voice: String) async {
@@ -112,6 +120,9 @@ final class AppModel {
 
     /// "Let's play!": start the conversation; if Realtime can't connect, fall back to the tap screens.
     func startConversation() async {
+        #if DEBUG
+        if DemoDriver.autoStart { forceConversation = true; store.beginConversation(); return }   // frame strips: no voice
+        #endif
         store.beginConversation()
         guard let key = openAIKey else { await store.start(); return }
         // Fresh suggestions every session (round 7): 3 games picked now (never last session's), injected as today's ideas.

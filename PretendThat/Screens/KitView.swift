@@ -16,9 +16,8 @@ struct KitView: View {
     @State private var landed = false
     /// The papers fly out only once the WHOLE kit is final: every page's AI art landed or definitively fell back
     /// (never the fallback first and then a swap). Until then Nutmeg colors (no-text-overlays.md).
-    private var revealed: Bool { model.kitFinal && model.kitBeat == .papers && cameraSettled }
-    /// The papers launch once the camera has zoomed out (she looks up, the crayon goes down, then the zoom).
-    @State private var cameraSettled = false
+    /// Round 11: the papers launch in the same frame as the camera's zoom-out (one move; round 10 waited 60 ms).
+    private var revealed: Bool { model.kitFinal && model.kitBeat == .papers }
     private var store: AdventureStore { model.store }
 
     private var pages: [KitPage] { model.kitPages }
@@ -61,9 +60,11 @@ struct KitView: View {
                         Button("Let's play!") { store.beginPlay() }.buttonStyle(.ptSecondary)
                     }
                     .frame(height: rowH)
-                    .opacity(landed && !chatOpen ? 1 : 0)
-                    .scaleEffect(landed && !chatOpen ? 1 : 0.8)
-                    .allowsHitTesting(landed && !chatOpen)
+                    // Round 11: the buttons come in WITH the papers (one move), not after they land.
+                    .opacity(revealed && !chatOpen ? 1 : 0)
+                    .scaleEffect(revealed && !chatOpen ? 1 : 0.8)
+                    .allowsHitTesting(revealed && !chatOpen)
+                    .animation(Theme.stageMove, value: revealed)
                     .position(x: geo.size.width / 2, y: geo.size.height / 2 + fanTop - Self.buttonGap - rowH / 2)
                 }
             }
@@ -71,7 +72,7 @@ struct KitView: View {
             .opacity(chatOpen ? 0 : 1)
             .scaleEffect(chatOpen ? 0.6 : 1, anchor: .topTrailing)
             .allowsHitTesting(!chatOpen)
-            .animation(.spring(response: 0.5, dampingFraction: 0.85), value: chatOpen)
+            .animation(Theme.stageMove, value: chatOpen)   // round 11: the chat panel's own spring
         }
         .animation(Theme.bouncy, value: landed)
         .ptPagePreview($preview, count: pages.count) { i in
@@ -83,10 +84,5 @@ struct KitView: View {
         #endif
         .onChange(of: revealed) { _, r in if !r { landed = false } }
         .onChange(of: landed) { _, l in if l && store.phase == .kitReady { onCelebrate() } }
-        .task(id: model.kitBeat == .papers) {
-            guard model.kitBeat == .papers else { cameraSettled = false; return }
-            try? await Task.sleep(for: .milliseconds(60))   // round 10: papers fly with the zoom (was 650 ms after it)
-            cameraSettled = true
-        }
     }
 }
