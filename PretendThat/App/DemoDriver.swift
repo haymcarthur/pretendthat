@@ -73,6 +73,7 @@ enum DemoDriver {
                 calm = model.realtime.isSpeaking || model.realtime.isBusy || model.beat != .none ? 0 : calm + 1
             }
             // "#wait N": stay quiet N seconds (checks the spoken-only silence reminder, round 7).
+            rtLog("driver: \(turn)")
             if turn.hasPrefix("#wait "), let secs = Double(turn.dropFirst(6)) {
                 try? await Task.sleep(for: .seconds(secs))
                 for _ in 0..<100 where model.realtime.isSpeaking { try? await Task.sleep(for: .milliseconds(100)) }
@@ -87,7 +88,8 @@ enum DemoDriver {
                 continue
             }
             guard model.store.phase != .makingKit else { rtLog("(kit being made, skipped: \(turn))"); continue }
-            model.realtime.sendText(turn)
+            // Round 9: typed like the chat panel (wakes a sleepy Nutmeg first).
+            if AppModel.isPlanning(model.store.phase) { await model.typed(turn) } else { model.realtime.sendText(turn) }
         }
         // Dump the chat panel's lines (what the kid sees), so live runs can show what's in the transcript.
         for _ in 0..<100 where !model.realtime.isSpeaking { try? await Task.sleep(for: .milliseconds(100)) }

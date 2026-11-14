@@ -70,8 +70,10 @@ public enum IdleMotion {
         abs((sin(n * 12.9898 + salt * 78.233) * 43758.5453).truncatingRemainder(dividingBy: 1))
     }
     /// Body breathing scale (1 ± 1.2%).
-    public static func breathe(_ t: Double, napping: Bool = false, reduced: Bool = false) -> Double {
-        1 + 0.012 * sin(t * 2 * .pi / (napping ? 4.5 : 3.5)) * (reduced ? 0.5 : 1)
+    public static func breathe(_ t: Double, napping: Bool = false, reduced: Bool = false, asleep: Bool = false) -> Double {
+        // Asleep (sleepy Nutmeg, round 9): slow deep breaths.
+        if asleep { return 1 + 0.024 * sin(t * 2 * .pi / 5.5) * (reduced ? 0.5 : 1) }
+        return 1 + 0.012 * sin(t * 2 * .pi / (napping ? 4.5 : 3.5)) * (reduced ? 0.5 : 1)
     }
     /// Eyes closed right now (a 130 ms blink once per 5.5 s window).
     public static func blink(_ t: Double) -> Bool {

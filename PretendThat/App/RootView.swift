@@ -9,6 +9,8 @@ struct RootView: View {
     @State private var showTyping = false
     @State private var chatOpen = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Round 9: lock / background never ends the game; only the audio pauses (AppModel.scenePhaseChanged).
+    @Environment(\.scenePhase) private var scenePhase
     @State private var cameraShot: PTCameraShot = .wide   // the arrival shot
     @State private var lastShotChange = Date.distantPast
     @State private var shotTask: Task<Void, Never>?
@@ -107,6 +109,9 @@ struct RootView: View {
             default: break
             }
         }
+        .onChange(of: scenePhase) { _, phase in model.scenePhaseChanged(phase) }
+        .onChange(of: store.phase) { _, _ in model.updateIdleTimer() }
+        .onChange(of: model.kitPapersOut) { _, _ in model.updateIdleTimer() }
         .onChange(of: desiredShot) { _, _ in scheduleShot() }
         // Round 7: the point toward a prop card is tied to the card's reveal and her prop line (AppModel.pointAtCard).
         .onChange(of: model.inConversation) { _, live in

@@ -69,9 +69,10 @@ The map. Read this first, then open only what you need.
 - [Art: clipboard above head, arm-in-front wave, head stays, writing body](decisions/2026-11-13-art-layering-and-head.md): Haylee
 - [Approved polish: star sparkle, tie-backs, sleepy Nutmeg, game survives lock](decisions/2026-11-13-stage-polish-ideas-approved.md): Haylee
 - [Round 8 build: tie-backs, new wave, clipboard in front of the head, writing body + zoom out, star sparkle, faster toys, hand-off button, checklist fit](decisions/round8-art-polish.md): Haylee (Claude's calls noted)
+- [Round 9 build: game survives lock/background (silent reconnect with state), sleepy Nutmeg, hand-off voice confirm](decisions/round9-sleepy-and-lock.md): Haylee (Claude's calls noted)
 
 ## Work queue
-- [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–8 done; round 9 = sleepy Nutmeg + lock/background (voice confirm on the hand-off still open)
+- [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–9 done (round 9 = lock/background, sleepy Nutmeg, hand-off voice confirm)
 
 ## Research
 - [Competitor analysis](research/competitor-analysis.md): competitors, white space, novelty angles, pricing

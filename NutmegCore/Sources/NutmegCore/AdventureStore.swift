@@ -386,6 +386,12 @@ public final class AdventureStore {
             guard phase == .kitReady else { return "Not yet: the kit isn't ready. Say only \"Almost ready!\"" }
             beginPlay()
             return "Play started. The app runs the scenes now. Say nothing."
+        case .confirmHandoff:
+            guard case .handoff(let i) = phase, let owner = kit?.scenes[i].owner.role else {
+                return "There's no hand-off right now. Answer in ONE short line."
+            }
+            badgeTapped(owner)
+            return "Hand-off confirmed: the scene starts and the app says its line. Say nothing."
         case .printKit:
             return "The print screen is open. Say one short line like \"Here's the print screen!\""
         }

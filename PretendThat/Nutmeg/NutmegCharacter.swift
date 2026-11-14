@@ -244,14 +244,20 @@ private struct Motion {
     init(state: NutmegState, t: Double, reduced: Bool, speaking: Bool = false, level: Float = 0) {
         let k: Double = reduced ? 0 : 1
         // Breathing (Haylee): a very subtle scale on the BODY only, anchored at her feet; no vertical translation.
-        breathe = CGFloat(IdleMotion.breathe(t, napping: state == .napping, reduced: reduced))
+        breathe = CGFloat(IdleMotion.breathe(t, napping: state == .napping || state == .drowsy, reduced: reduced, asleep: state == .asleep))
         tailSwing = 2.5 * sin(t * 0.9) * k
         // Blink: once per 4–7 s window at a random moment, 130 ms long.
         blink = IdleMotion.blink(t)
+        // Drowsy (round 9): eyes droop: slow, heavy blinks that stay shut longer each time (0.5 s → 1.1 s of a 1.9 s cycle).
+        if state == .drowsy {
+            let c = t.truncatingRemainder(dividingBy: 1.9)
+            let shut = 0.5 + 0.6 * (0.5 + 0.5 * sin(t * 0.7))
+            blink = c > 1.9 - shut
+        }
         // Ear twitch: about every 9 s, a quick 160 ms flick (not while napping).
         let eCycle = floor(t / 9)
         let eAt = eCycle * 9 + 1 + Self.noise(eCycle, 2) * 7
-        if state != .napping, t >= eAt, t - eAt < 0.16 { headTilt += 1.5 * sin((t - eAt) / 0.16 * .pi) * k }
+        if !state.isSeated, t >= eAt, t - eAt < 0.16 { headTilt += 1.5 * sin((t - eAt) / 0.16 * .pi) * k }
         oohBeat = Int(t * 7) % 7 == 0
 
         switch state {
@@ -270,8 +276,12 @@ private struct Motion {
             let c = (t / 1.7).truncatingRemainder(dividingBy: 1)
             if c < 0.18 { nod = CGFloat(2 * sin(c / 0.18 * .pi) * k) }
             headTilt += 1 * sin(t * 1.1) * k
-        case .idle, .napping:
+        case .idle, .napping, .sitting:
             break
+        case .drowsy:
+            stateTilt = -2   // the head starts to nod down
+        case .asleep:
+            stateTilt = -3
         }
         // Talking: only a very small head nod (≤ 2 pt, ≤ 2°) loosely tied to speech energy; the body stays planted
         // (no whole-body bounce, whatever face she's making).

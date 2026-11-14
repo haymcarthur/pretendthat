@@ -265,6 +265,9 @@ public enum Realtime {
            + "it\"). Does exactly what tapping Let's play! does.", [:], required: []),
         fn("print_kit", "PRINT STEP only: the kids want to print (\"print it\"). Opens the iOS print screen, like tapping Print.",
            [:], required: []),
+        fn("confirm_handoff", "PLAY STEP hand-off only: the kid holding the iPad says they're the role it was passed to "
+           + "(\"I'm the Captain\", \"I've got it\"). Does exactly what tapping the I'm the Captain! button does. Say nothing.",
+           [:], required: []),
         fn("start_planning", "Silent: you write the roles and the prop list on your clipboard for a moment (call it ONCE, "
            + "right before set_roles). When it returns, call set_roles, then show_next_prop, then announce both.",
            ["topic": ["type": "string", "enum": ["roles", "props"]]], required: ["topic"]),
@@ -439,6 +442,8 @@ public enum PlanningCall: Equatable, Sendable {
     case skipProp(String)
     case finishPlanning
     case justTalk, startPlay, printKit
+    /// Round 9: "I'm the Captain" by voice on the hand-off card, same as tapping the button.
+    case confirmHandoff
 
     public static func decode(name: String, arguments: String) -> PlanningCall? {
         let a = (try? JSONSerialization.jsonObject(with: Data(arguments.utf8)) as? [String: Any]) ?? [:]
@@ -484,6 +489,7 @@ public enum PlanningCall: Equatable, Sendable {
         case "just_talk": return .justTalk
         case "start_play": return .startPlay
         case "print_kit": return .printKit
+        case "confirm_handoff": return .confirmHandoff
         default: return nil
         }
     }

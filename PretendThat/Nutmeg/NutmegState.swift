@@ -7,6 +7,9 @@ import NutmegCore
 /// coloring is the kit/checklist wait (D6).
 enum NutmegState: String, CaseIterable, Identifiable {
     case idle, listening, thinking, talking, excited, amazed, oops, napping, coloring
+    /// Sleepy Nutmeg (round 9): nobody answered after the reminder + ~30 s. She sits down (eyes open), her eyes droop
+    /// (slow heavy blinks), then she's asleep (nap face, slow deep breathing). No text, no "z"s.
+    case sitting, drowsy, asleep
     var id: String { rawValue }
 
     /// Face and ears per state. The BODY pose is separate (decision mascot-nutmeg.md): idle is the resting default
@@ -22,6 +25,9 @@ enum NutmegState: String, CaseIterable, Identifiable {
         case .amazed: NutmegLook(face: .ooh, ears: .perked)
         case .oops: NutmegLook(face: .oops, ears: .flop)
         case .napping: NutmegLook(face: .nap, ears: .normal)
+        case .sitting: NutmegLook(face: .happy, ears: .normal)
+        case .drowsy: NutmegLook(face: .happy, ears: .normal)   // heavy slow blinks to the nap eyes (NutmegCharacter Motion)
+        case .asleep: NutmegLook(face: .nap, ears: .normal)
         // Coloring (planning beats, kit): eyes down on the clipboard (focus art when it's imported, thinking until then).
         case .coloring: NutmegLook(face: NutmegFace.writing, ears: .normal)
         }
@@ -29,11 +35,13 @@ enum NutmegState: String, CaseIterable, Identifiable {
 
     /// The resting body pose for this state.
     var basePose: NutmegPose {
-        NutmegPose(PoseRules.base(napping: self == .napping, coloring: self == .coloring))
+        NutmegPose(PoseRules.base(napping: isSeated, coloring: self == .coloring))
     }
+    /// The sit pose: the step-back nap and the three sleepy stages.
+    var isSeated: Bool { self == .napping || self == .sitting || self == .drowsy || self == .asleep }
     /// The resting pose with the kit step's clipboard hold (`PoseRules.holdsClipboard`).
     func basePose(holdingClipboard: Bool) -> NutmegPose {
-        NutmegPose(PoseRules.base(napping: self == .napping, coloring: self == .coloring, clipboard: holdingClipboard))
+        NutmegPose(PoseRules.base(napping: isSeated, coloring: self == .coloring, clipboard: holdingClipboard))
     }
 }
 

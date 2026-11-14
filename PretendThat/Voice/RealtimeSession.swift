@@ -182,6 +182,82 @@ final class RealtimeSession {
     @ObservationIgnored private let playFormat = AVAudioFormat(standardFormatWithSampleRate: Realtime.sampleRate, channels: 1)!
 
     var isLive: Bool { status == .live }
+
+    // MARK: Lock / background (round 9, Haylee: only fully closing the app ends the game)
+
+    /// The app is in the background: audio is stopped, and a socket that drops meanwhile is only noted (no failure),
+    /// so nothing in the game resets. `resumeIfAlive()` restarts the audio, or the app reconnects silently.
+    private(set) var suspended = false
+    @ObservationIgnored private var socketDropped = false
+    @ObservationIgnored private var echoCancel = false
+    /// The socket dropped while the app was in the foreground (session time limit, network): the app reconnects
+    /// silently with the current state. Return true when it will (then the session doesn't fail).
+    @ObservationIgnored var onDropped: (@MainActor () -> Bool)?
+    /// Sleepy Nutmeg (round 9): when the ONE silence reminder finished playing (nil once anyone talks again).
+    private(set) var reminderDoneAt: Date?
+    @ObservationIgnored private var reminderAwaitingEnd = false
+    /// A silent note sent with the next kid turn (the wake-up note after she dozed off).
+    @ObservationIgnored var noteForNextKidTurn: String?
+
+    /// Background: end a push-to-talk hold (cleared, nothing sent), stop her mid-line (truncated at what was heard),
+    /// stop the mic and the speaker. The socket stays open if it can; the chat and every game state stay in memory.
+    func suspend() {
+        guard status == .live || status == .connecting, !suspended else { return }
+        suspended = true
+        if holdStartedAt != nil {
+            socket?.send(Realtime.inputClear)
+            holdStartedAt = nil; kidIsTalking = false; releaseTask?.cancel(); releaseTask = nil
+            rtLog("background: hold ended, input cleared")
+        }
+        if responseActive || isSpeaking { interrupt() }
+        silenceTask?.cancel(); gapTask?.cancel(); thinkingGap = false
+        stopAudio()
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        rtLog("background: audio stopped, socket kept")
+        #if DEBUG
+        // `-PTDropOnBackground`: close the socket on background, to exercise the silent reconnect in the simulator.
+        if ProcessInfo.processInfo.arguments.contains("-PTDropOnBackground") { socket?.close() }
+        #endif
+    }
+
+    /// Foreground: true when the socket is still alive (a ping answers) and the audio is back; false when the app must
+    /// reconnect (`connect(..., keepChat: true)` with the resume instructions).
+    func resumeIfAlive() async -> Bool {
+        guard suspended else { return isLive }
+        suspended = false
+        let alive = !socketDropped && socket != nil ? await socket!.ping() : false
+        guard alive, status == .live else {
+            rtLog("foreground: socket gone (dropped=\(socketDropped)), reconnect needed")
+            return false
+        }
+        do { try startAudio(echoCancel: echoCancel) } catch { rtLog("foreground: audio restart failed: \(error.localizedDescription)"); return false }
+        updateGate()
+        rtLog("foreground: socket alive, audio restarted")
+        startSilenceTimer()
+        return true
+    }
+
+    /// After a silent reconnect: the writing beat already planned the props if they exist (no second beat), and the
+    /// normal silence rules continue (no re-ask if the one reminder was already used).
+    func resumed(propsPlanned planned: Bool) {
+        propsPlanned = planned
+        startSilenceTimer()
+    }
+
+    private func stopAudio() {
+        mic.stop()
+        if let configObserver { NotificationCenter.default.removeObserver(configObserver) }
+        configObserver = nil
+        if let engine {
+            engine.inputNode.removeTap(onBus: 0)
+            player.stop()
+            engine.stop()
+        }
+        engine = nil
+        speakingUntil = .distantPast; tailTask?.cancel()
+        isSpeaking = false; level = 0
+        resetMouth()
+    }
     /// A response is running, a writing beat is on, or her reply is still due (live-test driver waits on this).
     var isBusy: Bool { gate.active || beatRunning || awaitingReply || reminderPending }
 
@@ -189,9 +265,10 @@ final class RealtimeSession {
 
     /// Connects, configures the session and starts the audio. Returns false (with `status = .failed`) on any problem.
     func connect(apiKey: String, voice: String, shape: VoiceShape, speed: Double, echoCancel: Bool = false,
-                 instructions: String = Realtime.instructions) async -> Bool {
+                 instructions: String = Realtime.instructions, keepChat: Bool = false) async -> Bool {
         disconnect()
-        chat.clear()
+        if !keepChat { chat.clear() }   // a silent reconnect (round 9) keeps the transcript
+        self.echoCancel = echoCancel
         status = .connecting
         lastError = nil
         guard await AVAudioApplication.requestRecordPermission() else {
@@ -232,15 +309,8 @@ final class RealtimeSession {
     func disconnect() {
         receiveTask?.cancel(); receiveTask = nil
         socket?.close(); socket = nil
-        mic.stop()
-        if let configObserver { NotificationCenter.default.removeObserver(configObserver) }
-        configObserver = nil
-        if let engine {
-            engine.inputNode.removeTap(onBus: 0)
-            player.stop()
-            engine.stop()
-        }
-        engine = nil
+        stopAudio()
+        suspended = false; socketDropped = false; reminderAwaitingEnd = false; reminderDoneAt = nil
         speakingUntil = .distantPast; tailTask?.cancel(); pendingOutputs = []; gate = ResponseGate()
         isSpeaking = false; kidIsTalking = false; level = 0
         holdStartedAt = nil; releaseTask?.cancel(); releaseTask = nil; audioItemID = nil; audioItemStart = nil; dropAudio = false
@@ -300,6 +370,7 @@ final class RealtimeSession {
         releaseTask?.cancel(); releaseTask = nil
         if responseActive || isSpeaking { interrupt() }
         silenceTask?.cancel()
+        reminderDoneAt = nil
         holdStartedAt = Date()
         kidIsTalking = true
         rtLog("ptt: hold")
@@ -361,7 +432,7 @@ final class RealtimeSession {
     }
 
     func say(_ line: String) {
-        guard let socket, isLive, !line.isEmpty else { return }
+        guard let socket, isLive, !suspended, !line.isEmpty else { return }
         chat.breakTurn()   // each app line (kit progress, ready line) is its own bubble
         socket.send(Realtime.sayExactly(line))
     }
@@ -399,6 +470,16 @@ final class RealtimeSession {
     private func socketClosed() {
         guard status == .live else { return }
         let reason = socket?.firstError ?? "Connection closed"
+        if suspended {
+            // Round 9: in the background a drop is only noted; the app reconnects silently on return.
+            socketDropped = true
+            rtLog("socket closed in background (\(reason)): reconnect on return")
+            return
+        }
+        if onDropped?() == true {
+            rtLog("socket closed (\(reason)): silent reconnect")
+            return
+        }
         _ = fail(reason)
     }
 
@@ -468,6 +549,8 @@ final class RealtimeSession {
     // MARK: Expressions (decisions/conversation-camera-and-expressions.md)
 
     private func kidTurnEnded() {
+        reminderDoneAt = nil; reminderAwaitingEnd = false
+        if let note = noteForNextKidTurn { noteForNextKidTurn = nil; socket?.send(Realtime.systemNote(note)); rtLog("note: woke up") }
         gate.newTurn()
         forcedTools = onKidTurnTools?()
         if forcedTools == nil, let note = onPostPlanningTurn?() { socket?.send(Realtime.systemNote(note)) }
@@ -511,7 +594,11 @@ final class RealtimeSession {
         let hunting = huntMode
         guard micWanted, reasks < 1 else { return }   // ONE short reminder per question, then quiet until the kid talks
         silenceTask = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(hunting ? 45 : 20))   // push-to-talk: time to find the button   // the hunt takes a while: one gentle check-in
+            var wait: Double = hunting ? 45 : 20
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("-PTDozeFast") { wait = 4 }   // sleepy-Nutmeg check runs
+            #endif
+            try? await Task.sleep(for: .seconds(wait))   // push-to-talk: time to find the button   // the hunt takes a while: one gentle check-in
             guard let self, !Task.isCancelled, self.isLive, self.micWanted, !self.isSpeaking, self.holdStartedAt == nil,
                   !self.awaitingReply, !self.responseActive, !self.beatRunning, let line = self.onSilence?() else { return }
             // Round 7: a fixed out-of-band line in her voice; its own chat bubble.
@@ -622,6 +709,7 @@ final class RealtimeSession {
             rtLog("done speaking, peak mouth level \(String(format: "%.2f", self.peak))")
             self.level = 0
             self.mouthQueue = []
+            if self.reminderAwaitingEnd { self.reminderAwaitingEnd = false; self.reminderDoneAt = Date(); rtLog("reminder finished playing") }
             self.startSilenceTimer()
             // Her turn's face ends with her turn (held at least 1 s).
             if Date().timeIntervalSince(self.expressionSetAt) >= 1 { self.expressionTask?.cancel(); self.expression = nil }
@@ -643,7 +731,7 @@ final class RealtimeSession {
         }
         #endif
         switch event {
-        case .audioDelta where dropAudio || holdStartedAt != nil || silentResponse:
+        case .audioDelta where dropAudio || holdStartedAt != nil || silentResponse || suspended || engine == nil:
             break   // the kid interrupted this response (or is holding the mic): never play it
         case .audioDelta(let data):
             if audioItemStart == nil { audioItemStart = max(scheduledEnd, currentSample()) }
@@ -651,6 +739,7 @@ final class RealtimeSession {
             responseHadAudio = true
             audioResponseSerial = responseSerial
             silenceTask?.cancel()
+            if !reminderPlaying { reminderDoneAt = nil; reminderAwaitingEnd = false }
             replyBegan()
             play(data)
         case .transcriptDelta where silentResponse, .transcriptDone where silentResponse:
@@ -720,6 +809,7 @@ final class RealtimeSession {
         case .responseDone where reminderPlaying:
             // The spoken-only reminder ended: no turn check, no follow-up unless the kid asked meanwhile.
             reminderPlaying = false
+            reminderAwaitingEnd = true   // sleepy Nutmeg's clock starts when its audio has finished (round 9)
             chat.breakTurn()   // her next reply starts its own bubble too
             if gate.done(allowFollowUp: holdStartedAt == nil && !beatRunning) { socket?.send(Realtime.responseCreate) }
         case .responseDone:
@@ -889,6 +979,19 @@ final class RealtimeSocket: @unchecked Sendable {
         task.cancel(with: .normalClosure, reason: nil)
         continuation.finish()
         resolveReady(false)
+    }
+
+    /// Round 9: is the socket still alive after the app was in the background? (a pong within 3 s)
+    func ping() async -> Bool {
+        final class Once: @unchecked Sendable {
+            private let lock = NSLock(); private var done = false
+            func claim() -> Bool { lock.withLock { if done { return false }; done = true; return true } }
+        }
+        let once = Once()
+        return await withCheckedContinuation { c in
+            task.sendPing { error in if once.claim() { c.resume(returning: error == nil) } }
+            DispatchQueue.global().asyncAfter(deadline: .now() + 3) { if once.claim() { c.resume(returning: false) } }
+        }
     }
 
     func waitForReady() async -> Bool {

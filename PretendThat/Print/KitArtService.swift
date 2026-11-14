@@ -66,6 +66,19 @@ final class KitArtService {
         isGenerating = true
         finished = false
         defer { isGenerating = false; finished = true }
+        // Round 9: a request that failed for a network reason (the iPad was locked or the app went to the background
+        // mid-kit) is retried once the app is active again. The kit stays not-final meanwhile, so the papers and the
+        // kit-ready line wait for it (and play once).
+        for attempt in 0..<3 {
+            let transient = await runMissingJobs(kit: kit, gameTitle: gameTitle, client: client)
+            guard transient > 0, client.unavailableReason == nil, attempt < 2 else { break }
+            while UIApplication.shared.applicationState != .active { try? await Task.sleep(for: .milliseconds(500)) }
+            NSLog("[RT] kit art: retrying %d page(s) after a network failure", transient)
+        }
+    }
+
+    /// Runs one image job per missing page/cut-out; returns how many failed for a network (transient) reason.
+    private func runMissingJobs(kit: Kit, gameTitle: String, client: ImageClient) async -> Int {
         // Job key: "<item id>" for a whole item, "<item id>#<n>" for one cut-out.
         var jobs: [(String, String, String)] = []
         for item in kit.items {
@@ -79,6 +92,7 @@ final class KitArtService {
         }
         progress = 0
         var done = 0
+        var transient = 0
         await withTaskGroup(of: (String, Result<Data, Error>).self) { group in
             for (id, prompt, size) in jobs {
                 group.addTask {
@@ -98,11 +112,13 @@ final class KitArtService {
                     else { lastResult = "Error: image data unreadable" }
                 case .failure(let e):
                     lastResult = "Error: \(client.unavailableReason ?? String(describing: e))"
+                    if e is URLError || (e as? ClaudeError) == .transport { transient += 1 }
                 }
                 done += 1
                 progress = Double(done) / Double(max(1, jobs.count))
             }
         }
+        return transient
     }
 }
 

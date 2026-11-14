@@ -62,11 +62,24 @@ final class AppModel {
             case .kitReady:
                 return "(Silent coaching, don't mention it.) The kit is ready on screen (print step). If they want to play, "
                     + "call start_play; if they want to print, call print_kit. Otherwise answer in ONE short line. No \"go play\" yet."
-            case .handoff, .scene, .stepBack, .end:
+            case .handoff(let i):
+                // Round 9: "I'm the Captain" by voice confirms the hand-off, same as tapping the card's button.
+                let role = self.store.kit.flatMap { k in k.scenes.indices.contains(i) ? k.scenes[i].owner.role : nil }
+                    .flatMap { self.store.plan?.role(for: $0)?.roleName } ?? "next player"
+                return "(Silent coaching, don't mention it.) The iPad is being passed to the \(role). If the kid says they're "
+                    + "the \(role) or that they've got the iPad, call confirm_handoff and say nothing. Otherwise answer in ONE "
+                    + "short line (remind them to tap I'm the \(role)!)."
+            case .scene, .stepBack, .end:
                 return "(Silent coaching, don't mention it.) They're playing now. Answer in ONE short, fun line that helps the "
                     + "current scene. No tools."
             default: return nil
             }
+        }
+        // Round 9: a drop in the foreground (session time limit, network) reconnects silently with the current state.
+        realtime.onDropped = { [weak self] in
+            guard let self, self.store.phase != .hello else { return false }
+            Task { await self.reconnectSilently() }
+            return true
         }
         realtime.onCall = { [weak self] name, args in
             guard let self else { return ("ok", true) }
@@ -103,6 +116,7 @@ final class AppModel {
         guard let key = openAIKey else { await store.start(); return }
         // Fresh suggestions every session (round 7): 3 games picked now (never last session's), injected as today's ideas.
         let games = suggestionMemory.pickGames()
+        todayGames = games
         #if DEBUG
         rtLog("today's games: \(games.map(\.id).joined(separator: ", "))")
         #endif
@@ -114,6 +128,7 @@ final class AppModel {
             realtime.micWanted = true
             gesture(.wave)
             realtime.kickOff(games: games)
+            startDozeWatch()
         } else {
             await store.start()   // tap screens (and the bundled airplane game if Claude is off too)
         }
@@ -122,6 +137,7 @@ final class AppModel {
     /// Leave activity: hang up and go home. Nothing is kept.
     func leave() {
         realtime.disconnect()
+        kitReadySaid = false; deferredLine = nil; doze.wake(); dozeStage = .awake; wokePop = false; endKitBackgroundTask()
         shownProps = 0; beat = .none; kitBeatTask?.cancel(); kitBeat = .coloring; kitWriting = false; kitWritingTask?.cancel(); kitWritingTask = nil
         voice.stop()
         art.reset()
@@ -131,6 +147,7 @@ final class AppModel {
 
     /// Typed fallback goes into the live conversation when there is one.
     func typed(_ text: String) async {
+        wakeUp()
         if realtime.isLive && Self.isPlanning(store.phase) { realtime.sendText(text); return }
         if realtime.isLive && store.phase != .makingKit { realtime.sendText(text); return }   // print step, play
         // Kit being made (round 7): a tiny "Almost ready!" at most, never a new conversation turn.
@@ -231,6 +248,7 @@ final class AppModel {
         }
         #endif
         kitBeatTask?.cancel()
+        if final { endKitBackgroundTask() }
         guard final else { kitBeat = .coloring; return }
         kitBeatTask = Task { @MainActor in
             // Writing never reads as a flicker: at least minKitWriting on the clipboard, even for an instant kit.
@@ -246,7 +264,10 @@ final class AppModel {
             guard !Task.isCancelled else { return }
             kitBeat = .papers                                   // zoom out; the papers fly once the camera settles
             // Round 7: the ready line only now that the whole kit exists; about printing, never "go play".
-            speak(AdventureStore.kitReadyLine)
+            // Round 9: exactly once, even across a lock/background (deferred until the session is back).
+            guard !kitReadySaid else { return }
+            kitReadySaid = true
+            speak(AdventureStore.kitReadyLine, deferIfAway: true)
         }
     }
 
@@ -278,7 +299,7 @@ final class AppModel {
         }
         if store.props == nil { shownProps = 0 }
         // finish_planning and start_play end her turn: the app speaks the kit and scene lines.
-        return (output, call != .finishPlanning && call != .startPlay)
+        return (output, call != .finishPlanning && call != .startPlay && call != .confirmHandoff)
     }
 
     /// Nutmeg's on-screen state, derived from everything that's happening.
@@ -286,6 +307,9 @@ final class AppModel {
         #if DEBUG
         if let s = DemoDriver.forcedState { return s }
         #endif
+        // Sleepy Nutmeg (round 9): sit → droop → asleep; a happy pop when woken.
+        if wokePop { return .excited }
+        switch dozeStage { case .sitting: return .sitting; case .drowsy: return .drowsy; case .asleep: return .asleep; case .awake: break }
         // Writing moment (round 5): focus face (eyes down at the clipboard) while she writes; she looks up happy after.
         if isWriting { return .coloring }
         if beat == .lookUp { return .idle }
@@ -414,12 +438,179 @@ final class AppModel {
 
     /// Nutmeg's voice for app-written lines. With a live Realtime session she keeps her conversation voice;
     /// during planning she speaks for herself, so app lines are skipped there.
-    func speak(_ text: String) {
+    func speak(_ text: String, deferIfAway: Bool = false) {
+        // Round 9: away (background, or reconnecting): an important line (kit ready) waits for the session; others drop.
+        if realtime.suspended || (realtime.status == .connecting && Self.wasLive(store.phase)) || resuming {
+            if deferIfAway { deferredLine = text; rtLog("line deferred until the session is back") }
+            return
+        }
         if realtime.isLive {
             if !Self.isPlanning(store.phase) { realtime.say(text) }
             return
         }
         Task { await voice.say(text) }
+    }
+
+    // MARK: Sleepy Nutmeg (round 9, Haylee)
+
+    @ObservationIgnored private var doze = DozeClock()
+    private(set) var dozeStage: DozeClock.Stage = .awake
+    /// The quick happy pop back to idle after she's woken.
+    private(set) var wokePop = false
+    @ObservationIgnored private var lastReminder: Date?
+    @ObservationIgnored private var dozeTask: Task<Void, Never>?
+
+    /// Watches the quiet after the one silence reminder during the conversation steps (twice a second; cheap).
+    private func startDozeWatch() {
+        guard dozeTask == nil else { return }
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-PTDozeFast") { doze.scale = 0.15 }   // 30 s → 4.5 s
+        #endif
+        dozeTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(500))
+                self?.dozeTick()
+            }
+        }
+    }
+
+    private func dozeTick() {
+        // Away or reconnecting: hold her as she is (no stand-up flicker while the session comes back).
+        if realtime.suspended || resuming || realtime.status == .connecting { return }
+        if let at = realtime.reminderDoneAt, at != lastReminder { lastReminder = at; doze.reminderFinished(at: at) }
+        let eligible = realtime.isLive && !realtime.suspended && Self.isPlanning(store.phase)
+            && DozeClock.sleepyStep(store.planningStep) && !isWriting && beat == .none && !realtime.isSpeaking
+            && !realtime.kidIsTalking && !realtime.isBusy && !realtime.propLinePending
+        let stage = doze.stage(at: Date(), eligible: eligible)
+        if stage != dozeStage { rtLog("doze: \(stage)"); dozeStage = stage }
+    }
+
+    /// The mic or typing wakes her: a quick happy pop back to idle, and (from drowsy/asleep) a silent note so she may say
+    /// a tiny "Oh! I'm awake!" before carrying on where she left off.
+    private func wakeUp() {
+        let was = dozeStage
+        doze.wake()
+        guard was != .awake else { return }
+        dozeStage = .awake
+        rtLog("doze: woken from \(was)")
+        if was >= .drowsy { realtime.noteForNextKidTurn = DozeClock.wakeNote }
+        wokePop = true
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1.2))
+            wokePop = false
+        }
+    }
+
+    // MARK: Lock / background (round 9, Haylee: only fully closing the app ends the game)
+
+    /// The game's state never depends on the scene phase: it all stays in memory. Background stops the audio (and a
+    /// held mic); foreground brings the session back silently, or reconnects with the current state injected.
+    @ObservationIgnored private var todayGames: [Suggestion] = []
+    /// The kit-ready line has been spoken (or is waiting for the session): it plays exactly once.
+    @ObservationIgnored private var kitReadySaid = false
+    @ObservationIgnored private var deferredLine: String?
+    private(set) var resuming = false
+    @ObservationIgnored private var kitBackgroundTask: UIBackgroundTaskIdentifier = .invalid
+    @ObservationIgnored private var lastReconnect = Date.distantPast
+
+    /// A conversation was running for this phase (planning with the session, or anything after it).
+    static func wasLive(_ phase: Phase) -> Bool { phase != .hello }
+
+    func scenePhaseChanged(_ phase: ScenePhase) {
+        switch phase {
+        case .background:
+            rtLog("scene: background (phase \(store.phase), step \(store.planningStep))")
+            realtime.suspend()
+            voice.stop()
+            scribble.setPlaying(false, ducked: false)
+            if listener.isListening { Task { _ = await listener.stopListening() } }
+            // In-flight kit requests (Claude kit, page art) get time to finish; failures are retried on return.
+            if store.phase == .makingKit || (store.phase == .kitReady && !kitFinal) { beginKitBackgroundTask() }
+        case .active:
+            rtLog("scene: active (phase \(store.phase), step \(store.planningStep))")
+            updateIdleTimer()
+            endKitBackgroundTask()
+            if realtime.suspended { Task { await resumeSession() } }
+            retryKitIfNeeded()
+            if isWriting { scribble.setPlaying(true, ducked: isSpeaking) }
+        default: break
+        }
+    }
+
+    /// The screen stays awake during the conversation and kit making; auto-lock is allowed in the Print and Play steps.
+    func updateIdleTimer() {
+        let awake = Self.isPlanning(store.phase) || store.phase == .makingKit || (store.phase == .kitReady && !kitPapersOut)
+        if UIApplication.shared.isIdleTimerDisabled != awake {
+            UIApplication.shared.isIdleTimerDisabled = awake
+            rtLog("idle timer disabled: \(awake)")
+        }
+    }
+
+    private func resumeSession() async {
+        if await realtime.resumeIfAlive() {
+            flushDeferredLine()
+            return
+        }
+        await reconnectSilently()
+    }
+
+    /// Reconnects with the CURRENT game in the instructions (step, choices, current prop, kit, latest lines). No kick-off:
+    /// no greeting, no repeated question, no new suggestions; she waits for the kid.
+    func reconnectSilently() async {
+        guard let key = openAIKey, store.phase != .hello, !resuming else { return }
+        // At most one attempt every 5 s (a dead network must not loop).
+        if Date().timeIntervalSince(lastReconnect) < 5 { try? await Task.sleep(for: .seconds(5)) }
+        lastReconnect = Date()
+        resuming = true
+        defer { resuming = false }
+        let ctx = ResumeContext(store: store, transcript: realtime.transcript)
+        rtLog("reconnect: silent, step \(store.planningStep), phase \(store.phase), \(ctx.recent.count) recent lines, no kick-off")
+        let ok = await realtime.connect(apiKey: key, voice: voiceSettings.voice, shape: voiceSettings.shape,
+                                        speed: voiceSettings.speed, echoCancel: voiceSettings.echoCancel,
+                                        instructions: Realtime.resumeInstructions(todayGames: todayGames, context: ctx),
+                                        keepChat: true)
+        guard store.phase != .hello else { realtime.disconnect(); return }   // left meanwhile
+        rtLog("reconnect: \(ok ? "live" : "failed")")
+        guard ok else { return }
+        // Session-side per-turn state starts fresh; the game's state carries over.
+        realtime.micWanted = true
+        realtime.huntMode = store.huntActive
+        realtime.quickReplyOnly = store.phase == .makingKit
+        realtime.resumed(propsPlanned: store.plan != nil || store.props != nil)
+        shownProps = store.props?.props.count ?? 0   // a card held for the roles line shows now
+        startDozeWatch()
+        resuming = false
+        flushDeferredLine()
+    }
+
+    private func flushDeferredLine() {
+        guard let line = deferredLine else { return }
+        deferredLine = nil
+        rtLog("deferred line spoken")
+        speak(line)
+    }
+
+    private func beginKitBackgroundTask() {
+        guard kitBackgroundTask == .invalid else { return }
+        kitBackgroundTask = UIApplication.shared.beginBackgroundTask(withName: "PretendThat kit") { [weak self] in
+            Task { @MainActor in self?.endKitBackgroundTask() }
+        }
+        rtLog("background task: kit requests may finish")
+    }
+
+    private func endKitBackgroundTask() {
+        guard kitBackgroundTask != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(kitBackgroundTask)
+        kitBackgroundTask = .invalid
+    }
+
+    /// On return: a kit request that failed while away is retried (the kit JSON via the store's retry; missing page art
+    /// is retried by KitArtService itself once the app is active again).
+    private func retryKitIfNeeded() {
+        if store.phase == .makingKit, store.kit == nil, store.lastError != nil, !store.isWorking {
+            rtLog("kit: retrying the kit request after background")
+            Task { await store.retry() }
+        }
     }
 
     // MARK: Checklist and scene pictures (checklist-pictures.md)
@@ -466,6 +657,7 @@ final class AppModel {
         return listener.isListening ? .listening : .idle
     }
     func talkPressed() {
+        wakeUp()
         if realtime.isLive { realtime.beginTalk() } else if listener.available { micPressed() }
     }
     func talkReleased() {
