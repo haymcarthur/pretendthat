@@ -36,6 +36,8 @@ for f in sorted(glob.glob(os.path.join(SRC, "stage", "*.svg"))):
     name = os.path.basename(f)[:-4]
     if name == "stage-beam": continue
     put(name, open(f).read()); n += 1
+for f in sorted(glob.glob(os.path.join(SRC, "actions", "*.svg"))):   # checklist action pictures (action-<id>)
+    put(os.path.basename(f)[:-4], open(f).read()); n += 1
 for f in sorted(glob.glob(os.path.join(SRC, "props", "*.svg"))):
     put(os.path.basename(f)[:-4], open(f).read()); n += 1
 # Placeholder layers the new art doesn't use (ears/tail are drawn into head-base and the bodies).
