@@ -114,10 +114,11 @@ struct RootView: View {
         PTStageView(leadingInset: chromeVisible ? PTStageCamera.chromeLeading : 0,
                     bottomInset: chromeVisible ? PTStageCamera.chromeBottom : 0,
                     chatOpen: chatOpen && chromeVisible,
-                    faceFocus: model.nutmegState.basePose.faceFocus,
+                    faceFocus: (debugPose ?? model.nutmegRestPose).faceFocus,
                     frame: { g in stageFrame(g) }, itemCount: stageItems.count) {
             NutmegCharacter(state: model.nutmegState, mouthLevel: model.mouthLevel, mouthShape: model.mouthShape,
-                            isSpeaking: model.isSpeaking, cue: model.cue, forcedPose: debugPose, showsGround: true)
+                            isSpeaking: model.isSpeaking, cue: model.cue, forcedPose: debugPose, showsGround: true,
+                            holdsClipboard: model.nutmegHoldsClipboard)
                 .onTapGesture { if case .stepBack = store.phase { Task { _ = await store.helpRequested() } } }
         } overlay: { g, L in
             if model.inConversation {

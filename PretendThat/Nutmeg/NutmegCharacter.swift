@@ -3,7 +3,9 @@ import UIKit
 import NutmegCore
 
 /// Nutmeg, drawn from layered art (spec §7): one shared head placed on a headless body pose.
-/// BODY canvas: tail, body-<pose>. HEAD canvas: ears, head-base, face, mouth (all full-frame, so they stack).
+/// BODY canvas: body-<pose> (tail drawn in). HEAD canvas, bottom to top: head-base, face (eyes/brows), mouth, HEADSET
+/// (round 3: its own layer on top, so the brows tuck under the band and the mic arm sits in front of her cheek). All
+/// layers are full-frame and the whole head stack shares one transform (tilt, bob, nudge).
 ///
 /// Motion (decisions motion-and-surface.md, mascot-nutmeg.md): she mostly RESTS in the idle pose with subtle
 /// breathing, a blink or an ear twitch every few seconds, and lively motion only on events. Body poses have no
@@ -27,6 +29,8 @@ struct NutmegCharacter: View {
     var showsGround = false
     /// false: draw the tail-less body art (`<pose>-notail`, start screen where she stands in the chest) when it exists.
     var showsTail = true
+    /// Kit step: rest in the both-hands clipboard pose instead of idle (`PoseRules.holdsClipboard`).
+    var holdsClipboard = false
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var shown: NutmegPose = .idle
@@ -36,7 +40,7 @@ struct NutmegCharacter: View {
     @State private var gestureTask: Task<Void, Never>?
     @State private var swapTask: Task<Void, Never>?
 
-    private var basePose: NutmegPose { forcedPose ?? state.basePose }
+    private var basePose: NutmegPose { forcedPose ?? state.basePose(holdingClipboard: holdsClipboard) }
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30, paused: false)) { context in
@@ -129,7 +133,11 @@ struct NutmegCharacter: View {
                     .frame(width: NutmegPose.neckPlug.width * px, height: NutmegPose.neckPlug.height * px)
                     .position(x: (NutmegPose.neckPlug.midX + pose.headOffset.width) * px,
                               y: (NutmegPose.neckPlug.midY + pose.headOffset.height) * px)
-                layer(bodyAsset(pose)).id(pose).transition(.opacity)
+                ZStack(alignment: .topLeading) {
+                    layer(bodyAsset(pose))
+                    if pose == .idle { idleArm() }
+                }
+                .id(pose).transition(.opacity)
             }
             .frame(width: w, height: h)
             .scaleEffect(x: 1 - (m.breathe - 1) * 0.42, y: m.breathe, anchor: .bottom)
@@ -153,19 +161,36 @@ struct NutmegCharacter: View {
     }
 
     private static let crayonAvailable = UIImage(named: "nutmeg-coloring-crayon") != nil
+    private static let headsetAvailable = UIImage(named: "nutmeg-headset") != nil
 
     private func bodyAsset(_ pose: NutmegPose) -> String {
         guard !showsTail, UIImage(named: pose.asset + "-notail") != nil else { return pose.asset }
         return pose.asset + "-notail"
     }
 
+    /// The new head-base export (round 3) carries the idle body's hanging right arm below the chin (the vectorizer
+    /// merged it into the head silhouette; reported to Haylee, art not patched). The app splits it by canvas region:
+    /// the head stack never draws below the chin on that side, and the idle body draws that part of head-base as its
+    /// own arm, so the arm stays with the body (no third arm on other poses, no arm swinging with a head tilt).
+    static let headArmCut = CGRect(x: 725, y: 792, width: 1178 - 725, height: 1335 - 792)
+    /// The body's copy starts higher (just below the cream), tucked under the chin, so a head tilt never shows the
+    /// arm's cut edge.
+    static let bodyArmRegion = CGRect(x: 730, y: 776, width: 1178 - 730, height: 1335 - 776)
+
+    private func idleArm() -> some View {
+        layer("nutmeg-head-base")
+            .mask(CanvasRegion(rect: Self.bodyArmRegion))   // drawn where it was drawn with this body (no head nudge)
+    }
+
     private func head(look l: NutmegLook, motion m: Motion) -> some View {
         ZStack {
             layer("nutmeg-head-base")
+                .mask(CanvasRegion(rect: Self.headArmCut, inverted: true).fill(style: FillStyle(eoFill: true)))
             // Oops: the right ear flops over (Haylee's nutmeg-ears-flop art draws over the normal ear).
             if l.ears == .flop { layer(NutmegEars.flop.asset) }
             layer(m.blink && l.face != .nap && l.face != .yay ? NutmegFace.nap.asset : l.face.asset)
             layer(isSpeaking ? (mouthShape ?? NutmegMouth.forLevel(mouthLevel, oohBeat: m.oohBeat)).asset : l.face.mouthAsset)
+            if Self.headsetAvailable { layer("nutmeg-headset") }   // on top of the brows; moves with the head
             if let costume, UIImage(named: "nutmeg-costume-\(costume)") != nil { layer("nutmeg-costume-\(costume)") }
         }
     }
@@ -253,6 +278,21 @@ private struct Motion {
             headTilt += 1.5 * sin(t * 5) * k
             nod = -CGFloat(min(1, max(0, level))) * 2 * CGFloat(0.6 + 0.4 * abs(sin(t * 7))) * CGFloat(k)
         }
+    }
+}
+
+/// A rectangle given in Nutmeg's 1178×1335 canvas px, scaled to the drawn frame (for masks). `inverted`: the whole
+/// frame with the rectangle cut out (fill with eoFill).
+struct CanvasRegion: Shape {
+    var rect: CGRect
+    var inverted = false
+    func path(in r: CGRect) -> Path {
+        let sx = r.width / NutmegPose.canvas.width, sy = r.height / NutmegPose.canvas.height
+        let cut = CGRect(x: r.minX + rect.minX * sx, y: r.minY + rect.minY * sy, width: rect.width * sx, height: rect.height * sy)
+        var p = Path()
+        if inverted { p.addRect(r) }
+        p.addRect(cut)
+        return p
     }
 }
 

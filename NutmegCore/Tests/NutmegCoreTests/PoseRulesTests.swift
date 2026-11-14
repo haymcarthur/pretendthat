@@ -21,3 +21,15 @@ import Testing
     #expect(abs(PoseRules.delay(lastSwap: t0, now: t0.addingTimeInterval(0.5)) - 1.0) < 0.001)
     #expect(PoseRules.delay(lastSwap: t0, now: t0.addingTimeInterval(2)) == 0)
 }
+
+@Test func clipboardBothWhileTheKitIsMade() {   // round 3: whole pose from "making your pages" until the kit is final
+    #expect(PoseRules.base(napping: false, coloring: false, clipboard: true) == .clipboardBoth)
+    #expect(PoseRules.base(napping: true, coloring: false, clipboard: true) == .sit)
+    #expect(PoseRules.holdsClipboard(phase: .makingKit, kitBeat: .coloring))
+    #expect(PoseRules.holdsClipboard(phase: .kitReady, kitBeat: .coloring))   // pages still drawing
+    #expect(!PoseRules.holdsClipboard(phase: .kitReady, kitBeat: .lookUp))    // back to idle for the paper reveal
+    #expect(!PoseRules.holdsClipboard(phase: .kitReady, kitBeat: .papers))
+    for phase in [Phase.pickGame, .players, .props, .scene(0)] { #expect(!PoseRules.holdsClipboard(phase: phase, kitBeat: .coloring)) }
+    #expect(!PoseRules.allowsGesture(over: .clipboardBoth))
+    #expect(PoseRules.minSwapInterval >= 1)   // held at least 1 s
+}

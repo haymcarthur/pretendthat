@@ -31,6 +31,10 @@ enum NutmegState: String, CaseIterable, Identifiable {
     var basePose: NutmegPose {
         NutmegPose(PoseRules.base(napping: self == .napping, coloring: self == .coloring))
     }
+    /// The resting pose with the kit step's clipboard hold (`PoseRules.holdsClipboard`).
+    func basePose(holdingClipboard: Bool) -> NutmegPose {
+        NutmegPose(PoseRules.base(napping: self == .napping, coloring: self == .coloring, clipboard: holdingClipboard))
+    }
 }
 
 /// A one-shot gesture request. A new `id` replays it.
@@ -43,9 +47,9 @@ struct NutmegCue: Equatable {
 /// mouths stack full-frame, so the head sits on each body at offset (0,0) by construction. Per pose the head can be
 /// nudged (`headOffset`, canvas px) and tilted (`headRotation`) around the neck anchor; values tuned in the simulator.
 enum NutmegPose: String, CaseIterable, Identifiable {
-    case idle, wave, point, celebrate, sit, coloring
+    case idle, wave, point, celebrate, sit, coloring, clipboardBoth
     var id: String { rawValue }
-    var asset: String { "nutmeg-body-\(rawValue)" }
+    var asset: String { self == .clipboardBoth ? "nutmeg-body-clipboard-both" : "nutmeg-body-\(rawValue)" }
     init(_ name: PoseName) { self = NutmegPose(rawValue: name.rawValue)! }
 
     static let canvas = CGSize(width: 1178, height: 1335)
@@ -57,17 +61,14 @@ enum NutmegPose: String, CaseIterable, Identifiable {
         default: UnitPoint(x: 600 / 1178, y: 788 / 1335)
         }
     }
-    /// Head nudge in canvas px (fix round 2, checked offline at every pose ±6° tilt with tools-style compositing):
-    /// the chin overlaps the shoulders by ~10–20 px on both sides and no background shows under it. Before this the
-    /// head sat ~12 px too high and blue showed between the chin and the right shoulder.
+    /// Head nudge in canvas px (fix round 2, re-checked in round 3 with the new head-base and headset layer): the chin
+    /// overlaps the shoulders by ~10–20 px on both sides at every pose with the state tilts (thinking −4°, oops −5°).
+    /// Round 3 tried 0 (the new head and idle body come from one drawing), but a −4° thinking tilt opened a blue wedge
+    /// between the chin and the vest, so the +12 nudge stays.
     var headOffset: CGSize {
         switch self {
-        case .idle: CGSize(width: 0, height: 12)
-        case .wave: CGSize(width: 0, height: 12)
-        case .point: CGSize(width: 0, height: 12)
-        case .celebrate: CGSize(width: 0, height: 12)
         case .sit: CGSize(width: 0, height: 17)
-        case .coloring: CGSize(width: 0, height: 12)
+        default: CGSize(width: 0, height: 12)
         }
     }
     /// The neck plug: a SMALL fur-colored oval behind the body, fully hidden under the chin and behind the vest (it must
@@ -75,7 +76,7 @@ enum NutmegPose: String, CaseIterable, Identifiable {
     /// itself comes from `headOffset`.
     static let neckPlug = CGRect(x: 600 - 80, y: 800 - 35, width: 160, height: 70)
     var headRotation: Double {
-        switch self { case .idle, .wave, .celebrate: 0; case .point: 3; case .sit: -4; case .coloring: 5 }
+        switch self { case .idle, .wave, .celebrate, .clipboardBoth: 0; case .point: 3; case .sit: -4; case .coloring: 5 }
     }
 }
 

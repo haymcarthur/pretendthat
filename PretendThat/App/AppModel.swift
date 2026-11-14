@@ -201,6 +201,12 @@ final class AppModel {
         }
     }
 
+    /// Kit step (round 3): she holds the clipboard in front with both hands from "let me make your pages" until the
+    /// whole kit is final, then pops back to idle (excited) for the paper reveal.
+    var nutmegHoldsClipboard: Bool { PoseRules.holdsClipboard(phase: store.phase, kitBeat: kitBeat) }
+    /// The resting body pose on the stage (the camera's face focus follows it).
+    var nutmegRestPose: NutmegPose { nutmegState.basePose(holdingClipboard: nutmegHoldsClipboard) }
+
     /// Planning beats are retired (revert-animation.md); kept only so the DEBUG live driver's wait compiles.
     enum Beat { case none }
     let beat: Beat = .none

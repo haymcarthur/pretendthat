@@ -2,9 +2,10 @@ import Foundation
 
 /// Nutmeg's body poses and when she uses them (decision mascot-nutmeg.md, 2026-11-13 update).
 /// IDLE is the resting default (also for listening and talking). Wave, point and celebrate are brief gestures:
-/// pop in, hold, pop back to the base pose. Sit is only the step-back nap; coloring only while generating.
+/// pop in, hold, pop back to the base pose. Sit is only the step-back nap. clipboardBoth (round 3): the clipboard held
+/// in front with both hands while she says she's making the kit and while it generates. Coloring is retired.
 public enum PoseName: String, CaseIterable, Sendable {
-    case idle, wave, point, celebrate, sit, coloring
+    case idle, wave, point, celebrate, sit, coloring, clipboardBoth
 }
 
 public enum NutmegGesture: String, Sendable { case wave, point, celebrate
@@ -20,10 +21,19 @@ public enum PoseRules {
     }
 
     /// The resting pose for what's happening (never a gesture).
-    public static func base(napping: Bool, coloring: Bool) -> PoseName {
+    public static func base(napping: Bool, coloring: Bool, clipboard: Bool = false) -> PoseName {
         if napping { return .sit }
         if coloring { return .coloring }
+        if clipboard { return .clipboardBoth }
         return .idle
+    }
+
+    /// Kit step (round 3, Haylee): from "Let me make your coloring pages!" (finish_planning → makingKit) until the
+    /// WHOLE kit is final she holds the clipboard in front with both hands (whole pose, pop swap; thinking/happy faces
+    /// and blinks ride on top). She pops back to idle when she looks up for the paper reveal. The swap throttle
+    /// (`minSwapInterval`) keeps the pose on screen at least that long even when the kit is instant.
+    public static func holdsClipboard(phase: Phase, kitBeat: PTStageDirector.KitBeat) -> Bool {
+        (phase == .makingKit || phase == .kitReady) && kitBeat == .coloring
     }
 
     /// Delay before a swap requested at `now` may happen, given the last swap time.
