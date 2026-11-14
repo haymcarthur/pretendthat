@@ -161,7 +161,7 @@ struct PTHandoffCard<Figure: View>: View {
     var body: some View {
         VStack(spacing: Theme.Space.l) {
             PTText("Pass the tablet to \(role.spoken)!", .headline, tone: .muted)
-            figure.frame(height: 200)
+            if Figure.self != EmptyView.self { figure.frame(height: 200) }
             PTRoleBadge(role: role, size: Theme.Size.badge * 1.6, onTap: onTap)
                 .ptBounce(trigger: shown)
             PTText("Tap your badge!", .headline)

@@ -169,6 +169,11 @@ struct PTChatPanel: View {
     var lines: [Line]
     var onSend: (String) -> Void
     var onClose: () -> Void
+    /// The prop hunt's active card, docked at the top while the panel is open (prop-gathering-flow.md).
+    var pinned: PTStageItem? = nil
+    var onHunt: ((Bool) -> Void)? = nil
+    /// Shared with the stage so the active card animates between the stage and the panel.
+    var namespace: Namespace.ID? = nil
     @State private var draft = ""
     @FocusState private var focused: Bool
     @State private var following = true
@@ -183,6 +188,16 @@ struct PTChatPanel: View {
                 Text("Chat with Nutmeg").font(Theme.uiFont(18)).foregroundStyle(Theme.ink)
                 Spacer()
                 PTIconButton(symbol: "xmark", label: "Close chat", size: 44, action: onClose)
+            }
+            if let pinned {
+                Group {
+                    if let namespace {
+                        PTPropPinnedCard(item: pinned, onHunt: onHunt).matchedGeometryEffect(id: ptHuntActiveID, in: namespace)
+                    } else {
+                        PTPropPinnedCard(item: pinned, onHunt: onHunt)
+                    }
+                }
+                .transition(.scale(scale: 0.8).combined(with: .opacity))
             }
             ScrollViewReader { proxy in
                 ScrollView {

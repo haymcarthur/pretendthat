@@ -8,9 +8,8 @@ struct HandoffView: View {
 
     var body: some View {
         if let id = store.kit?.scenes[sceneIndex].owner.role, let role = store.plan?.role(for: id) {
-            PTHandoffCard(role: role, figure: {
-                NutmegCharacter(state: .idle, forcedPose: .point)
-            }, onTap: { store.badgeTapped(id) })
+            // Nutmeg points at the card from the shared stage (no second Nutmeg inside the card).
+            PTHandoffCard(role: role, figure: { EmptyView() }, onTap: { store.badgeTapped(id) })
                 .id(sceneIndex)
         }
     }

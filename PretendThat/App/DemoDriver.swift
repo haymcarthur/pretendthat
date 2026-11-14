@@ -12,11 +12,11 @@ enum DemoDriver {
         return args[i + 1]
     }
 
-    /// `-PTShot closeUp|medium|wide`: hold the conversation camera on one shot (screenshots).
+    /// `-PTShot closeUp|medium|wide` (hunt = medium): hold the conversation camera on one shot (screenshots).
     static var forcedShot: PTCameraShot? {
         let args = ProcessInfo.processInfo.arguments
         guard let i = args.firstIndex(of: "-PTShot"), i + 1 < args.count else { return nil }
-        switch args[i + 1] { case "closeUp": return .closeUp; case "medium": return .medium; case "wide": return .wide; default: return nil }
+        switch args[i + 1] { case "closeUp": return .closeUp; case "medium", "hunt": return .medium; case "wide": return .wide; default: return nil }
     }
 
     /// `-PTStartAt <seconds>`: hold the start screen's opening sequence at that time (screenshots).

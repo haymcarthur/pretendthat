@@ -92,7 +92,7 @@ final class AppModel {
     /// Leave activity: hang up and go home. Nothing is kept.
     func leave() {
         realtime.disconnect()
-        shownProps = 0; beat = .none
+        shownProps = 0; beat = .none; kitBeatTask?.cancel(); kitBeat = .coloring
         voice.stop()
         art.reset()
         stickers.reset()
@@ -127,6 +127,23 @@ final class AppModel {
     }
     @ObservationIgnored private var kitWait: Task<Void, Never>?
 
+    /// Kit step beats (no-text-overlays.md, fix round 2): she colors in the close-up until the WHOLE kit is final, then
+    /// looks up (crayon down), the camera zooms out, and the papers fly off her clipboard.
+    private(set) var kitBeat: PTStageDirector.KitBeat = .coloring
+    @ObservationIgnored private var kitBeatTask: Task<Void, Never>?
+    /// Every page's art has landed or definitively fallen back.
+    var kitFinal: Bool { store.phase == .kitReady && store.kit != nil && art.finished }
+    func kitFinalChanged(_ final: Bool) {
+        kitBeatTask?.cancel()
+        guard final else { kitBeat = .coloring; return }
+        kitBeatTask = Task { @MainActor in
+            kitBeat = .lookUp                                   // eyes up, crayon down
+            try? await Task.sleep(for: .milliseconds(900))
+            guard !Task.isCancelled else { return }
+            kitBeat = .papers                                   // zoom out; the papers fly once the camera settles
+        }
+    }
+
     private func handleCall(name: String, arguments: String) async -> (output: String, respond: Bool) {
         guard let call = PlanningCall.decode(name: name, arguments: arguments) else {
             return ("I couldn't use that. Try again with the right fields.", true)
@@ -144,6 +161,10 @@ final class AppModel {
         #if DEBUG
         if let s = DemoDriver.forcedState { return s }
         #endif
+        // Kit: she colors until every page is final, then looks up before the papers fly.
+        if store.phase == .makingKit || store.phase == .kitReady {
+            switch kitBeat { case .coloring: return .coloring; case .lookUp: return .excited; case .papers: break }
+        }
         if realtime.isLive {
             // Conversation faces (decisions/conversation-camera-and-expressions.md): listening while the kid talks,
             // thinking in the gap before her reply, then the face the model chose (eyes and brows; the live mouth

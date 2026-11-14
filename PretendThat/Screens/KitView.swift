@@ -6,11 +6,15 @@ import NutmegCore
 /// they've all landed. Tap a page to preview it full-size (PTPagePreview).
 struct KitView: View {
     let model: AppModel
+    /// Her clipboard relative to this view's center: the papers fly from there.
+    var clipboard: CGPoint = CGPoint(x: -400, y: 40)
     @State private var landed = false
     @State private var preview: PTPreviewTarget?
     /// The papers fly out only once the WHOLE kit is final: every page's AI art landed or definitively fell back
     /// (never the fallback first and then a swap). Until then Nutmeg colors (no-text-overlays.md).
-    private var revealed: Bool { store.phase == .kitReady && store.kit != nil && model.art.finished }
+    private var revealed: Bool { model.kitFinal && model.kitBeat == .papers && cameraSettled }
+    /// The papers launch once the camera has zoomed out (she looks up, the crayon goes down, then the zoom).
+    @State private var cameraSettled = false
     private var store: AdventureStore { model.store }
 
     private var pages: [KitPage] {
@@ -25,7 +29,7 @@ struct KitView: View {
                 let n = pages.count
                 let g = PTPageFan(count: n, in: geo.size)
                 PTPaperReveal(count: revealed ? n : 0, isRevealed: revealed,
-                              origin: CGPoint(x: -geo.size.width / 2 - 150, y: 40),
+                              origin: clipboard,
                               slot: { i in g.slot(i) },
                               paperSize: g.paper,
                               onLanded: { landed = true; model.gesture(.celebrate) },
@@ -62,5 +66,10 @@ struct KitView: View {
         .onChange(of: landed) { _, l in if l, let i = DemoDriver.previewPage { preview = PTPreviewTarget(index: i) } }
         #endif
         .onChange(of: revealed) { _, r in if !r { landed = false } }
+        .task(id: model.kitBeat == .papers) {
+            guard model.kitBeat == .papers else { cameraSettled = false; return }
+            try? await Task.sleep(for: .milliseconds(650))
+            cameraSettled = true
+        }
     }
 }

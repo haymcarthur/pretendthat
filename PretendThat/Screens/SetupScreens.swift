@@ -36,11 +36,14 @@ struct HelloView: View {
         }
     }
 
-    /// Where the conversation screen will draw Nutmeg (medium shot, chrome showing), in global coordinates: this view
+    /// Where the conversation screen will draw Nutmeg (arrival shot, chrome showing), in global coordinates: this view
     /// has the same frame the conversation stage gets, so she lands exactly there.
     private func handoff(_ geo: GeometryProxy) -> CGRect {
-        let L = PTStageCamera.layout(shot: .medium, itemCount: 0, size: geo.size,
-                                     leadingInset: PTStageCamera.chromeLeading, bottomInset: PTStageCamera.chromeBottom)
+        let full = CGSize(width: geo.size.width + geo.safeAreaInsets.leading + geo.safeAreaInsets.trailing,
+                          height: geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom)
+        let g = PTStageGeometry(size: geo.size, leadingInset: PTStageCamera.chromeLeading, bottomInset: PTStageCamera.chromeBottom,
+                                floor: PTStage.floor(full).offsetBy(dx: -geo.safeAreaInsets.leading, dy: -geo.safeAreaInsets.top))
+        let L = PTStageCamera.layout(.arrival, g)
         let o = geo.frame(in: .global).origin
         return CGRect(x: o.x + L.origin.x, y: o.y + L.origin.y, width: L.canvas.width, height: L.canvas.height)
     }

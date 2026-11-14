@@ -9,9 +9,10 @@ struct RootView: View {
     @State private var showTyping = false
     @State private var chatOpen = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var cameraShot: PTCameraShot = .medium
+    @State private var cameraShot: PTCameraShot = .wide   // the arrival shot
     @State private var lastShotChange = Date.distantPast
     @State private var shotTask: Task<Void, Never>?
+    @Namespace private var huntSpace
 
     private var store: AdventureStore { model.store }
 
@@ -20,7 +21,8 @@ struct RootView: View {
         // on the left, a white control pill at the bottom, and a chat panel that slides in from the right.
         ZStack {
             // The same stage as the start screen (sky, floor, tied-back curtains, valance) under every game screen.
-            PTStageBackdrop(floor: !model.inConversation)
+            // The floor is drawn by the shared stage (it moves with Nutmeg); the start screen draws its own.
+            PTStageBackdrop(floor: false)
             #if DEBUG
             if let art = DemoDriver.requestedPhase, art.hasPrefix("art") { ArtCheckView(mode: art).zIndex(10) }
             #endif
@@ -30,24 +32,24 @@ struct RootView: View {
                     // screen (and the control pill); it keeps its cards clear of the rail and pill itself.
                     if store.phase == .hello {
                         // Start screen: full-bleed toy-chest scene, no step rail or control pill.
-                        // Start screen → conversation: the start screen's exit leaves Nutmeg exactly where the conversation
-                        // draws her on the same stage, so the swap is instant (no crossfade of two Nutmegs).
+                        // Start screen → stage: the start screen's exit leaves Nutmeg exactly where the stage draws her
+                        // (the arrival shot), so the swap is instant (no crossfade of two Nutmegs).
                         HelloView(model: model, onGrownUps: { showSettings = true })
                             .transition(reduceMotion ? .opacity : .identity)
-                    } else if model.inConversation {
-                        conversation.transition(.asymmetric(insertion: reduceMotion ? .opacity : .identity, removal: .opacity))
                     } else {
-                        // From the start screen (no voice: tap screens) the stage is already there: no fade from empty.
-                        classic.transition(.asymmetric(insertion: store.phase == .pickGame && !reduceMotion ? .identity : .opacity, removal: .opacity))
-                            .padding(.leading, chromeVisible ? 104 : 0)
-                            .padding(.bottom, chromeVisible ? 92 : 0)
+                        // ONE stage for every phase (conversation, hunt, kit, play, hand-off): same Nutmeg, floor and
+                        // stars, one camera; each phase only picks a frame.
+                        sharedStage.transition(.asymmetric(insertion: reduceMotion ? .opacity : .identity, removal: .opacity))
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 if chatOpen && chromeVisible {
                     PTChatPanel(lines: model.realtime.transcript.map { PTChatPanel.Line(id: $0.id, fromNutmeg: $0.fromNutmeg, text: $0.text) },
                                 onSend: { text in Task { await model.typed(text) } },
-                                onClose: { chatOpen = false })
+                                onClose: { chatOpen = false },
+                                pinned: huntOnStage ? stageItems.last { !$0.isDone } : nil,
+                                onHunt: { found in model.huntReply(found: found) },
+                                namespace: huntSpace)
                         .padding([.vertical, .trailing], Theme.Space.m)
                         .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
@@ -79,6 +81,7 @@ struct RootView: View {
             case .kitReady: model.celebrations += 1   // Nutmeg celebrates when the papers have landed (KitView)
             case .end: model.gesture(.celebrate); model.celebrations += 1
             case .hello: model.gesture(.wave)
+            case .handoff: model.gesture(.point)   // toward the hand-off card
             default: break
             }
         }
@@ -86,9 +89,10 @@ struct RootView: View {
         .onChange(of: desiredShot) { _, _ in scheduleShot() }
         .onChange(of: store.currentPropID) { _, id in if id != nil { model.gesture(.point) } }   // toward the new card
         .onChange(of: model.inConversation) { _, live in
-            if live { scheduleShot(arrival: true) } else { shotTask?.cancel(); cameraShot = .medium; lastShotChange = .distantPast }
+            if live { scheduleShot(arrival: true) } else { shotTask?.cancel(); cameraShot = .wide; lastShotChange = .distantPast }
         }
         .onChange(of: store.kit) { _, _ in model.kitChanged() }
+        .onChange(of: model.kitFinal) { _, final in model.kitFinalChanged(final) }
         .onChange(of: presentedSubjects) { _, _ in requestStickers() }
         .task {
             #if DEBUG
@@ -104,20 +108,44 @@ struct RootView: View {
         .statusBarHidden()
     }
 
-    // MARK: Voice conversation (D1, D4, D5)
+    // MARK: The shared stage (every phase)
 
-    private var conversation: some View {
-        PTConversationStage(backdrop: .clear, shot: shot, items: stageItems,
-                            leadingInset: chromeVisible ? PTStageCamera.chromeLeading : 0, bottomInset: chromeVisible ? PTStageCamera.chromeBottom : 0,
-                            faceFocus: model.nutmegState.basePose.faceFocus, centerBetweenChrome: chatOpen && chromeVisible,
-                            onTapItem: { id in silentTap(id) },
-                            onHunt: { _, found in model.huntReply(found: found) }) {
+    private var sharedStage: some View {
+        PTStageView(leadingInset: chromeVisible ? PTStageCamera.chromeLeading : 0,
+                    bottomInset: chromeVisible ? PTStageCamera.chromeBottom : 0,
+                    chatOpen: chatOpen && chromeVisible,
+                    faceFocus: model.nutmegState.basePose.faceFocus,
+                    frame: { g in stageFrame(g) }, itemCount: stageItems.count) {
             NutmegCharacter(state: model.nutmegState, mouthLevel: model.mouthLevel, mouthShape: model.mouthShape,
                             isSpeaking: model.isSpeaking, cue: model.cue, showsGround: true)
-        } bar: {
-            EmptyView()
+                .onTapGesture { if case .stepBack = store.phase { Task { _ = await store.helpRequested() } } }
+        } overlay: { g, L in
+            if model.inConversation {
+                if huntOnStage {
+                    PTPropHuntStage(items: stageItems, geometry: g, nutmeg: L, curtainInset: curtainInset(g), namespace: huntSpace,
+                                    onHunt: { _, found in model.huntReply(found: found) })
+                } else if shot == .wide {
+                    PTPresentedCards(items: stageItems, nutmeg: L, size: g.size, onTapItem: { silentTap($0) },
+                                     onHunt: { _, found in model.huntReply(found: found) })
+                }
+            } else {
+                classicContent(g, L)
+            }
         }
     }
+
+    /// The frame (shot + lane) this phase asks the one stage camera for.
+    private func stageFrame(_ g: PTStageGeometry) -> PTStageFrame {
+        PTStageDirector.frame(phase: store.phase, conversation: model.inConversation, conversationShot: shot,
+                              cards: stageItems.count, hunt: huntOnStage, kitBeat: model.kitBeat,
+                              curtainInset: curtainInset(g), g)
+    }
+
+    /// The prop hunt layout is on stage (the camera has moved to the hunt's medium shot).
+    private var huntOnStage: Bool { model.inConversation && store.huntActive && shot == .medium }
+
+    /// How far the tied-back curtain reaches in around card height.
+    private func curtainInset(_ g: PTStageGeometry) -> CGFloat { PTCurtain.metrics(g.size).visible * 0.55 }
 
     /// Camera (decisions/conversation-camera-and-expressions.md): stays close on her face for the whole planning
     /// chat (while she talks AND while the kid talks); zooms out only when cards need the room. She arrives from the
@@ -129,7 +157,7 @@ struct RootView: View {
         #endif
         return cameraShot
     }
-    private var desiredShot: PTCameraShot { store.huntActive ? .hunt : (stageItems.isEmpty ? .closeUp : .wide) }
+    private var desiredShot: PTCameraShot { store.huntActive ? .medium : (stageItems.isEmpty ? .closeUp : .wide) }
     private static let minShotGap: TimeInterval = 2
 
     private func scheduleShot(arrival: Bool = false) {
@@ -138,7 +166,7 @@ struct RootView: View {
             let target = desiredShot
             guard target != cameraShot else { return }
             var wait = max(0, Self.minShotGap - Date().timeIntervalSince(lastShotChange))
-            if target == .wide || target == .hunt { wait = 0 }
+            if target == .wide || target == .medium { wait = 0 }
             if arrival { wait = max(wait, 0.9) }   // let her landing settle first
             if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
             guard !Task.isCancelled, desiredShot != cameraShot else { return }
@@ -184,30 +212,42 @@ struct RootView: View {
     /// Prop cards are display-only (D3: kids tap only to print and to play).
     private func silentTap(_ id: String) {}
 
-    // MARK: Classic stage (setup fallback, kit and play)
+    // MARK: Phase content beside Nutmeg (tap fallback, kit papers, play, hand-off)
 
-    private var classic: some View {
-        PTStageLayout(backdrop: .clear, nutmegColumn: nutmegIsHero ? Theme.nutmegHeroColumn : Theme.nutmegColumn) {
-            NutmegCharacter(state: model.nutmegState, mouthLevel: model.mouthLevel, mouthShape: model.mouthShape,
-                            isSpeaking: model.isSpeaking, cue: model.cue, showsGround: true)
-                .onTapGesture { if case .stepBack = store.phase { Task { _ = await store.helpRequested() } } }
-        } stage: {
-            stage.transition(.ptStage)
-                .id(stageID)
-        } bottom: {
-            bottomBar
+    /// Screen-space content right of her lane. Kit: nothing while she colors in the close-up (the papers wait for the
+    /// whole kit, no-text-overlays.md); the papers fly off her clipboard once the camera has zoomed out.
+    @ViewBuilder private func classicContent(_ g: PTStageGeometry, _ L: PTStageCamera.Layout) -> some View {
+        let r = PTStageDirector.sideContent(g, curtainInset: curtainInset(g))
+        let kitWaiting = (store.phase == .makingKit || store.phase == .kitReady) && model.kitBeat != .papers
+        VStack(spacing: Theme.Space.m) {
+            ViewThatFits(in: .vertical) {
+                stage(clipboard: clipboard(L, in: r)).padding(.vertical, Theme.Space.s)
+                ScrollView(.vertical) { stage(clipboard: clipboard(L, in: r)).padding(.vertical, Theme.Space.m) }.scrollIndicators(.visible)
+            }
+            .transition(.ptStage)
+            .id(stageID)
+            if store.lastError != nil { HStack(spacing: Theme.Space.l) { bottomBar } }
         }
+        .frame(width: r.width, height: r.height)
+        .position(x: r.midX, y: r.midY)
+        .opacity(kitWaiting ? 0 : 1)
         .animation(Theme.bouncy, value: stageID)
         .sensoryFeedback(.impact(flexibility: .soft), trigger: stageID)
     }
 
-    @ViewBuilder private var stage: some View {
+    /// Her clipboard (idle pose, canvas px) relative to the content rect's center: where the papers fly from.
+    private func clipboard(_ L: PTStageCamera.Layout, in r: CGRect) -> CGPoint {
+        let p = L.screen(CGPoint(x: 760, y: 1010))
+        return CGPoint(x: p.x - r.midX, y: p.y - r.midY)
+    }
+
+    @ViewBuilder private func stage(clipboard: CGPoint) -> some View {
         switch store.phase {
         case .hello: EmptyView()   // the start screen replaces the classic stage (see body)
         case .pickGame: PickGameView(model: model)
         case .players: PlayersView(model: model)
         case .props: PropsView(model: model)
-        case .makingKit, .kitReady: KitView(model: model)
+        case .makingKit, .kitReady: KitView(model: model, clipboard: clipboard)
         case .handoff(let i): HandoffView(model: model, sceneIndex: i)
         case .scene(let i): SceneView(model: model, index: i)
         case .stepBack: StepBackView(model: model)
@@ -232,20 +272,8 @@ struct RootView: View {
         }
     }
 
-    /// One clean white base everywhere (Haylee, motion-and-surface.md); brand colors live on accents only.
-    private var backdrop: PTBackdrop { .white }
-
     /// Step rail and control pill show from the first step on (not on Hello).
     private var chromeVisible: Bool { store.phase != .hello }
-
-    /// Nutmeg gets the big column when the stage has little else on it.
-    private var nutmegIsHero: Bool {
-        switch store.phase {
-        case .hello, .stepBack, .end, .handoff, .makingKit: true
-        case .kitReady: !model.art.finished   // big while she colors the pages; the papers then take the room
-        default: false
-        }
-    }
 }
 
 extension String { var nilIfEmpty: String? { isEmpty ? nil : self } }

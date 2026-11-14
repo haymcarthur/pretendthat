@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import NutmegCore
 
 /// One thing Nutmeg presents during the voice conversation (a game idea, a role, a prop).
 /// Pictured by a generated sticker illustration (D5): never an emoji or icon. `image == nil` shows a shimmer.
@@ -19,137 +20,109 @@ struct PTStageItem: Identifiable, Equatable {
     var huntButtons = false
 }
 
-/// Where the "camera" is (D4): close on Nutmeg's face while she talks or listens, wide while she presents.
-/// `hunt`: the prop hunt's medium shot with her right of center (active card left, done chips right).
-enum PTCameraShot: Equatable { case closeUp, medium, wide, hunt }
-
-/// The voice-mode screen (D1): Nutmeg big and centered on a calm stage with 2–3 static stars, the presented items in
-/// two neat columns beside her, and the control pill at the bottom (drawn by the root). No tap targets during planning;
-/// items accept a tap only as a silent backup (`onTapItem`).
+/// The ONE stage every phase stands on (Haylee, fix round 2): the floor, 2–3 static stars and Nutmeg share one camera
+/// (`PTStageCamera.compose`). A phase only picks a frame (shot + lane); the floor gets exactly her camera move, so it
+/// is always under her feet; stars follow with ~70% parallax. The curtains and valance (the proscenium, drawn by the
+/// backdrop) and all UI stay put. Phase content (cards, kit papers, checklists) is laid out in screen space by
+/// `overlay`, which gets the stage geometry and her current layout.
 ///
-/// Camera (D4, Haylee fix round 1): every shot names a FOCAL point in Nutmeg's 1178×1335 art canvas and a canvas
-/// height in points; the focal point lands exactly on the stage center. Default (medium): her whole body, about 70% of
-/// the screen height, her visual center (not the tail-skewed bounding box) centered. Close-up (talking/listening): her
-/// head fills most of the screen, the head's center centered. Wide (presenting): zoomed out so the cards fit beside her.
-/// Nutmeg is laid out once at the close-up size and moved/scaled by ONE render transform per shot, so every layer
-/// (body, head, face, tail, ground) moves as a unit and the vectors stay crisp.
-struct PTConversationStage<Character: View, Bar: View>: View {
-    var backdrop: PTBackdrop = .white
-    var shot: PTCameraShot
-    var items: [PTStageItem] = []
-    /// Floating chrome to keep cards clear of: the step rail on the left, the control pill at the bottom.
+/// Nutmeg is laid out once at the close-up size and moved/scaled by ONE render transform per frame, so every layer
+/// (body, head, face, tail, contact shadow) moves as a unit and the vectors stay crisp.
+struct PTStageView<Character: View, Overlay: View>: View {
     var leadingInset: CGFloat = 0
     var bottomInset: CGFloat = 0
-    /// Close-up anchor: Nutmeg's FACE center (eyes and nose) in canvas px for her CURRENT pose (head offset and
-    /// rotation about the neck applied). The close-up puts this point at the center of the free stage.
+    var chatOpen = false
+    /// Close-up anchor: her FACE center for her CURRENT pose (canvas px).
     var faceFocus: CGPoint = PTStageCamera.faceFocus
-    /// The chat panel is open: center her between the rail and the panel (the stage is already narrowed by it).
-    var centerBetweenChrome = false
-    var onTapItem: ((String) -> Void)? = nil
-    /// Backup hunt buttons on the current card (found: true / false).
-    var onHunt: ((String, Bool) -> Void)? = nil
+    /// The frame for this stage geometry (shot + lane).
+    var frame: (PTStageGeometry) -> PTStageFrame
+    /// Animates card count changes with the camera.
+    var itemCount = 0
     @ViewBuilder var character: Character
-    @ViewBuilder var bar: Bar
+    @ViewBuilder var overlay: (PTStageGeometry, PTStageCamera.Layout) -> Overlay
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Namespace private var huntSpace
-
-    /// Prop hunt zones (screen space, not stage space): the rail gutter + DONE stack on the left (≥ 24 pt from the
-    /// rail), Nutmeg left of center, and the ACTIVE card on the right where she points, ≥ 32 pt inside the right
-    /// curtain, vertically centered on her chest. A card that's done shrinks and flies left into the stack.
-    @ViewBuilder private func huntLayout(_ size: CGSize, _ L: PTStageCamera.Layout, full: CGSize) -> some View {
-        let done = items.filter(\.isDone)
-        let active = items.last { !$0.isDone }
-        // The tied-back swag is narrowest around the card's height: its inner edge there is about half the top reach.
-        let curtainEdge = PTCurtain.metrics(full).visible * 0.55
-        let nutRight = L.canvasCenter.x + PTStageCamera.halfWidth * L.k
-        let zoneL = nutRight + 20, zoneR = size.width - curtainEdge - 32
-        let cardW = max(220, min(zoneR - zoneL, size.width * 0.4, 440))
-        let chestY = L.screen(CGPoint(x: 0, y: 860)).y
-        let stackX = leadingInset + 24 + 90
-        ZStack(alignment: .topLeading) {
-            if let active {
-                PTPropActiveCard(item: active, width: cardW, onHunt: active.huntButtons ? onHunt.map { f in { f(active.id, $0) } } : nil)
-                    .matchedGeometryEffect(id: active.id, in: huntSpace)
-                    .position(x: (zoneL + zoneR) / 2, y: min(max(chestY, 220), size.height - bottomInset - 200))
-                    .transition(.scale(scale: 0.3).combined(with: .opacity))
-            }
-            VStack(spacing: Theme.Space.s) {
-                ForEach(done) { item in
-                    PTPropDoneChip(item: item, width: 180).matchedGeometryEffect(id: item.id, in: huntSpace)
-                }
-            }
-            .frame(width: 180)
-            .position(x: stackX, y: 84 + CGFloat(done.count) * 36)   // fills top to bottom
-        }
-        .frame(width: size.width, height: size.height, alignment: .topLeading)
-        .animation(reduceMotion ? .easeInOut(duration: 0.25) : .spring(response: 0.55, dampingFraction: 0.8), value: done.map(\.id))
-        .animation(reduceMotion ? .easeInOut(duration: 0.25) : .spring(response: 0.5, dampingFraction: 0.75), value: active?.id)
-    }
 
     var body: some View {
         GeometryReader { geo in
-            let L = PTStageCamera.layout(shot: shot, itemCount: items.count, size: geo.size,
-                                         leadingInset: leadingInset, bottomInset: bottomInset,
-                                         faceFocus: faceFocus, centerBetweenChrome: centerBetweenChrome)
-            // The camera moves on the stage WORLD (Haylee): the floor and the stars get the same transform as Nutmeg,
-            // relative to the medium shot (where the floor is exactly the start screen's / backdrop's floor), stars with
-            // ~70% parallax. Curtains and valance (the proscenium, drawn by the backdrop) and all UI stay put.
-            let mediumL = PTStageCamera.layout(shot: .medium, itemCount: 0, size: geo.size, leadingInset: leadingInset,
-                                               bottomInset: bottomInset, faceFocus: faceFocus)
-            let world = PTStageCamera.WorldMove(from: mediumL, to: L)
             let full = CGSize(width: geo.size.width + geo.safeAreaInsets.leading + geo.safeAreaInsets.trailing,
                               height: geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom)
-            let floorFull = PTStage.floor(full)
-            let floorRect = floorFull.offsetBy(dx: -geo.safeAreaInsets.leading, dy: -geo.safeAreaInsets.top)
+            let g = PTStageGeometry(size: geo.size, leadingInset: leadingInset, bottomInset: bottomInset,
+                                    floor: PTStage.floor(full).offsetBy(dx: -geo.safeAreaInsets.leading, dy: -geo.safeAreaInsets.top),
+                                    chatOpen: chatOpen)
+            let f = frame(g)
+            let comp = PTStageCamera.compose(f, g, faceFocus: faceFocus)
+            let L = comp.nutmeg, ref = comp.reference, world = comp.world
             ZStack(alignment: .topLeading) {
-                PTStageFloor(rect: world.apply(floorRect))
-                // (Her ground oval is drawn inside NutmegCharacter(showsGround:) so it moves with her as one unit.)
-                // 2–3 static stars around her, never over her face (positions in art-canvas px).
+                PTStageFloor(rect: comp.floor)
                 ForEach(Array(PTStageCamera.stars.enumerated()), id: \.offset) { i, star in
-                    let side = min(star.size * mediumL.k, star.maxPoints) * world.parallaxScale
-                    let p = world.apply(mediumL.screen(star.point), parallax: 0.7)
+                    let side = min(star.size * ref.k, star.maxPoints) * world.parallaxScale
+                    let p = world.apply(ref.screen(star.point), parallax: 0.7)
                     PTStageStar(asset: star.asset, tilt: star.tilt, index: i)
                         .frame(width: side, height: side)
                         .position(p)
-                        .opacity(L.starFits(p, side: side, in: geo.size, leadingInset: leadingInset, bottomInset: bottomInset) ? 1 : 0)
+                        .opacity(L.starFits(p, side: side, in: geo.size, leadingInset: leadingInset, bottomInset: bottomInset)
+                                 && !starHidden(p, side: side, f, g) ? 1 : 0)
                 }
-                // One render transform for all of her (no per-layer layout animation, so nothing trails): she is laid
-                // out once at the largest (close-up) size and scaled down per shot, which keeps the vectors crisp.
-                let big = PTStageCamera.layout(shot: .closeUp, itemCount: 0, size: geo.size,
-                                               leadingInset: leadingInset, bottomInset: bottomInset,
-                                               faceFocus: faceFocus, centerBetweenChrome: false)
+                let big = PTStageCamera.layout(.closeUp, PTStageGeometry(size: geo.size, leadingInset: leadingInset,
+                                                                         bottomInset: bottomInset, floor: g.floor), faceFocus: faceFocus)
                 character
                     .frame(width: big.canvas.width, height: big.canvas.height)
                     .scaleEffect(L.k / big.k)
                     .position(L.canvasCenter)
-
-                if shot == .hunt {
-                    huntLayout(geo.size, L, full: full)
-                } else {
-                // Presented items in two columns beside her (no overlap; every label readable).
-                ForEach(Array(items.enumerated()), id: \.element.id) { i, item in
-                    let slot = L.slot(i, fallback: CGPoint(x: geo.size.width / 2, y: geo.size.height / 2))
-                    PTItemCard(item: item, chip: item.chip, width: L.cardWidth)
-                        .overlay(alignment: .bottom) {
-                            if item.huntButtons, let onHunt { PTHuntButtons { onHunt(item.id, $0) }.offset(y: 26) }
-                        }
-                        .rotationEffect(.degrees(slot.tilt))
-                        .onTapGesture { onTapItem?(item.id) }
-                        .position(slot.point)
-                        .transition(.scale(scale: 0.2, anchor: .center).combined(with: .opacity))
-                        .animation(Theme.bouncy.delay(reduceMotion ? 0 : Double(i) * 0.12), value: items.map(\.id))
-                }
-                }
-
-                VStack { Spacer(); bar }
-                    .frame(width: geo.size.width, height: geo.size.height)
-                    .padding(.bottom, Theme.Space.l)
+                overlay(g, L)
             }
             .frame(width: geo.size.width, height: geo.size.height)
+            .animation(reduceMotion ? .easeInOut(duration: 0.3) : .spring(response: 0.9, dampingFraction: 0.82), value: f)
+            #if DEBUG
+            .onChange(of: f) { _, _ in Self.checkFeet(comp, f) }
+            #endif
         }
-        .animation(reduceMotion ? .easeInOut(duration: 0.3) : .spring(response: 0.9, dampingFraction: 0.82), value: shot)
-        .animation(reduceMotion ? .easeInOut(duration: 0.3) : .spring(response: 0.9, dampingFraction: 0.82), value: items.count)
-        .environment(\.ptBackdrop, backdrop)
+        .animation(reduceMotion ? .easeInOut(duration: 0.3) : .spring(response: 0.9, dampingFraction: 0.82), value: itemCount)
+    }
+
+    /// Stars stay out of the content zones beside her (kit papers, cards).
+    private func starHidden(_ p: CGPoint, side: CGFloat, _ f: PTStageFrame, _ g: PTStageGeometry) -> Bool {
+        let F = g.free
+        if f.rightReserve > 0, p.x + side / 2 > F.maxX - f.rightReserve { return true }
+        if f.leftReserve > 0, p.x - side / 2 < F.minX + f.leftReserve { return true }
+        if f.topReserve > 0, p.y - side / 2 < F.minY + f.topReserve { return true }
+        return false
+    }
+
+    #if DEBUG
+    /// Debug check (Haylee): her feet sit on the floor surface in every frame.
+    static func checkFeet(_ c: PTStageCamera.Composition, _ f: PTStageFrame) {
+        let d = abs(c.nutmeg.feetPoint.y - c.floorLine)
+        if d > 3 { print("⚠️ PTStageView: feet \(Int(d)) pt off the floor for \(f)") }
+    }
+    #endif
+}
+
+/// Presented cards in two columns beside Nutmeg (wide shot with cards): no overlap, every label readable.
+struct PTPresentedCards: View {
+    let items: [PTStageItem]
+    let nutmeg: PTStageCamera.Layout
+    let size: CGSize
+    var onTapItem: ((String) -> Void)? = nil
+    var onHunt: ((String, Bool) -> Void)? = nil
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            ForEach(Array(items.enumerated()), id: \.element.id) { i, item in
+                let slot = nutmeg.slot(i, fallback: CGPoint(x: size.width / 2, y: size.height / 2))
+                PTItemCard(item: item, chip: item.chip, width: nutmeg.cardWidth)
+                    .overlay(alignment: .bottom) {
+                        if item.huntButtons, let onHunt { PTHuntButtons { onHunt(item.id, $0) }.offset(y: 26) }
+                    }
+                    .rotationEffect(.degrees(slot.tilt))
+                    .onTapGesture { onTapItem?(item.id) }
+                    .position(slot.point)
+                    .transition(.scale(scale: 0.2, anchor: .center).combined(with: .opacity))
+                    .animation(Theme.bouncy.delay(reduceMotion ? 0 : Double(i) * 0.12), value: items.map(\.id))
+            }
+        }
+        .frame(width: size.width, height: size.height, alignment: .topLeading)
     }
 }
 
@@ -179,140 +152,6 @@ struct PTStageStar: View {
             }
             .allowsHitTesting(false)
             .accessibilityHidden(true)
-    }
-}
-
-/// The stage camera math (pure, so it can be checked): where Nutmeg's canvas goes for a shot, and the card slots.
-enum PTStageCamera {
-    /// Room the conversation screen keeps for its floating chrome (step rail on the left, control pill at the bottom).
-    static let chromeLeading: CGFloat = 132, chromeBottom: CGFloat = 108
-    /// Nutmeg's art canvas (all layers share it) and the focal points measured from Haylee's export
-    /// (alpha bounds via tools: head-base x 61–1055, y 15–800; idle body + tail x 172–900, y 765–1311).
-    static let art = CGSize(width: 1178, height: 1335)
-    /// Her VISUAL center: the horizontal mass center of head and body (the tail on her left skews the bounding box).
-    static let bodyFocus = CGPoint(x: 578, y: 663)
-    /// Her head's center (ears included).
-    static let headFocus = CGPoint(x: 566, y: 410)
-    /// Her FACE center (eyes, brows and nose; face SVG bounds x 397–863, y 294–635, nose ~y 560) in the rest pose:
-    /// the close-up anchor. The face is right of the head's center (3/4 view), so centering the head left it off-center.
-    static let faceFocus = CGPoint(x: 630, y: 470)
-    /// How far her head reaches from the face center (ears x 61–1055, top y 15, chin y ~800), canvas px.
-    static let faceToLeftEar: CGFloat = 569, faceToRightEar: CGFloat = 425, faceToTop: CGFloat = 455
-    /// Visible art height and her widest half-width from the visual center, in canvas px.
-    static let visibleHeight: CGFloat = 1296
-    static let halfWidth: CGFloat = 517
-    static let headHeight: CGFloat = 785
-    static let headWidth: CGFloat = 994
-
-    struct Star { let asset: String; let point: CGPoint; let size: CGFloat; let maxPoints: CGFloat; let tilt: Double }
-    /// Placed clear of her head (ears end at x 61 and 1055) and body; static.
-    static let stars = [
-        Star(asset: "stage-star", point: CGPoint(x: 1150, y: 170), size: 150, maxPoints: 84, tilt: 12),
-        Star(asset: "stage-sparkle", point: CGPoint(x: -20, y: 560), size: 100, maxPoints: 56, tilt: 0),
-        Star(asset: "stage-sparkle", point: CGPoint(x: 1090, y: 1010), size: 70, maxPoints: 40, tilt: 0)
-    ]
-
-    /// The camera move between two layouts as a world transform (screen points at `from` → screen points at `to`).
-    struct WorldMove {
-        let from: Layout, to: Layout
-        var scale: CGFloat { to.k / from.k }
-        /// Star scale with ~70% parallax.
-        var parallaxScale: CGFloat { 1 + (scale - 1) * 0.7 }
-        func apply(_ p: CGPoint, parallax: CGFloat = 1) -> CGPoint {
-            let full = CGPoint(x: to.origin.x + (p.x - from.origin.x) * scale, y: to.origin.y + (p.y - from.origin.y) * scale)
-            return CGPoint(x: p.x + (full.x - p.x) * parallax, y: p.y + (full.y - p.y) * parallax)
-        }
-        func apply(_ r: CGRect) -> CGRect {
-            let o = apply(r.origin)
-            return CGRect(x: o.x, y: o.y, width: r.width * scale, height: r.height * scale)
-        }
-    }
-
-    struct Layout {
-        /// Points per canvas px.
-        var k: CGFloat
-        /// Screen position of canvas (0,0).
-        var origin: CGPoint
-        var canvas: CGSize
-        var cardWidth: CGFloat
-        var cards: [(point: CGPoint, tilt: Double)]
-        func screen(_ p: CGPoint) -> CGPoint { CGPoint(x: origin.x + p.x * k, y: origin.y + p.y * k) }
-        /// A star shows only on screen, clear of the rail, the pill and every card.
-        func starFits(_ p: CGPoint, side: CGFloat, in size: CGSize, leadingInset: CGFloat, bottomInset: CGFloat) -> Bool {
-            let r = CGRect(x: p.x - side / 2, y: p.y - side / 2, width: side, height: side)
-            guard r.minX > leadingInset + 8, r.maxX < size.width - 8, r.minY > 8, r.maxY < size.height - bottomInset else { return false }
-            let h = PTStageCamera.cardHeight(cardWidth)
-            return !cards.contains { c in
-                CGRect(x: c.point.x - cardWidth / 2 - 12, y: c.point.y - h / 2 - 12, width: cardWidth + 24, height: h + 24).intersects(r)
-            }
-        }
-        func slot(_ i: Int, fallback: CGPoint) -> (point: CGPoint, tilt: Double) {
-            cards.indices.contains(i) ? cards[i] : (fallback, 0)
-        }
-        var canvasCenter: CGPoint { CGPoint(x: origin.x + canvas.width / 2, y: origin.y + canvas.height / 2) }
-    }
-
-    /// Card height for a width (art square + tag strip + 2-line title + subtitle + padding).
-    static func cardHeight(_ w: CGFloat) -> CGFloat { w * 0.72 + 128 }
-
-    static func layout(shot: PTCameraShot, itemCount n: Int, size: CGSize, leadingInset: CGFloat, bottomInset: CGFloat,
-                       faceFocus: CGPoint = faceFocus, centerBetweenChrome: Bool = false) -> Layout {
-        let top: CGFloat = 16
-        let availH = max(200, size.height - bottomInset - top)
-        var center = CGPoint(x: size.width / 2, y: top + availH / 2)
-        // Default: whole body ~70% of the screen height, kept above the control pill and inside the width.
-        let mediumH = min(size.height * 0.70, availH * 0.94, (size.width / 2 - 24) / halfWidth * visibleHeight) / visibleHeight * art.height
-        var canvasH: CGFloat
-        var focus: CGPoint
-        var cardW: CGFloat = 0
-        var cards: [(CGPoint, Double)] = []
-        switch shot {
-        case .closeUp:
-            // Her FACE centered both ways in the free stage (between the rail and the chat panel when it's open), the
-            // head as big as fits: ears inside the stage (the far ear may crop by up to ~6%), top of the head inside.
-            if centerBetweenChrome { center.x = (leadingInset + size.width) / 2 }
-            let leftRoom = center.x - (centerBetweenChrome ? leadingInset + 8 : 0)
-            let rightRoom = size.width - center.x
-            let k = min(availH / 2 / faceToTop, leftRoom / (faceToLeftEar * 1.02), rightRoom / (faceToRightEar * 0.94),
-                        size.height * 0.85 / headHeight)
-            canvasH = k * art.height
-            focus = faceFocus
-        case .medium:
-            canvasH = mediumH
-            focus = bodyFocus
-        case .hunt:
-            // Left of center, facing and pointing (viewer's right) toward the active card.
-            canvasH = mediumH * 0.74
-            focus = bodyFocus
-            center.x = leadingInset + (size.width - leadingInset) * 0.37
-        case .wide:
-            focus = bodyFocus
-            let left = (n + 1) / 2, rows = max(1, left)
-            let gap: CGFloat = 16
-            let fitW = ((availH - CGFloat(rows - 1) * gap) / CGFloat(rows) - 128) / 0.72
-            cardW = max(140, min(210, fitW, size.width * 0.19))
-            let edgeL = leadingInset + 12, edgeR = size.width - 12
-            // Room left for Nutmeg between the two columns.
-            let half = min(center.x - edgeL - cardW - 20, edgeR - cardW - 20 - center.x)
-            canvasH = max(art.height * 0.18, min(mediumH * 0.82, half / halfWidth * art.height))
-            let nutHalf = halfWidth * canvasH / art.height
-            let xl = max(edgeL + cardW / 2, center.x - nutHalf - 20 - cardW / 2)
-            let xr = min(edgeR - cardW / 2, center.x + nutHalf + 20 + cardW / 2)
-            let h = cardHeight(cardW)
-            for i in 0..<n {
-                let isLeft = i < left
-                let count = isLeft ? left : n - left
-                let j = isLeft ? i : i - left
-                let c = CGFloat(j) - CGFloat(count - 1) / 2
-                let y = center.y + c * (h + gap)
-                let tilt = Double(c) * (isLeft ? -2.5 : 2.5)
-                cards.append((CGPoint(x: isLeft ? xl : xr, y: y), tilt))
-            }
-        }
-        let k = canvasH / art.height
-        let canvas = CGSize(width: art.width * k, height: canvasH)
-        let origin = CGPoint(x: center.x - focus.x * k, y: center.y - focus.y * k)
-        return Layout(k: k, origin: origin, canvas: canvas, cardWidth: cardW, cards: cards.map { (point: $0.0, tilt: $0.1) })
     }
 }
 

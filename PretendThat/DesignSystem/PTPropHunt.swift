@@ -1,8 +1,163 @@
 import SwiftUI
+import NutmegCore
 
-// Prop hunt layout (prop-gathering-flow.md, Haylee): one prop at a time. The ACTIVE prop is one big card on the left
-// (big art, bold name, the full "becomes" line, and the two backup buttons inside it); found or pretend props shrink
-// and fly to a column of small DONE chips on the right. Nutmeg stands right of center at a medium shot between them.
+// Prop hunt layout (prop-gathering-flow.md, Haylee fix round 2): one prop at a time, Nutmeg at the medium shot.
+// CHAT CLOSED: she stands left of center; the ACTIVE card is on the RIGHT where she points (vertically centered on her
+// chest, ≥ 32 pt inside the curtain); DONE props are small cards stacked on the LEFT between the step rail and her.
+// CHAT OPEN: the active card docks at the top of the chat panel (`PTPropPinnedCard`); done props become a row of small
+// round thumbnails along the top of the stage (`PTPropDoneThumb`); she re-centers below them. Shared matched-geometry
+// ids animate the cards between the two layouts when the panel toggles.
+
+/// Matched-geometry id of the active hunt card (stage card ↔ pinned card in the chat panel).
+let ptHuntActiveID = "hunt-active"
+
+/// The hunt's screen-space layout on the stage (cards only; Nutmeg is drawn by `PTStageView`).
+struct PTPropHuntStage: View {
+    let items: [PTStageItem]
+    let geometry: PTStageGeometry
+    /// Nutmeg's current layout (the cards keep clear of her).
+    let nutmeg: PTStageCamera.Layout
+    /// How far the tied-back curtain reaches in at the card's height.
+    let curtainInset: CGFloat
+    let namespace: Namespace.ID
+    var onHunt: ((String, Bool) -> Void)? = nil
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        let g = geometry, L = nutmeg, F = g.free
+        let done = items.filter(\.isDone)
+        let active = items.last { !$0.isDone }
+        let chestY = L.screen(CGPoint(x: 0, y: PTStageCamera.chestY)).y
+        ZStack(alignment: .topLeading) {
+            if g.chatOpen {
+                // Done thumbnails along the top of the stage, right of the rail (Nutmeg stands below the row).
+                HStack(spacing: 10) {
+                    ForEach(done) { item in
+                        PTPropDoneThumb(item: item).matchedGeometryEffect(id: item.id, in: namespace)
+                    }
+                }
+                .fixedSize()
+                .padding(.leading, F.minX + 8)
+                .padding(.top, F.minY + (PTStageDirector.thumbRow - PTPropDoneThumb.side) / 2 - 4)
+            } else {
+                if let active {
+                    let zoneL = L.maxX + 20, zoneR = g.size.width - curtainInset - PTStageDirector.curtainGap
+                    let w = max(200, min(PTStageDirector.huntCardWidth(g), zoneR - zoneL))
+                    PTPropActiveCard(item: active, width: w, onHunt: active.huntButtons ? onHunt.map { f in { f(active.id, $0) } } : nil)
+                        .matchedGeometryEffect(id: ptHuntActiveID, in: namespace)
+                        .position(x: zoneR - w / 2, y: min(max(chestY, F.minY + 200), F.maxY - 190))
+                        .transition(.scale(scale: 0.3).combined(with: .opacity))
+                }
+                let stackH = CGFloat(done.count) * 72
+                VStack(spacing: Theme.Space.s) {
+                    ForEach(done) { item in
+                        PTPropDoneChip(item: item, width: PTStageDirector.doneStackWidth).matchedGeometryEffect(id: item.id, in: namespace)
+                    }
+                }
+                .frame(width: PTStageDirector.doneStackWidth)
+                .position(x: F.minX + 8 + PTStageDirector.doneStackWidth / 2,
+                          y: min(max(chestY, F.minY + stackH / 2 + 8), F.maxY - stackH / 2))
+            }
+        }
+        .frame(width: g.size.width, height: g.size.height, alignment: .topLeading)
+        .animation(reduceMotion ? .easeInOut(duration: 0.25) : .spring(response: 0.55, dampingFraction: 0.8), value: done.map(\.id))
+        .animation(reduceMotion ? .easeInOut(duration: 0.25) : .spring(response: 0.5, dampingFraction: 0.75), value: active?.id)
+    }
+}
+
+/// The active prop docked at the top of the chat panel: art left, name + "becomes" right, the two backup buttons in a
+/// row below (single-line labels).
+struct PTPropPinnedCard: View {
+    let item: PTStageItem
+    var onHunt: ((Bool) -> Void)? = nil
+
+    var body: some View {
+        VStack(spacing: Theme.Space.s) {
+            HStack(spacing: Theme.Space.s) {
+                Group {
+                    if let image = item.image { Image(uiImage: image).resizable().scaledToFit() } else { PTShimmer(tint: item.tint) }
+                }
+                .frame(width: 76, height: 76)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.title).font(Theme.displayFont(21)).foregroundStyle(Theme.ink).lineLimit(1).minimumScaleFactor(0.6)
+                    if let sub = item.subtitle {
+                        Text(sub).font(Theme.uiFont(15, .medium)).foregroundStyle(Theme.inkMuted).lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            if let onHunt {
+                HStack(spacing: Theme.Space.xs) {
+                    PTHuntPill(title: "Found it!", symbol: "checkmark", fill: Theme.lime, edge: Theme.limeShade, compact: true) { onHunt(true) }
+                    PTHuntPill(title: "Don't have it", symbol: "xmark", fill: Theme.white, edge: Theme.line, compact: true) { onHunt(false) }
+                }
+            }
+        }
+        .padding(Theme.Space.s)
+        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Theme.white))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Theme.line, lineWidth: 1.5))
+        .accessibilityElement(children: .contain)
+    }
+}
+
+/// A done prop as a small round thumbnail with a check (or swap / pretend) badge (chat open).
+struct PTPropDoneThumb: View {
+    let item: PTStageItem
+    static let side: CGFloat = 60
+
+    var body: some View {
+        Group {
+            if let image = item.image { Image(uiImage: image).resizable().scaledToFit().padding(8) } else { PTShimmer(tint: item.tint) }
+        }
+        .frame(width: Self.side, height: Self.side)
+        .saturation(item.isPretend ? 0 : 1).opacity(item.isPretend ? 0.6 : 1)
+        .background(Circle().fill(Theme.white))
+        .overlay(Circle().strokeBorder(Theme.line, lineWidth: 1.5))
+        .shadow(color: Theme.panelShadow, radius: 6, y: 2)
+        .overlay(alignment: .bottomTrailing) { PTPropBadge(item: item, side: 22).offset(x: 3, y: 3) }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(item.title + (item.isPretend ? ", we'll pretend" : ", found"))
+    }
+}
+
+/// The found check / swap arrows / pretend sparkle badge.
+struct PTPropBadge: View {
+    let item: PTStageItem
+    var side: CGFloat = 26
+    var body: some View {
+        let (symbol, fill): (String, Color) = item.isPretend ? ("sparkles", Theme.chipGray)
+            : (item.chip == .swapped ? ("arrow.triangle.2.circlepath", Theme.yellow) : ("checkmark", Theme.lime))
+        Image(systemName: symbol).font(.system(size: side * 0.5, weight: .heavy)).foregroundStyle(Theme.ink)
+            .frame(width: side, height: side).background(Circle().fill(fill))
+            .overlay(Circle().strokeBorder(Theme.white, lineWidth: 2))
+    }
+}
+
+/// A backup hunt button ("Found it!" / "Don't have it"): one line, never truncated.
+struct PTHuntPill: View {
+    let title: String
+    let symbol: String
+    let fill: Color
+    let edge: Color
+    var compact = false
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: compact ? 4 : 6) {
+                Image(systemName: symbol).font(.system(size: compact ? 14 : 17, weight: .heavy))
+                Text(title).lineLimit(1).fixedSize()
+            }
+            .font(Theme.uiFont(compact ? 15 : 18)).foregroundStyle(Theme.ink)
+            .padding(.horizontal, compact ? 10 : Theme.Space.m)
+            .frame(maxWidth: .infinity, minHeight: compact ? 50 : 56)
+            .background(Capsule().fill(fill))
+            .overlay(Capsule().strokeBorder(edge, lineWidth: 1.5))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
+    }
+}
 
 /// The big card for the prop the kids are hunting right now.
 struct PTPropActiveCard: View {
@@ -39,24 +194,8 @@ struct PTPropActiveCard: View {
     }
 
     @ViewBuilder private func buttons(_ onHunt: @escaping (Bool) -> Void) -> some View {
-        huntButton("Found it!", symbol: "checkmark", fill: Theme.lime, edge: Theme.limeShade) { onHunt(true) }
-        huntButton("Don't have it", symbol: "xmark", fill: Theme.white, edge: Theme.line) { onHunt(false) }
-    }
-
-    private func huntButton(_ title: String, symbol: String, fill: Color, edge: Color, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                Image(systemName: symbol).font(.system(size: 17, weight: .heavy))
-                Text(title).lineLimit(1).fixedSize()
-            }
-            .font(Theme.uiFont(18)).foregroundStyle(Theme.ink)
-            .padding(.horizontal, Theme.Space.m)
-            .frame(maxWidth: .infinity, minHeight: 56)
-            .background(Capsule().fill(fill))
-            .overlay(Capsule().strokeBorder(edge, lineWidth: 1.5))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(title)
+        PTHuntPill(title: "Found it!", symbol: "checkmark", fill: Theme.lime, edge: Theme.limeShade) { onHunt(true) }
+        PTHuntPill(title: "Don't have it", symbol: "xmark", fill: Theme.white, edge: Theme.line) { onHunt(false) }
     }
 }
 
@@ -88,12 +227,7 @@ struct PTPropDoneChip: View {
         .accessibilityElement(children: .combine)
     }
 
-    @ViewBuilder private var badge: some View {
-        let (symbol, fill): (String, Color) = item.isPretend ? ("sparkles", Theme.chipGray)
-            : (item.chip == .swapped ? ("arrow.triangle.2.circlepath", Theme.yellow) : ("checkmark", Theme.lime))
-        Image(systemName: symbol).font(.system(size: 13, weight: .heavy)).foregroundStyle(Theme.ink)
-            .frame(width: 26, height: 26).background(Circle().fill(fill))
-    }
+    private var badge: some View { PTPropBadge(item: item) }
 }
 
 extension PTStageItem {
