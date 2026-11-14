@@ -47,8 +47,17 @@ public struct PTStageGeometry: Equatable, Sendable {
     public var floor: CGRect
     /// The chat panel is open (the stage is already narrowed by it): close-ups center between rail and panel.
     public var chatOpen: Bool
-    public init(size: CGSize, leadingInset: CGFloat, bottomInset: CGFloat, floor: CGRect, chatOpen: Bool = false) {
+    /// Round 11 (Haylee: the floor must scale with her): the stage size the camera's REFERENCE (the arrival framing on
+    /// the start screen's floor) is computed for: the full, chat-closed, keyboard-free stage. The floor's size relative
+    /// to Nutmeg depends only on this, so opening the chat panel or the keyboard can't change it. nil = `size`.
+    public var referenceSize: CGSize?
+    public init(size: CGSize, leadingInset: CGFloat, bottomInset: CGFloat, floor: CGRect, chatOpen: Bool = false, referenceSize: CGSize? = nil) {
         self.size = size; self.leadingInset = leadingInset; self.bottomInset = bottomInset; self.floor = floor; self.chatOpen = chatOpen
+        self.referenceSize = referenceSize
+    }
+    /// The geometry the camera's reference framing uses (full stage, chat closed).
+    public var reference: PTStageGeometry {
+        PTStageGeometry(size: referenceSize ?? size, leadingInset: leadingInset, bottomInset: bottomInset, floor: floor)
     }
     static let top: CGFloat = 16
     /// The free stage rect (right of the rail, above the pill).
@@ -160,7 +169,8 @@ public enum PTStageCamera {
     }
 
     public static func compose(_ frame: PTStageFrame, _ g: PTStageGeometry, faceFocus: CGPoint = faceFocus) -> Composition {
-        let ref = layout(.arrival, g)
+        // Round 11: the reference is always the full chat-closed stage, so floor : Nutmeg is the same in every framing.
+        let ref = layout(.arrival, g.reference)
         let L = layout(frame, g, faceFocus: faceFocus)
         return Composition(nutmeg: L, reference: ref, floor: WorldMove(from: ref, to: L).apply(g.floor))
     }
@@ -221,18 +231,10 @@ public enum PTStageCamera {
         case .wide:
             let n = frame.cards
             if n == 0 {
-                if frame.landing {
-                    // The arrival: whole body, feet on the start screen's floor line, visual center on the screen.
-                    k = wideK(g)
-                    origin = CGPoint(x: size.width / 2 - bodyFocus.x * k, y: floorY - feet.y * k)
-                } else {
-                    // Never smaller than the minimum; feet on the floor line unless that would crop her ears, then
-                    // her ears stay just inside the top (the floor moves with her either way).
-                    k = max(minK(g), min(wideK(g), (laneW - 16) / (extentRight - extentLeft)))
-                    origin = CGPoint(x: centeredX(k), y: floorY - feet.y * k)
-                    let headY = origin.y + headTop * k
-                    if headY < F.minY + 8 { origin.y += F.minY + 8 - headY }
-                }
+                // The arrival / hop (the only whole-body framing without cards, round 11): whole body, feet on the start
+                // screen's floor line, visual center on the screen.
+                k = wideK(g)
+                origin = CGPoint(x: size.width / 2 - bodyFocus.x * k, y: floorY - feet.y * k)
             } else {
                 // Presented cards in two columns beside her, Nutmeg between them, feet on the floor line.
                 let center = CGPoint(x: size.width / 2, y: F.minY + F.height / 2)
@@ -275,45 +277,63 @@ public enum PTStageDirector {
     /// Chat open: a row of small round done thumbnails along the top of the stage.
     public static let thumbRow: CGFloat = 92
 
-    /// Width of Nutmeg's lane when content sits beside her (kit papers, play, hand-off): her width at the minimum scale.
-    public static func sideLane(_ g: PTStageGeometry) -> CGFloat {
-        (PTStageCamera.extentRight - PTStageCamera.extentLeft) * PTStageCamera.minK(g) + 24
+    /// Round 11 (Haylee: ONE way everywhere): the only framings the stage camera uses, from the ones Haylee approved.
+    /// Every phase, chat open or closed (and with the keyboard up, which only covers the stage), maps to one of them.
+    public enum Preset: String, CaseIterable, Sendable {
+        /// The start → game hop's landing (whole body on the start screen's floor). Also the conversation's wide shot
+        /// before any card is out.
+        case hop
+        /// The talking close-up (planning conversation, kit coloring).
+        case talk
+        /// The writing shot (round 10): head, clipboard and writing paw.
+        case writing
+        /// The prop-card step, chat closed: Nutmeg medium shot, the card's zone on her right (done stack on her left).
+        /// Reused by the kit pages, the play checklist, the hand-off card, the finale and the tap screens.
+        case propCard
+        /// The prop-card step, chat open: the same medium shot centered between rail and panel, the card pinned in
+        /// the panel (done thumbnails along the top).
+        case propCardChat
+        /// The legacy all-props presentation (cards in two columns beside her; `show_props`).
+        case presentedCards
+    }
+
+    /// Which preset a phase uses. `chatOpen` picks the prop-card variant; the keyboard never changes it.
+    public static func preset(phase: Phase, conversation: Bool, conversationShot: PTCameraShot, cards: Int, hunt: Bool,
+                              kitBeat: KitBeat, writing: Bool = false, chatOpen: Bool) -> Preset {
+        let card: Preset = chatOpen ? .propCardChat : .propCard
+        if writing { return .writing }
+        if conversation {
+            if hunt { return card }
+            switch conversationShot {
+            case .closeUp: return .talk
+            case .medium: return card
+            case .wide: return cards > 0 ? .presentedCards : .hop
+            }
+        }
+        switch phase {
+        case .hello: return .hop
+        case .makingKit, .kitReady: return kitBeat == .papers ? card : .talk
+        default: return card   // tap screens, play checklist, hand-off, finale
+        }
+    }
+
+    /// The camera frame for a preset.
+    public static func frame(_ preset: Preset, cards: Int = 0, curtainInset: CGFloat, _ g: PTStageGeometry) -> PTStageFrame {
+        switch preset {
+        case .hop: return .arrival
+        case .talk: return .closeUp
+        case .writing: return .writing
+        case .propCard, .propCardChat: return huntFrame(curtainInset: curtainInset, g)
+        case .presentedCards: return PTStageFrame(shot: .wide, cards: cards)
+        }
     }
 
     /// - conversationShot: the planning camera's current pick (close-up, wide with cards, arrival).
     /// - writing: the writing moment (planning beat or the kit being made) overrides every other shot.
     public static func frame(phase: Phase, conversation: Bool, conversationShot: PTCameraShot, cards: Int,
                              hunt: Bool, kitBeat: KitBeat, curtainInset: CGFloat, writing: Bool = false, _ g: PTStageGeometry) -> PTStageFrame {
-        if writing { return .writing }
-        if conversation {
-            if hunt { return huntFrame(curtainInset: curtainInset, g) }
-            switch conversationShot {
-            case .closeUp: return .closeUp
-            case .medium: return huntFrame(curtainInset: curtainInset, g)
-            case .wide: return cards > 0 ? PTStageFrame(shot: .wide, cards: cards) : .arrival
-            }
-        }
-        switch phase {
-        case .hello: return .arrival
-        case .makingKit, .kitReady:
-            if kitBeat != .papers { return .closeUp }
-            // The pages step reuses the prop-card step's camera EXACTLY (Haylee): same scale, position and floor; only
-            // the content on the right differs (the page fan where the hunt card was; chat open: the pinned card).
-            return huntFrame(curtainInset: curtainInset, g)
-        default:
-            return side(g)
-        }
-    }
-
-    /// Nutmeg whole-body on the left, content on the right.
-    public static func side(_ g: PTStageGeometry) -> PTStageFrame {
-        PTStageFrame(shot: .wide, rightReserve: max(0, g.free.width - sideLane(g)))
-    }
-    /// Where the content beside her goes (kit papers, checklist, hand-off card): the free stage right of her lane.
-    public static func sideContent(_ g: PTStageGeometry, curtainInset: CGFloat) -> CGRect {
-        let F = g.free
-        let x = F.minX + sideLane(g)
-        return CGRect(x: x, y: F.minY, width: max(100, F.maxX - curtainInset - x), height: F.height)
+        frame(preset(phase: phase, conversation: conversation, conversationShot: conversationShot, cards: cards, hunt: hunt,
+                     kitBeat: kitBeat, writing: writing, chatOpen: g.chatOpen), cards: cards, curtainInset: curtainInset, g)
     }
 
     /// The prop-card step's content zone right of her (chat closed): where the active hunt card sits, reused by the

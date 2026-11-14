@@ -59,8 +59,8 @@ struct HelloView: View {
         let comp = PTStageCamera.compose(firstFrame, g, faceFocus: model.nutmegRestPose.faceFocus)
         let o = geo.frame(in: .global).origin
         return PTStageCamera.stars.compactMap { star in
-            let side = min(star.size * comp.reference.k, star.maxPoints) * comp.world.parallaxScale
-            let p = comp.world.apply(comp.reference.screen(star.point), parallax: 0.7)
+            let side = star.size * comp.nutmeg.k   // round 11: same transform as Nutmeg (PTStageView)
+            let p = comp.nutmeg.screen(star.point)
             guard comp.nutmeg.starFits(p, side: side, in: g.size, leadingInset: g.leadingInset, bottomInset: g.bottomInset) else { return nil }
             return PTStartStageStar(asset: star.asset, tilt: star.tilt, center: CGPoint(x: o.x + p.x, y: o.y + p.y), side: side)
         }

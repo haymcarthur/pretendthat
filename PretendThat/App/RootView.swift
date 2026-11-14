@@ -24,6 +24,8 @@ struct RootView: View {
     @State private var confettiOn = false
     /// Round 11: the start screen's exit is running (from the tap): the rail and pill already slide in on its move.
     @State private var startExiting = false
+    /// Round 11: the full, keyboard-free root size: the stage camera's reference (floor : Nutmeg never changes).
+    @State private var rootSize: CGSize = .zero
 
     private var store: AdventureStore { model.store }
 
@@ -54,6 +56,9 @@ struct RootView: View {
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                // Round 11 (Haylee): the keyboard never re-frames the stage; it just covers its bottom. Only the chat
+                // panel (and its text field) rises above it.
+                .ignoresSafeArea(.keyboard)
                 if chatOpen && chromeVisible {
                     PTChatPanel(lines: model.realtime.transcript.map { PTChatPanel.Line(id: $0.id, fromNutmeg: $0.fromNutmeg, text: $0.text) },
                                 onSend: { text in Task { await model.typed(text) } },
@@ -68,6 +73,7 @@ struct RootView: View {
                     .padding(.leading, Theme.Space.m)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
                     .transition(.move(edge: .leading).combined(with: .opacity))
+                    .ignoresSafeArea(.keyboard)   // round 11: stays put under the keyboard
                 PTControlBar(chatOpen: chatOpen, mic: micMode,
                              onChat: { chatOpen.toggle() },
                              onMicPress: { model.talkPressed() },
@@ -81,6 +87,7 @@ struct RootView: View {
                     .allowsHitTesting(!model.isWriting)
                     .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: model.isWriting)   // round 11: with the writing shot
                     .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .ignoresSafeArea(.keyboard)   // round 11: the keyboard covers it (the chat panel has its own field)
             }
             if confirmLeave {
                 PTLeaveDialog(onStay: { confirmLeave = false },
@@ -93,6 +100,10 @@ struct RootView: View {
                 PTConfetti().id(confettiRun).ignoresSafeArea().allowsHitTesting(false).zIndex(30)
                     .accessibilityHidden(true)
             }
+        }
+        .background {
+            Color.clear.ignoresSafeArea(.keyboard)
+                .onGeometryChange(for: CGSize.self) { $0.size } action: { rootSize = $0 }
         }
         .animation(.easeOut(duration: 0.2), value: confirmLeave)
         // Round 10: the panel/rail slide on the same spring as the camera move they cause (one shared animation).
@@ -145,7 +156,8 @@ struct RootView: View {
     // MARK: The shared stage (every phase)
 
     private var sharedStage: some View {
-        PTStageView(leadingInset: chromeVisible ? PTStageCamera.chromeLeading : 0,
+        PTStageView(referenceSize: rootSize == .zero ? nil : rootSize,
+                    leadingInset: chromeVisible ? PTStageCamera.chromeLeading : 0,
                     bottomInset: chromeVisible ? PTStageCamera.chromeBottom : 0,
                     chatOpen: chatOpen && chromeVisible,
                     faceFocus: (debugPose ?? model.nutmegRestPose).faceFocus,
@@ -180,12 +192,9 @@ struct RootView: View {
     }
 
     /// The frame (shot + lane) this phase asks the one stage camera for.
+    /// Round 11 (Haylee: one way everywhere): every phase goes through `PTStageDirector.preset` (talk, writing, prop
+    /// card, prop card + chat, hop, presented cards); no per-screen framing here.
     private func stageFrame(_ g: PTStageGeometry) -> PTStageFrame {
-        // Round 8/10: chat open in a scene or hand-off, the card is pinned in the panel, so she stands centered.
-        if pinnedPlayCard, g.chatOpen, !model.inConversation { return PTStageFrame(shot: .wide) }
-        // Round 10 (Haylee): the checklist with the chat closed uses the prop-card step's framing EXACTLY (camera,
-        // Nutmeg, floor); the checklist sits where the active prop card sat.
-        if case .scene = store.phase, !model.inConversation, !model.isWriting { return PTStageDirector.huntFrame(curtainInset: curtainInset(g), g) }
         return PTStageDirector.frame(phase: store.phase, conversation: model.inConversation, conversationShot: shot,
                               cards: stageItems.count, hunt: huntOnStage, kitBeat: model.kitBeat,
                               curtainInset: curtainInset(g), writing: model.isWriting, g)
@@ -197,16 +206,15 @@ struct RootView: View {
         if model.kitPapersOut { return "kit-papers" }
         if case .scene(let i) = store.phase { return "scene-\(i)" }   // round 8: the checklist docks in the chat panel
         if case .handoff(let i) = store.phase { return "handoff-\(i)" }   // round 10: so does the hand-off card
+        if store.phase == .end { return "end" }   // round 11: and the finale (the chat-open prop-card framing has no side zone)
         return nil
     }
     /// Round 10 rule (Haylee): every interactive card (prop, kit, checklist, hand-off) has ONE chat-open treatment:
     /// pinned at the top of the chat panel at full readable size (`.ptPinnedCard()`), never shrunk into the stage gap.
-    private var pinnedPlayCard: Bool {
-        switch store.phase { case .scene, .handoff: true; default: false }
-    }
     private var pinnedCard: AnyView? {
         if case .scene(let i) = store.phase, !huntOnStage, !model.kitPapersOut { return AnyView(PTScenePinnedCard(model: model, index: i)) }
         if case .handoff(let i) = store.phase { return AnyView(HandoffView(model: model, sceneIndex: i, pinned: true)) }
+        if store.phase == .end { return AnyView(EndView(model: model).padding(.vertical, Theme.Space.s).ptPinnedCard()) }
         if huntOnStage, let active = stageItems.last(where: { !$0.isDone }) {
             return AnyView(PTPropPinnedCard(item: active, onHunt: active.huntButtons ? { model.huntReply(found: $0) } : nil)
                 .matchedGeometryEffect(id: ptHuntActiveID, in: huntSpace))
@@ -307,8 +315,8 @@ struct RootView: View {
     @ViewBuilder private func classicContent(_ g: PTStageGeometry, _ L: PTStageCamera.Layout) -> some View {
         let kitStep = store.phase == .makingKit || store.phase == .kitReady
         let sceneStep = isScene
-        let r = kitStep || sceneStep ? PTStageDirector.huntContent(g, nutmeg: L, curtainInset: curtainInset(g))   // the hunt card's zone
-                        : PTStageDirector.sideContent(g, curtainInset: g.chatOpen ? 12 : curtainInset(g))   // the panel hides the curtain
+        // Round 11: every phase's content sits in the prop-card step's card zone (one framing, one zone).
+        let r = PTStageDirector.huntContent(g, nutmeg: L, curtainInset: curtainInset(g))
         let minW = kitStep ? Self.kitContentWidth : (sceneStep ? SceneView.width : Self.contentWidth)
         let kitWaiting = (store.phase == .makingKit || store.phase == .kitReady) && model.kitBeat != .papers
         VStack(spacing: Theme.Space.m) {
@@ -352,7 +360,7 @@ struct RootView: View {
                                             onCelebrate: { celebrate() })
         case .handoff(let i): if !(chatOpen && chromeVisible) { HandoffView(model: model, sceneIndex: i) }   // chat open: pinned
         case .scene(let i): if !(chatOpen && chromeVisible) { SceneView(model: model, index: i) }   // chat open: pinned in the panel
-        case .end: EndView(model: model)
+        case .end: if !(chatOpen && chromeVisible) { EndView(model: model) }   // chat open: pinned in the panel
         }
     }
 

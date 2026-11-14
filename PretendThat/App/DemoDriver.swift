@@ -36,6 +36,9 @@ enum DemoDriver {
         return Double(args[i + 1])
     }
 
+    /// Round 11: `-PTKeyboard` (with `-PTChat`): focus the chat field so the keyboard comes up (stage audit screenshots).
+    static var keyboard: Bool { ProcessInfo.processInfo.arguments.contains("-PTKeyboard") }
+
     /// `-PTWriting`: hold the writing moment (clipboardBoth, focus face, crayon top, writing close shot) for screenshots.
     static var forceWriting: Bool { ProcessInfo.processInfo.arguments.contains("-PTWriting") }
 

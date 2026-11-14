@@ -325,6 +325,9 @@ struct PTChatPanel: View {
                     .padding(.horizontal, Theme.Space.m).frame(height: 52)
                     .background(Capsule().fill(Theme.chipGray))
                     .focused($focused).submitLabel(.send).onSubmit(send)
+                    #if DEBUG
+                    .task { if DemoDriver.keyboard { try? await Task.sleep(for: .seconds(1.5)); focused = true } }   // round 11 screenshots
+                    #endif
                 Button(action: send) {
                     Image(systemName: "arrow.up").font(.system(size: 20, weight: .semibold)).foregroundStyle(Theme.white)
                         .frame(width: 52, height: 52).background(Circle().fill(Theme.cta))

@@ -29,6 +29,8 @@ struct PTStageItem: Identifiable, Equatable {
 /// Nutmeg is laid out once at the close-up size and moved/scaled by ONE render transform per frame, so every layer
 /// (body, head, face, tail, contact shadow) moves as a unit and the vectors stay crisp.
 struct PTStageView<Character: View, Overlay: View>: View {
+    /// Round 11: the full chat-closed, keyboard-free stage size (the camera's reference): floor : Nutmeg stays constant.
+    var referenceSize: CGSize? = nil
     var leadingInset: CGFloat = 0
     var bottomInset: CGFloat = 0
     var chatOpen = false
@@ -48,15 +50,16 @@ struct PTStageView<Character: View, Overlay: View>: View {
                               height: geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom)
             let g = PTStageGeometry(size: geo.size, leadingInset: leadingInset, bottomInset: bottomInset,
                                     floor: PTStage.floor(full).offsetBy(dx: -geo.safeAreaInsets.leading, dy: -geo.safeAreaInsets.top),
-                                    chatOpen: chatOpen)
+                                    chatOpen: chatOpen, referenceSize: referenceSize)
             let f = frame(g)
             let comp = PTStageCamera.compose(f, g, faceFocus: faceFocus)
-            let L = comp.nutmeg, ref = comp.reference, world = comp.world
+            let L = comp.nutmeg
             ZStack(alignment: .topLeading) {
                 PTStageFloor(rect: comp.floor)
                 ForEach(Array(PTStageCamera.stars.enumerated()), id: \.offset) { i, star in
-                    let side = min(star.size * ref.k, star.maxPoints) * world.parallaxScale
-                    let p = world.apply(ref.screen(star.point), parallax: 0.7)
+                    // Round 11: the stars are stage props: exactly the camera's transform (no parallax, no size cap).
+                    let side = star.size * L.k
+                    let p = L.screen(star.point)
                     PTStageStar(asset: star.asset, tilt: star.tilt, index: i)
                         .frame(width: side, height: side)
                         .position(p)

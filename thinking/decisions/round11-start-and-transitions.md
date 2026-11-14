@@ -48,3 +48,52 @@ Staggers / delays removed:
 - scene-to-handoff/ (sheet.png): auto-check, then checklist out, camera, card in together.
 - Debug args added: `-PTAutoStart` (start screen taps Let's play! itself, conversation stage without a voice session)
   and `-PTAutoPlay <s>` (with `-PTDemo kitReady`).
+
+## 3. Experience-wide stage audit (Haylee, added mid-round)
+**One camera, one set of framings.** `PTStageDirector.Preset` (NutmegCore/StageCamera.swift) is the ONLY way a phase
+gets a framing; `PTStageDirector.preset(...)` maps phase × chat → preset and `frame(preset)` gives the camera frame.
+RootView's per-screen special cases are gone (the round-8/10 "chat open in a scene/hand-off → centered wide" and
+"scene chat closed → huntFrame" overrides), as are `side(g)` / `sideContent` / `sideLane` and the wide shot's
+ears-below-the-top nudge (the non-landing wide frame no longer exists).
+
+| Phase | Chat closed | Chat open (keyboard up = same) |
+|---|---|---|
+| Start → game hop (landing) | hop | hop |
+| Game / count / theme conversation (talking) | talk | talk (centered between rail and panel) |
+| Writing moment (planning or kit) | writing | writing |
+| Prop hunt (prop card step) | propCard | propCardChat (card pinned in the panel) |
+| All props at once (legacy `show_props`) | presentedCards | presentedCards |
+| Kit being made (coloring) | talk | talk |
+| Print (kit pages) | propCard (fan in the card zone) | propCardChat (pages pinned) |
+| Play checklist | propCard | propCardChat (checklist pinned) |
+| Hand-off | propCard (card in the card zone; was a whole-body left lane) | propCardChat (pinned) |
+| Finale | propCard (card zone) | propCardChat (pinned, new: `EndView` in `.ptPinnedCard()`) |
+| Tap screens (no voice) | propCard | propCardChat |
+
+- **Keyboard:** the stage group, the step rail and the control pill `.ignoresSafeArea(.keyboard)`: the keyboard
+  covers the stage's bottom and nothing re-frames; only the chat panel (and its field) rises.
+- **Floor scales with Nutmeg:** the camera's reference (arrival framing on the start screen's floor) is now computed
+  for the full chat-closed, keyboard-free stage (`PTStageGeometry.referenceSize`, from RootView's root size measured
+  with the keyboard ignored). Before, the narrower chat-open stage shrank the reference, so the floor grew relative to
+  her. Floor width ÷ Nutmeg scale is now constant in every preset (unit test). Her contact shadow is part of her view.
+- **Stage stars = stage props:** exactly the camera transform (no 70% parallax, no point cap), so they keep their size
+  relative to her; shown only where they fit (unchanged rule).
+- Content: every phase's content sits in the prop-card zone (`huntContent`). The content scale-to-fit (content wider
+  than the zone scales down) is unchanged: it's the content fitting its zone, not the camera (Claude's call).
+- Hand-off/print→play now share the propCard framing, so print → play moves only the content (kit out, card in), in
+  one move. Checked: /tmp/pt-round11/print-to-play/sheet-play.png.
+
+### Tests
+- 167 (3 new, `StagePresetTests`): every phase/shot/beat/writing combo yields only preset frames; the phase table
+  above; floor : Nutmeg constant across presets and chat states. StageCameraTests green.
+
+### Screenshots
+- /tmp/pt-round11/audit/grid.png (rows: checklist, coloring, finale, handoff, kitpages, propcard, talk, tapscreen,
+  writing; columns: chat closed, chat open, chat open + keyboard) + the single PNGs. Debug arg `-PTKeyboard` (with
+  `-PTChat`) focuses the chat field.
+
+## Not verified
+- 13" iPad; Reduce Motion; a live voice session (the start → game close-up push assumes the voice key is set; the
+  frame strip uses `-PTAutoStart`, which forces the conversation stage without audio); the legacy presented-cards path
+  and the tap screens with real content beyond pickGame; the step rail's current-step highlight still lands at the
+  end of the start exit (the phase changes then).

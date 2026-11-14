@@ -136,3 +136,77 @@ struct StageCameraTests {
         }
     }
 }
+
+/// Round 11 (Haylee): ONE set of framings. Every phase, chat open or closed, maps to a named preset, and the floor keeps
+/// the same size relative to Nutmeg in every framing.
+struct StagePresetTests {
+    typealias D = PTStageDirector
+    static let curtain: CGFloat = 70
+
+    @Test func everyPhaseMapsToAPresetAndOnlyPresetFrames() {
+        let allPhases: [Phase] = [.hello, .pickGame, .players, .props, .makingKit, .kitReady, .handoff(sceneIndex: 0), .scene(0), .end]
+        for g in StageCameraTests.geometries() {
+            let presetFrames = D.Preset.allCases.map { D.frame($0, cards: 4, curtainInset: Self.curtain, g) }
+                + D.Preset.allCases.map { D.frame($0, cards: 0, curtainInset: Self.curtain, g) }
+            for phase in allPhases {
+                for conv in [false, true] {
+                    for shot in [PTCameraShot.closeUp, .medium, .wide] {
+                        for cards in [0, 4] {
+                            for beat in [D.KitBeat.coloring, .lookUp, .papers] {
+                                for writing in [false, true] {
+                                    let f = D.frame(phase: phase, conversation: conv, conversationShot: shot, cards: cards, hunt: shot == .medium,
+                                                    kitBeat: beat, curtainInset: Self.curtain, writing: writing, g)
+                                    #expect(presetFrames.contains(f), "\(phase) produced a non-preset frame \(f)")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Test func phaseTable() {
+        func p(_ phase: Phase, conv: Bool = false, shot: PTCameraShot = .closeUp, cards: Int = 0, hunt: Bool = false,
+               beat: D.KitBeat = .coloring, writing: Bool = false, chat: Bool) -> D.Preset {
+            D.preset(phase: phase, conversation: conv, conversationShot: shot, cards: cards, hunt: hunt, kitBeat: beat, writing: writing, chatOpen: chat)
+        }
+        for chat in [false, true] {
+            let card: D.Preset = chat ? .propCardChat : .propCard
+            #expect(p(.pickGame, conv: true, chat: chat) == .talk)
+            #expect(p(.players, conv: true, chat: chat) == .talk)
+            #expect(p(.props, conv: true, shot: .medium, hunt: true, chat: chat) == card)
+            #expect(p(.props, conv: true, writing: true, chat: chat) == .writing)
+            #expect(p(.makingKit, chat: chat) == .talk)
+            #expect(p(.makingKit, writing: true, chat: chat) == .writing)
+            #expect(p(.kitReady, beat: .papers, chat: chat) == card)
+            #expect(p(.scene(0), chat: chat) == card)
+            #expect(p(.handoff(sceneIndex: 0), chat: chat) == card)
+            #expect(p(.end, chat: chat) == card)
+            #expect(p(.pickGame, chat: chat) == card)   // tap screens
+            #expect(p(.hello, chat: chat) == .hop)
+        }
+    }
+
+    @Test func floorKeepsItsSizeRelativeToNutmeg() {
+        for s in StageCameraTests.screens {
+            let full = PTStageGeometry(size: s, leadingInset: PTStageCamera.chromeLeading, bottomInset: PTStageCamera.chromeBottom,
+                                       floor: StageCameraTests.floor(s))
+            var ratios: [CGFloat] = []
+            for chat in [false, true] {
+                for keyboardCut: CGFloat in [0, 0] {   // the keyboard no longer changes the stage size (it just covers it)
+                    var g = full
+                    g.size = CGSize(width: s.width - (chat ? 392 : 0), height: s.height - keyboardCut)
+                    g.chatOpen = chat
+                    g.referenceSize = s
+                    for preset in D.Preset.allCases {
+                        let c = PTStageCamera.compose(D.frame(preset, cards: 4, curtainInset: Self.curtain, g), g)
+                        ratios.append(c.floor.width / c.nutmeg.k)
+                    }
+                }
+            }
+            let lo = ratios.min()!, hi = ratios.max()!
+            #expect(hi - lo < 0.5, "floor : Nutmeg varies \(lo)…\(hi) on \(s)")
+        }
+    }
+}
