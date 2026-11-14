@@ -167,6 +167,8 @@ struct PTStageBackdrop: View {
 /// The valance art sits on top. The closed state is what LaunchScreen.storyboard shows.
 struct PTCurtain: View {
     var progress: Double
+    /// Round 18: the stage's above-the-floor curtain copy skips the valance (the backdrop already draws it; two read as a doubled valance).
+    var showsValance = true
 
     /// Open-state geometry, so content can stay clear of the curtains: `visible` = how far the open swag reaches in
     /// from the screen edge at the top.
@@ -183,7 +185,7 @@ struct PTCurtain: View {
             ZStack(alignment: .topLeading) {
                 half(s, m)
                 half(s, m).scaleEffect(x: -1, y: 1, anchor: .center)
-                PTValance(height: m.valance).frame(width: s.width, alignment: .leading).clipped()
+                if showsValance { PTValance(height: m.valance).frame(width: s.width, alignment: .leading).clipped() }
             }
             .frame(width: s.width, height: s.height, alignment: .topLeading)
         }

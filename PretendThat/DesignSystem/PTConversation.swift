@@ -68,7 +68,7 @@ struct PTStageView<Character: View, Overlay: View>: View {
                 // placed in screen space (the full-screen backdrop's frame, wherever this stage sits), so they line up
                 // exactly; the floor moves under them, Nutmeg and the cards stay in front.
                 let origin = geo.frame(in: .global).origin
-                PTCurtain(progress: 1)
+                PTCurtain(progress: 1, showsValance: false)
                     .frame(width: screen.width, height: screen.height)
                     .position(x: screen.width / 2 - origin.x, y: screen.height / 2 - origin.y)
                     .allowsHitTesting(false)
