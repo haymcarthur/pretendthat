@@ -73,7 +73,7 @@ def split_box(svg, box):
 n = 0
 for f in sorted(glob.glob(os.path.join(SRC, "nutmeg", "*.svg"))):
     name = os.path.basename(f)[:-4]; svg = strip_hidden(open(f).read())
-    if name.endswith(".v1"): continue   # superseded art kept for reference
+    if name.endswith(".v1") or ".before" in name: continue   # superseded art / Figma backups kept for reference
     if name.startswith("nutmeg-face-"):
         eyes, mouth = split_face(svg)
         put(name, eyes); put(name + "-mouth", mouth); n += 2
