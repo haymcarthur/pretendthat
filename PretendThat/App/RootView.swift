@@ -26,6 +26,8 @@ struct RootView: View {
     @State private var startExiting = false
     /// Round 11: the full, keyboard-free root size: the stage camera's reference (floor : Nutmeg never changes).
     @State private var rootSize: CGSize = .zero
+    /// Round 15: the full-screen (safe-area-ignoring) size the curtains are drawn at.
+    @State private var screenSize: CGSize = .zero
     /// Round 14: the chat panel's Checklist | Chat tabs during play (a new hand-off / scene opens on Checklist).
     @State private var chatTabs = PTChatTabState()
 
@@ -38,6 +40,10 @@ struct RootView: View {
             // The same stage as the start screen (sky, floor, tied-back curtains, valance) under every game screen.
             // The floor is drawn by the shared stage (it moves with Nutmeg); the start screen draws its own.
             PTStageBackdrop(floor: false)
+                .background {
+                    // Round 15: the backdrop's full-screen size (the stage redraws its curtains over the floor).
+                    Color.clear.ignoresSafeArea().onGeometryChange(for: CGSize.self) { $0.size } action: { screenSize = $0 }
+                }
             #if DEBUG
             if let art = DemoDriver.requestedPhase, art.hasPrefix("art") { ArtCheckView(mode: art).zIndex(10) }
             #endif
@@ -168,6 +174,7 @@ struct RootView: View {
 
     private var sharedStage: some View {
         PTStageView(referenceSize: rootSize == .zero ? nil : rootSize,
+                    screenSize: screenSize == .zero ? nil : screenSize,
                     leadingInset: chromeVisible ? PTStageCamera.chromeLeading : 0,
                     bottomInset: chromeVisible ? PTStageCamera.chromeBottom : 0,
                     chatOpen: chatOpen && chromeVisible,

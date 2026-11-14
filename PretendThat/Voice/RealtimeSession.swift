@@ -511,12 +511,18 @@ final class RealtimeSession {
         updateGate()
     }
 
+    @ObservationIgnored private var lastSayAt = Date.distantPast
+    /// Round 15: something is being said or is about to be (a response running, audio playing, or an app line sent in
+    /// the last moment whose audio hasn't started): a new app line waits, so two lines never overlap.
+    var voiceBusy: Bool { isSpeaking || gate.active || Date().timeIntervalSince(lastSayAt) < 1.5 }
+
     /// `thinking`: a kid is waiting on this line (a hand-off or Let's play! tap): show the thinking face + dots until it plays.
     func say(_ line: String, thinking: Bool = false) {
         guard let socket, isLive, !suspended, !line.isEmpty else { return }
         if thinking { thinkingGap = true }
         chat.breakTurn()   // each app line (kit progress, ready line) is its own bubble
         if !trace.running { trace.begin("app line") }
+        lastSayAt = Date()
         socket.send(Realtime.sayExactly(line))
         trace.mark("say.create")
     }
@@ -891,6 +897,23 @@ final class RealtimeSession {
             responseHadAudio = false
             responseSerial += 1
             responseLineStart = chat.lines.count
+        case .responseDone where gate.deferredTurn && beatTask == nil:
+            // Round 15 (Haylee: a second "Don't have it" got no reply): this is the OLD turn's response, cancelled by a
+            // tap / typed line that arrived while it was still running. Close it out, then ask for the new turn's reply
+            // (its tool-first pass if the tap set one); the interrupt would otherwise block that follow-up for good.
+            if silentResponse {
+                silentResponse = false
+                for id in silentItems { socket?.send(Realtime.deleteItem(id)) }
+                silentItems = []
+            }
+            reminderPlaying = false
+            if !pendingOutputs.isEmpty, let socket {
+                for (id, out) in pendingOutputs { socket.send(Realtime.functionOutput(callID: id, output: out)) }
+                pendingOutputs = []
+            }
+            _ = gate.takeDeferredTurn()
+            rtLog("deferred turn: the interrupted response is done, asking for the new turn's reply")
+            requestResponse()
         case .responseDone where silentResponse:
             // Nobody heard it: cut its audio items to 0 ms, send the tool outputs, then her real (spoken) reply.
             silentResponse = false

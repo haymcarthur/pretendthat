@@ -180,9 +180,19 @@ public final class AdventureStore {
         await makeKit()
     }
 
+    /// Round 15: a line the "making your kit" line starts with (the reassurance after a skipped prop, when the hunt
+    /// ends right there). Only used within `leadInWindow` of being set.
+    public var kitLeadIn: (line: String, at: Date)?
+    public nonisolated static let leadInWindow: TimeInterval = 20
+    /// Round 15: the one overall congratulations after an early Done!, said as the start of the next line (hand-off,
+    /// next scene or the finale), so the tap gets ONE spoken reply.
+    public var sceneLeadIn: String?
+
     public func makeKit() async {
         phase = .makingKit
-        say("Ooh, let me make your kit! Wait for it...")
+        let lead = kitLeadIn.flatMap { Date().timeIntervalSince($0.at) < Self.leadInWindow ? $0.line + " " : nil } ?? ""
+        kitLeadIn = nil
+        say(lead + "Ooh, let me make your kit! Wait for it...")
         await run("kit", kidSaid: nil) { [self] svc in
             kit = try await svc.kit(ctx: context)
         } fallback: { [self] in useFallbackGame() }
@@ -237,7 +247,7 @@ public final class AdventureStore {
             }
             try? await Task.sleep(for: autoCheckHold)
             autoChecking = false
-            guard case .scene(i) = phase else { return }   // left the scene meanwhile (step rail, leave)
+            guard case .scene(i) = phase else { sceneLeadIn = nil; return }   // left the scene meanwhile (step rail, leave)
         }
         goToScene(i + 1)
         if case .scene = phase { doneSnapshot = nil }   // same role continues: no hand-off card to go back from
@@ -541,12 +551,12 @@ public final class AdventureStore {
     }
 
     private func goToScene(_ i: Int) {
-        guard let kit, i < kit.scenes.count else { phase = .end; say("The end! What a show! Take a bow!"); return }
+        guard let kit, i < kit.scenes.count else { phase = .end; sayInPlay("The end! What a show! Take a bow!"); return }
         // Hand-offs are by role (round 8: "iPad", and she says which button to tap; the card's button reads "I'm the Captain!").
         let owner = kit.scenes[i].owner.role
         if playerCount > 1, let owner, owner != holder, let role = plan?.role(for: owner) {
             phase = .handoff(sceneIndex: i)
-            say("Pass the iPad to \(role.spoken)! Then tap I'm \(role.spoken)!")
+            sayInPlay("Pass the iPad to \(role.spoken)! Then tap I'm \(role.spoken)!")
         } else {
             enterScene(i)
         }
@@ -555,11 +565,18 @@ public final class AdventureStore {
     private func enterScene(_ i: Int) {
         checkedSteps = []; doneSnapshot = nil
         phase = .scene(i)
-        if let s = kit?.scenes[i] { say(s.nutmegSays) }
+        if let s = kit?.scenes[i] { sayInPlay(s.nutmegSays) }
     }
 
     private func say(_ line: String) {
         nutmegLine = line
+    }
+
+    /// A play-step line, starting with the pending congratulations if there is one.
+    private func sayInPlay(_ line: String) {
+        let lead = sceneLeadIn.map { $0 + " " } ?? ""
+        sceneLeadIn = nil
+        say(lead + line)
     }
 
     private var phaseName: String {

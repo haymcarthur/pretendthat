@@ -85,7 +85,11 @@ enum DemoDriver {
             try? await Task.sleep(for: .seconds(secs))
         }
         await model.startConversation()
-        for turn in turns {
+        for raw in turns {
+            // Round 15: a leading "!" sends the turn right away (a quick tap while she's still talking).
+            let quick = raw.hasPrefix("!")
+            let turn = quick ? String(raw.dropFirst()) : raw
+            if quick { try? await Task.sleep(for: .milliseconds(700)) } else {
             // Wait for Nutmeg to start and then finish her line.
             for _ in 0..<100 where !model.realtime.isSpeaking { try? await Task.sleep(for: .milliseconds(100)) }
             // ...and stay settled (no response, beat or reply pending) for 1.5 s: her chained tool responses finish first.
@@ -93,6 +97,7 @@ enum DemoDriver {
             for _ in 0..<600 where calm < 15 {
                 try? await Task.sleep(for: .milliseconds(100))
                 calm = model.realtime.isSpeaking || model.realtime.isBusy || model.beat != .none ? 0 : calm + 1
+            }
             }
             // "#wait N": stay quiet N seconds (checks the spoken-only silence reminder, round 7).
             rtLog("driver: \(turn)")
@@ -112,7 +117,9 @@ enum DemoDriver {
             // Round 13 taps: "#found" / "#missing" (prop card buttons), "#play" (print step Let's play!), "#handoff"
             // (the hand-off card's I'm the ___! button). Timed like real taps.
             if turn == "#found" || turn == "#missing" { model.huntReply(found: turn == "#found"); continue }
-            if turn == "#done" { await model.store.sceneDone(); continue }
+            if turn == "#done" { await model.sceneDone(); continue }
+            // Round 15: "#check N": the kid checks step N of the current scene's checklist.
+            if turn.hasPrefix("#check "), let n = Int(turn.dropFirst(7)) { model.checkStep(n); continue }
             if turn == "#scenes" {   // the kit's scene intro lines (round 13: each says "Pretend that")
                 for (i, sc) in (model.store.kit?.scenes ?? []).enumerated() { rtLog("SCENE[\(i)] \(sc.nutmegSays)") }
                 continue

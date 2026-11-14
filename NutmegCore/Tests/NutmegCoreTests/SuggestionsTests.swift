@@ -336,17 +336,8 @@ struct SuggestionsTests {
     }
 
     @Test func kitProgressLines() {
-        var said: [String] = []
-        // Nothing being drawn (before the pages exist): no line at all; never a line about earlier steps.
-        #expect(KitProgress.line(pending: [], said: said) == nil)
+        // Round 15: the picker lives in Round15LinesTests; here, the pool's wording rules.
         #expect(!KitProgress.allLines.contains { $0.lowercased().contains("roles") })
-        let a = KitProgress.line(pending: [.badges], said: said); #expect(a == "I'm making your name badges!"); said.append(a!)
-        // Tied to the pages still being drawn.
-        let b = KitProgress.line(pending: [.tickets, .menu], said: said); #expect(b == "I'm putting together some tickets!"); said.append(b!)
-        let c = KitProgress.line(pending: [.tickets, .menu], said: said); #expect(c == "The tickets are almost stamped!"); said.append(c!)
-        let d = KitProgress.line(pending: [.menu], said: said); #expect(d == "Ooh, the menu's looking yummy!"); said.append(d!)
-        #expect(KitProgress.line(pending: [.menu], said: said) == nil)          // at most 4
-        #expect(Set(said).count == said.count)                                   // never repeated
         for line in KitProgress.allLines {
             #expect(!TurnCheck.mentionsGoPlay(line) && !line.lowercased().contains("all set") && !line.lowercased().contains("ready"), "\(line)")
             #expect(!TurnCheck.hasSoundEffect(line), "\(line)")

@@ -31,6 +31,8 @@ struct PTStageItem: Identifiable, Equatable {
 struct PTStageView<Character: View, Overlay: View>: View {
     /// Round 11: the full chat-closed, keyboard-free stage size (the camera's reference): floor : Nutmeg stays constant.
     var referenceSize: CGSize? = nil
+    /// Round 15: the full-screen size the backdrop's curtains are drawn at (nil: the stage's own full size).
+    var screenSize: CGSize? = nil
     var leadingInset: CGFloat = 0
     var bottomInset: CGFloat = 0
     var chatOpen = false
@@ -46,6 +48,8 @@ struct PTStageView<Character: View, Overlay: View>: View {
 
     var body: some View {
         GeometryReader { geo in
+            let screen = screenSize ?? CGSize(width: geo.size.width + geo.safeAreaInsets.leading + geo.safeAreaInsets.trailing,
+                                              height: geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom)
             let full = CGSize(width: geo.size.width + geo.safeAreaInsets.leading + geo.safeAreaInsets.trailing,
                               height: geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom)
             let g = PTStageGeometry(size: geo.size, leadingInset: leadingInset, bottomInset: bottomInset,
@@ -59,6 +63,15 @@ struct PTStageView<Character: View, Overlay: View>: View {
             let L = comp.nutmeg
             ZStack(alignment: .topLeading) {
                 PTStageFloor(rect: comp.floor)
+                // Round 15 (Haylee: the floor ran in front of the curtains on The End): the proscenium (curtains,
+                // tie-backs, valance) draws ABOVE the floor at every camera position. Same curtains as the backdrop's,
+                // placed in screen space (the full-screen backdrop's frame, wherever this stage sits), so they line up
+                // exactly; the floor moves under them, Nutmeg and the cards stay in front.
+                let origin = geo.frame(in: .global).origin
+                PTCurtain(progress: 1)
+                    .frame(width: screen.width, height: screen.height)
+                    .position(x: screen.width / 2 - origin.x, y: screen.height / 2 - origin.y)
+                    .allowsHitTesting(false)
                 ForEach(Array(PTStageCamera.stars.enumerated()), id: \.offset) { i, star in
                     // Round 11: the stars are stage props: exactly the camera's transform (no parallax, no size cap).
                     let side = star.size * L.k

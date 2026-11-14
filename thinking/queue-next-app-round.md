@@ -95,3 +95,8 @@ Art ready in design/export/ to import:
 5. "I'M THE ___" BUTTON SIZE: in the chat panel it's much bigger than on the stage card. Make the stage card and the panel version the same size (use the bigger, readable one consistently, scaled to fit). **DONE R14.**
 6. LAST CHECKLIST CUT OFF: "Sunset Closing Time" scene: the title is clipped at the top and the last checkbox at the bottom on the stage card. Never clip: size the card to its content (title can wrap to 2 lines) within the stage, shrinking pictures/padding before text. **DONE R14.**
 7. (coordinator) THINKING FACE looked grumpy (closed eyes + frown): use an existing curious face, keep the tilt. **DONE R14.**
+## Round 15 (Haylee's test of round 14, 2026-11-14 morning) — DONE R15 (decisions/2026-11-14-round15-skip-kit-checklist-curtains.md)
+1. "DON'T HAVE" TWICE: the second tap moved the card aside in silence. She must reassure out loud ("That's okay, we'll just pretend that..." + a quick substitute), then the next prop; one reply, in the chat. **DONE R15** (a tap during her running reply lost its request; fixed in ResponseGate/RealtimeSession).
+2. KIT COMMENTARY ALWAYS THE SAME: 30+ lines per real page kind, random, no repeats, only about pages being made. **DONE R15** (42 lines).
+3. CHECKLIST CHECK-OFFS: short varied "good job" + next step; overall congrats on the last check or an early Done!; one reply per action, no overlap, in the chat. **DONE R15.**
+4. FLOOR IN FRONT OF THE CURTAINS (The End, any pulled-back camera): curtains/valance/tie-backs always above the floor. **DONE R15.**

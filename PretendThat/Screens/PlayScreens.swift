@@ -73,7 +73,7 @@ struct SceneView: View {
                     .frame(width: geo.size.width, height: geo.size.height)
                 }
                 .frame(height: paper.height + 20)
-                PTSceneDoneButton(allChecked: store.checkedSteps.count == n, busy: store.autoChecking) { Task { await store.sceneDone() } }
+                PTSceneDoneButton(allChecked: store.checkedSteps.count == n, busy: store.autoChecking) { Task { await model.sceneDone() } }
                     .frame(width: width)
             }
             // Measure every tier's natural height at this width (hidden), then use the densest one that's needed.
@@ -119,7 +119,7 @@ struct PTSceneChecklist: View {
                 .accessibilityAddTraits(.isHeader)
             ForEach(Array(scene.steps.enumerated()), id: \.offset) { i, step in
                 PTChecklistRow(text: step.text, isChecked: Binding(
-                    get: { store.checkedSteps.contains(i) }, set: { _ in store.toggleStep(i) }),
+                    get: { store.checkedSteps.contains(i) }, set: { _ in model.checkStep(i) }),
                                fontSize: t.font, padding: t.padding) {
                     model.pictureTile(step.picture, size: t.picture)
                 }
@@ -177,7 +177,7 @@ struct PTScenePinnedCard: View {
             VStack(spacing: Theme.Space.m) {
                 PTSceneChecklist(model: model, scene: scene, tier: scene.steps.count <= 4 ? 1 : 3)   // the panel is narrower: smaller pictures, same readable text
                 PTSceneDoneButton(allChecked: store.checkedSteps.count == scene.steps.count, busy: store.autoChecking) {
-                    Task { await store.sceneDone() }
+                    Task { await model.sceneDone() }
                 }
             }
             .padding(.vertical, Theme.Space.xs)

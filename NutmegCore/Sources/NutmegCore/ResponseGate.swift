@@ -16,6 +16,9 @@ public struct ResponseGate: Equatable, Sendable {
     public private(set) var turnSpoke = false
     private var inTurn = false
     private var pending = false
+    /// Round 15: a NEW turn's request that arrived while the previous turn's response was still active (a tap or a
+    /// typed line that interrupted her). The interrupt blocks the usual follow-up, so it must be asked again.
+    public private(set) var deferredTurn = false
     /// Audio still arriving from a response that started before this turn belongs to the old turn.
     private var staleActive = false
     private var followUps = 0
@@ -28,14 +31,24 @@ public struct ResponseGate: Equatable, Sendable {
 
     /// A new kid turn: she owes exactly one spoken reply.
     public mutating func newTurn() {
-        inTurn = true; turnSpoke = false; pending = false; followUps = 0
+        inTurn = true; turnSpoke = false; pending = false; followUps = 0; deferredTurn = false
         staleActive = active
     }
 
     /// Returns true when `response.create` should be sent now (false: one is active; it follows on done).
     public mutating func request() -> Bool {
-        if active { pending = true; return false }
+        if active { pending = true; if staleActive { deferredTurn = true }; return false }
         active = true
+        return true
+    }
+
+    /// Round 15 (Haylee: a second "Don't have it" tap got no reply): the old turn's (cancelled) response is done and a
+    /// new turn's request is waiting. Clears the old response and returns true: the session asks for the new turn's
+    /// response now (with its tool-first rule), instead of `done`, whose follow-up the interrupt blocked.
+    public mutating func takeDeferredTurn() -> Bool {
+        guard deferredTurn else { return false }
+        deferredTurn = false; pending = false
+        active = false; staleActive = false; toolThisResponse = false
         return true
     }
 
@@ -62,7 +75,7 @@ public struct ResponseGate: Equatable, Sendable {
     /// `response.done`. Returns true when ONE follow-up `response.create` should be sent now.
     /// `allowFollowUp` is false while the kid holds the mic or after an interrupt (the release asks instead).
     public mutating func done(allowFollowUp: Bool = true, spokenTurnIncomplete: Bool = false) -> Bool {
-        active = false; staleActive = false
+        active = false; staleActive = false; deferredTurn = false
         let owes = inTurn && !turnSpoke
         let afterTool = toolThisResponse && turnSpoke && spokenTurnIncomplete
         toolThisResponse = false

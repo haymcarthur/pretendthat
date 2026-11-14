@@ -234,25 +234,76 @@ final class AppModel {
 
     /// Round 7: light progress commentary while the kit is being made (KitProgress): every ~13 s, about a page still
     /// being drawn, at most 4, never repeated; stops as soon as the whole kit has landed.
+    /// Round 15 (Haylee: the kit line was always the same): a random line from a bigger pool (KitProgress.lines), never
+    /// repeated this session, and only about something really being made at that moment.
     private func startKitProgress() {
         kitWait?.cancel()
         kitWait = Task { @MainActor in
-            var said: [String] = []
+            var said = 0
+            var lastTopic: KitProgress.Topic?
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(KitProgress.interval))
                 guard !Task.isCancelled, store.phase == .makingKit || store.phase == .kitReady, !kitFinal else { return }
-                if isSpeaking { continue }
-                // While the kit's pages are still being written, every page is in progress; then the ones still drawing.
-                let pending = store.kit == nil ? KitRecipe.allCases : (store.kit?.items ?? []).filter { item in
+                if isSpeaking || (realtime.isLive && realtime.voiceBusy) { continue }
+                // While the kit's content is being written, every page and the play guide are in progress; then only
+                // the pages whose art is still being drawn.
+                let pending = (store.kit?.items ?? []).filter { item in
                     item.recipe == .cutouts ? art.cutoutImages(item).contains { $0 == nil } : art.images[item.id] == nil
                 }.compactMap(\.recipe)
-                guard said.count < KitProgress.maxLines else { return }
-                guard let line = KitProgress.line(pending: pending, said: said) else { continue }   // keep waiting
-                rtLog("kit progress: \(line)")
-                said.append(line)
-                speak(line)
+                let topics = KitProgress.inProgress(kitWritten: store.kit != nil, pendingPages: pending)
+                guard said < KitProgress.maxLines else { return }
+                guard let pick = KitProgress.next(inProgress: topics, saidThisKit: said, lastTopic: lastTopic,
+                                                  deck: &lineDeck, using: &rng) else { continue }   // keep waiting
+                rtLog("kit progress (\(pick.topic.rawValue)): \(pick.line)")
+                said += 1; lastTopic = pick.topic
+                speak(pick.line)
             }
         }
+    }
+    /// Round 15: one deck for the whole app session, so random lines never repeat until a pool is used up.
+    @ObservationIgnored var lineDeck = LineDeck()
+    @ObservationIgnored var rng = SystemRandomNumberGenerator()
+
+    // MARK: Checklist cheers (round 15, Haylee)
+
+    /// A checklist row was tapped: check/uncheck it, then (checked) ONE short varied cheer + the next step, or the
+    /// overall congratulations when the list is complete. Quick taps never overlap: a pending cheer is replaced by
+    /// the newest one (it waits a moment, and for anything she's saying to finish).
+    func checkStep(_ index: Int) {
+        guard case .scene(let i) = store.phase, let scene = store.kit?.scenes[i], !store.autoChecking else { return }
+        store.toggleStep(index)
+        cheerTask?.cancel(); cheerTask = nil
+        let steps = scene.steps.map(\.text)
+        guard store.checkedSteps.contains(index) else { return }   // an uncheck says nothing
+        cheerTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(600))   // a quick second tap replaces this one
+            for _ in 0..<160 where (realtime.isLive ? realtime.voiceBusy : isSpeaking) && !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(50))   // never over another line (≤ 8 s)
+            }
+            guard !Task.isCancelled, case .scene(i) = store.phase, !store.autoChecking,
+                  store.checkedSteps.contains(index) else { return }
+            guard let line = ChecklistCheers.afterCheck(index: index, steps: steps, checked: store.checkedSteps,
+                                                        deck: &lineDeck, using: &rng) else { return }
+            if store.checkedSteps.count == steps.count { congratulatedScene = i }
+            cheerTask = nil
+            rtLog("checklist cheer: \(line)")
+            if realtime.isLive { realtime.say(line) } else { speak(line) }
+        }
+    }
+    @ObservationIgnored private var cheerTask: Task<Void, Never>?
+    /// The scene whose overall congratulations has been said (the last step checked normally).
+    @ObservationIgnored private var congratulatedScene: Int?
+
+    /// "Done!": a pending step cheer is dropped; if the list wasn't finished (Done! checks the rest) or its
+    /// congratulations hasn't been said yet, ONE overall congratulations starts the next line (hand-off, scene, end).
+    func sceneDone() async {
+        guard case .scene(let i) = store.phase, !store.autoChecking else { return }
+        cheerTask?.cancel(); cheerTask = nil
+        if congratulatedScene != i {
+            store.sceneLeadIn = ChecklistCheers.finished(deck: &lineDeck, using: &rng)
+        }
+        congratulatedScene = nil
+        await store.sceneDone()
     }
     @ObservationIgnored private var kitWait: Task<Void, Never>?
 
@@ -468,11 +519,13 @@ final class AppModel {
                                     + "if they can find one.",
                                  requiring: nil)
             } else {
+                // Round 15 (Haylee: the second "Don't have it" moved the card aside in silence): she reassures them out
+                // loud ("That's okay, we'll just pretend that...") with the next prop, in ONE reply. If the hunt ends
+                // right here (finish_planning), the app's "making your kit" line starts with the reassurance instead.
                 _ = await store.apply(.skipProp(p.id))
+                store.kitLeadIn = (PropSkip.reassurance(item: p.householdItem, becomes: p.becomes, deck: &lineDeck, using: &rng), Date())
                 realtime.tapTurn(kidLine: "We don't have a \(name).",
-                                 note: "(Silent coaching, don't mention it.) The kids tapped Don't have it: the \(name) is ALREADY marked "
-                                    + "as pretend on screen (don't call skip_prop). Say nothing yet: \(then) FIRST, then say you'll "
-                                    + "pretend that one and ask about the new prop in the same turn.",
+                                 note: PropSkip.note(item: p.householdItem, becomes: p.becomes, then: then),
                                  requiring: next)
             }
             realtime.huntMode = store.huntActive
