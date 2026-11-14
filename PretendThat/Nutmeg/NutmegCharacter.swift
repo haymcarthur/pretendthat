@@ -196,18 +196,14 @@ struct NutmegCharacter: View {
         }
     }
 
-    /// The writing crayon (round 8: the one-paw writing body's own crayon, drawn under her fingers): it scribbles with a
-    /// small quick rotation around its tip (~0.26 s, round 10), in the writing body's transform. Reduce
-    /// Motion: still.
+    /// The writing crayon (round 8: the one-paw writing body's own crayon, drawn under her fingers), in the writing
+    /// body's transform. Round 18 (Haylee: "a piece of the crayon stays stuck to her hand"): the crayon no longer rocks
+    /// relative to the paw. The art has no stray crayon in the body or fingers layers; the rock (round 10, ~2.5°
+    /// around the tip) swung the top end while the short visible middle by the tip barely moved, so it read as a
+    /// stuck piece with the paw holding still. Now it moves with the paw (breathing, body transform) only.
     @ViewBuilder private func crayon(t: Double, px: CGFloat) -> some View {
         if shown == .coloring, Self.writingCrayonAvailable {
-            let k = (reduceMotion || !writing) ? 0 : 1.0
-            let w = sin(t * 2 * .pi / 0.26)
-            // Round 10 (Haylee): the crayon rocks around its tip (art ~(760, 778)) instead of the grip, so the top end
-            // scribbles (~2.5°, ~10 px at the top) with no drift. Round 12: the board is solid (notch repaired) and its
-            // layer draws over the crayon, so the tip tucks behind the board edge (tools/split_writing_clipboard.py).
             layer("nutmeg-writing-crayon")
-                .rotationEffect(.degrees(2.5 * w * k), anchor: UnitPoint(x: 760 / 1178, y: 778 / 1335))
                 .transformEffect(NutmegPose.coloring.bodyTransform.px(px))
         }
     }
