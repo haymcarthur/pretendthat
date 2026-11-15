@@ -38,3 +38,5 @@ No exceptions, including the single silence reminder ("Hold the red button whene
 
 ## Role wording (Haylee)
 - Roles are presented as parts to share ("We need a Train Driver, a Conductor, and a Passenger! Pick who's who!"), never "You're the X, the Y, and the Z" (it sounds like one kid gets all of them). One player: "You'll be the Train Driver!"
+
+**Update, 2026-11-15 (Haylee):** drop "Pick who's who!" after the roles. Use a hunt transition instead ("Now it's time to hunt for props!"), then the first prop card. Queued as round 20 item 4.

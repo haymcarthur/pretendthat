@@ -88,6 +88,7 @@ The map. Read this first, then open only what you need.
 - [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–15 done (round 15 = skip reassurance, varied kit lines, checklist cheers, floor behind the curtains)
 
 ## Research
+- [Cost per game (2026-11-15)](research/2026-11-15-cost-per-game.md): about $1.60/game, OpenAI voice is the biggest share; levers ranked
 - [Competitor analysis](research/competitor-analysis.md): competitors, white space, novelty angles, pricing
 - [Name check: Boxley](research/name-check-boxley.md): why Boxley is out
 

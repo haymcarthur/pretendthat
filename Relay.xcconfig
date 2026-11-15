@@ -6,8 +6,8 @@
 // Anthropic accounts (see relay/README.md).
 //
 // RELAY_HOST has no https:// (xcconfig treats // as a comment); the app adds it. Until the relay is deployed this
-// is a placeholder, which the app treats as "no relay" (it runs the bundled fallback adventure).
-RELAY_HOST = pretendthat-relay.<subdomain>.workers.dev
+// is a the deployed relay (2026-11-15).
+RELAY_HOST = pretendthat-relay.pretendthat.workers.dev
 RELAY_TOKEN = BT9jhDKOezuNUTP4695NTKfV02yHOht1
 
 // Optional, git-ignored personal keys (dev mode). Anything set there overrides the lines above, and personal keys
