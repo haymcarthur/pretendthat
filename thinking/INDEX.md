@@ -86,6 +86,8 @@ The map. Read this first, then open only what you need.
 - [Round 20: color choice (full color / I'll color them), kit made during the prop hunt, settings removed, "Now it's time to hunt for props!", stable Realtime prefix (44% → 84% cached), low-quality images + one cut-out sheet, pretend swords, typed turn stops her speech](decisions/2026-11-15-round20-color-prefetch-settings-cost.md): Haylee (Claude's calls noted)
 - [Round 21: lag measured (round 19 moderation blocked every typed turn; now in parallel, typed 2.1–2.7 s → 1.2–1.5 s), choice buttons on top, keyboard never rezooms Nutmeg, chat scrolls, no keyboard bounce](decisions/2026-11-15-round21-lag-buttons-keyboard.md): Haylee (Claude's calls noted)
 
+- [Paid-app direction: iPad only, iCloud saved games, real-voice replays, 6-player cap, exact badges, $1 money](decisions/2026-11-15-paid-app-direction.md): Haylee
+
 ## Work queue
 - [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–15 done (round 15 = skip reassurance, varied kit lines, checklist cheers, floor behind the curtains)
 
