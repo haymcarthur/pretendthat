@@ -84,6 +84,7 @@ The map. Read this first, then open only what you need.
 - [Relay for shared builds: deploy the stateless relay, $20/month cap; routes, allow-lists, ephemeral Realtime secrets, Relay.xcconfig](decisions/2026-11-15-relay-for-shared-builds.md): Haylee (relay + cap), Claude's calls noted
 - [Round 19: writing hand moves as one unit, corrections update everything + recap/confirm step, taps stop her speech, kid-safety guardrails (local filter + moderation, relay /v1/moderations)](decisions/2026-11-15-round19-crayon-corrections-bargein-guardrails.md): Haylee (Claude's calls noted)
 - [Round 20: color choice (full color / I'll color them), kit made during the prop hunt, settings removed, "Now it's time to hunt for props!", stable Realtime prefix (44% → 84% cached), low-quality images + one cut-out sheet, pretend swords, typed turn stops her speech](decisions/2026-11-15-round20-color-prefetch-settings-cost.md): Haylee (Claude's calls noted)
+- [Round 21: lag measured (round 19 moderation blocked every typed turn; now in parallel, typed 2.1–2.7 s → 1.2–1.5 s), choice buttons on top, keyboard never rezooms Nutmeg, chat scrolls, no keyboard bounce](decisions/2026-11-15-round21-lag-buttons-keyboard.md): Haylee (Claude's calls noted)
 
 ## Work queue
 - [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–15 done (round 15 = skip reassurance, varied kit lines, checklist cheers, floor behind the curtains)

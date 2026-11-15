@@ -108,6 +108,11 @@ Art ready in design/export/ to import:
 2. REPEAT IN THE PILL: speaker button in the X's old slot ("Hear it again"): checklist read-aloud during play (round 16 behavior), else her last line again (same voice, no duplicate bubble); dimmed when nothing to repeat or she's busy. **DONE R17.**
 3. REMOVE round 16's checklist "Hear it again" pills (stage card + chat panel tab); Done! back to its round 15 layout. **DONE R17.**
 
+## Round 21 (2026-11-15, Haylee, after testing round 20): DONE (see [decision](decisions/2026-11-15-round21-lag-buttons-keyboard.md))
+1. Lag: measured (typed turns 2.1–2.7 s vs round 13's 1.2–1.6 s, from round 19's blocking moderation); moderation now runs in parallel with her reply (typed 1.2–1.5 s, taps 1.6–1.7 s); kit art decode off the main thread. **DONE R21.**
+2. Choice buttons (confirm, color) at the top of the stage, her close-up clear of them. **DONE R21.**
+3. Keyboard: chat scrolls to the bottom, Nutmeg never rezooms (window-resize cause), no keyboard bounce after send. **DONE R21.**
+
 ## Round 20 (queued 2026-11-15, Haylee): DONE (see [decision](decisions/2026-11-15-round20-color-prefetch-settings-cost.md))
 1. **Color choice:** before the kit is made, Nutmeg asks: full color, or color it yourself? With full color, the image prompts ask for full-color art (no line-art-only instructions). With "color it yourself", keep the current thick-outline coloring pages. Big buttons plus voice.
 2. **Shorter kit wait (Claude's proposal; Haylee to confirm):** ask the color question right after the round 19 confirm step, before roles, so the kit can start generating **in the background during the prop hunt**. Badges, sign, money, tickets and menu don't depend on which props are found. Only the cut-outs for skipped props wait until the hunt ends. Also fire the image calls in parallel. When the kid reaches Print, most pages should already be done, and the remaining wait keeps the existing commentary.
