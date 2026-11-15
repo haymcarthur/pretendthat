@@ -79,7 +79,17 @@ public struct KidSafetyCheck: Sendable {
     /// `pretend`: the text names pretend things in the game (tool fields, generated kit text), so a pretend oven or
     /// stove is fine (round 20: a bakery's "the oven" prop was blocked); kid-typed text stays strict.
     public func check(_ texts: [String], pretend: Bool = false) async -> Sanitizer.SafetyVerdict? {
-        if let v = Sanitizer.kidSafety(texts, pretend: pretend) { return v }
+        if let v = local(texts, pretend: pretend) { return v }
+        return await remote(texts)
+    }
+
+    /// Round 21: the instant local filter alone (works offline).
+    public func local(_ texts: [String], pretend: Bool = false) -> Sanitizer.SafetyVerdict? {
+        Sanitizer.kidSafety(texts, pretend: pretend)
+    }
+
+    /// Round 21: OpenAI moderation alone (nil when clear or unavailable: the local filter already ran).
+    public func remote(_ texts: [String]) async -> Sanitizer.SafetyVerdict? {
         guard let moderator else { return nil }
         switch await moderator.check(texts) {
         case .flagged(let cats):

@@ -343,14 +343,18 @@ struct RootView: View {
     }
 
     private func requestStickers() {
-        let game = store.gameTitle
-        var jobs: [(kind: StickerPrompt.Kind, subject: String, detail: String)] = []
-        // No idea or role cards (Haylee): ideas are spoken and roles are printed on badges, so only props get art.
-        // Props: only off-list ones get generated art (library props are hand-drawn).
-        let offList = (store.props?.props ?? []).filter { $0.libraryID == nil }
-        if !offList.isEmpty { rtLog("off-list props (generated art): \(offList.count)") }
-        jobs += offList.map { (.prop, $0.householdItem, $0.becomes) }
-        model.stickers.request(jobs, game: game)
+        Task { @MainActor in
+            // Round 21: a prop's text may still be in moderation (it ran ahead of the check): images wait for it, and
+            // the jobs are read after the wait (a flag has put the props back by then).
+            guard await model.gate.cleared() else { return }
+            let game = store.gameTitle
+            // No idea or role cards (Haylee): ideas are spoken and roles are printed on badges, so only props get art.
+            // Props: only off-list ones get generated art (library props are hand-drawn).
+            let offList = (store.props?.props ?? []).filter { $0.libraryID == nil }
+            if !offList.isEmpty { rtLog("off-list props (generated art): \(offList.count)") }
+            let jobs: [(kind: StickerPrompt.Kind, subject: String, detail: String)] = offList.map { (.prop, $0.householdItem, $0.becomes) }
+            model.stickers.request(jobs, game: game)
+        }
     }
 
     /// Prop cards are display-only (D3: kids tap only to print and to play).

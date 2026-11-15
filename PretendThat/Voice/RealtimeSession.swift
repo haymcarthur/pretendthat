@@ -402,14 +402,14 @@ final class RealtimeSession {
     }
 
     /// Typed turn (keyboard fallback, simulator, demo safety).
-    func sendText(_ text: String) {
+    func sendText(_ text: String, itemID: String? = nil) {
         guard let socket, isLive, micWanted else { return }
-        trace.begin("typed")
+        trace.beginOrKeep("typed")
         // Round 20 (Haylee): a typed turn stops her at once, like the mic (greeting, replies, app lines).
         if SpeechStop.kidTurnStops(responseActive: responseActive, playing: isSpeaking || mouthQueue.count > 0, inFlight: speech.active) {
             stopSpeaking("typed turn")
         }
-        socket.send(Realtime.userText(text))
+        socket.send(Realtime.userText(text, id: itemID))
         chat.kidTyped(text)
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-PTLive") { rtLog("KID: \(text)") }
@@ -418,13 +418,19 @@ final class RealtimeSession {
         requestResponse()
     }
 
+    /// Round 21: a typed turn that moderation flagged after it was sent: it leaves the conversation and the chat.
+    func retractKidTurn(text: String, itemID: String) {
+        socket?.send(Realtime.deleteItem(itemID))
+        chat.retractKid(text)
+    }
+
     /// Round 13: a tap on the prop card the app has ALREADY applied (the card changed at once). The kid's words go in
     /// the chat, the note tells her what happened. `requiring` = tools she still has to call first (the next prop is
     /// her pick: a cheap text-only pass); nil = she speaks straight away with no tools (one response).
     /// `speakWithTools` (round 19, the confirm step's Yes): she speaks at once but may still call tools (start_planning).
     func tapTurn(kidLine: String, note: String, requiring tools: [String]?, speakWithTools: Bool = false) {
         guard let socket, isLive, micWanted else { return }
-        trace.begin("tap")
+        trace.beginOrKeep("tap")
         stopSpeaking("tap turn")
         socket.send(Realtime.userText(kidLine))
         chat.kidTyped(kidLine)
@@ -465,6 +471,8 @@ final class RealtimeSession {
     /// Round 13: latency of the current turn (release / send / tap → first audio heard), DEBUG log only.
     @ObservationIgnored private var trace = LatencyTrace()
     func beginTrace(_ kind: String) { trace.begin(kind) }
+    /// Round 21: a named moment in the current turn's trace (DEBUG log only).
+    func markTrace(_ name: String) { trace.mark(name) }
 
     // MARK: Push-to-talk
 
@@ -1261,6 +1269,11 @@ struct LatencyTrace {
     private var marks: [(String, Double)] = []
     var running: Bool { t0 != nil }
     mutating func begin(_ kind: String) { self.kind = kind; t0 = CACurrentMediaTime(); marks = [] }
+    /// Round 21: keep a trace the app began moments ago (at the send / tap itself, before any local work), else begin.
+    mutating func beginOrKeep(_ kind: String, within seconds: Double = 3) {
+        if let t0, self.kind == kind, CACurrentMediaTime() - t0 < seconds, !has("heard") { mark("sent"); return }
+        begin(kind)
+    }
     mutating func mark(_ name: String, at time: Double = CACurrentMediaTime()) {
         guard t0 != nil, marks.count < 24 else { return }
         marks.append((name, time))

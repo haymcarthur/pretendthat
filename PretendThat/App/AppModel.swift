@@ -11,6 +11,12 @@ final class AppModel {
     let stickers: ItemArtService
     /// Round 19: the kid-safety check (local filter, then moderation).
     @ObservationIgnored let safety: KidSafetyCheck
+    /// Round 21: the remote moderation runs in parallel with her reply (the local filter stays instant and first).
+    @ObservationIgnored let gate: SafetyGate
+    /// The planning state from before text that is still being moderated was used (a late flag restores it).
+    @ObservationIgnored private var safeSnap: AdventureStore.SafeSnapshot?
+    /// Typed turns still being moderated: ticket id → (text, conversation item id), so a flag can take them back.
+    @ObservationIgnored private var screenedTurns: [Int: (text: String, itemID: String)] = [:]
     /// Hands-free planning conversation (D1, D2).
     let realtime = RealtimeSession()
     /// The writing moment's quiet scribble loop (round 5).
@@ -25,6 +31,7 @@ final class AppModel {
         // Round 19: kid text and generated text are checked locally and with OpenAI moderation (fails safe to local).
         let moderation = ModerationClient.from(info: info)
         safety = KidSafetyCheck(moderator: moderation)
+        gate = SafetyGate(check: safety)
         var service = config.map { PhaseService(llm: ClaudeClient(config: $0), moderator: moderation) }
         #if DEBUG
         if DemoDriver.requestedPhase != nil { service = nil }   // demo screens use the bundled game, no network
@@ -54,6 +61,9 @@ final class AppModel {
         realtime.onPropLine = { [weak self] in self?.revealFirstProp() ?? "" }
         realtime.onSilentPassDone = { [weak self] in self?.noteAfterSilentPass() }
         realtime.onKidTranscript = { [weak self] text in self?.spokenSafetyCheck(text) }
+        gate.onFlag = { [weak self] verdict, ticket in self?.lateFlag(verdict, ticket) }
+        gate.onAllClear = { [weak self] in self?.safeSnap = nil; self?.screenedTurns = [:] }
+        store.outboundGate = { [weak self] in await self?.gate.cleared() ?? true }
         // Tool-first kid turns (round 7): no narration is ever heard; she speaks after the tool result.
         realtime.onKidTurnTools = { [weak self] in
             guard let self, Self.isPlanning(self.store.phase) else { return nil }
@@ -194,18 +204,18 @@ final class AppModel {
     }
 
     /// Text in a tool call (a game or theme title, roles, what a prop becomes) is checked before the app uses it.
-    private func unsafeText(in call: PlanningCall) async -> Sanitizer.SafetyVerdict? {
-        let texts: [String]
-        switch call {
-        case .setGame(let t), .setTheme(let t): texts = [t]
-        case .setRoles(let roles): texts = roles.flatMap { [$0.roleName, $0.job] }
-        case .showNextProp(let d): texts = [d.becomes]
-        case .showProps(let ds): texts = ds.map(\.becomes)
-        case .swapProp(_, _, let becomes): texts = [becomes]
-        case .showGameIdeas(let ideas): texts = ideas.flatMap { [$0.title, $0.pitch] }
-        default: return nil
+    /// Round 21: the game, the theme (first steps) and the next prop card run ahead of moderation (local filter first;
+    /// a late flag puts the state back). Every other call (roles, the kit, finish) first waits for ALL checks still
+    /// running, then checks its own text in full, because it sends things out (Claude, the kit, images).
+    private func screen(_ call: PlanningCall) async -> Sanitizer.SafetyVerdict? {
+        let texts = SpeculativeTools.texts(call)
+        if SpeculativeTools.mayRunBeforeModeration(call, step: store.planningStep, huntActive: store.huntActive) {
+            guard !texts.isEmpty else { return nil }
+            if !gate.isPending || safeSnap == nil { safeSnap = store.safeSnapshot() }
+            return gate.screen(texts, kind: .toolText, pretend: true).local   // round 20: a pretend oven is fine
         }
-        return await safety.check(texts, pretend: true)   // round 20: a pretend oven is fine
+        guard await gate.cleared() else { return nil }   // flagged meanwhile: the caller drops this call
+        return texts.isEmpty ? nil : await safety.check(texts, pretend: true)
     }
 
     // MARK: The kid moved on (round 19, Haylee)
@@ -242,21 +252,54 @@ final class AppModel {
         voice.stop()
         art.reset()
         stickers.reset()
+        gate.reset(); safeSnap = nil; screenedTurns = [:]
         store.newGame()
     }
 
     /// Typed fallback goes into the live conversation when there is one.
     func typed(_ text: String) async {
+        realtime.beginTrace("typed")   // round 21: the trace starts at the send itself (the safety check included)
         wakeUp()
         // Round 20: the kid's own turn stops anything she's saying or about to say (cheers, repeats, deferred lines).
         if realtime.isLive && store.phase != .makingKit { userAction(.typedTurn) }
-        // Round 19: typed kid text is checked BEFORE it goes anywhere; unsafe text is never sent or shown.
-        if let verdict = await safety.check([text]) { steer(verdict); return }
-        if realtime.isLive && Self.isPlanning(store.phase) { realtime.sendText(text); return }
-        if realtime.isLive && store.phase != .makingKit { realtime.sendText(text); return }   // print step, play
+        let live = realtime.isLive && store.phase != .makingKit
+        // Round 19: typed kid text is checked BEFORE it goes anywhere. Round 21: the local filter is instant and still
+        // blocks first; moderation runs in parallel with her reply (a late flag takes the turn back and steers).
+        if live && !gate.isPending { safeSnap = store.safeSnapshot() }
+        let screened = gate.screen([text], kind: .kidText)
+        if let verdict = screened.local { steer(verdict); return }
+        realtime.markTrace("checked")
+        if live {
+            let itemID = "kid_" + UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(24).lowercased()
+            if let t = screened.ticket { screenedTurns[t.id] = (text, itemID) }
+            realtime.sendText(text, itemID: itemID)   // planning, the print step and play
+            return
+        }
+        // Not sent to the voice model: wait for moderation before anything uses it (Claude, the kit).
+        guard await gate.cleared() else { return }
         // Kit being made (round 7): a tiny "Almost ready!" at most, never a new conversation turn.
         if realtime.isLive && store.phase == .makingKit { if !realtime.isSpeaking { realtime.say("Almost ready!") }; return }
         await handleSpeech(text)
+    }
+
+    /// Round 21: moderation flagged text AFTER it was used (a typed turn, or a game / theme / prop text that ran ahead).
+    /// Her reply is cancelled, the planning state goes back to before that text, the typed line leaves the chat and the
+    /// conversation, and she steers, exactly like an early block. Nothing went out: Claude, the kit and images wait
+    /// for the gate.
+    private func lateFlag(_ verdict: Sanitizer.SafetyVerdict, _ ticket: SafetyGate.Ticket) {
+        rtLog("safety: late moderation flag (\(ticket.kind == .kidText ? "typed turn" : "tool text"), \(verdict.category.rawValue)): reply cancelled, undone")
+        realtime.stopSpeaking("safety (late)")
+        if let snap = safeSnap {
+            store.restore(snap)
+            safeSnap = nil
+            shownProps = min(shownProps, store.props?.props.count ?? 0)
+            realtime.huntMode = store.huntActive
+        }
+        for (_, turn) in screenedTurns { realtime.retractKidTurn(text: turn.text, itemID: turn.itemID) }
+        screenedTurns = [:]
+        realtime.addNote(Realtime.systemNote("(Silent coaching, don't mention it.) The last request wasn't kid-safe, so the "
+            + "app undid it: don't use it, repeat it or mention it. Wait for the kids' next answer."))
+        steer(verdict)
     }
 
     func phaseChanged() {
@@ -544,10 +587,16 @@ final class AppModel {
             return ("I couldn't use that. Try again with the right fields.", true)
         }
         let before = realtime.responseSerial
-        if let verdict = await unsafeText(in: call) {
+        let flags = gate.flaggedCount
+        if let verdict = await screen(call) {
             rtLog("safety: \(name) blocked (\(verdict.category.rawValue))")
             return (SafetySteer.toolNote(verdict, ideas: steerIdeas), true)
         }
+        if gate.flaggedCount != flags {
+            // A flag landed while this call waited (the state was already put back): drop it quietly.
+            return ("(Silent coaching, don't mention it.) That was undone. Say nothing more.", false)
+        }
+        realtime.markTrace("checked \(name)")
         if case .printKit = call {
             guard store.phase == .kitReady || kitFinal else { return ("Not yet: the kit isn't ready. Say only \"Almost ready!\"", true) }
             printKit()
@@ -626,6 +675,7 @@ final class AppModel {
     /// chose a color, the planning line and the roles).
     func confirmYes() {
         guard realtime.isLive, store.planningStep == .confirm else { return }
+        realtime.beginTrace("tap")
         wakeUp()
         Task { @MainActor in
             _ = await store.apply(.confirmPlan)
@@ -649,6 +699,7 @@ final class AppModel {
     /// A color button: set at once (the one source of truth); she says the planning line and starts the roles.
     func chooseColor(_ style: PrintStyle) {
         guard realtime.isLive, store.planningStep == .color else { return }
+        realtime.beginTrace("tap")
         wakeUp()
         userAction(.colorChoice)
         Task { @MainActor in
@@ -766,6 +817,7 @@ final class AppModel {
     /// tool-first pass for what the app already knows: a swap she just says (one response); after a check-off or a
     /// skip only the next prop is hers to pick (a cheap text-only pass, then her line).
     func huntReply(found: Bool) {
+        realtime.beginTrace("tap")
         guard realtime.isLive, let p = store.props?.props.first(where: { $0.id == store.currentPropID }) else { return }
         let name = p.householdItem.lowercased()
         let count = store.props?.props.count ?? 0

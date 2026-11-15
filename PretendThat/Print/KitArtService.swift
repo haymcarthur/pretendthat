@@ -133,18 +133,29 @@ final class KitArtService {
                 let result: Result<Data, Error>
                 do { result = .success(try await RetryOnce.run { try await limiter.run { try await client.generate(prompt: job.prompt, size: job.size, quality: ImageQuality.kit) } }) }
                 catch { result = .failure(error) }
+                // Round 21: decode + paper-white + slicing run OFF the main actor (they held the main thread for a
+                // moment during the prop hunt, when taps and her voice need it).
+                let sheet = KitArtPlan.isSheet(job.key), count = job.count
+                var decoded: [UIImage] = []
+                if case .success(let data) = result {
+                    decoded = await Task.detached(priority: .utility) { () -> [UIImage] in
+                        guard let img = UIImage(data: data) else { return [] }
+                        let white = PaperWhite.normalize(img, style: style)
+                        return sheet ? CutoutSlicer.slice(white, count: count) : [white.preparedForDisplay()]
+                    }.value
+                }
                 guard gen == self.generation else { return }   // a remade kit: this old page is dropped
                 self.inFlight.remove(job.key)
                 switch result {
-                case .success(let data):
-                    if KitArtPlan.isSheet(job.key) {
+                case .success:
+                    if sheet {
                         let id = String(job.key.dropLast("#sheet".count))
-                        let parts = UIImage(data: data).map { CutoutSlicer.slice(PaperWhite.normalize($0, style: style), count: job.count) } ?? []
+                        let parts = decoded
                         if parts.count == job.count {
                             for (n, img) in parts.enumerated() { self.cutouts[id, default: [:]][n] = img }
                             self.landedSheets.insert(job.key); self.landedAt[job.key] = Date()
                         } else { self.sheetFailed(id, client: client, style: style) }
-                    } else if let image = UIImage(data: data).map({ PaperWhite.normalize($0, style: style) }) {
+                    } else if let image = decoded.first {
                         let parts = job.key.split(separator: "#")
                         if parts.count == 2, let n = Int(parts[1]) { self.cutouts[String(parts[0]), default: [:]][n] = image }
                         else { self.images[job.key] = image }
@@ -192,6 +203,11 @@ final class KitArtService {
 /// Paper-white AI art (Haylee, page preview fix): the image model paints near-white, off-white or light-gray paper and
 /// soft drop shadows behind items. A tone curve lifts everything above ~84% luminance to pure white, so every tile
 /// sits flat on the one white sheet (dark line art is unchanged).
+extension UIImage {
+    /// Round 21: fully decoded off the main thread, so the first draw on screen doesn't decode it there.
+    nonisolated func preparedForDisplay() -> UIImage { preparingForDisplay() ?? self }
+}
+
 enum PaperWhite {
     private static let context = CIContext(options: [.useSoftwareRenderer: false])
     /// Round 20: full-color art only lifts the near-white paper (above ~94%), so light colors keep their tint.

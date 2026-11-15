@@ -236,6 +236,8 @@ public final class AdventureStore {
         }
         // Round 20: the pages were written during the hunt; only the play guide (and skipped props' cut-outs) is left.
         let pages = title == nil ? await draftForKit() : nil
+        // Round 21: text still being moderated never reaches Claude (or the kit made from it).
+        if let outboundGate, !(await outboundGate()) { return }
         guard gen == kitGeneration else { return }
         await run("kit", kidSaid: nil) { [self] svc in
             // The context is read now (the current title, count, roles and props), and a newer remake wins.
@@ -362,6 +364,10 @@ public final class AdventureStore {
     @ObservationIgnored private var draftInputs: KitInputs?
     @ObservationIgnored private var draftTask: Task<[KitItem]?, Never>?
 
+    /// Round 21: awaited before anything goes out to Claude (the kit pages and the play guide): false = text in the plan
+    /// was flagged by moderation after it ran ahead (`SafetyGate`), so the call is dropped.
+    @ObservationIgnored public var outboundGate: (@MainActor () async -> Bool)?
+
     /// What the pages should be written for right now (nil: not yet, or no Claude).
     var wantedDraft: KitInputs? {
         guard service != nil, !usingFallback, planningStep == .props else { return nil }
@@ -379,7 +385,12 @@ public final class AdventureStore {
         draftGeneration += 1
         let gen = draftGeneration, ctx = context
         draftInputs = want; draftStartedAt = Date()
+        let gate = outboundGate
         draftTask = Task { [weak self] in
+            // Round 21: wait for any moderation still running on text in this plan (a flag restores the store and
+            // restarts the draft).
+            if let gate, !(await gate()) { return nil }
+            guard !Task.isCancelled else { return nil }
             let items = try? await RetryOnce.run { try await service.kitPages(ctx: ctx) }
             guard let self, gen == self.draftGeneration, !Task.isCancelled else { return nil }
             if let items { self.draftItems = items; self.draftReadyAt = Date() }
@@ -700,6 +711,24 @@ public final class AdventureStore {
 
     /// Round 19: the app's steer line when there's no live voice session (spoken through the usual line path).
     public func steerLine(_ line: String) { say(line) }
+
+    /// Round 21: the planning state before a tool call that ran ahead of its remote moderation (`SafetyGate`). A late
+    /// flag puts it back, so flagged text never stays in the game (and never reaches the kit or images).
+    public struct SafeSnapshot: Equatable {
+        let phase: Phase, reachedStep: JourneyStep?, playerCount: Int, planningStep: PlanningStep
+        let gameTitle: String?, printStyle: PrintStyle?, plan: GamePlan?, props: Props?
+        let foundProps: Set<String>, currentPropID: String?, presenting: Presentation, themeIdeas: [Suggestion]
+    }
+    public func safeSnapshot() -> SafeSnapshot {
+        SafeSnapshot(phase: phase, reachedStep: reachedStep, playerCount: playerCount, planningStep: planningStep,
+                     gameTitle: gameTitle, printStyle: printStyle, plan: plan, props: props, foundProps: foundProps,
+                     currentPropID: currentPropID, presenting: presenting, themeIdeas: themeIdeas)
+    }
+    public func restore(_ s: SafeSnapshot) {
+        phase = s.phase; reachedStep = s.reachedStep; playerCount = s.playerCount; planningStep = s.planningStep
+        gameTitle = s.gameTitle; printStyle = s.printStyle; plan = s.plan; props = s.props; foundProps = s.foundProps
+        currentPropID = s.currentPropID; presenting = s.presenting; themeIdeas = s.themeIdeas
+    }
 
     /// Round 19: kid text is checked before it's used or sent to Claude (local filter, then moderation; fails safe to
     /// local). Unsafe: it's dropped and Nutmeg cheerfully steers to new ideas (or says to get a grown-up).

@@ -333,9 +333,10 @@ public enum Realtime {
     public static func appendAudio(_ pcm16: Data) -> [String: Any] {
         ["type": "input_audio_buffer.append", "audio": pcm16.base64EncodedString()]
     }
-    public static func userText(_ text: String) -> [String: Any] {
-        ["type": "conversation.item.create",
-         "item": ["type": "message", "role": "user", "content": [["type": "input_text", "text": text]]] as [String: Any]]
+    public static func userText(_ text: String, id: String? = nil) -> [String: Any] {
+        var item: [String: Any] = ["type": "message", "role": "user", "content": [["type": "input_text", "text": text]]]
+        if let id { item["id"] = id }   // round 21: a client id, so a late moderation flag can delete it
+        return ["type": "conversation.item.create", "item": item]
     }
     public static func functionOutput(callID: String, output: String) -> [String: Any] {
         ["type": "conversation.item.create", "item": ["type": "function_call_output", "call_id": callID, "output": output]]
@@ -620,6 +621,15 @@ public struct RealtimeTranscript: Equatable, Sendable {
     public mutating func kidTyped(_ text: String) {
         let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
         if !t.isEmpty { lines.append(Line(fromNutmeg: false, text: t)) }
+    }
+
+    /// Round 21: a typed line that moderation flagged after it was sent comes back out of the chat (with anything
+    /// she said after it).
+    public mutating func retractKid(_ text: String) {
+        let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let i = lines.lastIndex(where: { !$0.fromNutmeg && $0.text == t }) else { return }
+        lines.removeSubrange(i...)
+        streaming = nil; separateNext = true
     }
 
     /// Feeds one server event; returns true if the transcript changed.
