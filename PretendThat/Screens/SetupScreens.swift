@@ -5,7 +5,6 @@ import NutmegCore
 
 struct HelloView: View {
     let model: AppModel
-    var onGrownUps: () -> Void = {}
     /// Round 11: the tap on "Let's play!" (the exit starts): RootView slides the rail and pill in on the same move.
     var onExitBegan: () -> Void = {}
     /// Six of the ten toys, a new mix each launch (fixed while a DEBUG frame is frozen).
@@ -16,26 +15,14 @@ struct HelloView: View {
         return Array(PTStartArt.toys.shuffled().prefix(6))
     }()
 
-    @State private var introDone = false
 
     var body: some View {
         GeometryReader { geo in
             PTToyChestScene(toys: toys, frozenAt: freeze, handoff: handoff(geo, .arrival), camera: handoff(geo, firstFrame),
                             stageStars: stageStars(geo),
                             onExitBegan: onExitBegan,
-                            onIntroFinished: { withAnimation(.easeOut(duration: 0.35)) { introDone = true } },
-                            onGrownUps: onGrownUps,
                             onStart: { Task { await model.startConversation() } }) { look in
                 NutmegCharacter(state: .idle, showsGround: look.ground, showsTail: look.tail)
-            }
-            .overlay(alignment: .topTrailing) {
-                // A tiny faint gear, shown only once the opening is over (grown-ups can also hold the logo card).
-                if Theme.showSettingsGear {
-                    PTParentGate(label: "Grown-ups", symbol: "gearshape", style: .gear, onComplete: onGrownUps)
-                        .opacity(introDone ? 1 : 0)
-                        .allowsHitTesting(introDone)
-                        .padding(.top, Theme.Space.s).padding(.trailing, Theme.Space.s)
-                }
             }
         }
     }

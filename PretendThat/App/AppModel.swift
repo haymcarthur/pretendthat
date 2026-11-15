@@ -9,15 +9,12 @@ final class AppModel {
     let listener = Listener()
     let art: KitArtService
     let stickers: ItemArtService
-    let hasClaude: Bool
-    let hasImages: Bool
     /// Round 19: the kid-safety check (local filter, then moderation).
     @ObservationIgnored let safety: KidSafetyCheck
-    /// Hands-free planning conversation (D1, D2) and its Grown-ups tuning (D7).
+    /// Hands-free planning conversation (D1, D2).
     let realtime = RealtimeSession()
     /// The writing moment's quiet scribble loop (round 5).
     @ObservationIgnored let scribble = ScribbleSound()
-    let voiceSettings = VoiceSettings()
     /// Realtime auth: a personal OPENAI_API_KEY (dev mode) or the shared relay's ephemeral secrets.
     @ObservationIgnored private let realtimeAuth: RealtimeAuth?
     /// Only the IDs of last session's suggested games/themes (UserDefaults), so the next session differs. Nothing about kids.
@@ -25,7 +22,6 @@ final class AppModel {
 
     init(info: [String: Any] = Bundle.main.infoDictionary ?? [:]) {
         let config = ClaudeConfig.from(info: info)
-        hasClaude = config != nil
         // Round 19: kid text and generated text are checked locally and with OpenAI moderation (fails safe to local).
         let moderation = ModerationClient.from(info: info)
         safety = KidSafetyCheck(moderator: moderation)
@@ -39,10 +35,11 @@ final class AppModel {
         // Demo screens skip paid image calls unless asked: -PTDemoArt 1
         if DemoDriver.requestedPhase != nil, !ProcessInfo.processInfo.arguments.contains("-PTDemoArt") { images = nil }
         #endif
-        hasImages = images != nil
         art = KitArtService(client: images)
         stickers = ItemArtService(client: images)
         realtimeAuth = RealtimeAuth.from(info: info)
+        // Round 20: the Grown-ups voice settings are gone; drop what older builds stored for them (device settings only).
+        for k in ["voice", "method", "pitchCents", "rate", "speed", "echo"] { UserDefaults.standard.removeObject(forKey: "nutmeg.v4.\(k)") }
         realtime.onTurnDone = { [weak self] text in
             guard let self, Self.isPlanning(self.store.phase), !self.realtime.propLinePending else { return nil }
             // Round 7: roles set but no prop yet → she continues straight into the first prop (no "Sound good?" wait).
@@ -105,19 +102,10 @@ final class AppModel {
         return hasRealtime
     }
 
-    /// Grown-ups: hear `voice` say the sample line through the conversation's audio path and pitch settings.
-    func auditionVoice(_ voice: String) async {
-        guard let auth = realtimeAuth else { return }
-        realtime.dropPrepared()   // its voice may change; the start screen pre-connects again afterwards
-        var c = voiceConfig; c.voice = voice
-        await realtime.audition(auth: auth, config: c)
-    }
-
-    /// Round 13: Nutmeg's voice for every connect (first, pre-connect, reconnect, audition), from the Grown-ups settings.
-    var voiceConfig: VoiceConfig {
-        VoiceConfig(voice: voiceSettings.voice, method: voiceSettings.method, rate: voiceSettings.rate,
-                    cents: voiceSettings.pitchCents, requestedSpeed: voiceSettings.speed)
-    }
+    /// Round 13: Nutmeg's voice for every connect (first, pre-connect, reconnect). Round 20 (Haylee): the Grown-ups
+    /// settings are gone, so it's the fixed default (coral, Varispeed 1.20, speed 1.0), with no echo cancellation.
+    var voiceConfig: VoiceConfig { VoiceConfig.nutmeg }
+    static let echoCancel = false
     /// The voice this game's conversation started with: a silent reconnect uses exactly this one.
     @ObservationIgnored private var gameVoice: VoiceConfig?
 
@@ -164,7 +152,7 @@ final class AppModel {
         #endif
         let config = voiceConfig
         gameVoice = config
-        let ok = await realtime.connect(auth: auth, config: config, echoCancel: voiceSettings.echoCancel,
+        let ok = await realtime.connect(auth: auth, config: config, echoCancel: Self.echoCancel,
                                         instructions: Realtime.instructions(todayGames: games))
         guard store.phase == .pickGame else { return }   // left while connecting
         if ok {
@@ -919,7 +907,7 @@ final class AppModel {
         rtLog("reconnect: voice identical to first connect: \(gameVoice == nil || config == realtime.connectedConfig ?? config)")
         assert(gameVoice == nil || config == gameVoice, "reconnect must use the first connect's voice")
         #endif
-        let ok = await realtime.connect(auth: auth, config: config, echoCancel: voiceSettings.echoCancel,
+        let ok = await realtime.connect(auth: auth, config: config, echoCancel: Self.echoCancel,
                                         instructions: Realtime.resumeInstructions(todayGames: todayGames, context: ctx),
                                         keepChat: true)
         guard store.phase != .hello else { realtime.disconnect(); return }   // left meanwhile

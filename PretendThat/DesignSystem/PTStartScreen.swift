@@ -399,8 +399,7 @@ struct PTStartButton: View {
 /// tossed toys, the title card at the top and the "Let's play!" button under the chest, framed by `PTCurtain`.
 /// Runs the opening once on appear; a tap anywhere skips to the final state; Reduce Motion shows the final state.
 /// "Let's play!" runs the exit, then calls `onStart`. `handoff` is where the conversation screen draws Nutmeg's
-/// 1178×1335 canvas (global coordinates), so she lands exactly there. A 2-second press on the title card opens the
-/// grown-ups settings (`onGrownUps`). `onIntroFinished` fires once the opening is over (or skipped).
+/// 1178×1335 canvas (global coordinates), so she lands exactly there. `onIntroFinished` fires once the opening is over (or skipped).
 struct PTToyChestScene<Nutmeg: View>: View {
     var toys: [String]
     /// DEBUG: hold the sequence at this time (seconds) for screenshots.
@@ -415,7 +414,6 @@ struct PTToyChestScene<Nutmeg: View>: View {
     /// Fires on the tap, when the exit starts (RootView slides the rail and pill in on the same move).
     var onExitBegan: () -> Void = {}
     var onIntroFinished: () -> Void = {}
-    var onGrownUps: (() -> Void)? = nil
     let onStart: () -> Void
     @ViewBuilder var nutmeg: (_ look: PTStartNutmeg) -> Nutmeg
 
@@ -747,7 +745,7 @@ struct PTToyChestScene<Nutmeg: View>: View {
     private static var uiPeak: Double { 1.15 }
 
     /// (5) The title card pops (scales up from small) centered at the top while the logo builds on it; it pops away on
-    /// the exit. Fixed layout: only scale and opacity change. A 2-second press opens the grown-ups settings.
+    /// the exit. Fixed layout: only scale and opacity change.
     private func titleCard(t: Double, e: Double, _ L: Layout) -> some View {
         // Round 11: pops with Nutmeg (same start, same curve); the logo is whole as it arrives (no letter build after).
         let k = T.pop(t, peak: Self.uiPeak)
@@ -756,7 +754,6 @@ struct PTToyChestScene<Nutmeg: View>: View {
         return PTTitleCard(logoTime: nil, logoWidth: L.logoW)
             .scaleEffect(max(scale, 0.001))
             .opacity(min(k * 6, 1) * (1 - away))
-            .onLongPressGesture(minimumDuration: 2) { onGrownUps?() }
             .frame(width: L.size.width)
             .padding(.top, L.cardTop)
             .frame(width: L.size.width, height: L.size.height, alignment: .top)

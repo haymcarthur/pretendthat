@@ -5,7 +5,6 @@ import NutmegCore
 /// Nutmeg on the left third, the stage on the right, mic and "again" along the bottom.
 struct RootView: View {
     @State private var model = AppModel()
-    @State private var showSettings = false
     @State private var showTyping = false
     @State private var chatOpen = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -55,7 +54,7 @@ struct RootView: View {
                         // Start screen: full-bleed toy-chest scene, no step rail or control pill.
                         // Start screen → stage: the start screen's exit leaves Nutmeg exactly where the stage draws her
                         // (the arrival shot), so the swap is instant (no crossfade of two Nutmegs).
-                        HelloView(model: model, onGrownUps: { showSettings = true }, onExitBegan: { startExit() })
+                        HelloView(model: model, onExitBegan: { startExit() })
                             .transition(reduceMotion ? .opacity : .identity)
                     } else {
                         // ONE stage for every phase (conversation, hunt, kit, play, hand-off): same Nutmeg, floor and
@@ -181,7 +180,6 @@ struct RootView: View {
             #endif
             await model.listener.requestAuth()
         }
-        .sheet(isPresented: $showSettings, onDismiss: { model.preconnect() }) { ParentSettingsView(model: model) }
         .sheet(isPresented: $showTyping) { PTTypeSheet { text in Task { await model.typed(text) } } }
         .preferredColorScheme(.light)
         .statusBarHidden()

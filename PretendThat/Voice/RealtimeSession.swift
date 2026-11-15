@@ -296,7 +296,7 @@ final class RealtimeSession {
             socket = reuse; ready = true
             rtLog("connect: pre-connected socket reused")
         } else {
-            // Relay mode: a fresh ephemeral secret for every connect (first, silent reconnect, audition).
+            // Relay mode: a fresh ephemeral secret for every connect (first, silent reconnect).
             guard let bearer = try? await auth.bearer() else { return fail("Couldn't get a voice session from the relay") }
             socket = Self.openSocket(bearer: bearer)
             socket.send(config.sessionUpdate(instructions: instructions))
@@ -351,7 +351,6 @@ final class RealtimeSession {
         }
     }
 
-    func dropPrepared() { prepared?.socket.close(); prepared = nil }
 
     /// `bearer` is the personal key (dev mode) or a relay-minted ephemeral client secret.
     private static func openSocket(bearer: String) -> RealtimeSocket {
@@ -547,27 +546,6 @@ final class RealtimeSession {
     }
 
     /// Applies pitch changes right away (a method change takes effect on the next conversation).
-    func setShape(_ s: VoiceShape) {
-        let methodChanged = s.method != shape.method
-        shape = s
-        if methodChanged { return }
-        if let tp = pitchUnit as? AVAudioUnitTimePitch { tp.pitch = Float(s.cents) }
-        if let vs = pitchUnit as? AVAudioUnitVarispeed { vs.rate = Float(s.rate) }
-    }
-
-    /// Grown-ups voice audition: a short session with `voice` that plays the fixed sample line through the same
-    /// audio path and pitch settings, then hangs up. (The Realtime voice can't change inside a session.)
-    func audition(auth: RealtimeAuth, config: VoiceConfig) async {
-        guard status != .live, status != .connecting else { return }
-        micWanted = false
-        guard await connect(auth: auth, config: config) else { return }
-        socket?.send(Realtime.sayExactly(Realtime.auditionLine))
-        for _ in 0..<80 where !isSpeaking { try? await Task.sleep(for: .milliseconds(100)) }
-        for _ in 0..<300 where isSpeaking { try? await Task.sleep(for: .milliseconds(100)) }
-        disconnect()
-        micWanted = true
-    }
-
     private func fail(_ reason: String) -> Bool {
         rtLog("failed: \(reason)")
         disconnect()
@@ -619,7 +597,7 @@ final class RealtimeSession {
 
         let engine = AVAudioEngine()
         let input = engine.inputNode
-        // Echo cancellation is optional (Grown-ups): voice processing also degrades the output path. The mic gate
+        // Echo cancellation is off (round 20: fixed default): voice processing also degrades the output path. The mic gate
         // below keeps Nutmeg from hearing herself either way.
         if echoCancel { try? input.setVoiceProcessingEnabled(true) }
         player = AVAudioPlayerNode()

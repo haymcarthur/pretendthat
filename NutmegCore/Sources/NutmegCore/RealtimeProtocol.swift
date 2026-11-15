@@ -31,8 +31,6 @@ public enum Realtime {
     /// Server-side speech speed. Forced to 1.0 while Varispeed is on so the two never stack into an unnatural pace.
     public static let defaultSpeed: Double = 1.0
     public static func apiSpeed(method: PitchMethod, requested: Double) -> Double { method == .varispeed ? 1.0 : requested }
-    /// The fixed line the Grown-ups voice audition plays.
-    public static let auditionLine = "Ooh, hi! I'm Nutmeg! Pretend that we're flying over the ocean! What should we play?"
 
     public static func url(model: String = model) -> URL {
         URL(string: "wss://api.openai.com/v1/realtime?model=\(model)")!

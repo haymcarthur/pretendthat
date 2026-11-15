@@ -13,8 +13,6 @@ final class ItemArtService {
     private(set) var unresolved: Set<String> = []
     /// How long a card shimmers before it settles on the fallback art (a late sticker still replaces it).
     static let patience: Duration = .seconds(30)
-    /// Last result, for the Grown-ups debug line.
-    private(set) var lastResult: String?
     @ObservationIgnored private var inFlight: Set<String> = []
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private let client: ImageClient?
@@ -60,11 +58,10 @@ final class ItemArtService {
                 self.inFlight.remove(key)
                 switch result {
                 case .success(let data):
-                    if let img = UIImage(data: data) { self.images[key] = img; self.lastResult = "OK" }
+                    if let img = UIImage(data: data) { self.images[key] = img }
                 case .failure(let e):
                     self.unresolved.insert(key)
                     rtLog("sticker failed: \(client.unavailableReason ?? String(describing: e))")
-                    self.lastResult = "Error: \(client.unavailableReason ?? String(describing: e))"
                 }
             }
         }

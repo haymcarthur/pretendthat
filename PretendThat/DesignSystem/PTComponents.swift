@@ -251,10 +251,9 @@ struct PTPageThumbnail<Page: View>: View {
 }
 
 /// Hold for 2 seconds to continue (keeps a tap-happy 4-year-old from printing 6 pages).
-/// `.pill` is the black labelled CTA; `.gear` is a tiny faint 30 pt translucent-white circle with a gear (start screen
-/// corner, over the valance), whose ring fills while held. Both keep `label` as the accessibility label.
+/// `.pill` is the black labelled CTA; it keeps `label` as the accessibility label.
 struct PTParentGate: View {
-    enum Style { case pill, gear }
+    enum Style { case pill }
     let label: String
     var symbol = "printer.fill"
     var seconds: Double = 2
@@ -284,16 +283,6 @@ struct PTParentGate: View {
 
     @ViewBuilder private var face: some View {
         switch style {
-        case .gear:
-            ZStack {
-                Circle().fill(Theme.white.opacity(0.35))
-                Circle().trim(from: 0, to: progress).stroke(Theme.white, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
-                    .rotationEffect(.degrees(-90)).padding(1.25)
-                Image(systemName: "gearshape").font(.system(size: 15, weight: .regular)).foregroundStyle(Theme.white.opacity(0.85))
-            }
-            .frame(width: 30, height: 30)
-            .padding(7)   // 44 pt touch target around the 30 pt gear
-            .contentShape(Rectangle())
         case .pill:
             // Primary CTA style: black pill, white text; a white ring fills while held.
             HStack(spacing: Theme.Space.s) {
