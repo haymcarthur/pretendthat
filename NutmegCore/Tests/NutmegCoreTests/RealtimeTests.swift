@@ -13,7 +13,7 @@ import Testing
     let input = try #require(audio["input"] as? [String: Any])
     #expect(input["turn_detection"] is NSNull)   // push-to-talk: no server VAD
     let names = (session["tools"] as? [[String: Any]])?.compactMap { $0["name"] as? String }
-    #expect(names == ["show_game_ideas", "set_game", "set_theme", "set_player_count", "set_roles", "show_next_prop", "mark_found", "swap_prop", "skip_prop", "confirm_plan", "finish_planning", "just_talk", "start_play", "print_kit", "confirm_handoff", "start_planning", "set_expression"])
+    #expect(names == ["show_game_ideas", "set_game", "set_theme", "set_player_count", "set_roles", "show_next_prop", "mark_found", "swap_prop", "skip_prop", "confirm_plan", "set_print_style", "finish_planning", "just_talk", "start_play", "print_kit", "confirm_handoff", "start_planning", "set_expression"])
     #expect(Realtime.json(s).contains("\"laundry-basket\""))   // the prop library is an enum in the schema
     // Serializes cleanly: turn detection is an explicit JSON null, never server VAD.
     #expect(Realtime.json(s).contains("\"turn_detection\":null"))
@@ -82,7 +82,7 @@ import Testing
     #expect(store.phase == .pickGame && store.presenting == .none && store.gameTitle == "Zoo")   // theme step next
     _ = await store.apply(.setTheme("Zoo on the Moon"))
     #expect(store.phase == .players && store.gameTitle == "Zoo on the Moon")
-    _ = await store.apply(.setPlayerCount(2)); _ = await store.apply(.confirmPlan)
+    _ = await store.apply(.setPlayerCount(2)); _ = await store.apply(.confirmPlan); _ = await store.apply(.setPrintStyle(.colorIn))
     #expect(store.playerCount == 2)
     _ = await store.apply(.setRoles([.init(roleName: "Zookeeper", job: "Feed the lion"),
                                      .init(roleName: "Lion", job: "Roar")]))
@@ -109,7 +109,7 @@ import Testing
 @Test @MainActor func sevenKidsShareFourRoles() async {
     let store = AdventureStore(service: nil)
     store.beginConversation()
-    _ = await store.apply(.setPlayerCount(7)); _ = await store.apply(.confirmPlan)
+    _ = await store.apply(.setPlayerCount(7)); _ = await store.apply(.confirmPlan); _ = await store.apply(.setPrintStyle(.colorIn))
     _ = await store.apply(.setRoles(["Captain", "Flight Attendant", "Co-Pilot", "Passenger", "Passenger", "Passenger", "Passenger"]
         .map { .init(roleName: $0, job: "") }))
     #expect(store.plan?.roles.map(\.roleName) == ["Captain", "Flight Attendant", "Co-Pilot", "Passenger"])

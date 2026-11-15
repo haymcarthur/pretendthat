@@ -299,7 +299,7 @@ final class AppModel {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-PTLive") { rtLog("KIT for \(title): \(kit.items.map(\.title).joined(separator: " | "))") }
         #endif
-        Task { await art.generate(kit: kit, gameTitle: title) }
+        Task { await art.generate(kit: kit, gameTitle: title, style: store.currentPrintStyle) }
     }
 
     /// Round 7: light progress commentary while the kit is being made (KitProgress): every ~13 s, about a page still
@@ -525,11 +525,17 @@ final class AppModel {
         // Round 15: the skip's reassurance goes with the next prop card; only a hunt that ends right after the skip
         // (finish_planning) uses it as the kit line's lead-in (live run: it was said twice).
         if case .showNextProp = call { store.kitLeadIn = nil }
-        let remakes = store.kitRemakes
+        let remakes = store.kitRemakes, restyles = store.kitRestyles
         let output = await store.apply(call)
         if store.kitRemakes != remakes {
             // Round 19: a theme/game fix at the print step remakes the kit: the old pages' art and ready line go too.
             remakeKitArt()
+            return (output, false)
+        }
+        if store.kitRestyles != restyles {
+            // Round 20: a color change at the print step redraws the same kit's pages in the new style.
+            remakeKitArt()
+            kitChanged()
             return (output, false)
         }
         realtime.huntMode = store.huntActive
@@ -572,14 +578,38 @@ final class AppModel {
         return ConfirmStep.sayRecapNote(recap)
     }
 
-    /// "Yes, let's go!": confirmed at once; she says the planning line and starts the roles (one reply).
+    /// "Yes, let's go!": confirmed at once. Round 20: her one reply is the color question (or, when the kids already
+    /// chose a color, the planning line and the roles).
     func confirmYes() {
         guard realtime.isLive, store.planningStep == .confirm else { return }
         wakeUp()
         Task { @MainActor in
             _ = await store.apply(.confirmPlan)
             lastRecap = nil
-            realtime.tapTurn(kidLine: ConfirmStep.yesLabel, note: ConfirmStep.yesTapNote(playerCount: max(1, store.playerCount)),
+            if store.planningStep == .color {
+                realtime.tapTurn(kidLine: ConfirmStep.yesLabel, note: ColorChoice.yesTapNote(), requiring: nil)
+            } else {
+                realtime.tapTurn(kidLine: ConfirmStep.yesLabel, note: ConfirmStep.yesTapNote(playerCount: max(1, store.playerCount)),
+                                 requiring: nil, speakWithTools: true)
+            }
+        }
+    }
+
+    // MARK: Color choice (round 20, Haylee)
+
+    /// The Full color / I'll color them buttons: on the color step, once her question has started.
+    var showsColorChoice: Bool {
+        inConversation && store.planningStep == .color && !realtime.thinkingGap
+    }
+
+    /// A color button: set at once (the one source of truth); she says the planning line and starts the roles.
+    func chooseColor(_ style: PrintStyle) {
+        guard realtime.isLive, store.planningStep == .color else { return }
+        wakeUp()
+        Task { @MainActor in
+            _ = await store.apply(.setPrintStyle(style))
+            rtLog("print style: \(style.rawValue) (tap)")
+            realtime.tapTurn(kidLine: style.label, note: ColorChoice.tapNote(style, playerCount: max(1, store.playerCount)),
                              requiring: nil, speakWithTools: true)
         }
     }

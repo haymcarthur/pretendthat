@@ -252,3 +252,20 @@ struct PTConfirmButtons: View {
         .accessibilityLabel("Is the plan right?")
     }
 }
+
+/// Round 20 (Haylee): the color question's two big buttons ("Do you want your printables in full color, or do you want
+/// to color them yourself?"). Voice answers work too.
+struct PTColorChoiceButtons: View {
+    let onChoose: (PrintStyle) -> Void
+    var body: some View {
+        HStack(spacing: Theme.Space.m) {
+            PTHuntPill(title: ColorChoice.fullColorLabel, symbol: "paintpalette", fill: Theme.lime, edge: Theme.limeShade) { onChoose(.fullColor) }
+            PTHuntPill(title: ColorChoice.colorInLabel, symbol: "pencil.and.scribble", fill: Theme.white, edge: Theme.line) { onChoose(.colorIn) }
+        }
+        .frame(maxWidth: 560)
+        .padding(Theme.Space.s)
+        .ptPanel(radius: 40)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Full color, or color them yourself?")
+    }
+}

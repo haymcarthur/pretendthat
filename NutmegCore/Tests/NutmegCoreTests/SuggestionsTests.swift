@@ -89,7 +89,7 @@ struct SuggestionsTests {
         let theme = await store.apply(.setTheme("Bakery on the Moon"))
         #expect(theme.contains("How many friends are playing today?"))
         #expect(theme.contains("never a list of numbers"))
-        _ = await store.apply(.setPlayerCount(2)); _ = await store.apply(.confirmPlan)
+        _ = await store.apply(.setPlayerCount(2)); _ = await store.apply(.confirmPlan); _ = await store.apply(.setPrintStyle(.colorIn))
         let roles = await store.apply(.setRoles([.init(roleName: "Baker", job: "bakes"), .init(roleName: "Customer", job: "buys")]))
         #expect(roles.contains("call show_next_prop for the FIRST prop"))
         #expect(!roles.contains("end with a quick"))
@@ -170,7 +170,7 @@ struct SuggestionsTests {
         _ = await store.apply(.setGame("Camping")); _ = await store.apply(.setTheme("Camping in a Toy Box"))
         var g = ResponseGate()
         g.newTurn(); _ = g.request(); g.created()
-        _ = await store.apply(.setPlayerCount(3)); _ = await store.apply(.confirmPlan); g.toolCalled()
+        _ = await store.apply(.setPlayerCount(3)); _ = await store.apply(.confirmPlan); _ = await store.apply(.setPrintStyle(.colorIn)); g.toolCalled()
         let afterCount = g.done(); #expect(afterCount)                       // nothing spoken yet → follow-up
         g.created()
         let roles = await store.apply(.setRoles([.init(roleName: "Lead Camper", job: "leads"), .init(roleName: "Story Camper", job: "tells"),
@@ -189,7 +189,7 @@ struct SuggestionsTests {
     @MainActor @Test func foundItFlowsIntoNextPropCard() async {
         let store = AdventureStore(service: nil)
         store.beginConversation()
-        _ = await store.apply(.setPlayerCount(1)); _ = await store.apply(.confirmPlan); _ = await store.apply(.setRoles([.init(roleName: "Captain", job: "steer")]))
+        _ = await store.apply(.setPlayerCount(1)); _ = await store.apply(.confirmPlan); _ = await store.apply(.setPrintStyle(.colorIn)); _ = await store.apply(.setRoles([.init(roleName: "Captain", job: "steer")]))
         _ = await store.apply(.showNextProp(.init(itemID: "plate", becomes: "wheel", forRole: "all")))
         #expect(!store.currentPropDone)
         _ = await store.apply(.markFound("plate"))
@@ -268,7 +268,9 @@ struct SuggestionsTests {
         let count = await store.apply(.setPlayerCount(3)); g.toolCalled()
         #expect(count.contains("So it's a castle with friendly monsters for three friends!"))
         let confirmed = await store.apply(.confirmPlan)   // round 19: the kids said yes to the recap
-        #expect(confirmed.contains("start_planning"))
+        #expect(confirmed.contains(ColorChoice.question))  // round 20: then the color question
+        let colored = await store.apply(.setPrintStyle(.fullColor))
+        #expect(colored.contains("start_planning"))
         let d1 = g.done(); #expect(d1)
         g.created()                                                    // start_planning → the writing beat
         let d2 = g.done(allowFollowUp: false); #expect(!d2)

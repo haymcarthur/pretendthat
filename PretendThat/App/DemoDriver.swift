@@ -120,6 +120,9 @@ enum DemoDriver {
             if turn == "#done" { await model.sceneDone(); continue }
             // Round 19: the confirm step's buttons.
             if turn == "#yes" { model.confirmYes(); continue }
+            // Round 20: the color question's buttons.
+            if turn == "#fullcolor" { model.chooseColor(.fullColor); continue }
+            if turn == "#colorin" { model.chooseColor(.colorIn); continue }
             // Round 19: "#back" (Back to the checklist), "#newgame" (the finale's New game: all the way home),
             // "#home" (the X close → Leave), "#sleep N" (a short pause in ms between fast taps).
             if turn == "#back" { model.tapBackToChecklist(); continue }

@@ -71,8 +71,16 @@ struct RootView: View {
                             .padding(.bottom, 128)
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
+                    // Round 20: the color question's two big buttons, in the same place.
+                    if model.showsColorChoice && chromeVisible {
+                        PTColorChoiceButtons(onChoose: { model.chooseColor($0) })
+                            .padding(.horizontal, Theme.Space.xl)
+                            .padding(.bottom, 128)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
                 }
                 .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: model.showsConfirm)
+                .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: model.showsColorChoice)
                 // Round 11 (Haylee): the keyboard never re-frames the stage; it just covers its bottom. Only the chat
                 // panel (and its text field) rises above it.
                 .ignoresSafeArea(.keyboard)

@@ -59,7 +59,7 @@ final class KitArtService {
 
     func cutoutImages(_ item: KitItem) -> [UIImage?] { KitArtPrompt.cutoutLabels(item).indices.map { cutouts[item.id]?[$0] } }
 
-    func generate(kit: Kit, gameTitle: String) async {
+    func generate(kit: Kit, gameTitle: String, style: PrintStyle) async {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-PTFakeArt") { fakeArt(kit); return }
         #endif
@@ -73,7 +73,7 @@ final class KitArtService {
         // mid-kit) is retried once the app is active again. The kit stays not-final meanwhile, so the papers and the
         // kit-ready line wait for it (and play once).
         for attempt in 0..<3 {
-            let transient = await runMissingJobs(kit: kit, gameTitle: gameTitle, client: client, gen: gen)
+            let transient = await runMissingJobs(kit: kit, gameTitle: gameTitle, style: style, client: client, gen: gen)
             guard gen == generation, transient > 0, client.unavailableReason == nil, attempt < 2 else { break }
             while UIApplication.shared.applicationState != .active { try? await Task.sleep(for: .milliseconds(500)) }
             NSLog("[RT] kit art: retrying %d page(s) after a network failure", transient)
@@ -81,16 +81,16 @@ final class KitArtService {
     }
 
     /// Runs one image job per missing page/cut-out; returns how many failed for a network (transient) reason.
-    private func runMissingJobs(kit: Kit, gameTitle: String, client: ImageClient, gen: Int) async -> Int {
+    private func runMissingJobs(kit: Kit, gameTitle: String, style: PrintStyle, client: ImageClient, gen: Int) async -> Int {
         // Job key: "<item id>" for a whole item, "<item id>#<n>" for one cut-out.
         var jobs: [(String, String, String)] = []
         for item in kit.items {
             if item.recipe == .cutouts, !KitArtPrompt.cutoutLabels(item).isEmpty {
                 for (n, label) in KitArtPrompt.cutoutLabels(item).enumerated() where cutouts[item.id]?[n] == nil {
-                    jobs.append(("\(item.id)#\(n)", KitArtPrompt.cutoutPrompt(label, gameTitle: gameTitle), "1024x1024"))
+                    jobs.append(("\(item.id)#\(n)", KitArtPrompt.cutoutPrompt(label, gameTitle: gameTitle, style: style), "1024x1024"))
                 }
             } else if images[item.id] == nil {
-                jobs.append((item.id, KitArtPrompt.prompt(for: item, gameTitle: gameTitle), KitArtPrompt.size(for: item)))
+                jobs.append((item.id, KitArtPrompt.prompt(for: item, gameTitle: gameTitle, style: style), KitArtPrompt.size(for: item)))
             }
         }
         progress = 0
@@ -107,7 +107,7 @@ final class KitArtService {
                 guard gen == generation else { continue }   // a remade kit: this old page is dropped
                 switch result {
                 case .success(let data):
-                    if let image = UIImage(data: data).map(PaperWhite.normalize) {
+                    if let image = UIImage(data: data).map({ PaperWhite.normalize($0, style: style) }) {
                         let parts = id.split(separator: "#")
                         if parts.count == 2, let n = Int(parts[1]) { cutouts[String(parts[0]), default: [:]][n] = image }
                         else { images[id] = image }
@@ -132,15 +132,15 @@ final class KitArtService {
 /// sits flat on the one white sheet (dark line art is unchanged).
 enum PaperWhite {
     private static let context = CIContext(options: [.useSoftwareRenderer: false])
-    static func normalize(_ image: UIImage) -> UIImage {
+    /// Round 20: full-color art only lifts the near-white paper (above ~94%), so light colors keep their tint.
+    static func normalize(_ image: UIImage, style: PrintStyle = .colorIn) -> UIImage {
         guard let input = CIImage(image: image) else { return image }
         let f = CIFilter(name: "CIToneCurve")!
         f.setValue(input, forKey: kCIInputImageKey)
-        f.setValue(CIVector(x: 0, y: 0), forKey: "inputPoint0")
-        f.setValue(CIVector(x: 0.3, y: 0.3), forKey: "inputPoint1")
-        f.setValue(CIVector(x: 0.6, y: 0.62), forKey: "inputPoint2")
-        f.setValue(CIVector(x: 0.76, y: 0.84), forKey: "inputPoint3")
-        f.setValue(CIVector(x: 0.84, y: 1), forKey: "inputPoint4")
+        let points: [(CGFloat, CGFloat)] = style == .fullColor
+            ? [(0, 0), (0.25, 0.25), (0.5, 0.5), (0.9, 0.9), (0.95, 1)]
+            : [(0, 0), (0.3, 0.3), (0.6, 0.62), (0.76, 0.84), (0.84, 1)]
+        for (i, p) in points.enumerated() { f.setValue(CIVector(x: p.0, y: p.1), forKey: "inputPoint\(i)") }
         guard let out = f.outputImage, let cg = context.createCGImage(out, from: input.extent) else { return image }
         return UIImage(cgImage: cg, scale: image.scale, orientation: image.imageOrientation)
     }

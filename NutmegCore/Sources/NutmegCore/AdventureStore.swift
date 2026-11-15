@@ -43,6 +43,11 @@ public final class AdventureStore {
     /// Where the planning conversation is (conversation-structure.md); driven by the function calls.
     public private(set) var planningStep: PlanningStep = .game
     public private(set) var gameTitle: String?
+    /// Round 20 (Haylee): full color, or pages to color in. Asked after the confirm step's yes; nil = not asked yet.
+    /// The one source of truth for every kit image prompt.
+    public private(set) var printStyle: PrintStyle?
+    /// What the pages are drawn as (the coloring pages until the kids choose).
+    public var currentPrintStyle: PrintStyle { printStyle ?? .colorIn }
     public private(set) var ideas: GameIdeas?
     public private(set) var plan: GamePlan?
     public private(set) var props: Props?
@@ -139,6 +144,8 @@ public final class AdventureStore {
 
     /// Bumped when a correction remakes the kit (the app resets the page art).
     public private(set) var kitRemakes = 0
+    /// Round 20: bumped when a color change at the print step redraws the pages (same kit text, new art).
+    public private(set) var kitRestyles = 0
     @ObservationIgnored private var kitGeneration = 0
 
     // MARK: Setup flow
@@ -329,7 +336,7 @@ public final class AdventureStore {
 
     public func newGame() {
         phase = .hello
-        playerCount = 0; gameTitle = nil; planningStep = .game; themeIdeas = []
+        playerCount = 0; gameTitle = nil; printStyle = nil; planningStep = .game; themeIdeas = []
         ideas = nil; plan = nil; props = nil; kit = nil
         choices = []; lastError = nil; usingFallback = false
         foundProps = []; checkedSteps = []; doneSnapshot = nil; failures = [:]; retryAction = nil; holder = nil
@@ -411,11 +418,19 @@ public final class AdventureStore {
                 return planningStep < .confirm ? "Not yet: finish the current step first. Answer in ONE short line and ask its question."
                     : "Already confirmed. Carry on with the current step."
             }
-            planningStep = .roles; phase = .players; presenting = .none
+            phase = .players; presenting = .none
+            // Round 20: the color question comes next, unless the kids already chose (a correction re-opened the recap).
+            guard printStyle != nil else { planningStep = .color; return ColorChoice.askOutput(playerCount: max(1, playerCount)) }
+            planningStep = .roles
             return ConfirmStep.confirmedOutput(playerCount: max(1, playerCount))
+        case .setPrintStyle(let style):
+            return setPrintStyle(style)
         case .setRoles(let drafts):
             if planningStep == .confirm {
                 return "Not yet: the kids haven't said yes to your recap. Say exactly: \"\(recapLine)\" and wait (yes → confirm_plan)."
+            }
+            if planningStep == .color {
+                return "Not yet: ask the color question first. Say exactly: \"\(ColorChoice.question)\" and wait (their answer → set_print_style)."
             }
             if playerCount == 0 { playerCount = max(1, min(drafts.count, Players.max)) }
             let roles = drafts.enumerated().map { i, d in
@@ -511,6 +526,37 @@ public final class AdventureStore {
             return "Hand-off confirmed: the scene starts and the app says its line. Say nothing."
         case .printKit:
             return "The print screen is open. Say one short line like \"Here's the print screen!\""
+        }
+    }
+
+    // MARK: Color choice (round 20)
+
+    /// The kids chose full color or coloring pages (voice: set_print_style; or a button). On the color step the roles
+    /// start; earlier it's just kept; later it's a correction (the app redraws the pages; play keeps what was printed).
+    private func setPrintStyle(_ style: PrintStyle) -> String {
+        switch phase {
+        case .handoff, .scene, .end:
+            return "The kit is printed and the game is on. Say in ONE short, kind line that this adventure is all set, and "
+                + "they can tap New game for a different one."
+        case .makingKit, .kitReady:
+            guard style != printStyle else { return "Already \(style.spoken). Answer in ONE short line." }
+            printStyle = style
+            kitRestyles += 1
+            say(ColorChoice.restyleLine(style))
+            return "The pages are now \(style.spoken): the app redraws them to match and says so. Say nothing."
+        default: break
+        }
+        let was = printStyle
+        printStyle = style
+        switch planningStep {
+        case .color:
+            planningStep = .roles
+            return ColorChoice.chosenOutput(style, playerCount: max(1, playerCount))
+        case .game, .theme, .players, .confirm:
+            return "Noted: the printables will be \(style.spoken). Carry on with the current step (don't ask about color again)."
+        case .roles, .props, .finish:
+            return was == style ? "Already \(style.spoken). Carry on with the current step in ONE short line."
+                : "Got it: the printables will be \(style.spoken) (the app changes them). Say so in a few words, then carry on with the current step."
         }
     }
 

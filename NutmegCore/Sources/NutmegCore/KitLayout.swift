@@ -99,7 +99,26 @@ public enum KitLayout {
 /// Builds the OpenAI image prompt for one kit item's artwork. There are no kids' names anywhere: the art has a
 /// blank banner where the app prints a "Name: ____" line for kids to write on, and badges a second one for the role.
 public enum KitArtPrompt {
-    public static func prompt(for item: KitItem, gameTitle: String) -> String {
+    /// Round 20: the art style for the kids' choice. "I'll color them": the thick-outline coloring page (unchanged).
+    /// Full color: a full-color kid-friendly illustration (no line-art or coloring-page wording).
+    public static func style(_ style: PrintStyle, cutout: Bool) -> String {
+        switch style {
+        case .colorIn:
+            return "Black and white only, thick clean outlines, no shading, no gray fills, plain white background, "
+                + "friendly and simple, easy for a 5-year-old to color\(cutout ? " and cut out" : "")."
+        case .fullColor:
+            return "Full-color, kid-friendly cartoon illustration: bright cheerful colors with flat fills, bold clean "
+                + "dark outlines, soft and friendly shapes, plain white background, simple and easy for a 5-year-old to "
+                + "read\(cutout ? " and cut out" : "")."
+        }
+    }
+
+    static func opener(_ style: PrintStyle, gameTitle: String) -> String {
+        (style == .fullColor ? "Printable full-color art" : "Coloring-page line art")
+            + " for a kids' pretend-play game called \"\(gameTitle)\"."
+    }
+
+    public static func prompt(for item: KitItem, gameTitle: String, style printStyle: PrintStyle = .colorIn) -> String {
         let text = KitLayout.printedLines(for: item)
         let shape: String
         switch item.recipe {
@@ -118,11 +137,8 @@ public enum KitArtPrompt {
             case .fullPage: shape = "a full printable page (portrait, US Letter)"
             }
         }
-        var p = """
-        Coloring-page line art for a kids' pretend-play game called "\(gameTitle)". Draw \(shape): \(item.title). \
-        Black and white only, thick clean outlines, no shading, no gray fills, plain white background, friendly and simple, \
-        easy for a 5-year-old to color. Fill the whole image edge to edge with the card design and a thick rounded border.
-        """
+        var p = opener(printStyle, gameTitle: gameTitle) + " Draw \(shape): \(item.title). " + style(printStyle, cutout: false)
+            + " Fill the whole image edge to edge with the card design and a thick rounded border."
         if item.recipe == .money || (item.recipe == nil && item.size == .bill) {
             p += " This is play money: no name field, no \"Name:\" label, no blank lines or banners to write on."
         } else if item.size != .fullPage {
@@ -144,14 +160,11 @@ public enum KitArtPrompt {
 
     /// One cut-out on its own (checklist-pictures.md): the cut-outs page is generated as one image per item so each
     /// food/tool item can also be a checklist picture; the app tiles them onto the printed page.
-    public static func cutoutPrompt(_ label: String, gameTitle: String) -> String {
-        """
-        Coloring-page line art for a kids' pretend-play game called "\(gameTitle)". Draw ONE cut-out prop: \(label). \
-        A single simple object, centered, filling most of the square, with a thick cut-around outline and white space \
-        around it. Black and white only, thick clean outlines, no shading, no gray fills, plain white background, \
-        friendly and simple, easy for a 5-year-old to color and cut out. No words, letters or numbers. No real brands, \
-        no logos, nothing scary.
-        """ + ImageSafety.suffix   // round 19
+    public static func cutoutPrompt(_ label: String, gameTitle: String, style printStyle: PrintStyle = .colorIn) -> String {
+        opener(printStyle, gameTitle: gameTitle) + " Draw ONE cut-out prop: \(label). A single simple object, centered, "
+            + "filling most of the square, with a thick cut-around outline and white space around it. "
+            + style(printStyle, cutout: true)
+            + " No words, letters or numbers. No real brands, no logos, nothing scary." + ImageSafety.suffix   // round 19
     }
 
     /// The cut-out items of a kit (the cutouts item's lines, 6 to 8).
