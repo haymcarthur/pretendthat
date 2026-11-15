@@ -312,7 +312,7 @@ final class RealtimeSession {
         rtLog("live; voice processing: \(engine?.inputNode.isVoiceProcessingEnabled ?? false) input: \(engine?.inputNode.outputFormat(forBus: 0).description ?? "-")")
         #endif
         receiveTask = Task { [weak self] in
-            for await text in socket.messages { await self?.handle(Realtime.parse(text)) }
+            for await text in socket.messages { await self?.receive(text) }
             await self?.socketClosed()
         }
         updateGate()
@@ -381,6 +381,7 @@ final class RealtimeSession {
         gapTask?.cancel(); expressionTask?.cancel(); expression = nil; thinkingGap = false; awaitingReply = false
         reminderPending = false; reminderPlaying = false; propLinePending = false; echoPending = false; echoActive = false
         forcedTools = nil; silentPending = false; silentResponse = false; silentItems = []; quickReplyOnly = false
+        speech = SpeechStop(); cancelThrough = 0; createdSeen = 0
         if status != .idle, case .failed = status {} else { status = .idle }
     }
 
@@ -415,7 +416,7 @@ final class RealtimeSession {
     func tapTurn(kidLine: String, note: String, requiring tools: [String]?, speakWithTools: Bool = false) {
         guard let socket, isLive, micWanted else { return }
         trace.begin("tap")
-        if responseActive || isSpeaking { interrupt() }
+        stopSpeaking("tap turn")
         socket.send(Realtime.userText(kidLine))
         chat.kidTyped(kidLine)
         socket.send(Realtime.systemNote(note))
@@ -458,7 +459,7 @@ final class RealtimeSession {
     func beginTalk() {
         guard isLive, micWanted, holdStartedAt == nil else { return }
         releaseTask?.cancel(); releaseTask = nil
-        if responseActive || isSpeaking { interrupt() }
+        if responseActive || isSpeaking || !speech.active.isEmpty { stopSpeaking("mic pressed") }
         silenceTask?.cancel()
         reminderDoneAt = nil
         holdStartedAt = Date()
@@ -502,8 +503,8 @@ final class RealtimeSession {
     }
 
     /// Stops her mid-sentence: cancel the response, silence the speaker, truncate her item at what was heard.
-    private func interrupt() {
-        if responseActive { socket?.send(Realtime.responseCancel); rtLog("ptt: response.cancel") }
+    private func interrupt(sendCancel: Bool = true) {
+        if sendCancel && responseActive { socket?.send(Realtime.responseCancel); rtLog("ptt: response.cancel") }
         if let id = audioItemID, let start = audioItemStart {
             var heard = start
             if let render = player.lastRenderTime, render.isHostTimeValid, let pt = player.playerTime(forNodeTime: render) {
@@ -829,6 +830,51 @@ final class RealtimeSession {
 
     // MARK: Events
 
+    /// Round 19: every response is tracked by id, so a kid's tap can cancel all of them (conversation replies and app
+    /// lines), and late audio or words from a cancelled one never play or reach the chat.
+    @ObservationIgnored private var speech = SpeechStop()
+    /// response.create events sent before the last stop whose response.created hasn't arrived yet are cancelled on arrival.
+    @ObservationIgnored private var cancelThrough = 0
+    @ObservationIgnored private var createdSeen = 0
+    @ObservationIgnored private var stopAt = Date.distantPast
+
+    private func receive(_ text: String) async {
+        let id = Realtime.responseID(text)
+        let event = Realtime.parse(text)
+        if event == .responseCreated {
+            createdSeen += 1
+            if createdSeen <= cancelThrough, Date().timeIntervalSince(stopAt) < 4, let id {
+                // Asked for before the kid moved on (e.g. a cheer already sent): cancel it the moment it exists.
+                speech.created(id)
+                for c in speech.cancelAll() { socket?.send(Realtime.responseCancel(id: c)) }
+                rtLog("stop: a line asked for before the tap was cancelled on arrival")
+            } else {
+                speech.created(id)
+            }
+        }
+        if speech.drops(event, responseID: id) { return }
+        if event == .responseDone { speech.done(id) }
+        await handle(event)
+    }
+
+    /// Round 19 (Haylee): the kid moved on (a tap that advances or changes the screen). Her current speech stops at once:
+    /// every in-flight response is cancelled, the local player is cleared, her line is cut at what was heard (and marked
+    /// "…" in the chat), and pending reminder/repeat lines are dropped. The newest line is whatever the app says next.
+    func stopSpeaking(_ reason: String) {
+        guard let socket, status == .live else { return }
+        let wasSpeaking = isSpeaking || mouthQueue.count > 0
+        let ids = speech.cancelAll()
+        for id in ids { socket.send(Realtime.responseCancel(id: id)) }
+        cancelThrough = socket.createsSent
+        stopAt = Date()
+        interrupt(sendCancel: false)
+        reminderPending = false; echoPending = false; echoActive = false
+        lastSayAt = .distantPast
+        thinkingGap = false; gapTask?.cancel()
+        if wasSpeaking { chat.cutOff() } else { chat.breakTurn() }
+        rtLog("stop (\(reason)): \(ids.count) response(s) cancelled, speaker cleared\(wasSpeaking ? ", line cut" : "")")
+    }
+
     private func handle(_ event: Realtime.Event) async {
         #if DEBUG   // event kinds only (no audio, no transcripts): live-test diagnostics in the simulator console
         switch event {
@@ -1100,7 +1146,12 @@ final class RealtimeSocket: @unchecked Sendable {
         receive()
     }
 
+    /// Round 19: how many response.create events were sent (a stop cancels the ones still on their way).
+    var createsSent: Int { lock.withLock { _creates } }
+    private var _creates = 0
+
     func send(_ obj: [String: Any]) {
+        if obj["type"] as? String == "response.create" { lock.withLock { _creates += 1 } }
         task.send(.string(Realtime.json(obj))) { [weak self] error in
             if let error { self?.noteError(error.localizedDescription) }
         }

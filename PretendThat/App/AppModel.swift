@@ -171,8 +171,32 @@ final class AppModel {
         }
     }
 
+    // MARK: The kid moved on (round 19, Haylee)
+
+    /// ANY tap that advances or changes the screen stops her current speech at once (the in-flight responses, the
+    /// local player, pending cheers / repeats / deferred lines); then only the newest line plays.
+    func userAction(_ action: UserAction) {
+        guard action.stopsSpeech else { return }
+        cheerTask?.cancel(); cheerTask = nil
+        repeatTask?.cancel(); repeatTask = nil
+        deferredLine = nil
+        voice.stop()
+        realtime.stopSpeaking(action.rawValue)
+    }
+
+    func tapHandoff(_ role: RoleID) { userAction(.handoff); store.badgeTapped(role) }
+    func tapBackToChecklist() { userAction(.backToChecklist); store.backToChecklist() }
+    func tapLetsPlay() { userAction(.letsPlay); store.beginPlay() }
+    func tapPlayAgain() { userAction(.playAgain); store.playAgain() }
+    func tapPrint() { userAction(.print); printKit() }
+    func tapStepRail(_ step: JourneyStep) { userAction(.stepRail); store.goTo(step) }
+    /// New game goes all the way home: the session hangs up, so nothing keeps talking on the start screen.
+    func tapNewGame() { userAction(.newGame); leave() }
+
     /// Leave activity: hang up and go home. Nothing is kept.
     func leave() {
+        userAction(.goHome)
+        cheerTask?.cancel(); repeatTask?.cancel(); pointTask?.cancel(); beatEndTask?.cancel(); kitWait?.cancel()
         realtime.disconnect()
         gameVoice = nil
         kitReadySaid = false; deferredLine = nil; doze.wake(); dozeStage = .awake; wokePop = false; endKitBackgroundTask()
@@ -194,6 +218,11 @@ final class AppModel {
     }
 
     func phaseChanged() {
+        // Round 19: home (the start screen) is always silent.
+        if store.phase == .hello {
+            if realtime.status != .idle { realtime.disconnect() }
+            voice.stop(); cheerTask?.cancel(); repeatTask?.cancel(); deferredLine = nil
+        }
         // Round 7 (Haylee): the mic only looks disabled while connecting. Kit making: pressable, "Almost ready!" at most.
         realtime.micWanted = true
         realtime.quickReplyOnly = store.phase == .makingKit
@@ -230,6 +259,9 @@ final class AppModel {
         guard let kit = store.kit else { return }
         // Round 19: the CURRENT title (a corrected theme wins over the one the roles were planned with).
         let title = store.currentTitle
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-PTLive") { rtLog("KIT for \(title): \(kit.items.map(\.title).joined(separator: " | "))") }
+        #endif
         Task { await art.generate(kit: kit, gameTitle: title) }
     }
 
@@ -272,6 +304,7 @@ final class AppModel {
     /// the newest one (it waits a moment, and for anything she's saying to finish).
     func checkStep(_ index: Int) {
         guard case .scene(let i) = store.phase, let scene = store.kit?.scenes[i], !store.autoChecking else { return }
+        userAction(.checkStep)
         store.toggleStep(index)
         cheerTask?.cancel(); cheerTask = nil
         let steps = scene.steps.map(\.text)
@@ -301,7 +334,7 @@ final class AppModel {
         guard repeatTask == nil, Date().timeIntervalSince(lastRepeatAt) > 2.5 else { return }
         // A tap while the read-aloud itself is still playing doesn't queue a second one.
         if Date().timeIntervalSince(lastRepeatAt) < 20 && (realtime.isLive ? realtime.isSpeaking : isSpeaking) { return }
-        cheerTask?.cancel(); cheerTask = nil
+        userAction(.repeatLine)
         lastRepeatAt = Date()
         wakeUp()
         repeatTask = Task { @MainActor in
@@ -340,6 +373,7 @@ final class AppModel {
         case .lastLine(let line):
             guard Date().timeIntervalSince(lastRepeatAt) > RepeatTarget.debounce else { return }
             if realtime.isLive && realtime.voiceBusy { return }
+            userAction(.repeatLine)
             lastRepeatAt = Date()
             wakeUp()
             rtLog("repeat last line: \(line)")
@@ -354,7 +388,7 @@ final class AppModel {
     /// congratulations hasn't been said yet, ONE overall congratulations starts the next line (hand-off, scene, end).
     func sceneDone() async {
         guard case .scene(let i) = store.phase, !store.autoChecking else { return }
-        cheerTask?.cancel(); cheerTask = nil
+        userAction(.done)
         if congratulatedScene != i {
             store.sceneLeadIn = ChecklistCheers.finished(deck: &lineDeck, using: &rng)
         }
@@ -416,7 +450,8 @@ final class AppModel {
             for _ in 0..<120 where realtime.isLive && realtime.voiceBusy && !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(50))
             }
-            guard !Task.isCancelled, !kitReadySaid else { return }
+            // Round 19: the kid already moved on (Let's play, step rail): the ready line is stale, never said late.
+            guard !Task.isCancelled, !kitReadySaid, store.phase == .kitReady else { return }
             kitReadySaid = true
             rtLog("print ready line: \(AdventureStore.kitReadyLine)")
             speak(AdventureStore.kitReadyLine, deferIfAway: true)

@@ -120,6 +120,19 @@ enum DemoDriver {
             if turn == "#done" { await model.sceneDone(); continue }
             // Round 19: the confirm step's buttons.
             if turn == "#yes" { model.confirmYes(); continue }
+            // Round 19: "#back" (Back to the checklist), "#newgame" (the finale's New game: all the way home),
+            // "#home" (the X close → Leave), "#sleep N" (a short pause in ms between fast taps).
+            if turn == "#back" { model.tapBackToChecklist(); continue }
+            if turn == "#newgame" || turn == "#home" {
+                for (i, line) in model.realtime.transcript.enumerated() { rtLog("CHAT[\(i)] \(line.fromNutmeg ? "Nutmeg" : "Kid"): \(line.text)") }
+                if turn == "#newgame" { model.tapNewGame() } else { model.leave() }
+                for t in 1...6 {
+                    try? await Task.sleep(for: .milliseconds(500))
+                    rtLog("HOME +\(Double(t) / 2) s: phase=\(model.store.phase) speaking=\(model.isSpeaking) status=\(model.realtime.status)")
+                }
+                return
+            }
+            if turn.hasPrefix("#sleep "), let ms = Int(turn.dropFirst(7)) { try? await Task.sleep(for: .milliseconds(ms)); continue }
             if turn == "#change" { model.confirmChange(); continue }
             // Round 15: "#check N": the kid checks step N of the current scene's checklist.
             if turn.hasPrefix("#check "), let n = Int(turn.dropFirst(7)) { model.checkStep(n); continue }
@@ -129,10 +142,10 @@ enum DemoDriver {
                 for (i, sc) in (model.store.kit?.scenes ?? []).enumerated() { rtLog("SCENE[\(i)] \(sc.nutmegSays)") }
                 continue
             }
-            if turn == "#play" { model.realtime.beginTrace("play tap"); model.store.beginPlay(); continue }
+            if turn == "#play" { model.realtime.beginTrace("play tap"); model.tapLetsPlay(); continue }
             if turn == "#handoff" {
                 if case .handoff(let i) = model.store.phase, let t = model.store.kit?.scenes[i].owner.role {
-                    model.realtime.beginTrace("handoff tap"); model.store.badgeTapped(t)
+                    model.realtime.beginTrace("handoff tap"); model.tapHandoff(t)
                 }
                 continue
             }

@@ -88,7 +88,7 @@ struct RootView: View {
                 }
             }
             if chromeVisible {
-                PTStepRail(current: store.phase.step, reached: store.reachedStep) { store.goTo($0) }
+                PTStepRail(current: store.phase.step, reached: store.reachedStep) { model.tapStepRail($0) }
                     .padding(.leading, Theme.Space.m)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
                     .transition(.move(edge: .leading).combined(with: .opacity))
@@ -262,7 +262,7 @@ struct RootView: View {
             return AnyView(PTKitPinnedCard(count: pages.count, onTap: { i in
                 var tx = Transaction(); tx.disablesAnimations = true
                 withTransaction(tx) { kitPreview = PTPreviewTarget(index: i) }
-            }, onPrint: { model.printKit() }, onPlay: { store.beginPlay() }) { i in
+            }, onPrint: { model.tapPrint() }, onPlay: { model.tapLetsPlay() }) { i in
                 KitPageView(page: pages[i], art: model.art.images[pages[i].item.id], cutouts: model.art.cutoutImages(pages[i].item))
                     .scaleEffect(PTKitPinnedCard<EmptyView>.thumb.width / KitPageView.size.width)
                     .frame(width: PTKitPinnedCard<EmptyView>.thumb.width, height: PTKitPinnedCard<EmptyView>.thumb.height)

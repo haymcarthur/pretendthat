@@ -11,8 +11,8 @@ struct HandoffView: View {
     var body: some View {
         if let id = store.kit?.scenes[sceneIndex].owner.role, let role = store.plan?.role(for: id) {
             // Nutmeg points at the card from the shared stage (no second Nutmeg inside the card).
-            PTHandoffCard(role: role, figure: { EmptyView() }, onTap: { store.badgeTapped(id) },
-                          onBack: store.canGoBackToChecklist ? { store.backToChecklist() } : nil, pinned: pinned)
+            PTHandoffCard(role: role, figure: { EmptyView() }, onTap: { model.tapHandoff(id) },
+                          onBack: store.canGoBackToChecklist ? { model.tapBackToChecklist() } : nil, pinned: pinned)
                 .id(sceneIndex)
         }
     }
@@ -190,18 +190,18 @@ struct PTScenePinnedCard: View {
 struct EndView: View {
     let model: AppModel
     private var playAgain: some View {
-        Button { model.store.playAgain() } label: { Label("Play again", systemImage: "arrow.counterclockwise") }
+        Button { model.tapPlayAgain() } label: { Label("Play again", systemImage: "arrow.counterclockwise") }
             .buttonStyle(.ptSecondary)
     }
     private var newGame: some View {
-        Button { model.art.reset(); model.store.newGame() } label: { Label("New game", systemImage: "sparkles") }
+        Button { model.tapNewGame() } label: { Label("New game", systemImage: "sparkles") }
             .buttonStyle(.ptPrimary)
     }
     var body: some View {
         VStack(spacing: Theme.Space.l) {
             PTText("The End!", .hero)
             // Round 10: right after the last "Done!", the finale can still go back to that checklist.
-            if model.store.canGoBackToChecklist { PTBackToChecklistButton { model.store.backToChecklist() } }
+            if model.store.canGoBackToChecklist { PTBackToChecklistButton { model.tapBackToChecklist() } }
             // Round 14: natural size in the shared card zone; the two buttons stack when the row doesn't fit.
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: Theme.Space.m) { playAgain; newGame }

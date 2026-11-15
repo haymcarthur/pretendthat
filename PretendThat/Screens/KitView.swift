@@ -56,8 +56,8 @@ struct KitView: View {
                     let layout = stacked ? AnyLayout(VStackLayout(spacing: Theme.Space.s)) : AnyLayout(HStackLayout(spacing: Theme.Space.m))
                     layout {
                         // One tap opens the iOS print screen (decisions/2026-11-13-single-tap-print.md).
-                        Button { model.printKit() } label: { Label("Print", systemImage: "printer") }.buttonStyle(.ptPrimary)
-                        Button("Let's play!") { store.beginPlay() }.buttonStyle(.ptSecondary)
+                        Button { model.tapPrint() } label: { Label("Print", systemImage: "printer") }.buttonStyle(.ptPrimary)
+                        Button("Let's play!") { model.tapLetsPlay() }.buttonStyle(.ptSecondary)
                     }
                     .frame(height: rowH)
                     // Round 11: the buttons come in WITH the papers (one move), not after they land.

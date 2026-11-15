@@ -614,4 +614,7 @@ public struct RealtimeTranscript: Equatable, Sendable {
     }
 
     public mutating func clear() { lines = []; streaming = nil }
+
+    /// Replaces the text of the last line (round 19's cut-off mark).
+    mutating func replaceLast(_ text: String) { if let i = lines.indices.last { lines[i].text = text } }
 }
