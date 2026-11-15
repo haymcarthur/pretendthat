@@ -163,7 +163,12 @@ struct NutmegCharacter: View {
             // the clipboard and her gripping paws (clipboardBoth layer split, round 5). They breathe with the body.
             ZStack(alignment: .topLeading) {
                 crayon(t: t, px: px)
-                ForEach(pose.frontLayers, id: \.self) { layer($0).transformEffect(pose.bodyTransform.px(px)) }
+                ForEach(pose.frontLayers, id: \.self) { name in
+                    layer(name)
+                        // Round 19: the writing fingers rock with the crayon (one writing hand), around the wrist.
+                        .rotationEffect(.degrees(name == Self.writingFingers ? writingRock(t: t) : 0), anchor: Self.wrist)
+                        .transformEffect(pose.bodyTransform.px(px))
+                }
             }
             .frame(width: w, height: h)
             .scaleEffect(x: 1 - (m.breathe - 1) * 0.42, y: m.breathe, anchor: .bottom)
@@ -197,15 +202,30 @@ struct NutmegCharacter: View {
     }
 
     /// The writing crayon (round 8: the one-paw writing body's own crayon, drawn under her fingers), in the writing
-    /// body's transform. Round 18 (Haylee: "a piece of the crayon stays stuck to her hand"): the crayon no longer rocks
-    /// relative to the paw. The art has no stray crayon in the body or fingers layers; the rock (round 10, ~2.5°
-    /// around the tip) swung the top end while the short visible middle by the tip barely moved, so it read as a
-    /// stuck piece with the paw holding still. Now it moves with the paw (breathing, body transform) only.
+    /// body's transform. Round 18 stopped its rock (~2.5° around the tip) because the paw (the fingers layer, drawn over
+    /// the crayon's middle) stayed still, so only the crayon's ends moved and the middle looked glued to her hand.
+    /// Round 19 (Haylee): the writing hand moves as ONE unit: the crayon AND the fingers layer get the same small
+    /// scribble, pivoting at the wrist (where the body's arm meets the fingers layer), while the body and clipboard
+    /// stay still. Layer order is unchanged (body → crayon → clipboard → fingers). Reduce Motion: still.
     @ViewBuilder private func crayon(t: Double, px: CGFloat) -> some View {
         if shown == .coloring, Self.writingCrayonAvailable {
             layer("nutmeg-writing-crayon")
+                .rotationEffect(.degrees(writingRock(t: t)), anchor: Self.wrist)
                 .transformEffect(NutmegPose.coloring.bodyTransform.px(px))
         }
+    }
+
+    private static let writingFingers = "nutmeg-writing-fingers"
+    /// The wrist in the writing art's own canvas (before the body transform): the left edge of the fingers layer
+    /// (x 582–675, y 565–682), where the body's arm takes over. Checked at ±3.2° (tools render, round 19): no gap at
+    /// the seam (the body art has the paw underneath), and the tip stays at the clipboard's edge.
+    private static let wrist = UnitPoint(x: 592 / NutmegPose.canvas.width, y: 640 / NutmegPose.canvas.height)
+
+    /// The writing scribble in degrees: a quick rock (~0.3 s) with a slower drift on top, so it reads as little
+    /// strokes rather than a metronome; at most ±3.2°. 0 when not writing or with Reduce Motion.
+    private func writingRock(t: Double) -> Double {
+        guard writing, !reduceMotion, shown == .coloring else { return 0 }
+        return 2.4 * sin(t * 2 * .pi / 0.3) + 0.8 * sin(t * 2 * .pi / 1.3)
     }
 
     private func layer(_ name: String) -> some View {
