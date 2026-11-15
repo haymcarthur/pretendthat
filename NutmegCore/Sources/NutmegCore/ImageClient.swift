@@ -1,5 +1,10 @@
 import Foundation
 
+/// Round 20 (Haylee, cost): the kit art quality, ONE constant to flip ("low", "medium" or "high").
+public enum ImageQuality {
+    public static let kit = "medium"
+}
+
 /// OpenAI Images API client for kit artwork. POST /v1/images/generations, response data[0].b64_json.
 /// Model IDs checked live 2026-11-13: gpt-image-2.6-flare generates successfully (about 6 s per image at
 /// quality medium) and is pinned first. The older IDs stay as fall-throughs, used only when OpenAI says the

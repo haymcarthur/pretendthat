@@ -234,9 +234,14 @@ public final class AdventureStore {
             kitLeadIn = nil
             say(lead + "Ooh, let me make your kit! Wait for it...")
         }
+        // Round 20: the pages were written during the hunt; only the play guide (and skipped props' cut-outs) is left.
+        let pages = title == nil ? await draftForKit() : nil
+        guard gen == kitGeneration else { return }
         await run("kit", kidSaid: nil) { [self] svc in
             // The context is read now (the current title, count, roles and props), and a newer remake wins.
-            let made = try await svc.kit(ctx: context)
+            let made: Kit
+            if let pages { made = try await svc.kitScenes(ctx: context, items: KitDraft.finalItems(pages, props: props)) }
+            else { made = try await svc.kit(ctx: context) }
             if gen == kitGeneration { kit = made }
         } fallback: { [self] in if gen == kitGeneration { useFallbackGame() } }
         guard gen == kitGeneration else { return }
@@ -341,6 +346,63 @@ public final class AdventureStore {
         choices = []; lastError = nil; usingFallback = false
         foundProps = []; checkedSteps = []; doneSnapshot = nil; failures = [:]; retryAction = nil; holder = nil
         nutmegLine = ""; presenting = .none; reachedStep = nil; lastPlayPhase = nil; steerIdeas = SteerIdeas()
+        kitRemakes = 0; kitRestyles = 0
+        cancelDraft()
+    }
+
+    // MARK: Kit made during the hunt (round 20, Haylee)
+
+    /// The kit pages written during the hunt (nil until they land). The app starts their art as soon as they do.
+    public private(set) var draftItems: [KitItem]?
+    /// Bumped whenever the pages are (re)started; results from an older start are dropped.
+    public private(set) var draftGeneration = 0
+    /// Live timing (DEBUG logs only): when the pages started and landed, when the kit call started.
+    public private(set) var draftStartedAt: Date?
+    public private(set) var draftReadyAt: Date?
+    @ObservationIgnored private var draftInputs: KitInputs?
+    @ObservationIgnored private var draftTask: Task<[KitItem]?, Never>?
+
+    /// What the pages should be written for right now (nil: not yet, or no Claude).
+    var wantedDraft: KitInputs? {
+        guard service != nil, !usingFallback, planningStep == .props else { return nil }
+        return KitDraft.inputs(title: currentTitle, playerCount: playerCount, plan: plan, printStyle: printStyle, step: .props)
+    }
+
+    /// Starts, restarts or cancels the pages so they always match the current plan. Once the hunt is over (the kit is
+    /// being made from them) they're left alone.
+    public func refreshDraft() {
+        guard planningStep != .finish, phase != .makingKit, phase != .kitReady else { return }
+        let want = wantedDraft
+        guard want != draftInputs else { return }
+        cancelDraft()
+        guard let want, let service else { return }
+        draftGeneration += 1
+        let gen = draftGeneration, ctx = context
+        draftInputs = want; draftStartedAt = Date()
+        draftTask = Task { [weak self] in
+            let items = try? await RetryOnce.run { try await service.kitPages(ctx: ctx) }
+            guard let self, gen == self.draftGeneration, !Task.isCancelled else { return nil }
+            if let items { self.draftItems = items; self.draftReadyAt = Date() }
+            return items
+        }
+    }
+
+    private func cancelDraft() {
+        draftTask?.cancel(); draftTask = nil
+        if draftInputs != nil || draftItems != nil { draftGeneration += 1 }
+        draftInputs = nil; draftItems = nil; draftStartedAt = nil; draftReadyAt = nil
+    }
+
+    /// The pages for the kit being made now: the hunt's pages when they were written for exactly this plan (waiting for
+    /// them if they're still on the way), else nil (the whole kit is written in one call, as before round 20).
+    private func draftForKit() async -> [KitItem]? {
+        guard let d = draftInputs,
+              d == KitDraft.inputs(title: currentTitle, playerCount: playerCount, plan: plan, printStyle: printStyle, step: .props)
+        else { return nil }
+        if let draftItems { return draftItems }
+        let gen = draftGeneration
+        let items = await draftTask?.value
+        return gen == draftGeneration ? items : nil
     }
 
     // MARK: Step rail
@@ -376,6 +438,12 @@ public final class AdventureStore {
     }
 
     public func apply(_ call: PlanningCall) async -> String {
+        let output = await applyCall(call)
+        refreshDraft()   // round 20: the kit pages follow the current color, roles, title and count
+        return output
+    }
+
+    private func applyCall(_ call: PlanningCall) async -> String {
         switch call {
         case .showGameIdeas(let list):
             ideas = GameIdeas(nutmegSays: "", ideas: list)

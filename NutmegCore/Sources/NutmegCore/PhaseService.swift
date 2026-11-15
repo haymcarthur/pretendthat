@@ -52,6 +52,24 @@ public final class PhaseService: Sendable {
                       clean: { Sanitizer.clean($0, roleCount: ctx.plan?.roles.count ?? 4) }, problem: Validate.kit) }, Prompts.kit(ctx: ctx))
     }
 
+    /// Round 20: the kit pages alone (during the hunt). Validated for all 6 recipe items.
+    public func kitPages(ctx: AdventureContext) async throws -> [KitItem] {
+        let pages = try await safe({ try await self.ask(KitPages.self, $0, Schemas.kitPages(), .medium,
+                                    clean: { p in KitPages(nutmegSays: p.nutmegSays, items: Sanitizer.clean(Kit(nutmegSays: "", items: p.items, scenes: []), roleCount: 4).items) },
+                                    problem: Validate.pages) }, Prompts.kitPages(ctx: ctx))
+        return pages.items
+    }
+
+    /// Round 20: the play guide for pages that already exist (when the hunt ends): the whole kit.
+    public func kitScenes(ctx: AdventureContext, items: [KitItem]) async throws -> Kit {
+        let roles = ctx.plan?.roles.count ?? 4
+        let made = try await safe({ try await self.ask(KitScenes.self, $0, Schemas.kitScenes(), .medium,
+                                   clean: { s in KitScenes(nutmegSays: s.nutmegSays, scenes: Sanitizer.clean(Kit(nutmegSays: "", items: [], scenes: s.scenes), roleCount: roles).scenes) },
+                                   problem: { Validate.scenes($0.scenes) }) },
+                                  Prompts.kitScenes(ctx: ctx, items: items))
+        return Kit(nutmegSays: made.nutmegSays, items: items, scenes: made.scenes)
+    }
+
     /// One call, sanitized. If the answer is under the spec's minimums (e.g. 1 scene), ask once more with a
     /// short correction. If the second answer is still short but usable, keep it; if unusable, throw.
     func ask<T: Decodable & Sendable>(_ type: T.Type, _ user: String, _ schema: [String: Any], _ effort: Effort,
@@ -91,17 +109,26 @@ public enum Validate {
     public static func props(_ p: Props) -> Problem? {
         p.props.count < 3 ? short("safe props", p.props.count, want: "3 to 5 safe props", fatal: p.props.isEmpty) : nil
     }
+    public static func pages(_ p: KitPages) -> Problem? {
+        if p.items.isEmpty { return short("kit items", 0, want: "the 6 kit items", fatal: true) }
+        let missing = KitRecipe.allCases.filter { r in !p.items.contains { $0.recipe == r } }
+        return missing.isEmpty ? nil
+            : Problem(message: "the kit was missing these item types: \(missing.map(\.rawValue).joined(separator: ", ")); include all 6", fatal: false)
+    }
     public static func kit(_ k: Kit) -> Problem? {
         if k.items.isEmpty { return short("kit items", 0, want: "the 6 kit items", fatal: true) }
         let missing = KitRecipe.allCases.filter { r in !k.items.contains { $0.recipe == r } }
         if !missing.isEmpty {
             return Problem(message: "the kit was missing these item types: \(missing.map(\.rawValue).joined(separator: ", ")); include all 6", fatal: false)
         }
-        if k.scenes.count < 4 { return short("scenes", k.scenes.count, want: "4 to 6 scenes", fatal: k.scenes.isEmpty) }
-        if let s = k.scenes.first(where: { $0.title.trimmingCharacters(in: .whitespaces).count < 3 }) {
+        return scenes(k.scenes)
+    }
+    public static func scenes(_ scenes: [Scene]) -> Problem? {
+        if scenes.count < 4 { return short("scenes", scenes.count, want: "4 to 6 scenes", fatal: scenes.isEmpty) }
+        if let s = scenes.first(where: { $0.title.trimmingCharacters(in: .whitespaces).count < 3 }) {
             return Problem(message: "scene \"\(s.id)\" had no real title", fatal: false)
         }
-        if let s = k.scenes.first(where: { $0.steps.count < 3 }) {
+        if let s = scenes.first(where: { $0.steps.count < 3 }) {
             return short("steps in scene \"\(s.title)\"", s.steps.count, want: "3 to 5 steps in every scene", fatal: s.steps.isEmpty)
         }
         return nil

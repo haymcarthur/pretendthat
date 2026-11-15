@@ -173,6 +173,10 @@ struct RootView: View {
             if live { scheduleShot(arrival: true) } else { shotTask?.cancel(); cameraShot = .wide; lastShotChange = .distantPast }
         }
         .onChange(of: store.kit) { _, _ in model.kitChanged() }
+        // Round 20: the kit pages are written during the hunt; their art follows (and the color choice).
+        .onChange(of: store.draftItems) { _, _ in model.draftChanged() }
+        .onChange(of: store.draftGeneration) { _, _ in model.draftChanged() }
+        .onChange(of: store.currentPrintStyle) { _, _ in model.draftChanged() }
         .onChange(of: model.kitFinal) { _, final in model.kitFinalChanged(final) }
         .onChange(of: model.isWriting) { _, on in
             model.scribble.setPlaying(on, ducked: model.isSpeaking)

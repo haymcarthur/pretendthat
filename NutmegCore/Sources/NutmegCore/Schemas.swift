@@ -49,6 +49,17 @@ public enum Schemas {
                                 "picture": picture("the scene title"), "nutmegSays": str,
                                 "steps": nonEmpty(obj(["picture": picture("the main object or action named in this step's text"), "text": str]))]))])
     }
+    /// Round 20: the kit in two parts, the pages (at the roles) and the play guide (when the hunt ends).
+    public static func kitPages() -> [String: Any] {
+        var k = kit(); var p = k["properties"] as! [String: Any]
+        p["scenes"] = nil; k["properties"] = p; k["required"] = ["items", "nutmegSays"]
+        return k
+    }
+    public static func kitScenes() -> [String: Any] {
+        var k = kit(); var p = k["properties"] as! [String: Any]
+        p["items"] = nil; k["properties"] = p; k["required"] = ["nutmegSays", "scenes"]
+        return k
+    }
     public static func turn() -> [String: Any] {
         obj(["nutmegSays": str, "understood": bool, "choices": arr(obj(["id": str, "label": str]))])
     }

@@ -85,6 +85,38 @@ public enum Prompts {
         """
     }
 
+    /// Round 20: the kit PAGES only, written as soon as the roles are set (the kids are still hunting for props, so
+    /// no prop is known yet). The play guide comes later (`kitScenes`).
+    public static func kitPages(ctx: AdventureContext) -> String {
+        let recipe = KitRecipe.allCases.enumerated().map { "\($0.offset + 1). \($0.element.rawValue): \($0.element.guide)" }.joined(separator: "\n")
+        return """
+        Phase: printable kit pages (the play guide is written later, so no scenes now). Every kit has exactly these 6 \
+        items, in this order (set recipe on each; you choose the titles, wording, numbers and what goes on each, themed to THIS game):
+        \(recipe)
+        Never put names or name placeholders anywhere: the app prints each badge's role title and a blank "Name: ____" line on badges and tickets for kids to write on. Keep wording short (lines 1 to 5 words each).
+        The cutouts item's lines are exactly \(KitDraft.themedCutouts) cut-out items (each is drawn as its own picture). \
+        Return KitPages.
+        \(contextJSON(ctx))
+        """
+    }
+
+    /// Round 20: the play guide, written when the hunt ends: the pages already exist (their ids and lines below), and
+    /// the props are known (found ones are real; skipped ones are pretend, with a printed cut-out).
+    public static func kitScenes(ctx: AdventureContext, items: [KitItem]) -> String {
+        let enc = JSONEncoder(); enc.outputFormatting = [.sortedKeys]
+        let pages = items.map { ["id": $0.id, "recipe": $0.recipe?.rawValue ?? "", "title": $0.title, "lines": $0.lines.joined(separator: " | ")] }
+        let pagesJSON = (try? enc.encode(pages)).map { String(decoding: $0, as: UTF8.self) } ?? "[]"
+        return """
+        Phase: the play guide. The printable pages are already made (JSON): \(pagesJSON)
+        cutout:N is the Nth line of the cutouts item (0-based). Props the kids found are real household props (kind \
+        prop); props marked skipped are pretend (the kids don't have them; if a cutouts line names one, use that cut-out).
+        Write 4 to 6 scenes for the play guide (never fewer than 4), each with 3 to 5 steps, each step and scene with ONE picture. Each scene belongs to the role id that leads it (owner) or "all"; call kids by their role ("Captain, check the plane!"). \
+        Every scene's nutmegSays MUST start with "Pretend that" (e.g. "Pretend that the first passengers just arrived! Captain, say hello!"), with different words after it in each scene. \
+        Use the found props and the printed pages in the steps. Return KitScenes.
+        \(contextJSON(ctx))
+        """
+    }
+
     public static func turn(kidSaid: String, phase: String, ctx: AdventureContext) -> String {
         "Phase: \(phase). The kid said: \"\(kidSaid)\". Reply as Nutmeg in one short line and offer 2 to 4 tap choices. If the words make no sense, set understood to false and ask again kindly. Return NutmegTurn.\n\(contextJSON(ctx))"
     }

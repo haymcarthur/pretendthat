@@ -71,7 +71,10 @@ struct Round19ConfirmTests {
         _ = await store.apply(.finishPlanning)
         for _ in 0..<100 where store.phase != .kitReady { try? await Task.sleep(for: .milliseconds(10)) }
         let kitPrompt = llm.users.last ?? ""
-        #expect(kitPrompt.contains("Phase: printable kit") && kitPrompt.contains("Bug Movie Theater") && !kitPrompt.contains("Bus Movie"))
+        // Round 20: the pages were written during the hunt, the play guide when it ended: both for the fixed title.
+        let pagesPrompt = llm.users.first { $0.contains("Phase: printable kit pages") } ?? ""
+        #expect(pagesPrompt.contains("Bug Movie Theater") && !pagesPrompt.contains("Bus Movie"))
+        #expect(kitPrompt.contains("Phase: the play guide") && kitPrompt.contains("Bug Movie Theater") && !kitPrompt.contains("Bus Movie"))
         #expect(store.context.plan?.gameTitle == "Bug Movie Theater")
     }
 

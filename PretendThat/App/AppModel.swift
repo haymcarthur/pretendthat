@@ -235,6 +235,7 @@ final class AppModel {
         realtime.disconnect()
         gameVoice = nil
         kitReadySaid = false; deferredLine = nil; doze.wake(); dozeStage = .awake; wokePop = false; endKitBackgroundTask()
+        huntStartedAt = nil; printReachedAt = nil
         shownProps = 0; beat = .none; kitBeatTask?.cancel(); kitBeat = .coloring; kitWriting = false; kitWritingTask?.cancel(); kitWritingTask = nil
         voice.stop()
         art.reset()
@@ -264,6 +265,13 @@ final class AppModel {
         realtime.micWanted = true
         realtime.quickReplyOnly = store.phase == .makingKit
         if store.phase == .makingKit { startKitProgress() } else if store.phase != .kitReady { kitWait?.cancel() }
+        if store.phase == .makingKit && printReachedAt == nil {
+            printReachedAt = Date()
+            let pages = store.draftItems.map { KitArtPlan.keys(items: $0).count } ?? 0
+            rtLog(String(format: "TIMING print reached %.1f s after the hunt started; pages written: %@; art landed: %d of %d",
+                         huntStartedAt.map { Date().timeIntervalSince($0) } ?? -1, store.draftItems == nil ? "no" : "yes",
+                         art.images.count + art.cutouts.values.map(\.count).reduce(0, +), pages))
+        }
         // (A fast kit can skip straight to kitReady between two observations; it still gets its writing beat.)
         if (store.phase == .makingKit || store.phase == .kitReady) && kitBeat == .coloring && !kitWriting && kitWritingTask == nil {
             startKitWriting()
@@ -302,6 +310,31 @@ final class AppModel {
         Task { await art.generate(kit: kit, gameTitle: title, style: store.currentPrintStyle) }
     }
 
+    // MARK: Kit made during the hunt (round 20, Haylee)
+
+    @ObservationIgnored private var artDraftGeneration = 0
+    /// The hunt's kit pages (re)started or landed, or the color changed: their art follows, in the background. A
+    /// restart (a correction, new roles) drops the old art. Never any commentary here: that's only at Print.
+    func draftChanged() {
+        // The pages may land just after the hunt ended (the kit call waits for them): their art starts then too,
+        // unless a late correction is remaking the kit for a new title.
+        let making = store.phase == .makingKit && store.kitRemakes == 0 && store.kit == nil
+        guard Self.isPlanning(store.phase) || making else { return }
+        if store.draftGeneration != artDraftGeneration && !making {
+            artDraftGeneration = store.draftGeneration
+            art.reset()
+        }
+        guard let items = store.draftItems else { return }
+        if let started = store.draftStartedAt, let ready = store.draftReadyAt {
+            rtLog(String(format: "TIMING kit pages written during the hunt in %.1f s", ready.timeIntervalSince(started)))
+        }
+        art.prepare(items: items, gameTitle: store.currentTitle, style: store.currentPrintStyle)
+    }
+
+    /// DEBUG timings for the live check (hunt start → Print, the wait at Print).
+    @ObservationIgnored var huntStartedAt: Date?
+    @ObservationIgnored var printReachedAt: Date?
+
     /// Round 7: light progress commentary while the kit is being made (KitProgress): every ~13 s, about a page still
     /// being drawn, at most 4, never repeated; stops as soon as the whole kit has landed.
     /// Round 15 (Haylee: the kit line was always the same): a random line from a bigger pool (KitProgress.lines), never
@@ -317,10 +350,12 @@ final class AppModel {
                 if isSpeaking || (realtime.isLive && realtime.voiceBusy) { continue }
                 // While the kit's content is being written, every page and the play guide are in progress; then only
                 // the pages whose art is still being drawn.
-                let pending = (store.kit?.items ?? []).filter { item in
+                // Round 20: the pages were written during the hunt, so only what's still in progress counts.
+                let pending = (store.kit?.items ?? store.draftItems ?? []).filter { item in
                     item.recipe == .cutouts ? art.cutoutImages(item).contains { $0 == nil } : art.images[item.id] == nil
                 }.compactMap(\.recipe)
-                let topics = KitProgress.inProgress(kitWritten: store.kit != nil, pendingPages: pending)
+                let topics = KitProgress.inProgress(pagesWritten: store.kit != nil || store.draftItems != nil,
+                                                    scenesWritten: store.kit != nil, pendingPages: pending)
                 guard said < KitProgress.maxLines else { return }
                 guard let pick = KitProgress.next(inProgress: topics, saidThisKit: said, lastTopic: lastTopic,
                                                   deck: &lineDeck, using: &rng) else { continue }   // keep waiting
@@ -465,6 +500,9 @@ final class AppModel {
         #endif
         kitBeatTask?.cancel()
         if final { endKitBackgroundTask() }
+        if final, let at = printReachedAt {
+            rtLog(String(format: "TIMING kit final %.1f s after Print was reached", Date().timeIntervalSince(at)))
+        }
         guard final else { kitBeat = .coloring; return }
         kitBeatTask = Task { @MainActor in
             // Writing never reads as a flicker: at least minKitWriting on the clipboard, even for an instant kit.
@@ -524,7 +562,7 @@ final class AppModel {
         }
         // Round 15: the skip's reassurance goes with the next prop card; only a hunt that ends right after the skip
         // (finish_planning) uses it as the kit line's lead-in (live run: it was said twice).
-        if case .showNextProp = call { store.kitLeadIn = nil }
+        if case .showNextProp = call { store.kitLeadIn = nil; if huntStartedAt == nil { huntStartedAt = Date(); rtLog("TIMING hunt started") } }
         let remakes = store.kitRemakes, restyles = store.kitRestyles
         let output = await store.apply(call)
         if store.kitRemakes != remakes {

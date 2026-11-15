@@ -84,6 +84,16 @@ public enum KitProgress {
             : Topic.allCases
     }
 
+    /// Round 20: the pages were written during the hunt, so at Print only what's really still in progress counts:
+    /// pages whose art is still drawing, plus the checklists while the play guide is being written. Nothing written
+    /// yet at all (no pages from the hunt): everything, as before.
+    public static func inProgress(pagesWritten: Bool, scenesWritten: Bool, pendingPages: [KitRecipe]) -> [Topic] {
+        guard pagesWritten else { return Topic.allCases }
+        var t = Set(pendingPages.map(Topic.init))
+        if !scenesWritten { t.insert(.checklists) }
+        return t.sorted { $0.rawValue < $1.rawValue }
+    }
+
     /// The next line: a random topic among `inProgress` (a different one than last time when possible), a random line
     /// of it never said this session. nil when nothing is being made, or after `maxLines` this kit.
     public static func next<G: RandomNumberGenerator>(inProgress: [Topic], saidThisKit: Int, lastTopic: Topic?,

@@ -16,8 +16,6 @@ final class KitArtService {
     private(set) var finished = false
     /// Pages drawn so far / pages asked for, for the progress bar.
     private(set) var progress: Double = 0
-    /// Last kit-image result, for the Grown-ups debug line ("OK (model)" or the error).
-    private(set) var lastResult: String?
     @ObservationIgnored private let client: ImageClient?
 
     init(client: ImageClient?) { self.client = client }
@@ -28,7 +26,10 @@ final class KitArtService {
 
     /// Round 19: a remade kit (corrected theme) starts a new generation; results from an older one are dropped.
     @ObservationIgnored private var generation = 0
-    func reset() { generation += 1; images = [:]; cutouts = [:]; isGenerating = false; progress = 0; finished = false }
+    func reset() {
+        generation += 1; images = [:]; cutouts = [:]; isGenerating = false; progress = 0; finished = false
+        drawnFor = nil; inFlight = []; failed = []; retriedAfterAway = []; finalItems = nil; landedAt = [:]
+    }
 
     func cutout(_ itemID: String, _ index: Int) -> UIImage? { cutouts[itemID]?[index] }
     /// The cut-out images of an item in order (nil where not drawn yet).
@@ -59,73 +60,111 @@ final class KitArtService {
 
     func cutoutImages(_ item: KitItem) -> [UIImage?] { KitArtPrompt.cutoutLabels(item).indices.map { cutouts[item.id]?[$0] } }
 
+    /// Round 20: what the art in hand was drawn for (title + style). A different one starts over.
+    @ObservationIgnored private var drawnFor: String?
+    /// Jobs running or settled this generation (landed, or given up after one retry: the page is app-drawn).
+    @ObservationIgnored private var inFlight: Set<String> = []
+    @ObservationIgnored private var failed: Set<String> = []
+    @ObservationIgnored private var retriedAfterAway: Set<String> = []
+    /// The final kit's items (nil during the hunt): `finished` is about these.
+    @ObservationIgnored private var finalItems: [KitItem]?
+    /// Round 20: at most 3 image calls at once (the relay's 40 images/min limit; no 429 bursts).
+    static let concurrency = 3
+    @ObservationIgnored private let limiter = AsyncLimiter(limit: KitArtService.concurrency)
+    /// DEBUG timing: when each job landed.
+    @ObservationIgnored private(set) var landedAt: [String: Date] = [:]
+
+    /// Round 20: the kit pages written during the hunt: their art starts now, in the background (no commentary).
+    func prepare(items: [KitItem], gameTitle: String, style: PrintStyle) {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-PTFakeArt") { return }
+        #endif
+        guard let client else { return }
+        startOver(ifNot: "\(gameTitle)|\(style.rawValue)")
+        NSLog("[RT] kit art: hunt prefetch, %d item(s)", items.count)
+        launch(KitArtPlan.jobs(items: items, title: gameTitle, style: style, settled: settled), client: client, style: style)
+    }
+
+    /// The final kit (hunt over): any art not drawn or drawing yet starts now (the skipped props' cut-outs, a page that
+    /// was never prefetched); `finished` once every page has landed or definitively fallen back.
     func generate(kit: Kit, gameTitle: String, style: PrintStyle) async {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-PTFakeArt") { fakeArt(kit); return }
         #endif
         guard let client else { finished = true; return }   // app-drawn pages: final right away
-        guard !isGenerating else { return }
-        isGenerating = true
-        finished = false
+        startOver(ifNot: "\(gameTitle)|\(style.rawValue)")
+        finalItems = kit.items
         let gen = generation
-        defer { if gen == generation { isGenerating = false; finished = true } }
-        // Round 9: a request that failed for a network reason (the iPad was locked or the app went to the background
-        // mid-kit) is retried once the app is active again. The kit stays not-final meanwhile, so the papers and the
-        // kit-ready line wait for it (and play once).
-        for attempt in 0..<3 {
-            let transient = await runMissingJobs(kit: kit, gameTitle: gameTitle, style: style, client: client, gen: gen)
-            guard gen == generation, transient > 0, client.unavailableReason == nil, attempt < 2 else { break }
-            while UIApplication.shared.applicationState != .active { try? await Task.sleep(for: .milliseconds(500)) }
-            NSLog("[RT] kit art: retrying %d page(s) after a network failure", transient)
-        }
+        let jobs = KitArtPlan.jobs(items: kit.items, title: gameTitle, style: style, settled: settled)
+        NSLog("[RT] kit art: final kit, %d new job(s), %d already drawing, %d landed", jobs.count, inFlight.count,
+              images.count + cutouts.values.map(\.count).reduce(0, +))
+        launch(jobs, client: client, style: style)
+        updateFinished()
+        // Wait here until the kit is final (callers don't depend on it, but it keeps the old async shape).
+        while gen == generation && !finished { try? await Task.sleep(for: .milliseconds(200)) }
     }
 
-    /// Runs one image job per missing page/cut-out; returns how many failed for a network (transient) reason.
-    private func runMissingJobs(kit: Kit, gameTitle: String, style: PrintStyle, client: ImageClient, gen: Int) async -> Int {
-        // Job key: "<item id>" for a whole item, "<item id>#<n>" for one cut-out.
-        var jobs: [(String, String, String)] = []
-        for item in kit.items {
-            if item.recipe == .cutouts, !KitArtPrompt.cutoutLabels(item).isEmpty {
-                for (n, label) in KitArtPrompt.cutoutLabels(item).enumerated() where cutouts[item.id]?[n] == nil {
-                    jobs.append(("\(item.id)#\(n)", KitArtPrompt.cutoutPrompt(label, gameTitle: gameTitle, style: style), "1024x1024"))
-                }
-            } else if images[item.id] == nil {
-                jobs.append((item.id, KitArtPrompt.prompt(for: item, gameTitle: gameTitle, style: style), KitArtPrompt.size(for: item)))
-            }
-        }
-        progress = 0
-        var done = 0
-        var transient = 0
-        await withTaskGroup(of: (String, Result<Data, Error>).self) { group in
-            for (id, prompt, size) in jobs {
-                group.addTask {
-                    do { return (id, .success(try await client.generate(prompt: prompt, size: size))) }
-                    catch { return (id, .failure(error)) }
-                }
-            }
-            for await (id, result) in group {
-                guard gen == generation else { continue }   // a remade kit: this old page is dropped
+    private var settled: Set<String> {
+        var s = inFlight.union(failed).union(images.keys)
+        for (id, m) in cutouts { for n in m.keys { s.insert(KitArtPlan.cutoutKey(id, n)) } }
+        return s
+    }
+
+    private func startOver(ifNot key: String) {
+        guard drawnFor != key else { return }
+        if drawnFor != nil { reset() }
+        drawnFor = key
+    }
+
+    private func launch(_ jobs: [KitArtJob], client: ImageClient, style: PrintStyle) {
+        let gen = generation
+        isGenerating = isGenerating || !jobs.isEmpty
+        for job in jobs {
+            inFlight.insert(job.key)
+            Task { @MainActor in
+                let limiter = self.limiter
+                // Retry once, then the existing fallback (that page is app-drawn).
+                let result: Result<Data, Error>
+                do { result = .success(try await RetryOnce.run { try await limiter.run { try await client.generate(prompt: job.prompt, size: job.size, quality: ImageQuality.kit) } }) }
+                catch { result = .failure(error) }
+                guard gen == self.generation else { return }   // a remade kit: this old page is dropped
+                self.inFlight.remove(job.key)
                 switch result {
                 case .success(let data):
                     if let image = UIImage(data: data).map({ PaperWhite.normalize($0, style: style) }) {
-                        let parts = id.split(separator: "#")
-                        if parts.count == 2, let n = Int(parts[1]) { cutouts[String(parts[0]), default: [:]][n] = image }
-                        else { images[id] = image }
-                        lastResult = "OK (\(client.workingModel ?? "?"))"
-                    }
-                    else { lastResult = "Error: image data unreadable" }
+                        let parts = job.key.split(separator: "#")
+                        if parts.count == 2, let n = Int(parts[1]) { self.cutouts[String(parts[0]), default: [:]][n] = image }
+                        else { self.images[job.key] = image }
+                        self.landedAt[job.key] = Date()
+                    } else { self.failed.insert(job.key) }
                 case .failure(let e):
-                    lastResult = "Error: \(client.unavailableReason ?? String(describing: e))"
-                    if e is URLError || (e as? ClaudeError) == .transport { transient += 1 }
+                    // Round 9: a network failure (locked or backgrounded mid-kit) gets one more try once the app is back.
+                    let transient = e is URLError || (e as? ClaudeError) == .transport
+                    if transient, client.unavailableReason == nil, !self.retriedAfterAway.contains(job.key) {
+                        self.retriedAfterAway.insert(job.key)
+                        while UIApplication.shared.applicationState != .active { try? await Task.sleep(for: .milliseconds(500)) }
+                        guard gen == self.generation else { return }
+                        NSLog("[RT] kit art: retrying %@ after a network failure", job.key)
+                        self.launch([job], client: client, style: style)
+                        return
+                    }
+                    NSLog("[RT] kit art: %@ failed twice (%@): app-drawn", job.key, client.unavailableReason ?? String(describing: e))
+                    self.failed.insert(job.key)
                 }
-                done += 1
-                progress = Double(done) / Double(max(1, jobs.count))
+                self.updateFinished()
             }
         }
-        return transient
+    }
+
+    private func updateFinished() {
+        isGenerating = !inFlight.isEmpty
+        guard let items = finalItems else { return }
+        let need = KitArtPlan.keys(items: items)
+        let s = settled.subtracting(inFlight)
+        progress = need.isEmpty ? 1 : Double(need.intersection(s).count) / Double(need.count)
+        if need.isSubset(of: s) { finished = true }
     }
 }
-
 
 /// Paper-white AI art (Haylee, page preview fix): the image model paints near-white, off-white or light-gray paper and
 /// soft drop shadows behind items. A tone curve lifts everything above ~84% luminance to pure white, so every tile
