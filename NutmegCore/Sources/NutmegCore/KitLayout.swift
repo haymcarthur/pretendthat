@@ -167,6 +167,18 @@ public enum KitArtPrompt {
             + " No words, letters or numbers. No real brands, no logos, nothing scary." + ImageSafety.suffix   // round 19
     }
 
+    /// Round 20 (cost): the themed cut-outs as ONE sheet, a grid the app slices back into one picture per cut-out.
+    public static func cutoutSheetPrompt(_ labels: [String], gameTitle: String, style printStyle: PrintStyle = .colorIn) -> String {
+        let (cols, rows) = CutoutSheet.grid(labels.count)
+        let list = labels.enumerated().map { "\($0.offset + 1). \($0.element)" }.joined(separator: ", ")
+        return opener(printStyle, gameTitle: gameTitle) + " Draw a sheet of exactly \(labels.count) separate cut-out props "
+            + "in a grid of \(cols) columns and \(rows) row\(rows == 1 ? "" : "s"), in this order, left to right and top to "
+            + "bottom: \(list). Each prop is ONE simple object centered in its own equal grid cell, filling most of the "
+            + "cell, with a thick cut-around outline. Leave wide plain white gaps between the cells; nothing touches or "
+            + "crosses into another cell, no grid lines, no borders, no frames. " + style(printStyle, cutout: true)
+            + " No words, letters or numbers. No real brands, no logos, nothing scary." + ImageSafety.suffix
+    }
+
     /// The cut-out items of a kit (the cutouts item's lines, 6 to 8).
     public static func cutoutLabels(_ item: KitItem) -> [String] {
         item.recipe == .cutouts ? Array(item.lines.prefix(PictureResolver.maxCutouts)) : []

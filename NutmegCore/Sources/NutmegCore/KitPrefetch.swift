@@ -75,20 +75,35 @@ public enum KitDraft {
 /// One kit image request: a key (`<item id>` for a page, `<item id>#<n>` for one cut-out), its prompt and size.
 public struct KitArtJob: Equatable, Sendable {
     public let key: String, prompt: String, size: String
-    public init(key: String, prompt: String, size: String) { self.key = key; self.prompt = prompt; self.size = size }
+    /// A cut-out sheet's number of cut-outs (1 for any other image).
+    public let count: Int
+    public init(key: String, prompt: String, size: String, count: Int = 1) { self.key = key; self.prompt = prompt; self.size = size; self.count = count }
 }
 
 public enum KitArtPlan {
     public static func cutoutKey(_ itemID: String, _ n: Int) -> String { "\(itemID)#\(n)" }
+    /// The sheet of the first N cut-outs (round 20), and the marker that it failed (those cut-outs are then drawn one each).
+    public static func sheetKey(_ itemID: String) -> String { "\(itemID)#sheet" }
+    public static func sheetFailedKey(_ itemID: String) -> String { "\(itemID)#sheet-failed" }
+    public static func isSheet(_ key: String) -> Bool { key.hasSuffix("#sheet") }
 
     /// Every image these items need, minus `settled` (landed, in flight or given up). During the hunt the items are the
     /// draft pages, so the skipped props' cut-outs simply aren't there yet; the final kit adds them.
-    public static func jobs(items: [KitItem], title: String, style: PrintStyle, settled: Set<String>) -> [KitArtJob] {
+    /// `sheetCount`: how many leading cut-outs are drawn as ONE sheet (the hunt's themed ones; nil = all of them).
+    public static func jobs(items: [KitItem], title: String, style: PrintStyle, settled: Set<String>,
+                            sheetCount: Int? = nil) -> [KitArtJob] {
         var out: [KitArtJob] = []
         for item in items {
             let labels = KitArtPrompt.cutoutLabels(item)
             if item.recipe == .cutouts, !labels.isEmpty {
-                for (n, label) in labels.enumerated() where !settled.contains(cutoutKey(item.id, n)) {
+                let k = CutoutSheet.enabled ? min(sheetCount ?? labels.count, labels.count) : 0
+                let sheetFailed = settled.contains(sheetFailedKey(item.id))
+                if k >= 2 && !sheetFailed && !settled.contains(sheetKey(item.id))
+                    && !(0..<k).allSatisfy({ settled.contains(cutoutKey(item.id, $0)) }) {
+                    out.append(KitArtJob(key: sheetKey(item.id), prompt: KitArtPrompt.cutoutSheetPrompt(Array(labels.prefix(k)), gameTitle: title, style: style),
+                                         size: CutoutSheet.size(k), count: k))
+                }
+                for (n, label) in labels.enumerated() where !settled.contains(cutoutKey(item.id, n)) && (n >= k || k < 2 || sheetFailed) {
                     out.append(KitArtJob(key: cutoutKey(item.id, n), prompt: KitArtPrompt.cutoutPrompt(label, gameTitle: title, style: style),
                                          size: "1024x1024"))
                 }
@@ -102,7 +117,10 @@ public enum KitArtPlan {
 
     /// Every key the items need (a page is done when all of these have landed or definitively failed).
     public static func keys(items: [KitItem]) -> Set<String> {
-        Set(jobs(items: items, title: "", style: .colorIn, settled: []).map(\.key))
+        Set(items.flatMap { item -> [String] in
+            let labels = KitArtPrompt.cutoutLabels(item)
+            return item.recipe == .cutouts && !labels.isEmpty ? labels.indices.map { cutoutKey(item.id, $0) } : [item.id]
+        })
     }
 }
 

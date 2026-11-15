@@ -61,9 +61,12 @@ public final class PhaseService: Sendable {
     }
 
     /// Round 20: the play guide for pages that already exist (when the hunt ends): the whole kit.
-    public func kitScenes(ctx: AdventureContext, items: [KitItem]) async throws -> Kit {
+    /// The play guide's effort: it's what the kids wait for at Print. Round 20 live: medium 19.1 s, low 9.8 s (same shape).
+    public static let scenesEffort: Effort = .low
+
+    public func kitScenes(ctx: AdventureContext, items: [KitItem], effort: Effort = PhaseService.scenesEffort) async throws -> Kit {
         let roles = ctx.plan?.roles.count ?? 4
-        let made = try await safe({ try await self.ask(KitScenes.self, $0, Schemas.kitScenes(), .medium,
+        let made = try await safe({ try await self.ask(KitScenes.self, $0, Schemas.kitScenes(), effort,
                                    clean: { s in KitScenes(nutmegSays: s.nutmegSays, scenes: Sanitizer.clean(Kit(nutmegSays: "", items: [], scenes: s.scenes), roleCount: roles).scenes) },
                                    problem: { Validate.scenes($0.scenes) }) },
                                   Prompts.kitScenes(ctx: ctx, items: items))

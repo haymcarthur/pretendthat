@@ -95,16 +95,21 @@ import Testing
     @Test func artJobsDuringTheHuntAndAfterIt() {
         let draft = Fallback.airplane.kit.items
         let hunt = KitArtPlan.jobs(items: draft, title: "Sky", style: .fullColor, settled: [])
-        #expect(hunt.count == 11)                                                // 5 pages + 6 themed cut-outs
-        #expect(hunt.contains { $0.key == "cutouts#0" } && hunt.contains { $0.key == "badge" })
+        #expect(hunt.count == 6)                                                 // 5 pages + ONE sheet of 6 cut-outs
+        #expect(hunt.contains { $0.key == "cutouts#sheet" && $0.size == "1536x1024" } && hunt.contains { $0.key == "badge" })
+        #expect(hunt.first { KitArtPlan.isSheet($0.key) }?.prompt.contains("3 columns and 2 rows") == true)
         #expect(hunt.allSatisfy { $0.prompt.contains("Full-color") && $0.prompt.hasSuffix(ImageSafety.suffix) })
         // Hunt over with one skip: only the skipped prop's cut-out is new.
         let props = Props(nutmegSays: "", props: [Prop(id: "pot", householdItem: "Pot", becomes: "the big oven", forRole: .all, safetyOK: true, skipped: true),
                                                    Prop(id: "bowl", householdItem: "Bowl", becomes: "the mixing bowl", forRole: .all, safetyOK: true)])
         let final = KitDraft.finalItems(draft, props: props)
-        let after = KitArtPlan.jobs(items: final, title: "Sky", style: .fullColor, settled: Set(hunt.map(\.key)))
+        let after = KitArtPlan.jobs(items: final, title: "Sky", style: .fullColor, settled: Set(hunt.map(\.key)), sheetCount: 6)
         #expect(after.map(\.key) == ["cutouts#6"] && after[0].prompt.contains("big oven"))
-        #expect(KitArtPlan.keys(items: final).count == 12)
+        #expect(KitArtPlan.keys(items: final).count == 12)                       // the kit is final per cut-out
+        // The sheet failed twice: those 6 cut-outs are drawn one each instead.
+        let fallback = KitArtPlan.jobs(items: draft, title: "Sky", style: .colorIn,
+                                       settled: Set(hunt.map(\.key)).union([KitArtPlan.sheetFailedKey("cutouts")]))
+        #expect(fallback.map(\.key) == (0..<6).map { "cutouts#\($0)" })
         // Labels and limits.
         #expect(KitDraft.cutoutLabel(becomes: "The steering wheel.") == "steering wheel")
         #expect(KitDraft.cutoutLabel(becomes: "a pirate map") == "pirate map")
@@ -145,5 +150,45 @@ import Testing
             try await RetryOnce.run(delay: .milliseconds(1)) { always.n += 1; throw ClaudeError.transport }
         }
         #expect(always.n == 2)
+    }
+}
+
+/// Round 20 (cost): one cut-out sheet, sliced back into one picture per cut-out.
+struct Round20CutoutSheetTests {
+    /// A white sheet with a dark blob per cell (some off-center, one leaning over its cell line).
+    static func sheet(width: Int, height: Int, blobs: [(cx: Int, cy: Int, r: Int)]) -> [UInt8] {
+        var g = [UInt8](repeating: 255, count: width * height)
+        for b in blobs {
+            for y in max(0, b.cy - b.r)..<min(height, b.cy + b.r) {
+                for x in max(0, b.cx - b.r)..<min(width, b.cx + b.r) where (x - b.cx) * (x - b.cx) + (y - b.cy) * (y - b.cy) <= b.r * b.r {
+                    g[y * width + x] = 20
+                }
+            }
+        }
+        return g
+    }
+
+    @Test func slicesSixInReadingOrderAndTrimsEach() {
+        let w = 300, h = 200
+        // 3×2 grid of 100×100 cells; the middle top blob leans right past x = 200 by a little.
+        let blobs = [(50, 50, 30), (165, 45, 38), (250, 50, 25), (40, 150, 20), (150, 160, 30), (260, 140, 30)]
+        let rects = CutoutSheet.cells(gray: Self.sheet(width: w, height: h, blobs: blobs), width: w, height: h, count: 6)
+        #expect(rects.count == 6)
+        for (r, b) in zip(rects, blobs) {
+            #expect(r.width == r.height)                                       // square crops
+            #expect(r.x <= b.0 - b.2 + 1 && r.x + r.width >= b.0 + b.2 - 1, "\(r) vs \(b)")   // the whole drawing
+            #expect(r.y <= b.1 - b.2 + 1 && r.y + r.height >= b.1 + b.2 - 1, "\(r) vs \(b)")
+        }
+        #expect(rects[0].x < rects[1].x && rects[1].x < rects[2].x && rects[0].y < rects[3].y)
+    }
+
+    @Test func gridAndBlankCells() {
+        #expect(CutoutSheet.grid(6) == (3, 2) && CutoutSheet.grid(8) == (4, 2) && CutoutSheet.grid(7) == (4, 2) && CutoutSheet.grid(3) == (3, 1))
+        let blank = [UInt8](repeating: 255, count: 40 * 20)
+        let r = CutoutSheet.cells(gray: blank, width: 40, height: 20, count: 2)
+        #expect(r == [.init(x: 0, y: 0, width: 20, height: 20), .init(x: 20, y: 0, width: 20, height: 20)])
+        #expect(CutoutSheet.cells(gray: [], width: 0, height: 0, count: 6).isEmpty)
+        let p = KitArtPrompt.cutoutSheetPrompt(["cupcake", "cookie", "pie"], gameTitle: "Moon Bakery", style: .colorIn)
+        #expect(p.contains("1. cupcake, 2. cookie, 3. pie") && p.contains("Black and white only") && p.hasSuffix(ImageSafety.suffix))
     }
 }

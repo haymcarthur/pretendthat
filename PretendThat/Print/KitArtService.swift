@@ -29,6 +29,7 @@ final class KitArtService {
     func reset() {
         generation += 1; images = [:]; cutouts = [:]; isGenerating = false; progress = 0; finished = false
         drawnFor = nil; inFlight = []; failed = []; retriedAfterAway = []; finalItems = nil; landedAt = [:]
+        plan = nil; landedSheets = []
     }
 
     func cutout(_ itemID: String, _ index: Int) -> UIImage? { cutouts[itemID]?[index] }
@@ -82,12 +83,16 @@ final class KitArtService {
         guard let client else { return }
         startOver(ifNot: "\(gameTitle)|\(style.rawValue)")
         NSLog("[RT] kit art: hunt prefetch, %d item(s)", items.count)
+        plan = (items, gameTitle, style, nil)
         launch(KitArtPlan.jobs(items: items, title: gameTitle, style: style, settled: settled), client: client, style: style)
     }
+    /// The latest items asked for (a failed cut-out sheet falls back to one image per cut-out from these).
+    @ObservationIgnored private var plan: (items: [KitItem], title: String, style: PrintStyle, sheetCount: Int?)?
+    @ObservationIgnored private var landedSheets: Set<String> = []
 
     /// The final kit (hunt over): any art not drawn or drawing yet starts now (the skipped props' cut-outs, a page that
     /// was never prefetched); `finished` once every page has landed or definitively fallen back.
-    func generate(kit: Kit, gameTitle: String, style: PrintStyle) async {
+    func generate(kit: Kit, gameTitle: String, style: PrintStyle, sheetCount: Int? = nil) async {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-PTFakeArt") { fakeArt(kit); return }
         #endif
@@ -95,7 +100,8 @@ final class KitArtService {
         startOver(ifNot: "\(gameTitle)|\(style.rawValue)")
         finalItems = kit.items
         let gen = generation
-        let jobs = KitArtPlan.jobs(items: kit.items, title: gameTitle, style: style, settled: settled)
+        plan = (kit.items, gameTitle, style, sheetCount)
+        let jobs = KitArtPlan.jobs(items: kit.items, title: gameTitle, style: style, settled: settled, sheetCount: sheetCount)
         NSLog("[RT] kit art: final kit, %d new job(s), %d already drawing, %d landed", jobs.count, inFlight.count,
               images.count + cutouts.values.map(\.count).reduce(0, +))
         launch(jobs, client: client, style: style)
@@ -105,7 +111,7 @@ final class KitArtService {
     }
 
     private var settled: Set<String> {
-        var s = inFlight.union(failed).union(images.keys)
+        var s = inFlight.union(failed).union(images.keys).union(landedSheets)
         for (id, m) in cutouts { for n in m.keys { s.insert(KitArtPlan.cutoutKey(id, n)) } }
         return s
     }
@@ -131,7 +137,14 @@ final class KitArtService {
                 self.inFlight.remove(job.key)
                 switch result {
                 case .success(let data):
-                    if let image = UIImage(data: data).map({ PaperWhite.normalize($0, style: style) }) {
+                    if KitArtPlan.isSheet(job.key) {
+                        let id = String(job.key.dropLast("#sheet".count))
+                        let parts = UIImage(data: data).map { CutoutSlicer.slice(PaperWhite.normalize($0, style: style), count: job.count) } ?? []
+                        if parts.count == job.count {
+                            for (n, img) in parts.enumerated() { self.cutouts[id, default: [:]][n] = img }
+                            self.landedSheets.insert(job.key); self.landedAt[job.key] = Date()
+                        } else { self.sheetFailed(id, client: client, style: style) }
+                    } else if let image = UIImage(data: data).map({ PaperWhite.normalize($0, style: style) }) {
                         let parts = job.key.split(separator: "#")
                         if parts.count == 2, let n = Int(parts[1]) { self.cutouts[String(parts[0]), default: [:]][n] = image }
                         else { self.images[job.key] = image }
@@ -149,11 +162,21 @@ final class KitArtService {
                         return
                     }
                     NSLog("[RT] kit art: %@ failed twice (%@): app-drawn", job.key, client.unavailableReason ?? String(describing: e))
-                    self.failed.insert(job.key)
+                    if KitArtPlan.isSheet(job.key) { self.sheetFailed(String(job.key.dropLast("#sheet".count)), client: client, style: style) }
+                    else { self.failed.insert(job.key) }
                 }
                 self.updateFinished()
             }
         }
+    }
+
+    /// The cut-out sheet didn't work out: those cut-outs are drawn one each instead (the old way).
+    private func sheetFailed(_ itemID: String, client: ImageClient, style: PrintStyle) {
+        failed.insert(KitArtPlan.sheetFailedKey(itemID))
+        guard let plan else { return }
+        NSLog("[RT] kit art: cut-out sheet failed: one image per cut-out instead")
+        launch(KitArtPlan.jobs(items: plan.items, title: plan.title, style: plan.style, settled: settled, sheetCount: plan.sheetCount)
+                .filter { $0.key.hasPrefix(itemID + "#") }, client: client, style: style)
     }
 
     private func updateFinished() {
@@ -182,5 +205,24 @@ enum PaperWhite {
         for (i, p) in points.enumerated() { f.setValue(CIVector(x: p.0, y: p.1), forKey: "inputPoint\(i)") }
         guard let out = f.outputImage, let cg = context.createCGImage(out, from: input.extent) else { return image }
         return UIImage(cgImage: cg, scale: image.scale, orientation: image.imageOrientation)
+    }
+}
+
+/// Round 20: slices a cut-out sheet into one image per cut-out (`CutoutSheet.cells` finds the cells).
+enum CutoutSlicer {
+    static func slice(_ image: UIImage, count: Int) -> [UIImage] {
+        guard let cg = image.cgImage else { return [] }
+        let w = cg.width, h = cg.height
+        var gray = [UInt8](repeating: 255, count: w * h)
+        let ok = gray.withUnsafeMutableBytes { buf -> Bool in
+            guard let ctx = CGContext(data: buf.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w,
+                                      space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.none.rawValue) else { return false }
+            ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
+            return true
+        }
+        guard ok else { return [] }
+        return CutoutSheet.cells(gray: gray, width: w, height: h, count: count).compactMap { r in
+            cg.cropping(to: CGRect(x: r.x, y: r.y, width: r.width, height: r.height)).map { UIImage(cgImage: $0, scale: image.scale, orientation: .up) }
+        }
     }
 }

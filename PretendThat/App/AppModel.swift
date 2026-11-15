@@ -203,7 +203,7 @@ final class AppModel {
         case .showGameIdeas(let ideas): texts = ideas.flatMap { [$0.title, $0.pitch] }
         default: return nil
         }
-        return await safety.check(texts)
+        return await safety.check(texts, pretend: true)   // round 20: a pretend oven is fine
     }
 
     // MARK: The kid moved on (round 19, Haylee)
@@ -307,7 +307,9 @@ final class AppModel {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-PTLive") { rtLog("KIT for \(title): \(kit.items.map(\.title).joined(separator: " | "))") }
         #endif
-        Task { await art.generate(kit: kit, gameTitle: title, style: store.currentPrintStyle) }
+        // Round 20: the hunt's themed cut-outs were one sheet; the skipped props' cut-outs after them are drawn one each.
+        let sheet = store.draftItems?.first { $0.recipe == .cutouts }.map { KitArtPrompt.cutoutLabels($0).count }
+        Task { await art.generate(kit: kit, gameTitle: title, style: store.currentPrintStyle, sheetCount: sheet) }
     }
 
     // MARK: Kit made during the hunt (round 20, Haylee)

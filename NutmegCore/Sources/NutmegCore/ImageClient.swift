@@ -2,7 +2,7 @@ import Foundation
 
 /// Round 20 (Haylee, cost): the kit art quality, ONE constant to flip ("low", "medium" or "high").
 public enum ImageQuality {
-    public static let kit = "medium"
+    public static let kit = "low"   // round 20: low kept lines crisp and colorable (/tmp/pt-round20/quality/compare.png)
 }
 
 /// OpenAI Images API client for kit artwork. POST /v1/images/generations, response data[0].b64_json.
