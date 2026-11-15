@@ -13,7 +13,7 @@ public enum PlanningStep: Int, Comparable, Sendable, CaseIterable {
         case .theme: "Ask what theme or twist their game should have, suggesting today's theme ideas (from the set_game result)."
         case .players: "Ask an open question: \"How many friends are playing today?\" (never a list of numbers)."
         case .confirm: "Recap the game, theme and number of friends in ONE short sentence and ask \"\(ConfirmStep.question)\""
-        case .roles: "Call set_roles, then show_next_prop, then announce the roles and go straight into the first prop. Never ask \"Sound good?\"."
+        case .roles: "Call set_roles, then show_next_prop, then announce the roles and say \"\(AdventureStore.huntTransition)\" (the first prop follows). Never ask \"Sound good?\"."
         case .props: "Tell them exactly which props to go find, and to tell you when they've found them or don't have one."
         case .finish: "Say you're making their play kit."
         }
@@ -64,7 +64,7 @@ public enum TurnCheck {
         }
         if assignsAllRolesToOne(lower) {
             return "(Silent coaching, don't mention it.) Say the roles as parts the kids share (\"Our crew is a Captain, a "
-                + "Navigator, and an Explorer! Pick who's who!\"), never \"You're the X, the Y, and the Z\"."
+                + "Navigator, and an Explorer! \(AdventureStore.huntTransition)\"), never \"You're the X, the Y, and the Z\"."
         }
         if mentionsGoPlay(lower) {
             return "(Silent coaching, don't mention it.) Never tell the kids to go play or start their adventure: that "

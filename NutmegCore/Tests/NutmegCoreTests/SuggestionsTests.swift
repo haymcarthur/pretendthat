@@ -279,7 +279,7 @@ struct SuggestionsTests {
         #expect(store.props?.props.count == 1 && store.currentPropID == "pillow")   // card state is set before she speaks
         // Choreography: this turn speaks ONLY the roles; the card + point + prop line come after it finishes playing.
         let first = AdventureStore.nextPropOutput(id: "pillow", item: "Pillow", becomes: "the shield", n: 1)
-        #expect(first.contains("Speak ONLY the roles") && first.contains("Do NOT mention props, cards or the hunt"))
+        #expect(first.contains("Speak ONLY the roles") && first.contains("Don't name this prop") && first.contains(AdventureStore.huntTransition))
         let d3 = g.done(); #expect(d3)                                              // → the ONE spoken turn
         g.created(); g.spoke()                                         // "You're the Knight, the Monster Guide and the Castle Helper!"
         let rolesDone = g.done(allowFollowUp: false); #expect(!rolesDone)   // playback ends + 1 s → card shows, point
@@ -398,12 +398,27 @@ struct SuggestionsTests {
     @Test func rolesAreSharedPartsNotAllForOneKid() {
         #expect(TurnCheck.assignsAllRolesToOne("You're the Train Driver, the Conductor, and the Passenger!"))
         #expect(TurnCheck.assignsAllRolesToOne("You’re the Captain and the Flight Attendant!"))
-        #expect(!TurnCheck.assignsAllRolesToOne("Our crew is a Train Driver, a Conductor, and a Passenger! Pick who's who!"))
+        #expect(!TurnCheck.assignsAllRolesToOne("Our crew is a Train Driver, a Conductor, and a Passenger! Now it's time to hunt for props!"))
         #expect(!TurnCheck.assignsAllRolesToOne("You'll be the Train Driver!"))
         #expect(TurnCheck.nudge(for: "You're the Train Driver, the Conductor, and the Passenger! Can you find a box?", step: .props) != nil)
         #expect(TurnCheck.isNarration("all set! our crew is ready"))
         #expect(!Realtime.instructions.contains("It'll be our steering wheel"))
-        #expect(Realtime.instructions.contains("Pick who's who!"))
-        #expect(AdventureStore.nextPropOutput(id: "box", item: "Box", becomes: "the train", n: 1).contains("Pick who's who!"))
+    }
+
+    /// Round 20 (Haylee): after the roles, no "Pick who's who!": the hunt transition, then the first card, point and prop line.
+    @Test func rolesLineEndsWithTheHuntTransition() {
+        #expect(AdventureStore.huntTransition == "Now it's time to hunt for props!")
+        #expect(Realtime.instructions.contains("Now it's time to hunt for props!"))
+        #expect(!Realtime.instructions.contains("Pick who's who!"))
+        let first = AdventureStore.nextPropOutput(id: "box", item: "Box", becomes: "the train", n: 1)
+        #expect(first.contains("Now it's time to hunt for props!") && !first.contains("Pick who's who!"))
+        #expect(AdventureStore.firstPropLine(item: "Box", becomes: "the train").contains("You already said"))
+        #expect(ConfirmStep.confirmedOutput(playerCount: 2).contains(AdventureStore.huntTransition))
+        #expect(PlanningStep.roles.goal.contains(AdventureStore.huntTransition))
+        // The transition is a fine end to the roles line: not narration, not "go play", not a permission check.
+        let line = "We need a Captain and a Navigator! Now it's time to hunt for props!"
+        #expect(!TurnCheck.isNarration(TurnCheck.lastSentence(line.lowercased())))
+        #expect(!TurnCheck.mentionsGoPlay(line))
+        #expect(!TurnCheck.assignsAllRolesToOne(line))
     }
 }

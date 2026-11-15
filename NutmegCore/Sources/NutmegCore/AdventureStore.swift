@@ -85,11 +85,14 @@ public final class AdventureStore {
     /// Round 16 (Haylee): it names both buttons, so the kid knows to tap Let's play! after printing.
     public nonisolated static let kitReadyLine = HandOffLines.printReady
 
+    /// Round 20 (Haylee): the roles line ends with this, instead of "Pick who's who!" (kids pick badges after printing).
+    public nonisolated static let huntTransition = "Now it's time to hunt for props!"
+
     /// The FIRST prop line (round 7 choreography): asked for separately, after the roles finished playing and the card
     /// appeared with her point.
     public nonisolated static func firstPropLine(item: String, becomes: String) -> String {
-        "(Silent coaching, don't mention it.) The \(item.lowercased()) card is on screen now and you're pointing at it. Start "
-            + "RIGHT AWAY with the first prop line (no lead-in like \"let's start the hunt\"), like \"First, can you find a \(item.lowercased())? It'll be \(becomes)!\", then explain "
+        "(Silent coaching, don't mention it.) The \(item.lowercased()) card is on screen now and you're pointing at it. You already said "
+            + "\"\(huntTransition)\": start RIGHT AWAY with the first prop line (no second lead-in like \"let's start the hunt\"), like \"First, can you find a \(item.lowercased())? It'll be \(becomes)!\", then explain "
             + "ONCE: say 'found it' when you have it, or tell me if you don't. Don't repeat the roles, no check-in, no narration. "
             + "If you already named this prop, say only the 'found it' explanation."
     }
@@ -98,7 +101,7 @@ public final class AdventureStore {
     /// answer; later props stay short ("Next, can you find a spoon? It'll be the big stirrer!").
     public nonisolated static func nextPropOutput(id: String, item: String, becomes: String, n: Int) -> String {
         let how = n == 1
-            ? "This is the FIRST prop. Its card stays hidden for now. Speak ONLY the roles now, in one or two excited sentences as a set of parts the kids share (\"Our crew is a Captain, a Navigator, and an Island Explorer! Pick who's who!\"; for one kid: \"You'll be the Captain!\"), never \"You're the X, the Y, and the Z\" (that sounds like one kid gets every role), no \"All set!\". Do NOT mention props, cards or the hunt at all (no \"the first prop is coming up\"), and don't ask anything: when your roles line finishes, the card appears and you'll be asked for the prop line."
+            ? "This is the FIRST prop. Its card stays hidden for now. Speak ONLY the roles now, as a set of parts the kids share, then the hunt transition, word for word: \"\(Self.huntTransition)\" (\"We need a Captain, a Navigator, and an Island Explorer! \(Self.huntTransition)\"; for one kid: \"You'll be the Captain! \(Self.huntTransition)\"). Never \"You're the X, the Y, and the Z\" (that sounds like one kid gets every role), never \"Pick who's who\", no \"All set!\". Don't name this prop or describe the card yet, and don't ask anything: when your roles line finishes, the card appears, you point at it, and you'll be asked for the prop line."
             : n % 3 == 0
             // Round 13: "Pretend that" on about 1 prop in 3 (props 3 and 6), decided by the app so it really happens.
             ? "This is prop \(n): keep it SHORT and use the words \"pretend that\" this time, like \"Can you find a \(item.lowercased())? Let's pretend that it's \(becomes)!\" Do NOT repeat 'say found it' or 'tell me if you don't have it' (they already know)."
@@ -423,7 +426,7 @@ public final class AdventureStore {
             phase = .players; presenting = .none; planningStep = .props
             let cast = plan!.roles.map { $0.count > 1 ? "\($0.count) \($0.roleName)s" : $0.roleName }.joined(separator: ", ")
             let short = drafts.count < playerCount ? " You gave \(drafts.count) roles for \(playerCount) kids, so the last role is shared." : ""
-            return "Roles set: \(cast).\(short) Step 4: announce the roles with excitement (there are no role cards; kids pick their own badge after printing). Now, WITHOUT speaking yet and without waiting for the kids, call show_next_prop for the FIRST prop. Then, in ONE turn, announce the roles and go straight into the first prop. Never ask \"Sound good?\", \"Okay?\" or \"Ready?\": there is nothing to approve."
+            return "Roles set: \(cast).\(short) Step 4: announce the roles with excitement (there are no role cards; kids pick their own badge after printing). Now, WITHOUT speaking yet and without waiting for the kids, call show_next_prop for the FIRST prop. Then, in ONE turn, announce the roles and end with \"\(Self.huntTransition)\" (the card and your prop line follow). Never ask \"Sound good?\", \"Okay?\" or \"Ready?\": there is nothing to approve."
         case .showProps(let drafts):
             var used = Set<String>()
             let list: [Prop] = drafts.enumerated().compactMap { i, d in
