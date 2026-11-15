@@ -405,6 +405,10 @@ final class RealtimeSession {
     func sendText(_ text: String) {
         guard let socket, isLive, micWanted else { return }
         trace.begin("typed")
+        // Round 20 (Haylee): a typed turn stops her at once, like the mic (greeting, replies, app lines).
+        if SpeechStop.kidTurnStops(responseActive: responseActive, playing: isSpeaking || mouthQueue.count > 0, inFlight: speech.active) {
+            stopSpeaking("typed turn")
+        }
         socket.send(Realtime.userText(text))
         chat.kidTyped(text)
         #if DEBUG
@@ -468,7 +472,9 @@ final class RealtimeSession {
     func beginTalk() {
         guard isLive, micWanted, holdStartedAt == nil else { return }
         releaseTask?.cancel(); releaseTask = nil
-        if responseActive || isSpeaking || !speech.active.isEmpty { stopSpeaking("mic pressed") }
+        if SpeechStop.kidTurnStops(responseActive: responseActive, playing: isSpeaking || mouthQueue.count > 0, inFlight: speech.active) {
+            stopSpeaking("mic pressed")
+        }
         silenceTask?.cancel()
         reminderDoneAt = nil
         holdStartedAt = Date()

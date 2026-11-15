@@ -248,6 +248,8 @@ final class AppModel {
     /// Typed fallback goes into the live conversation when there is one.
     func typed(_ text: String) async {
         wakeUp()
+        // Round 20: the kid's own turn stops anything she's saying or about to say (cheers, repeats, deferred lines).
+        if realtime.isLive && store.phase != .makingKit { userAction(.typedTurn) }
         // Round 19: typed kid text is checked BEFORE it goes anywhere; unsafe text is never sent or shown.
         if let verdict = await safety.check([text]) { steer(verdict); return }
         if realtime.isLive && Self.isPlanning(store.phase) { realtime.sendText(text); return }
@@ -648,6 +650,7 @@ final class AppModel {
     func chooseColor(_ style: PrintStyle) {
         guard realtime.isLive, store.planningStep == .color else { return }
         wakeUp()
+        userAction(.colorChoice)
         Task { @MainActor in
             _ = await store.apply(.setPrintStyle(style))
             rtLog("print style: \(style.rawValue) (tap)")
@@ -1071,6 +1074,7 @@ final class AppModel {
     }
     func talkPressed() {
         wakeUp()
+        if realtime.isLive { userAction(.micPressed) }
         if realtime.isLive { realtime.beginTalk() } else if listener.available { micPressed() }
     }
     func talkReleased() {

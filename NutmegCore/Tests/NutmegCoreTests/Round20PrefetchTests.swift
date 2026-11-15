@@ -223,3 +223,24 @@ struct Round20StablePrefixTests {
         #expect(!u!.line.contains("resp_"))
     }
 }
+
+/// Round 20 (Haylee: she typed during the greeting and the voice kept going): the kid starting a turn cancels everything.
+struct Round20KidTurnStopsTests {
+    @Test func aKidTurnCancelsEverythingInFlight() {
+        #expect(UserAction.typedTurn.stopsSpeech && UserAction.micPressed.stopsSpeech && UserAction.colorChoice.stopsSpeech)
+        // The greeting (or any reply / app line) still generating or playing: stop it.
+        #expect(SpeechStop.kidTurnStops(responseActive: true, playing: false, inFlight: []))
+        #expect(SpeechStop.kidTurnStops(responseActive: false, playing: true, inFlight: []))       // audio still in the player
+        #expect(SpeechStop.kidTurnStops(responseActive: false, playing: false, inFlight: ["resp_line"]))   // an app line
+        #expect(!SpeechStop.kidTurnStops(responseActive: false, playing: false, inFlight: []))
+        // Every in-flight response (greeting + a queued app line) is cancelled by id; their late audio is dropped.
+        var s = SpeechStop()
+        s.created("resp_greeting"); s.created("resp_cheer")
+        let ids = s.cancelAll()
+        #expect(ids == ["resp_greeting", "resp_cheer"] && s.active.isEmpty)
+        #expect(s.drops(.audioDelta(Data([1])), responseID: "resp_greeting") && s.drops(.transcriptDelta("Hi"), responseID: "resp_cheer"))
+        // The reply to the kid's new turn is a new response: it plays.
+        s.created("resp_reply")
+        #expect(!s.drops(.audioDelta(Data([1])), responseID: "resp_reply") && s.active == ["resp_reply"])
+    }
+}

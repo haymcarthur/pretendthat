@@ -6,6 +6,9 @@ import Foundation
 public enum UserAction: String, CaseIterable, Sendable {
     case checkStep, done, backToChecklist, handoff, propFound, propMissing, print, letsPlay, repeatLine
     case newGame, playAgain, close, goHome, stepRail, confirmYes, confirmChange
+    /// Round 20 (Haylee: she typed during the greeting and the voice kept going): the kid starting their OWN turn,
+    /// by sending typed text or pressing the mic, stops everything she's saying too.
+    case typedTurn, micPressed, colorChoice
     /// Not screen changes: switching the chat panel's tabs, opening or closing the chat.
     case chatTab, toggleChat
 
@@ -14,6 +17,14 @@ public enum UserAction: String, CaseIterable, Sendable {
         case .chatTab, .toggleChat: false
         default: true
         }
+    }
+}
+
+extension SpeechStop {
+    /// Round 20: a kid turn starts (typed or mic) while ANYTHING of hers is in flight or playing (a reply, the greeting,
+    /// an app line, a tool-first pass's follow-up): stop it all first, so only the reply to the new turn plays.
+    public static func kidTurnStops(responseActive: Bool, playing: Bool, inFlight: [String]) -> Bool {
+        responseActive || playing || !inFlight.isEmpty
     }
 }
 
