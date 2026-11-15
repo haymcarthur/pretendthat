@@ -114,4 +114,12 @@ import Testing
         #expect(cut.contains("a cupcake") && cut.contains("cut out") && !cut.contains("Black and white") && cut.hasSuffix(ImageSafety.suffix))
         #expect(KitArtPrompt.cutoutPrompt("a cupcake", gameTitle: "Sky Bakery").contains("easy for a 5-year-old to color and cut out."))
     }
+
+    /// Round 20 (Haylee: "Allow pretend swords"): pretend swords pass; knives, guns and real blades stay blocked.
+    @Test func pretendSwordsAreAllowed() {
+        #expect(Realtime.safetyRules.contains("PRETEND SWORDS ARE OK") && Realtime.safetyRules.contains("Knives stay off-limits"))
+        #expect(Prompts.system.contains("Pretend swords are fine") && Prompts.system.contains("never a real"))
+        #expect(ImageSafety.suffix.contains("no knives") && ImageSafety.suffix.contains("pretend toy sword is fine"))
+        #expect(PropLibrary.looksUnsafe("kitchen knife") && !PropLibrary.contains("knife"))
+    }
 }

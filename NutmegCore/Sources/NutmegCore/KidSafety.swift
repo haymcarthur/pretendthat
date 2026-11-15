@@ -62,8 +62,9 @@ extension Sanitizer {
     // Whole words (or a word's start, for stems marked with a trailing "*"). Matched on the normalized text's words,
     // so "skill", "class", "therapist" or "shooting star" never match.
     static let blocklist: [SafetyCategory: [String]] = [
-        .violence: ["kill*", "murder*", "gun", "guns", "pistol*", "rifle*", "shotgun*", "knife", "knives", "dagger*", "sword",
-                    "swords", "bomb", "bombs", "bombing", "grenade*", "explosive*", "weapon*", "ammo", "bullet", "bullets",
+        .violence: ["kill*", "murder*", "gun", "guns", "pistol*", "rifle*", "shotgun*", "knife", "knives", "dagger*",
+                    // Round 20 (Haylee): PRETEND swords are fine (pirates, knights, dragons); a real or sharp one isn't.
+                    "real sword", "real swords", "sharp sword", "sharp swords", "sword fight to the death", "bomb", "bombs", "bombing", "grenade*", "explosive*", "weapon*", "ammo", "bullet", "bullets",
                     "stab*", "shoot", "shoots", "shooting", "shooter", "strangle*", "choke", "choking", "punch them",
                     "beat up", "beat them up", "hurt someone", "hurt them", "hurt him", "hurt her", "fight to the death",
                     "war", "terrorist*", "kidnap*", "torture*", "massacre*", "behead*", "execute*", "die", "dying"],
@@ -166,7 +167,7 @@ public enum SafetySteer {
 
 /// Image prompts end with this (on top of OpenAI's own `moderation: "auto"`).
 public enum ImageSafety {
-    public static let suffix = " Kid-friendly and gentle, for ages 4 to 8: no weapons, no blood, nothing scary, violent or grown-up, no real people, no brands, no text other than the words given."
+    public static let suffix = " Kid-friendly and gentle, for ages 4 to 8: no guns, no knives, no real weapons (a pretend toy sword is fine), no blood, nothing scary, violent or grown-up, no real people, no brands, no text other than the words given."
 }
 
 /// Round 19: every generated text field a kid sees, hears or prints (checked before it's shown or printed).

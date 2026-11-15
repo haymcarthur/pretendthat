@@ -6,7 +6,7 @@ import Testing
 struct Round19SafetyTests {
     static let unsafe: [(String, Sanitizer.SafetyCategory)] = [
         ("let's play with guns", .violence), ("a game where we kill the bad guys", .violence), ("K1LL them all", .violence),
-        ("k i l l", .violence), ("kiiiill", .violence), ("a knife fight", .violence), ("pirates with swords", .violence),
+        ("k i l l", .violence), ("kiiiill", .violence), ("a knife fight", .violence), ("knife fight", .violence), ("a real sword to cut", .violence), ("real sword to cut", .violence), ("gun", .violence),
         ("blow it up with a bomb", .violence), ("I want to shoot people", .violence),
         ("I want to kill myself", .selfHarm), ("suicide game", .selfHarm),
         ("something sexy", .sexual), ("naked people", .sexual), ("$ex", .sexual),
@@ -22,7 +22,7 @@ struct Round19SafetyTests {
         ("there's a fire", .needsGrownUp), ("I can't breathe", .needsGrownUp),
     ]
     static let safe = [
-        "a pirate ship", "a bug movie theater", "three friends", "Pancake Restaurant on the Moon", "a fire station",
+        "a pirate ship", "pirate ship with swords", "knight with a sword", "pirates with swords", "a toy sword", "a foam sword", "a cardboard sword", "use a paper towel tube as your sword", "a bug movie theater", "three friends", "Pancake Restaurant on the Moon", "a fire station",
         "firefighters on the moon", "a shooting star show", "a castle with friendly monsters", "knights at a castle",
         "a vet clinic for puppies", "skill school", "a class for teddy bears", "the therapist's office", "a doctor's office",
         "a tea party", "a bakery under the sea", "Bug Bucks", "Snack Bar Menu", "found it", "we don't have one",
