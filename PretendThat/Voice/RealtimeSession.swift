@@ -46,6 +46,10 @@ final class RealtimeSession {
     /// its item is truncated to 0 ms so the model knows nobody heard it. She speaks in the follow-up.
     @ObservationIgnored var onKidTurnTools: (@MainActor () -> [String]?)?
     @ObservationIgnored private var forcedTools: [String]?
+    /// Round 20: the tools the running silent pass may call (any other is refused by the app, not run).
+    @ObservationIgnored private var silentAllowed: [String]?
+    /// Round 20: a system item after the stable prefix (today's ideas, a reconnect's state).
+    func addNote(_ item: [String: Any]?) { if let item { socket?.send(item) } }
     @ObservationIgnored private var silentPending = false
     @ObservationIgnored private var silentResponse = false
     @ObservationIgnored private var silentItems: [String] = []
@@ -381,7 +385,7 @@ final class RealtimeSession {
         resetMouth(); silenceTask?.cancel(); huntMode = false; beatTask?.cancel(); beatTask = nil; beatRunning = false; propsPlanned = false; lastBeatAt = .distantPast
         gapTask?.cancel(); expressionTask?.cancel(); expression = nil; thinkingGap = false; awaitingReply = false
         reminderPending = false; reminderPlaying = false; propLinePending = false; echoPending = false; echoActive = false
-        forcedTools = nil; silentPending = false; silentResponse = false; silentItems = []; quickReplyOnly = false
+        forcedTools = nil; silentAllowed = nil; silentPending = false; silentResponse = false; silentItems = []; quickReplyOnly = false
         speech = SpeechStop(); cancelThrough = 0; createdSeen = 0
         if status != .idle, case .failed = status {} else { status = .idle }
     }
@@ -438,6 +442,10 @@ final class RealtimeSession {
             // Round 7: the kid's answer is handled by a tool FIRST; this response is silent (see onKidTurnTools).
             forcedTools = nil
             silentPending = true
+            silentAllowed = tools
+            // Round 20 (cost): the response keeps the session's one tools array (cached prefix); the step's tools are a
+            // note after it, and the app refuses anything else this pass calls.
+            socket?.send(Realtime.allowedToolsNote(tools))
             socket?.send(Realtime.responseCreate(requiring: tools))
             trace.mark("silent.create")
             rtLog("tool-first (silent, text-only) response: \(tools.joined(separator: ","))")
@@ -818,9 +826,17 @@ final class RealtimeSession {
     @ObservationIgnored private var createdSeen = 0
     @ObservationIgnored private var stopAt = Date.distantPast
 
+    /// Round 20: token counts from every response.done (never content), for the prompt-cache check.
+    @ObservationIgnored private(set) var usageTotals = RealtimeUsageTotals()
+
     private func receive(_ text: String) async {
         let id = Realtime.responseID(text)
         let event = Realtime.parse(text)
+        if event == .responseDone, let u = RealtimeUsage.parse(text) {
+            usageTotals.add(u)
+            rtLog("USAGE #\(usageTotals.responses): \(u.line); session in \(usageTotals.input), cached \(usageTotals.cached) "
+                  + String(format: "(%.0f%%)", usageTotals.cachedShare * 100))
+        }
         if event == .responseCreated {
             createdSeen += 1
             if createdSeen <= cancelThrough, Date().timeIntervalSince(stopAt) < 4, let id {
@@ -923,6 +939,11 @@ final class RealtimeSession {
             // Silent and instant: never waits on the app, never blocks audio.
             if let d = NutmegExpression.decode(name: name, arguments: args) { setExpression(d.expression, seconds: d.seconds, fromModel: true) }
             pendingOutputs.append((callID, "ok"))   // never asks for a response by itself
+        case .functionCall(let name, let callID, _) where silentResponse && !(silentAllowed?.contains(name) ?? true):
+            // Round 20: every response now offers the whole tools array, so the step rule lives here.
+            rtLog("silent pass: off-step \(name) refused")
+            pendingOutputs.append((callID, Realtime.offStepOutput(name, allowed: silentAllowed ?? [])))
+            gate.toolCalled()
         case .functionCall(let name, let callID, let args):
             let result = await onCall?(name, args) ?? (output: "ok", respond: true)
             // She already spoke before the tool (against the instructions): the follow-up must not react again, so the

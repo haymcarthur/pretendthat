@@ -113,6 +113,12 @@ extension Realtime {
     public static func resumeInstructions(todayGames: [Suggestion], context: ResumeContext) -> String {
         instructions(todayGames: todayGames) + "\n\n" + context.summary
     }
+
+    /// Round 20 (cost): a silent reconnect keeps the stable session instructions; today's ideas and where the game is
+    /// go in as one system item instead.
+    public static func resumeNote(todayGames: [Suggestion], context: ResumeContext) -> [String: Any] {
+        systemNote((todayGames.isEmpty ? "" : todaysIdeas(todayGames) + "\n\n") + context.summary)
+    }
 }
 
 extension ResumeContext {

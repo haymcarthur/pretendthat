@@ -216,8 +216,10 @@ struct SuggestionsTests {
 
     @Test func outOfBandLinesHaveNoConversationContext() {
         let r = Realtime.sayExactly(TurnCheck.silenceLine)["response"] as? [String: Any]
-        #expect((r?["input"] as? [Any])?.isEmpty == true)
-        #expect(Realtime.json(Realtime.sayExactly("hi")).contains("\"input\":[]"))
+        // Round 20: only the line itself, as one system item (no conversation context, no instructions override).
+        let input = r?["input"] as? [[String: Any]]
+        #expect(input?.count == 1 && input?.first?["role"] as? String == "system" && r?["conversation"] as? String == "none")
+        #expect(r?["instructions"] == nil && r?["tool_choice"] as? String == "none")
     }
 
     @Test func leadInBeforeBeatStillGetsTheRolesAndPropReply() {
@@ -361,9 +363,11 @@ struct SuggestionsTests {
     @Test func huntAnswersAreToolFirst() {
         let r = Realtime.responseCreate(requiring: Realtime.huntTools)["response"] as? [String: Any]
         #expect(r?["tool_choice"] as? String == "required")
-        let names = (r?["tools"] as? [[String: Any]])?.compactMap { $0["name"] as? String } ?? []
-        #expect(Set(names) == Set(Realtime.huntTools))
-        #expect(!names.contains("set_expression"))
+        // Round 20: the step's tools are a note; the response itself carries no tools (stable cached prefix).
+        #expect(r?["tools"] == nil)
+        let note = Realtime.json(Realtime.allowedToolsNote(Realtime.huntTools))
+        #expect(Realtime.huntTools.allSatisfy { note.contains($0) } && note.contains("\"role\":\"system\""))
+        #expect(Realtime.offStepOutput("set_roles", allowed: ["mark_found"]).contains("Not now"))
     }
 
     @Test func pretendThatPhraseIsInTheInstructions() {

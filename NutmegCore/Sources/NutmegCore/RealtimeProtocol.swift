@@ -95,7 +95,7 @@ public enum Realtime {
     - Only talk about the pretend game. If they wander off, kindly bring them back to the show.
 
     THE STEPS (always in this order; your wording changes every time, the goal of each step never does):
-    1. GAME: ask what they want to play today, suggesting ONLY TODAY'S GAME IDEAS (listed at the end). When they \
+    1. GAME: ask what they want to play today, suggesting ONLY TODAY'S GAME IDEAS (in a note at the start of the conversation). When they \
     pick, call set_game. If they're stuck or bored, call show_game_ideas with today's game ideas and say them out loud.
     2. THEME: react in one short sentence, then ask what kind of theme or twist, suggesting ONLY the theme ideas the \
     set_game result gives you (say them so they fit THEIR game). When they pick, call set_theme with the full title \
@@ -210,16 +210,20 @@ public enum Realtime {
     and move on to the next step; never re-ask a step they already answered. \
     React or riff in ONE short sentence at most, then ask the current step's question. If a kid goes off topic,     answer kindly in one short line and re-ask the current step's question with suggestions.
 
-    Your face follows your words on its own: never call a tool just to set your face, never wait for one.
-
     Prop safety: only use items from the item list (they're all safe household things). Never suggest knives, \
     scissors, glass, electronics, cords, food, medicine, or anything up high.
     """
 
-    /// The instructions with TODAY'S GAME IDEAS injected (round 7: fresh suggestions every session).
+    /// The instructions with TODAY'S GAME IDEAS appended (round 7). Round 20 (cost): the session instructions are now
+    /// always exactly `instructions` (a stable, cacheable prefix); today's ideas go in `todaysIdeasNote` instead.
     public static func instructions(todayGames: [Suggestion]) -> String {
         guard !todayGames.isEmpty else { return instructions }
         return instructions + "\n\n" + todaysIdeas(todayGames)
+    }
+
+    /// Round 20: today's game ideas as a system item at the start of the conversation (after the cached prefix).
+    public static func todaysIdeasNote(_ games: [Suggestion]) -> [String: Any]? {
+        games.isEmpty ? nil : systemNote(todaysIdeas(games))
     }
 
     static func todaysIdeas(_ games: [Suggestion]) -> String {
@@ -321,11 +325,7 @@ public enum Realtime {
            [:], required: []),
         fn("start_planning", "Silent: you write the roles and the prop list on your clipboard for a moment (call it ONCE, "
            + "right before set_roles). When it returns, call set_roles, then show_next_prop, then announce both.",
-           ["topic": ["type": "string", "enum": ["roles", "props"]]], required: ["topic"]),
-        fn("set_expression", "Silently set your face for this turn (never mention it). Call it at the start of most turns.",
-           ["expression": ["type": "string", "enum": NutmegExpression.allCases.map(\.rawValue)],
-            "seconds": ["type": ["number", "null"], "description": "How long to hold it; null = this turn."] as [String: Any]],
-           required: ["expression", "seconds"])
+           ["topic": ["type": "string", "enum": ["roles", "props"]]], required: ["topic"])
     ] }
 
     // MARK: Client events
@@ -362,20 +362,28 @@ public enum Realtime {
         }
     }
     /// A response that must call one of `names` first (no speech): `tool_choice: required` over just those tools.
+    /// Round 20 (cost): the response never carries its own `tools` (the session's ONE tools array stays the cached
+    /// prefix). Which tools fit this step is said in `allowedToolsNote` (sent just before), and the app refuses any
+    /// other tool this pass calls (`RealtimeSession`).
     public static func responseCreate(requiring names: [String]) -> [String: Any] {
         // Round 13: TEXT only, so no audio is generated for a response nobody hears (it was 2–3 s of narration audio
         // before the tool call); its text items are deleted afterwards.
         ["type": "response.create",
-         "response": ["tool_choice": "required", "output_modalities": ["text"],
-                      "tools": tools.filter { names.contains($0["name"] as? String ?? "") }] as [String: Any]]
+         "response": ["tool_choice": "required", "output_modalities": ["text"]] as [String: Any]]
+    }
+    /// Round 20: the silent pass's step tools, as a note after the cached prefix.
+    public static func allowedToolsNote(_ names: [String]) -> [String: Any] {
+        systemNote("(Silent, this turn only.) Call one or more of these tools now, and nothing else: \(names.joined(separator: ", ")). No speech.")
+    }
+    /// Round 20: the app's answer when a silent pass calls a tool that doesn't fit the step (it isn't run).
+    public static func offStepOutput(_ name: String, allowed: [String]) -> String {
+        "Not now: \(name) doesn't fit this step, nothing changed. Use one of: \(allowed.joined(separator: ", "))."
     }
     /// Round 13: a spoken response without `set_expression` (a face-only tool call ended the response and cost a whole
     /// extra round trip before she spoke). `tools: false` = speak right away, no tools at all (greeting, tap replies).
+    /// Round 20 (cost): no per-response `tools` (the session's array is the cached prefix; set_expression is gone).
     public static func responseCreateSpoken(tools allowTools: Bool = true) -> [String: Any] {
-        ["type": "response.create",
-         "response": (allowTools
-            ? ["tool_choice": "auto", "tools": tools.filter { ($0["name"] as? String) != "set_expression" }]
-            : ["tool_choice": "none"]) as [String: Any]]
+        ["type": "response.create", "response": ["tool_choice": allowTools ? "auto" : "none"] as [String: Any]]
     }
     /// Removes an item from the conversation (the silent pass's text, which nobody heard).
     public static func deleteItem(_ id: String) -> [String: Any] { ["type": "conversation.item.delete", "item_id": id] }
@@ -401,12 +409,11 @@ public enum Realtime {
     public static let minHoldSeconds = 0.3
     public static func sayExactly(_ line: String) -> [String: Any] {
         ["type": "response.create",
-         "response": ["conversation": "none", "output_modalities": ["audio"],
+         "response": ["conversation": "none", "output_modalities": ["audio"], "tool_choice": "none",
                       // No conversation context (round 7): with it, the silence reminder improvised game ideas.
-                      "input": [] as [Any],
-                      // Round 13: the SAME voice description as the session (an out-of-band response's instructions
-                      // replace the session's, so a shorter one made app lines sound like a different character).
-                      "instructions": sayExactlyInstructions(line)] as [String: Any]]
+                      // Round 20 (cost): no `instructions` override, so the session's instructions + tools are the same
+                      // cached prefix; the line goes in as the only input item.
+                      "input": [(systemNote(sayExactlyInstructions(line))["item"] as? [String: Any]) ?? [:]] as [Any]] as [String: Any]]
     }
     public static func sayExactlyInstructions(_ line: String) -> String {
         "You are Nutmeg, a little stage-manager mouse (she/her). Your voice: \(voiceStyle) Say exactly this line, word for "
@@ -427,8 +434,9 @@ public enum Realtime {
             : " Speak once now: one short reaction, then the next question (or the instruction)."
     }
 
+    /// Round 20 (cost): sorted keys, so the same session.update is byte-identical every time (a stable cached prefix).
     public static func json(_ obj: [String: Any]) -> String {
-        (try? JSONSerialization.data(withJSONObject: obj)).map { String(decoding: $0, as: UTF8.self) } ?? "{}"
+        (try? JSONSerialization.data(withJSONObject: obj, options: [.sortedKeys])).map { String(decoding: $0, as: UTF8.self) } ?? "{}"
     }
 
     // MARK: Server events

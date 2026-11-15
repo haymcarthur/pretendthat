@@ -33,7 +33,10 @@ import Foundation
 
     @Test func appLinesUseTheConversationVoiceDescription() {
         let r = Realtime.sayExactly("Your kit is ready!")["response"] as? [String: Any]
-        let text = r?["instructions"] as? String ?? ""
+        // Round 20: the line is the only input item (no instructions override: the session prefix stays cached).
+        #expect(r?["instructions"] == nil)
+        let item = (r?["input"] as? [[String: Any]])?.first
+        let text = ((item?["content"] as? [[String: Any]])?.first?["text"] as? String) ?? ""
         #expect(text.contains(Realtime.voiceStyle))
         #expect(Realtime.instructions.contains(Realtime.voiceStyle))
         #expect(text.contains("\"Your kit is ready!\""))
@@ -43,8 +46,8 @@ import Foundation
         let silent = Realtime.responseCreate(requiring: ["set_game"])["response"] as? [String: Any]
         #expect((silent?["output_modalities"] as? [String]) == ["text"])
         let spoken = Realtime.responseCreateSpoken()["response"] as? [String: Any]
-        let names = (spoken?["tools"] as? [[String: Any]] ?? []).compactMap { $0["name"] as? String }
-        #expect(!names.contains("set_expression") && names.contains("show_next_prop"))
+        // Round 20: no per-response tools at all (the session's one array is the cached prefix).
+        #expect(spoken?["tools"] == nil && silent?["tools"] == nil && spoken?["tool_choice"] as? String == "auto")
         let direct = Realtime.responseCreateSpoken(tools: false)["response"] as? [String: Any]
         #expect(direct?["tool_choice"] as? String == "none")
     }

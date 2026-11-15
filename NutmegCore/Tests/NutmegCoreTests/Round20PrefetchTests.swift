@@ -192,3 +192,34 @@ struct Round20CutoutSheetTests {
         #expect(p.contains("1. cupcake, 2. cookie, 3. pie") && p.contains("Black and white only") && p.hasSuffix(ImageSafety.suffix))
     }
 }
+
+/// Round 20 (cost): OpenAI caches the prompt prefix, so every session and response sends the SAME tools and the same
+/// instructions; anything per-step or per-session goes in later items.
+struct Round20StablePrefixTests {
+    @Test func everyResponseKeepsTheSessionsToolsAndInstructions() {
+        let a = Realtime.sessionUpdate(voice: "coral", speed: 1, instructions: Realtime.instructions)
+        let b = VoiceConfig.nutmeg.sessionUpdate(instructions: Realtime.instructions)
+        #expect(Realtime.json(a) == Realtime.json(b))                                        // byte-identical session
+        let creates = [Realtime.responseCreate(requiring: ["set_game"]), Realtime.responseCreate(requiring: Realtime.huntTools),
+                       Realtime.responseCreateSpoken(), Realtime.responseCreateSpoken(tools: false), Realtime.sayExactly("Hi!")]
+        for c in creates {
+            let r = c["response"] as? [String: Any]
+            #expect(r?["tools"] == nil && r?["instructions"] == nil)                        // never a different prefix
+        }
+        // Per-session text (today's ideas, a reconnect's state) is a system item, never the instructions.
+        let note = Realtime.todaysIdeasNote([Suggestions.games[0], Suggestions.games[1], Suggestions.games[2]])
+        #expect(note.map { Realtime.json($0).contains("TODAY'S GAME IDEAS") } == true && Realtime.todaysIdeasNote([]) == nil)
+        #expect(!Realtime.instructions.contains("TODAY'S GAME IDEAS (fresh"))
+        #expect(!Realtime.tools.contains { $0["name"] as? String == "set_expression" })
+    }
+
+    @Test func usageCountsParseWithoutContent() {
+        let done = #"{"type":"response.done","response":{"id":"resp_1","usage":{"input_tokens":6000,"output_tokens":120,"input_token_details":{"cached_tokens":5000,"text_tokens":5500,"audio_tokens":500,"cached_tokens_details":{"text_tokens":4800,"audio_tokens":200}}}}}"#
+        let u = RealtimeUsage.parse(done)
+        #expect(u?.input == 6000 && u?.cached == 5000 && u?.cachedText == 4800 && u?.audioIn == 500 && u?.output == 120)
+        #expect(RealtimeUsage.parse(#"{"type":"response.created"}"#) == nil)
+        var t = RealtimeUsageTotals(); t.add(u!); t.add(u!)
+        #expect(t.responses == 2 && abs(t.cachedShare - 5.0 / 6.0) < 0.001)
+        #expect(!u!.line.contains("resp_"))
+    }
+}

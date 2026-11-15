@@ -117,7 +117,8 @@ final class AppModel {
         #endif
         guard let auth = realtimeAuth, store.phase == .hello else { return }
         if preparedGames.isEmpty { preparedGames = suggestionMemory.pickGames() }
-        realtime.preconnect(auth: auth, config: voiceConfig, instructions: Realtime.instructions(todayGames: preparedGames))
+        // Round 20 (cost): the session instructions are always the same (cached prefix); today's ideas follow as a note.
+        realtime.preconnect(auth: auth, config: voiceConfig, instructions: Realtime.instructions)
     }
     @ObservationIgnored private var preparedGames: [Suggestion] = []
     /// DEBUG screenshots: show the conversation stage without a live session.
@@ -153,9 +154,10 @@ final class AppModel {
         let config = voiceConfig
         gameVoice = config
         let ok = await realtime.connect(auth: auth, config: config, echoCancel: Self.echoCancel,
-                                        instructions: Realtime.instructions(todayGames: games))
+                                        instructions: Realtime.instructions)
         guard store.phase == .pickGame else { return }   // left while connecting
         if ok {
+            realtime.addNote(Realtime.todaysIdeasNote(games))
             realtime.micWanted = true
             gesture(.wave)
             realtime.kickOff(games: games)
@@ -978,8 +980,8 @@ final class AppModel {
         assert(gameVoice == nil || config == gameVoice, "reconnect must use the first connect's voice")
         #endif
         let ok = await realtime.connect(auth: auth, config: config, echoCancel: Self.echoCancel,
-                                        instructions: Realtime.resumeInstructions(todayGames: todayGames, context: ctx),
-                                        keepChat: true)
+                                        instructions: Realtime.instructions, keepChat: true)
+        if ok { realtime.addNote(Realtime.resumeNote(todayGames: todayGames, context: ctx)) }
         guard store.phase != .hello else { realtime.disconnect(); return }   // left meanwhile
         rtLog("reconnect: \(ok ? "live" : "failed")")
         guard ok else { return }
