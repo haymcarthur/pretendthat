@@ -42,12 +42,18 @@ struct PTStageView<Character: View, Overlay: View>: View {
     var frame: (PTStageGeometry) -> PTStageFrame
     /// Animates card count changes with the camera.
     var itemCount = 0
+    /// Round 21: the on-screen keyboard is up: the stage keeps the size, insets and position it had before it opened
+    /// (iPadOS also drops the stage's top inset then, which moved and rezoomed it).
+    var keyboardUp = false
     @ViewBuilder var character: Character
     @ViewBuilder var overlay: (PTStageGeometry, PTStageCamera.Layout) -> Overlay
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var calm: KeyboardProofGeometry.Calm?
 
     var body: some View {
-        GeometryReader { geo in
+        GeometryReader { proxy in
+            // Round 21: the keyboard never makes the stage shorter (its framing stays; the keyboard covers the bottom).
+            let geo = KeyboardProofGeometry(proxy, referenceSize: referenceSize, calm: calm)
             let screen = screenSize ?? CGSize(width: geo.size.width + geo.safeAreaInsets.leading + geo.safeAreaInsets.trailing,
                                               height: geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom)
             let full = CGSize(width: geo.size.width + geo.safeAreaInsets.leading + geo.safeAreaInsets.trailing,
@@ -67,7 +73,7 @@ struct PTStageView<Character: View, Overlay: View>: View {
                 // tie-backs, valance) draws ABOVE the floor at every camera position. Same curtains as the backdrop's,
                 // placed in screen space (the full-screen backdrop's frame, wherever this stage sits), so they line up
                 // exactly; the floor moves under them, Nutmeg and the cards stay in front.
-                let origin = geo.frame(in: .global).origin
+                let origin = CGPoint(x: proxy.frame(in: .global).minX, y: geo.originY)
                 PTCurtain(progress: 1, showsValance: false)
                     .frame(width: screen.width, height: screen.height)
                     .position(x: screen.width / 2 - origin.x, y: screen.height / 2 - origin.y)
@@ -92,6 +98,16 @@ struct PTStageView<Character: View, Overlay: View>: View {
             }
             .frame(width: geo.size.width, height: geo.size.height)
             .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: f)
+            .offset(y: geo.originY - proxy.frame(in: .global).minY)   // round 21: 0 unless the keyboard moved the stage
+            // Round 21: the stage's own measurements follow the same rule as the reference: a new height/top only after
+            // it held 0.4 s with the keyboard down (the windowed-iPad keyboard resizes the window first).
+            .task(id: "\(KeyboardProofGeometry.Calm(proxy))-\(keyboardUp)") {
+                let now = KeyboardProofGeometry.Calm(proxy)
+                if calm == nil { calm = now; return }
+                try? await Task.sleep(for: .milliseconds(400))
+                guard !Task.isCancelled, !keyboardUp, calm != now else { return }
+                calm = now
+            }
             #if DEBUG
             .onChange(of: f) { _, _ in Self.checkFeet(comp, f) }
             #endif
@@ -115,6 +131,32 @@ struct PTStageView<Character: View, Overlay: View>: View {
         if d > 3 { print("⚠️ PTStageView: feet \(Int(d)) pt off the floor for \(f)") }
     }
     #endif
+}
+
+/// Round 21: the stage's GeometryProxy, held at its keyboard-free measurements while the keyboard is up (height, safe
+/// insets and global top), and never shorter than the reference stage.
+struct KeyboardProofGeometry {
+    struct Calm: Equatable {
+        var height: CGFloat, insets: EdgeInsets, minY: CGFloat
+        init(_ proxy: GeometryProxy) { height = proxy.size.height; insets = proxy.safeAreaInsets; minY = proxy.frame(in: .global).minY }
+    }
+    let size: CGSize
+    let safeAreaInsets: EdgeInsets
+    /// Where the stage's top sits on screen (the content is offset there).
+    let originY: CGFloat
+    init(_ proxy: GeometryProxy, referenceSize: CGSize?, calm: Calm?) {
+        if let calm {
+            size = CGSize(width: proxy.size.width, height: calm.height)
+            var insets = calm.insets
+            insets.leading = proxy.safeAreaInsets.leading; insets.trailing = proxy.safeAreaInsets.trailing
+            safeAreaInsets = insets
+            originY = calm.minY
+        } else {
+            size = PTStageGeometry.keyboardProofSize(proxy.size, reference: referenceSize)
+            safeAreaInsets = proxy.safeAreaInsets
+            originY = proxy.frame(in: .global).minY
+        }
+    }
 }
 
 /// Presented cards in two columns beside Nutmeg (wide shot with cards): no overlap, every label readable.

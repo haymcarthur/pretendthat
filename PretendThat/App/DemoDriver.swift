@@ -255,6 +255,10 @@ enum DemoDriver {
             return
         }
         _ = await store.apply(.confirmPlan)
+        if target == "convColor" {   // round 20/21: the color question's Full color / I'll color them buttons
+            model.realtime.debugSeedTranscript([ColorChoice.question])
+            return
+        }
         _ = await store.apply(.setRoles([.init(roleName: "Captain", job: "Fly the plane"),
                                          .init(roleName: "Flight Attendant", job: "Serve snacks"),
                                          .init(roleName: "Passenger", job: "Enjoy the trip")]))

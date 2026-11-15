@@ -60,11 +60,20 @@ public struct PTStageGeometry: Equatable, Sendable {
         self.size = size; self.leadingInset = leadingInset; self.bottomInset = bottomInset; self.floor = floor; self.chatOpen = chatOpen
         self.referenceSize = referenceSize
     }
+    /// Round 21 (Haylee: the keyboard shrank Nutmeg again): the size the stage lays out at. The chat panel may narrow
+    /// the stage, but nothing may make it SHORTER than the reference (full, keyboard-free) stage: the keyboard only
+    /// covers its lower part, so her framing never rezooms. (RootView also keeps the stage out of keyboard avoidance.)
+    public static func keyboardProofSize(_ measured: CGSize, reference: CGSize?) -> CGSize {
+        guard let reference, reference.height > 0 else { return measured }
+        return CGSize(width: measured.width, height: max(measured.height, reference.height))
+    }
     /// The geometry the camera's reference framing uses (full stage, chat closed).
     public var reference: PTStageGeometry {
         PTStageGeometry(size: referenceSize ?? size, leadingInset: leadingInset, bottomInset: bottomInset, floor: floor)
     }
     static let top: CGFloat = 16
+    /// Round 21: the free stage's top margin (the app reserves room for a choice row below it).
+    public static var topMargin: CGFloat { top }
     /// The free stage rect (right of the rail, above the pill).
     public var free: CGRect {
         CGRect(x: leadingInset, y: Self.top, width: max(100, size.width - leadingInset), height: max(200, size.height - bottomInset - Self.top))
@@ -222,12 +231,15 @@ public enum PTStageCamera {
         case .closeUp:
             // Her FACE centered both ways: on the screen (with the pill) when the chat is closed, between the rail and
             // the chat panel when it's open; the head as big as fits (the far ear may crop by up to ~6%).
-            let centerY = F.minY + F.height / 2
+            // Round 21: a step-choice row along the top (`topReserve`): her face centers in the room below it, so her
+            // ears stay clear of the buttons.
+            let roomTop = F.minY + frame.topReserve
+            let centerY = roomTop + (F.maxY - roomTop) / 2
             var centerX = size.width / 2
             if g.chatOpen || frame.leftReserve > 0 || frame.rightReserve > 0 { centerX = (laneMinX + laneMaxX) / 2 }
             let leftRoom = centerX - (g.chatOpen ? F.minX + 8 : 0)
             let rightRoom = laneMaxX - centerX
-            k = min(F.height / 2 / faceToTop, leftRoom / (faceToLeftEar * 1.02), rightRoom / (faceToRightEar * 0.94),
+            k = min((F.maxY - roomTop) / 2 / faceToTop, leftRoom / (faceToLeftEar * 1.02), rightRoom / (faceToRightEar * 0.94),
                     size.height * 0.85 / headHeight)
             origin = CGPoint(x: centerX - faceFocus.x * k, y: centerY - faceFocus.y * k)
             if frame.writing {

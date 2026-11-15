@@ -1,6 +1,9 @@
 import SwiftUI
 import NutmegCore
 
+/// Round 21: the root's keyboard-free size and global top (see `keyboardUp`).
+struct RootMeasure: Equatable { var size: CGSize; var top: CGFloat }
+
 /// Switches on the adventure phase. Every kid screen shares one stage layout:
 /// Nutmeg on the left third, the stage on the right, mic and "again" along the bottom.
 struct RootView: View {
@@ -29,6 +32,14 @@ struct RootView: View {
     @State private var screenSize: CGSize = .zero
     /// Round 14: the chat panel's Checklist | Chat tabs during play (a new hand-off / scene opens on Checklist).
     @State private var chatTabs = PTChatTabState()
+    /// Round 21: the on-screen keyboard is up. The stage's reference size and framing stay as they were before it opened.
+    @State private var keyboardUp = false
+    @State private var measuredRoot = RootMeasure(size: .zero, top: 0)
+    /// Round 21: the stage area's and the root's global tops (the choice row hangs at the same line as the corner X).
+    @State private var stageTop: CGFloat = 0
+    @State private var rootTop: CGFloat = 0
+    /// Round 21: the step-choice row's height (measured; her close-up keeps clear of it).
+    @State private var choiceRowHeight: CGFloat = 80
 
     private var store: AdventureStore { model.store }
 
@@ -63,27 +74,44 @@ struct RootView: View {
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                // Round 19: the confirm step's Yes / Change buttons, above the control pill (left of the chat panel).
-                .overlay(alignment: .bottom) {
+                .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: { stageTop = $0 }
+                // Round 19: the confirm step's Yes / Change buttons. Round 21 (Haylee: "show up on top"): every step-choice
+                // row sits at the TOP of the stage, under the valance, centered over the stage (between the corner X and
+                // the right curtain, or the chat panel), clear of Nutmeg's head and the control pill.
+                .overlay(alignment: .top) {
                     if model.showsConfirm && chromeVisible {
                         PTConfirmButtons(onYes: { model.confirmYes() }, onChange: { model.confirmChange() })
+                            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { choiceRowHeight = $0 }
                             .padding(.horizontal, Theme.Space.xl)
-                            .padding(.bottom, 128)
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                            .padding(.top, choiceRowTop)
+                            .transition(.move(edge: .top).combined(with: .opacity))
                     }
                     // Round 20: the color question's two big buttons, in the same place.
                     if model.showsColorChoice && chromeVisible {
                         PTColorChoiceButtons(onChoose: { model.chooseColor($0) })
+                            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { choiceRowHeight = $0 }
                             .padding(.horizontal, Theme.Space.xl)
-                            .padding(.bottom, 128)
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                            .padding(.top, choiceRowTop)
+                            .transition(.move(edge: .top).combined(with: .opacity))
                     }
                 }
                 .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: model.showsConfirm)
                 .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: model.showsColorChoice)
-                // Round 11 (Haylee): the keyboard never re-frames the stage; it just covers its bottom. Only the chat
-                // panel (and its text field) rises above it.
-                .ignoresSafeArea(.keyboard)
+                // The chat panel's slot (the panel itself is drawn in its own layer below, so it can rise above the
+                // keyboard while the stage can't).
+                if chatOpen && chromeVisible {
+                    Color.clear.frame(width: PTChatPanel.width)
+                        .padding([.vertical, .trailing], Theme.Space.m)
+                        .transition(.move(edge: .trailing))
+                }
+            }
+            // Round 11/14 (Haylee): the keyboard never re-frames the stage; it just covers its bottom. Round 21: the
+            // stage row is its own layer that ignores the keyboard (inside a row shared with the chat panel the
+            // keyboard inset still reached it and Nutmeg rezoomed tiny).
+            .ignoresSafeArea(.keyboard)
+            // Only the chat panel (and its text field) rises above the keyboard.
+            HStack(spacing: Theme.Space.m) {
+                Spacer(minLength: 0)
                 if chatOpen && chromeVisible {
                     PTChatPanel(lines: model.realtime.transcript.map { PTChatPanel.Line(id: $0.id, fromNutmeg: $0.fromNutmeg, text: $0.text) },
                                 onSend: { text in Task { await model.typed(text) } },
@@ -136,8 +164,22 @@ struct RootView: View {
         }
         .background {
             Color.clear.ignoresSafeArea(.keyboard)
-                .onGeometryChange(for: CGSize.self) { $0.size } action: { rootSize = $0 }
+                // Round 21: in a windowed iPad app the keyboard RESIZES the window (782 → 814 → 406 pt tall here,
+                // before the keyboard notification arrives), which rezoomed Nutmeg tiny. The reference only takes a
+                // new size once it has held for 0.4 s with the keyboard down (rotation, a window resize).
+                .onGeometryChange(for: RootMeasure.self) { RootMeasure(size: $0.size, top: $0.frame(in: .global).minY) } action: { m in
+                    measuredRoot = m
+                    if rootSize == .zero { rootSize = m.size; rootTop = m.top }
+                }
         }
+        .task(id: "\(measuredRoot)-\(keyboardUp)") {
+            try? await Task.sleep(for: .milliseconds(400))
+            guard !Task.isCancelled, !keyboardUp else { return }
+            if rootSize != measuredRoot.size { rootSize = measuredRoot.size }
+            if rootTop != measuredRoot.top { rootTop = measuredRoot.top }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in keyboardUp = true }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in keyboardUp = false }
         .animation(.easeOut(duration: 0.2), value: confirmLeave)
         // Round 10: the panel/rail slide on the same spring as the camera move they cause (one shared animation).
         .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: chatOpen)
@@ -197,6 +239,11 @@ struct RootView: View {
         .statusBarHidden()
     }
 
+    /// Round 21: the step-choice row's top: just under the valance (the same line the corner X hangs from).
+    private var choiceRowTop: CGFloat {
+        PTCurtain.metrics(screenSize == .zero ? rootSize : screenSize).valance + Theme.Space.s + (rootTop - stageTop)
+    }
+
     // MARK: The shared stage (every phase)
 
     private var sharedStage: some View {
@@ -206,7 +253,7 @@ struct RootView: View {
                     bottomInset: chromeVisible ? PTStageCamera.chromeBottom : 0,
                     chatOpen: chatOpen && chromeVisible,
                     faceFocus: (debugPose ?? model.nutmegRestPose).faceFocus,
-                    frame: { g in stageFrame(g) }, itemCount: stageItems.count) {
+                    frame: { g in stageFrame(g) }, itemCount: stageItems.count, keyboardUp: keyboardUp) {
             NutmegCharacter(state: model.nutmegState, mouthLevel: model.mouthLevel, mouthShape: model.mouthShape,
                             isSpeaking: model.isSpeaking, cue: model.cue, forcedPose: debugPose, showsGround: true,
                             holdsClipboard: model.nutmegHoldsClipboard, writing: model.isWriting)
@@ -240,6 +287,14 @@ struct RootView: View {
     /// Round 11 (Haylee: one way everywhere): every phase goes through `PTStageDirector.preset` (talk, writing, prop
     /// card, prop card + chat, hop, presented cards); no per-screen framing here.
     private func stageFrame(_ g: PTStageGeometry) -> PTStageFrame {
+        var f = directorFrame(g)
+        // Round 21: the step-choice row hangs along the top: her head keeps clear of it.
+        if (model.showsConfirm || model.showsColorChoice) && chromeVisible && f.shot == .closeUp && !f.writing {
+            f.topReserve = max(f.topReserve, choiceRowTop + choiceRowHeight + Theme.Space.s - PTStageGeometry.topMargin)
+        }
+        return f
+    }
+    private func directorFrame(_ g: PTStageGeometry) -> PTStageFrame {
         return PTStageDirector.frame(phase: store.phase, conversation: model.inConversation, conversationShot: shot,
                               cards: stageItems.count, hunt: huntOnStage, kitBeat: model.kitBeat,
                               curtainInset: curtainInset(g), writing: model.isWriting, g)
