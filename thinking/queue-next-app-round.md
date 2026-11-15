@@ -107,3 +107,10 @@ Art ready in design/export/ to import:
 1. MOVE THE X: the close (X) leaves the control pill for the screen's top-left corner (56 pt white circle, below the valance, above the step rail); same leave warning. **DONE R17.**
 2. REPEAT IN THE PILL: speaker button in the X's old slot ("Hear it again"): checklist read-aloud during play (round 16 behavior), else her last line again (same voice, no duplicate bubble); dimmed when nothing to repeat or she's busy. **DONE R17.**
 3. REMOVE round 16's checklist "Hear it again" pills (stage card + chat panel tab); Done! back to its round 15 layout. **DONE R17.**
+
+
+## Round 19 (2026-11-15, Haylee): DONE
+1. Crayon movement back: crayon + fingers rock together around the wrist. **DONE R19.**
+2. Corrections update everything (one title source, set_* re-callable at any step, kit remade at print) + recap/confirm step with Yes / Change buttons. **DONE R19.**
+3. Any tap that moves on stops her speech (every response cancelled by id, player cleared, chat line cut); New game goes home silently. **DONE R19.**
+4. Kid-safety guardrails: instructions, local filter + OpenAI moderation on kid and generated text, image safety suffix + moderation auto, relay /v1/moderations (needs redeploy). **DONE R19.** See [decision](decisions/2026-11-15-round19-crayon-corrections-bargein-guardrails.md).
