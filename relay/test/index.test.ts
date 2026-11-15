@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import worker, { CLAUDE_MODELS, IMAGE_MODELS, MAX_TOKENS, REALTIME_MODEL, sameToken, type Env } from "../src/index";
+import worker, { CLAUDE_MODELS, IMAGE_MODELS, MAX_TOKENS, MODERATION_MODEL, REALTIME_MODEL, sameToken, type Env } from "../src/index";
 
 // Fake values only. No real keys anywhere in this repo.
 const TOKEN = "test-app-token";
@@ -16,6 +16,7 @@ function makeEnv(overrides: Partial<Env> = {}): Env {
     CLAUDE_LIMIT: limiter(),
     IMAGE_LIMIT: limiter(),
     REALTIME_LIMIT: limiter(),
+    MODERATION_LIMIT: limiter(),
     ...overrides,
   };
 }
@@ -155,6 +156,12 @@ describe("POST /v1/images/generations", () => {
     expect(s.headers.authorization).toBe("Bearer fake-openai");
     expect(s.body.n).toBe(1);
     expect(s.body.prompt).toBe("line art");
+    expect(s.body.moderation).toBe("auto");   // round 19: never turned down
+  });
+
+  it("forces image moderation back to auto", async () => {
+    await worker.fetch(post("/v1/images/generations", { model: IMAGE_MODELS[0], prompt: "x", moderation: "low" }), makeEnv());
+    expect(sent().body.moderation).toBe("auto");
   });
 
   it.each(IMAGE_MODELS)("allows %s", async (model) => {
@@ -200,6 +207,60 @@ describe("POST /v1/realtime/client_secrets", () => {
   it("502s when OpenAI returns no secret", async () => {
     fetchMock.mockResolvedValueOnce(new Response("{}", { status: 200 }));
     expect((await worker.fetch(post("/v1/realtime/client_secrets", {}), makeEnv())).status).toBe(502);
+  });
+});
+
+describe("POST /v1/moderations (round 19)", () => {
+  it("forwards text to OpenAI with the key and forces the model", async () => {
+    const r = await worker.fetch(post("/v1/moderations", { model: "text-moderation-stable", input: ["a pirate ship"] }), makeEnv());
+    expect(r.status).toBe(200);
+    const s = sent();
+    expect(s.url).toBe("https://api.openai.com/v1/moderations");
+    expect(s.headers.authorization).toBe("Bearer fake-openai");
+    expect(s.body).toEqual({ model: MODERATION_MODEL, input: ["a pirate ship"] });
+  });
+
+  it("accepts a single string", async () => {
+    await worker.fetch(post("/v1/moderations", { input: "a bakery" }), makeEnv());
+    expect(sent().body.input).toEqual(["a bakery"]);
+  });
+
+  it("passes OpenAI's answer through", async () => {
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ results: [{ flagged: true }] }), { status: 200 }));
+    const r = await worker.fetch(post("/v1/moderations", { input: ["x"] }), makeEnv());
+    expect(await r.json()).toEqual({ results: [{ flagged: true }] });
+  });
+
+  it.each([
+    ["no input", {}],
+    ["empty list", { input: [] }],
+    ["an image part", { input: [{ type: "image_url", image_url: { url: "https://x.test/a.png" } }] }],
+    ["too many", { input: Array(33).fill("x") }],
+    ["too long", { input: ["x".repeat(4001)] }],
+  ])("refuses %s", async (_name, body) => {
+    const r = await worker.fetch(post("/v1/moderations", body), makeEnv());
+    expect(r.status).toBe(400);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("needs the app token", async () => {
+    const r = await worker.fetch(post("/v1/moderations", { input: ["x"] }, {}), makeEnv());
+    expect(r.status).toBe(401);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("is rate limited per IP on its own binding", async () => {
+    const env = makeEnv({ MODERATION_LIMIT: limiter(false) });
+    const r = await worker.fetch(post("/v1/moderations", { input: ["x"] }), env);
+    expect(r.status).toBe(429);
+    expect((env.MODERATION_LIMIT.limit as ReturnType<typeof vi.fn>).mock.calls[0][0].key).toBe("MODERATION_LIMIT:203.0.113.7");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("never logs kid text", async () => {
+    const spies = (["log", "info", "warn", "error", "debug"] as const).map((m) => vi.spyOn(console, m));
+    await worker.fetch(post("/v1/moderations", { input: ["my secret words"] }), makeEnv());
+    for (const s of spies) expect(s).not.toHaveBeenCalled();
   });
 });
 

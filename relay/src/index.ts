@@ -13,6 +13,7 @@ export interface Env {
   CLAUDE_LIMIT: RateLimit;
   IMAGE_LIMIT: RateLimit;
   REALTIME_LIMIT: RateLimit;
+  MODERATION_LIMIT: RateLimit;
 }
 
 /** Models the app uses (NutmegCore ClaudeClient / ImageClient / RealtimeProtocol). Anything else is refused. */
@@ -22,12 +23,17 @@ export const IMAGE_MODELS = ["gpt-image-2.6-flare", "gpt-image-2.5-flare", "gpt-
 export const REALTIME_MODEL = "gpt-realtime-2.1";
 /** An ephemeral secret only has to start a session (the app connects right after fetching it). */
 export const REALTIME_SECRET_SECONDS = 120;
+/** Round 19: kid-safety checks. The model is forced; inputs are short text only (no images). */
+export const MODERATION_MODEL = "omni-moderation-latest";
+export const MODERATION_MAX_INPUTS = 32;
+export const MODERATION_MAX_CHARS = 4000;
 export const ANTHROPIC_VERSION = "2026-10-21";
 /** Bodies are text prompts; anything bigger is not from the app. */
 export const MAX_BODY_BYTES = 256 * 1024;
 
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const OPENAI_IMAGES_URL = "https://api.openai.com/v1/images/generations";
+const OPENAI_MODERATIONS_URL = "https://api.openai.com/v1/moderations";
 const OPENAI_CLIENT_SECRETS_URL = "https://api.openai.com/v1/realtime/client_secrets";
 
 function json(status: number, body: unknown, extra: Record<string, string> = {}): Response {
@@ -95,10 +101,29 @@ async function images(req: Request, env: Env): Promise<Response> {
     return error(400, "model_not_found", "This relay only serves PretendThat's image models.");
   }
   body.n = 1;
+  body.moderation = "auto";   // round 19: OpenAI's image moderation always stays on its standard setting
   return passThrough(await fetch(OPENAI_IMAGES_URL, {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${env.OPENAI_API_KEY}` },
     body: JSON.stringify(body),
+  }));
+}
+
+/** Round 19: the app's kid-safety check (OpenAI Moderation). Text only, the model forced, inputs capped. The app
+ *  fails safe to its local filter if this errors, so a refusal here never blocks a game. */
+async function moderations(req: Request, env: Env): Promise<Response> {
+  const body = await readJSON(req);
+  if (body instanceof Response) return body;
+  const raw = body.input;
+  const inputs = typeof raw === "string" ? [raw] : Array.isArray(raw) ? raw : null;
+  if (!inputs || inputs.length === 0 || inputs.length > MODERATION_MAX_INPUTS
+      || !inputs.every((t) => typeof t === "string" && t.length <= MODERATION_MAX_CHARS)) {
+    return error(400, "invalid_request", "input must be 1 to 32 short text strings.");
+  }
+  return passThrough(await fetch(OPENAI_MODERATIONS_URL, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${env.OPENAI_API_KEY}` },
+    body: JSON.stringify({ model: MODERATION_MODEL, input: inputs }),
   }));
 }
 
@@ -120,12 +145,13 @@ async function realtimeSecret(env: Env): Promise<Response> {
   return json(200, { value: data.value, expires_at: data.expires_at ?? null, model: REALTIME_MODEL });
 }
 
-type Route = { handler: (req: Request, env: Env) => Promise<Response>; limiter: keyof Pick<Env, "CLAUDE_LIMIT" | "IMAGE_LIMIT" | "REALTIME_LIMIT"> };
+type Route = { handler: (req: Request, env: Env) => Promise<Response>; limiter: keyof Pick<Env, "CLAUDE_LIMIT" | "IMAGE_LIMIT" | "REALTIME_LIMIT" | "MODERATION_LIMIT"> };
 
 const ROUTES: Record<string, Route> = {
   "/v1/messages": { handler: claude, limiter: "CLAUDE_LIMIT" },
   "/v1/images/generations": { handler: images, limiter: "IMAGE_LIMIT" },
   "/v1/realtime/client_secrets": { handler: (_req, env) => realtimeSecret(env), limiter: "REALTIME_LIMIT" },
+  "/v1/moderations": { handler: moderations, limiter: "MODERATION_LIMIT" },
 };
 
 export default {

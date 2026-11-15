@@ -39,7 +39,9 @@ public final class ImageClient: @unchecked Sendable {
         req.httpMethod = "POST"
         req.timeoutInterval = 120
         req.setValue("application/json", forHTTPHeaderField: "content-type")
-        var body: [String: Any] = ["model": model, "prompt": prompt, "size": size, "n": 1, "quality": quality, "output_format": "png"]
+        var body: [String: Any] = ["model": model, "prompt": prompt, "size": size, "n": 1, "quality": quality, "output_format": "png",
+                                   // Round 19: OpenAI's own image moderation stays on its standard setting.
+                                   "moderation": "auto"]
         if let background { body["background"] = background }
         req.httpBody = try JSONSerialization.data(withJSONObject: body, options: [.sortedKeys])
         return req

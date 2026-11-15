@@ -150,6 +150,7 @@ public final class AdventureStore {
 
     /// Kid asked for something specific ("I'm bored", "dinosaurs!") on the pick-game screen.
     public func askForIdeas(_ kidSaid: String) async {
+        if await steerIfUnsafe(kidSaid) { return }
         await run("ideas", kidSaid: nil) { [self] svc in
             ideas = try await svc.ideas(kidSaid: kidSaid)
         } fallback: { [self] in ideas = Fallback.airplane.ideas }
@@ -329,7 +330,7 @@ public final class AdventureStore {
         ideas = nil; plan = nil; props = nil; kit = nil
         choices = []; lastError = nil; usingFallback = false
         foundProps = []; checkedSteps = []; doneSnapshot = nil; failures = [:]; retryAction = nil; holder = nil
-        nutmegLine = ""; presenting = .none; reachedStep = nil; lastPlayPhase = nil
+        nutmegLine = ""; presenting = .none; reachedStep = nil; lastPlayPhase = nil; steerIdeas = SteerIdeas()
     }
 
     // MARK: Step rail
@@ -562,6 +563,7 @@ public final class AdventureStore {
 
     /// A spoken answer on any screen: Nutmeg replies and offers tap choices.
     public func kidSaid(_ text: String) async {
+        if await steerIfUnsafe(text) { return }
         guard let service, !usingFallback else {
             say("Ooh, I love that! Tap a picture to keep going!")
             return
@@ -578,6 +580,32 @@ public final class AdventureStore {
     }
 
     public func clearChoices() { choices = [] }
+
+    /// Round 19: the app's steer line when there's no live voice session (spoken through the usual line path).
+    public func steerLine(_ line: String) { say(line) }
+
+    /// Round 19: kid text is checked before it's used or sent to Claude (local filter, then moderation; fails safe to
+    /// local). Unsafe: it's dropped and Nutmeg cheerfully steers to new ideas (or says to get a grown-up).
+    public func steerIfUnsafe(_ text: String) async -> Bool {
+        let verdict = await (service?.checkKidText(text)) ?? Sanitizer.kidSafety(text)
+        guard let verdict else { return false }
+        say(SafetySteer.line(for: verdict, ideas: nextSteerIdeas()))
+        return true
+    }
+
+    /// Round 19: ideas already offered this session never come back in a redirect (in memory only).
+    @ObservationIgnored public var steerIdeas = SteerIdeas()
+    /// A fresh set of 3 never-offered game ideas (today's ideas, theme ideas, earlier redirects and the idea list so far
+    /// are all excluded).
+    public func nextSteerIdeas(alsoOffered: [Suggestion] = []) -> [Suggestion] {
+        steerIdeas.markOffered(alsoOffered + themeIdeas)
+        let mentioned = (ideas?.ideas.map(\.title) ?? []) + [gameTitle].compactMap { $0 }
+        steerIdeas.markOffered(Suggestions.games.filter { g in
+            let core = g.text.split(separator: " ").drop { ["a", "an", "the"].contains($0.lowercased()) }.joined(separator: " ")
+            return mentioned.contains { $0.localizedCaseInsensitiveContains(core) }
+        })
+        return steerIdeas.next()
+    }
 
     // MARK: Errors and fallback
 

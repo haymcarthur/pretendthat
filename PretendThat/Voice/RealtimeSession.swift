@@ -143,6 +143,8 @@ final class RealtimeSession {
     private(set) var propLinePending = false
     @ObservationIgnored private var propLineSerial = 0
     @ObservationIgnored var onPropLine: (@MainActor () -> String)?
+    /// Round 19: what the kid said out loud (transcribed), for the app's local kid-safety check (never stored or logged).
+    @ObservationIgnored var onKidTranscript: (@MainActor (String) -> Void)?
     /// Round 19: a note to add after a tool-first pass, before her spoken reply (nil = none).
     @ObservationIgnored var onSilentPassDone: (@MainActor () -> String?)?
     func holdFirstPropLine() { propLinePending = true; propLineSerial = responseSerial }
@@ -915,7 +917,10 @@ final class RealtimeSession {
             if line.count >= 3, line.count <= 14, let blip = NutmegExpression.blip(forReplyStart: line) {
                 setExpression(blip, seconds: 1.2, fromModel: false)
             }
-        case .transcriptDelta, .transcriptDone, .kidTranscript:
+        case .kidTranscript(let text):
+            chat.apply(event)
+            onKidTranscript?(text)   // round 19: the app's local safety check on what the kid said
+        case .transcriptDelta, .transcriptDone:
             // Out-of-band lines (sayExactly: kit ready, scene lines) also stream here; they're Nutmeg's words too.
             chat.apply(event)
         case .outputItemAdded(let id):

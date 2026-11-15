@@ -11,6 +11,8 @@ final class AppModel {
     let stickers: ItemArtService
     let hasClaude: Bool
     let hasImages: Bool
+    /// Round 19: the kid-safety check (local filter, then moderation).
+    @ObservationIgnored let safety: KidSafetyCheck
     /// Hands-free planning conversation (D1, D2) and its Grown-ups tuning (D7).
     let realtime = RealtimeSession()
     /// The writing moment's quiet scribble loop (round 5).
@@ -24,7 +26,10 @@ final class AppModel {
     init(info: [String: Any] = Bundle.main.infoDictionary ?? [:]) {
         let config = ClaudeConfig.from(info: info)
         hasClaude = config != nil
-        var service = config.map { PhaseService(llm: ClaudeClient(config: $0)) }
+        // Round 19: kid text and generated text are checked locally and with OpenAI moderation (fails safe to local).
+        let moderation = ModerationClient.from(info: info)
+        safety = KidSafetyCheck(moderator: moderation)
+        var service = config.map { PhaseService(llm: ClaudeClient(config: $0), moderator: moderation) }
         #if DEBUG
         if DemoDriver.requestedPhase != nil { service = nil }   // demo screens use the bundled game, no network
         #endif
@@ -51,6 +56,7 @@ final class AppModel {
         realtime.onPlanningBeat = { [weak self] topic in await self?.planningBeat(topic) }
         realtime.onPropLine = { [weak self] in self?.revealFirstProp() ?? "" }
         realtime.onSilentPassDone = { [weak self] in self?.noteAfterSilentPass() }
+        realtime.onKidTranscript = { [weak self] text in self?.spokenSafetyCheck(text) }
         // Tool-first kid turns (round 7): no narration is ever heard; she speaks after the tool result.
         realtime.onKidTurnTools = { [weak self] in
             guard let self, Self.isPlanning(self.store.phase) else { return nil }
@@ -171,6 +177,47 @@ final class AppModel {
         }
     }
 
+    // MARK: Kid safety (round 19)
+
+    /// Round 19: a fresh set of ideas for each steer ("How about a bakery, a zoo, or a pirate ship?"), never one already
+    /// offered this session (today's games, theme ideas, earlier redirects).
+    private var steerIdeas: [Suggestion] { store.nextSteerIdeas(alsoOffered: todayGames) }
+
+    /// Unsafe kid text was dropped: Nutmeg cheerfully steers (or says to get a grown-up), one line, in the chat.
+    func steer(_ verdict: Sanitizer.SafetyVerdict) {
+        rtLog("safety: kid text blocked (\(verdict.category.rawValue))")   // the category only, never the text
+        let line = SafetySteer.line(for: verdict, ideas: steerIdeas)
+        if realtime.isLive {
+            realtime.stopSpeaking("safety")
+            realtime.say(line)
+        } else {
+            store.steerLine(line)
+        }
+    }
+
+    /// What the kid SAID went straight to the voice model (its instructions handle it); the app adds one backstop: a kid
+    /// who may be hurt or in danger hears "go get a grown-up" right away, whatever the model was about to say.
+    private func spokenSafetyCheck(_ text: String) {
+        guard let v = Sanitizer.kidSafety(text) else { return }
+        rtLog("safety: spoken turn flagged (\(v.category.rawValue))")
+        if v.category == .needsGrownUp || v.category == .selfHarm { steer(v) }
+    }
+
+    /// Text in a tool call (a game or theme title, roles, what a prop becomes) is checked before the app uses it.
+    private func unsafeText(in call: PlanningCall) async -> Sanitizer.SafetyVerdict? {
+        let texts: [String]
+        switch call {
+        case .setGame(let t), .setTheme(let t): texts = [t]
+        case .setRoles(let roles): texts = roles.flatMap { [$0.roleName, $0.job] }
+        case .showNextProp(let d): texts = [d.becomes]
+        case .showProps(let ds): texts = ds.map(\.becomes)
+        case .swapProp(_, _, let becomes): texts = [becomes]
+        case .showGameIdeas(let ideas): texts = ideas.flatMap { [$0.title, $0.pitch] }
+        default: return nil
+        }
+        return await safety.check(texts)
+    }
+
     // MARK: The kid moved on (round 19, Haylee)
 
     /// ANY tap that advances or changes the screen stops her current speech at once (the in-flight responses, the
@@ -210,6 +257,8 @@ final class AppModel {
     /// Typed fallback goes into the live conversation when there is one.
     func typed(_ text: String) async {
         wakeUp()
+        // Round 19: typed kid text is checked BEFORE it goes anywhere; unsafe text is never sent or shown.
+        if let verdict = await safety.check([text]) { steer(verdict); return }
         if realtime.isLive && Self.isPlanning(store.phase) { realtime.sendText(text); return }
         if realtime.isLive && store.phase != .makingKit { realtime.sendText(text); return }   // print step, play
         // Kit being made (round 7): a tiny "Almost ready!" at most, never a new conversation turn.
@@ -463,6 +512,10 @@ final class AppModel {
             return ("I couldn't use that. Try again with the right fields.", true)
         }
         let before = realtime.responseSerial
+        if let verdict = await unsafeText(in: call) {
+            rtLog("safety: \(name) blocked (\(verdict.category.rawValue))")
+            return (SafetySteer.toolNote(verdict, ideas: steerIdeas), true)
+        }
         if case .printKit = call {
             guard store.phase == .kitReady || kitFinal else { return ("Not yet: the kit isn't ready. Say only \"Almost ready!\"", true) }
             printKit()

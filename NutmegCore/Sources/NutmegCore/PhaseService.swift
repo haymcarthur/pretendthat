@@ -14,22 +14,42 @@ public struct AdventureContext: Codable, Equatable, Sendable {
 /// One async function per phase. Every result is sanitized.
 public final class PhaseService: Sendable {
     let llm: LLM
-    public init(llm: LLM) { self.llm = llm }
+    /// Round 19: generated text is checked (local filter + moderation) before it's shown or printed.
+    let safety: KidSafetyCheck
+    public init(llm: LLM, moderator: Moderating? = nil) { self.llm = llm; self.safety = KidSafetyCheck(moderator: moderator) }
+
+    /// Round 19: kid text checked before it reaches Claude (local filter, then moderation; fails safe to local).
+    public func checkKidText(_ text: String) async -> Sanitizer.SafetyVerdict? { await safety.check([text]) }
+
+    static let saferNote = "\nYour last answer had something that isn't okay for kids ages 4 to 8. Answer again with only "
+        + "gentle, friendly, kid-safe words: no weapons, violence, scary or grown-up things."
+
+    /// One structured call whose text must pass the kid-safety check: regenerated once, then it throws (the store falls
+    /// back to the bundled game).
+    func safe<T: SafetyText>(_ make: (String) async throws -> T, _ user: String) async throws -> T {
+        let first = try await make(user)
+        guard await safety.check(first.safetyTexts) != nil else { return first }
+        let second = try await make(user + Self.saferNote)
+        guard await safety.check(second.safetyTexts) != nil else { return second }
+        throw ClaudeError.refusal
+    }
 
     public func ideas(kidSaid: String?) async throws -> GameIdeas {
-        try await ask(GameIdeas.self, Prompts.ideas(kidSaid: kidSaid), Schemas.gameIdeas(), .medium,
-                      clean: Sanitizer.clean, problem: Validate.ideas)
+        try await safe({ try await self.ask(GameIdeas.self, $0, Schemas.gameIdeas(), .medium,
+                                            clean: Sanitizer.clean, problem: Validate.ideas) }, Prompts.ideas(kidSaid: kidSaid))
     }
     public func plan(game: String, ctx: AdventureContext) async throws -> GamePlan {
-        try await ask(GamePlan.self, Prompts.plan(game: game, ctx: ctx), Schemas.plan(), .medium,
-                      clean: { Sanitizer.clean($0, playerCount: ctx.playerCount) }, problem: { Validate.plan($0, count: min(4, max(1, ctx.playerCount))) })
+        try await safe({ try await self.ask(GamePlan.self, $0, Schemas.plan(), .medium,
+                      clean: { Sanitizer.clean($0, playerCount: ctx.playerCount) }, problem: { Validate.plan($0, count: min(4, max(1, ctx.playerCount))) }) },
+                       Prompts.plan(game: game, ctx: ctx))
     }
     public func props(ctx: AdventureContext) async throws -> Props {
-        try await ask(Props.self, Prompts.props(ctx: ctx), Schemas.props(), .medium, clean: Sanitizer.clean, problem: Validate.props)
+        try await safe({ try await self.ask(Props.self, $0, Schemas.props(), .medium, clean: Sanitizer.clean, problem: Validate.props) },
+                       Prompts.props(ctx: ctx))
     }
     public func kit(ctx: AdventureContext) async throws -> Kit {
-        try await ask(Kit.self, Prompts.kit(ctx: ctx), Schemas.kit(), .medium,
-                      clean: { Sanitizer.clean($0, roleCount: ctx.plan?.roles.count ?? 4) }, problem: Validate.kit)
+        try await safe({ try await self.ask(Kit.self, $0, Schemas.kit(), .medium,
+                      clean: { Sanitizer.clean($0, roleCount: ctx.plan?.roles.count ?? 4) }, problem: Validate.kit) }, Prompts.kit(ctx: ctx))
     }
 
     /// One call, sanitized. If the answer is under the spec's minimums (e.g. 1 scene), ask once more with a
@@ -47,10 +67,12 @@ public final class PhaseService: Sendable {
         }
     }
     public func turn(kidSaid: String, phase: String, ctx: AdventureContext) async throws -> NutmegTurn {
-        Sanitizer.clean(try await llm.structured(NutmegTurn.self, system: Prompts.system, user: Prompts.turn(kidSaid: kidSaid, phase: phase, ctx: ctx), schema: JSONSchema(Schemas.turn()), effort: .low))
+        try await safe({ Sanitizer.clean(try await self.llm.structured(NutmegTurn.self, system: Prompts.system, user: $0, schema: JSONSchema(Schemas.turn()), effort: .low)) },
+                       Prompts.turn(kidSaid: kidSaid, phase: phase, ctx: ctx))
     }
     public func help(scene: Scene, ctx: AdventureContext) async throws -> NutmegTurn {
-        Sanitizer.clean(try await llm.structured(NutmegTurn.self, system: Prompts.system, user: Prompts.help(scene: scene, ctx: ctx), schema: JSONSchema(Schemas.turn()), effort: .low))
+        try await safe({ Sanitizer.clean(try await self.llm.structured(NutmegTurn.self, system: Prompts.system, user: $0, schema: JSONSchema(Schemas.turn()), effort: .low)) },
+                       Prompts.help(scene: scene, ctx: ctx))
     }
 }
 

@@ -26,3 +26,9 @@ simple = { limit = 40, period = 60 }
 name = "REALTIME_LIMIT"
 namespace_id = "7103"
 simple = { limit = 6, period = 60 }
+
+# Round 19: kid-safety checks (OpenAI Moderation, free). A planning turn can check a few texts.
+[[ratelimits]]
+name = "MODERATION_LIMIT"
+namespace_id = "7104"
+simple = { limit = 60, period = 60 }

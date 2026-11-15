@@ -139,7 +139,7 @@ public enum KitArtPrompt {
         } else if !text.isEmpty { p += " Spell these words exactly, in big rounded letters: " + text.map { "\"\($0)\"" }.joined(separator: ", ") + "." }
         if let n = item.bigNumber, !n.isEmpty, !isBadge { p += " Show the big number or code \"\(n)\"." }
         p += " Do not add any other words. No real brands, no logos, nothing scary."
-        return p
+        return p + ImageSafety.suffix   // round 19
     }
 
     /// One cut-out on its own (checklist-pictures.md): the cut-outs page is generated as one image per item so each
@@ -151,7 +151,7 @@ public enum KitArtPrompt {
         around it. Black and white only, thick clean outlines, no shading, no gray fills, plain white background, \
         friendly and simple, easy for a 5-year-old to color and cut out. No words, letters or numbers. No real brands, \
         no logos, nothing scary.
-        """
+        """ + ImageSafety.suffix   // round 19
     }
 
     /// The cut-out items of a kit (the cutouts item's lines, 6 to 8).
