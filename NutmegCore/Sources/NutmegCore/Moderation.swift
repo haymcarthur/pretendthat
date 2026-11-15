@@ -76,8 +76,10 @@ public struct KidSafetyCheck: Sendable {
     public init(moderator: Moderating?) { self.moderator = moderator }
 
     /// nil = fine to use. A moderation flag maps to a steer category (self-harm → get a grown-up).
-    public func check(_ texts: [String]) async -> Sanitizer.SafetyVerdict? {
-        if let v = Sanitizer.kidSafety(texts) { return v }
+    /// `pretend`: the text names pretend things in the game (tool fields, generated kit text), so a pretend oven or
+    /// stove is fine (round 20: a bakery's "the oven" prop was blocked); kid-typed text stays strict.
+    public func check(_ texts: [String], pretend: Bool = false) async -> Sanitizer.SafetyVerdict? {
+        if let v = Sanitizer.kidSafety(texts, pretend: pretend) { return v }
         guard let moderator else { return nil }
         switch await moderator.check(texts) {
         case .flagged(let cats):

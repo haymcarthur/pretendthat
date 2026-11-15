@@ -28,9 +28,9 @@ public final class PhaseService: Sendable {
     /// back to the bundled game).
     func safe<T: SafetyText>(_ make: (String) async throws -> T, _ user: String) async throws -> T {
         let first = try await make(user)
-        guard await safety.check(first.safetyTexts) != nil else { return first }
+        guard await safety.check(first.safetyTexts, pretend: true) != nil else { return first }
         let second = try await make(user + Self.saferNote)
-        guard await safety.check(second.safetyTexts) != nil else { return second }
+        guard await safety.check(second.safetyTexts, pretend: true) != nil else { return second }
         throw ClaudeError.refusal
     }
 

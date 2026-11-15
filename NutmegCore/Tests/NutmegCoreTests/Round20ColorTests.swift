@@ -123,3 +123,19 @@ import Testing
         #expect(PropLibrary.looksUnsafe("kitchen knife") && !PropLibrary.contains("knife"))
     }
 }
+
+/// Round 20 (seen live: a bakery's "the oven" prop was blocked and she steered away mid-hunt): pretend ovens and stoves
+/// in tool fields and generated kit text are fine; kid-typed text stays strict.
+struct Round20PretendWordsTests {
+    @Test func pretendOvenIsFineButKidTextStaysStrict() async {
+        #expect(Sanitizer.kidSafety("the moon oven", pretend: true) == nil)
+        #expect(Sanitizer.kidSafety(["Bake the cookies in the oven", "a toy stove"], pretend: true) == nil)
+        #expect(Sanitizer.kidSafety("let's cook on the stove")?.category == .dangerous)          // kid text
+        #expect(Sanitizer.kidSafety("the oven", pretend: true) == nil && Sanitizer.kidSafety("the oven") != nil)
+        #expect(Sanitizer.kidSafety("play with matches", pretend: true)?.category == .dangerous)  // still strict
+        #expect(Sanitizer.kidSafety("a knife", pretend: true)?.category == .violence)
+        let check = KidSafetyCheck(moderator: nil)
+        #expect(await check.check(["the big oven"], pretend: true) == nil)
+        #expect(await check.check(["the big oven"]) != nil)
+    }
+}

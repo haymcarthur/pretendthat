@@ -94,7 +94,23 @@ extension Sanitizer {
     static let allowPhrases = ["shooting star", "shooting stars", "photo shoot", "war of the", "cookie dough"]
 
     /// The local kid-safety check. nil = fine to use. `needsGrownUp` wins over everything (the kid may be in danger).
-    public static func kidSafety(_ text: String) -> SafetyVerdict? {
+    /// Round 20: words that are fine as PRETEND things in the game (a bakery's oven, a play kitchen's stove, a glass
+    /// slipper), never as instructions to a kid. Only lifted for tool fields and generated kit text, never kid text.
+    static let pretendOK: Set<String> = ["stove", "oven", "glass"]
+
+    public static func kidSafety(_ text: String, pretend: Bool) -> SafetyVerdict? {
+        guard pretend else { return kidSafety(text) }
+        return kidSafety(text, skipping: pretendOK)
+    }
+
+    public static func kidSafety(_ texts: [String], pretend: Bool) -> SafetyVerdict? {
+        for t in texts { if let v = kidSafety(t, pretend: pretend) { return v } }
+        return nil
+    }
+
+    public static func kidSafety(_ text: String) -> SafetyVerdict? { kidSafety(text, skipping: []) }
+
+    static func kidSafety(_ text: String, skipping: Set<String>) -> SafetyVerdict? {
         var n = " " + normalizeForSafety(text) + " "
         for p in allowPhrases { n = n.replacingOccurrences(of: " \(p) ", with: " ") }
         let squeezedWords = n.split(separator: " ").map { squeeze(String($0)) }
@@ -109,7 +125,7 @@ extension Sanitizer {
         }
         if blocklist[.needsGrownUp]!.contains(where: hit) { return SafetyVerdict(.needsGrownUp) }
         for c in SafetyCategory.allCases where c != .needsGrownUp {
-            if blocklist[c]!.contains(where: hit) { return SafetyVerdict(c) }
+            if blocklist[c]!.contains(where: { !skipping.contains($0) && hit($0) }) { return SafetyVerdict(c) }
         }
         if hasPersonalPattern(text) { return SafetyVerdict(.personalInfo) }
         return nil
