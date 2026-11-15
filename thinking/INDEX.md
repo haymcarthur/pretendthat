@@ -13,7 +13,7 @@ The map. Read this first, then open only what you need.
 - [Tablet hand-off with color and role badges](decisions/tablet-handoff.md): Claude's call, Haylee agreed
 - [No backend storage, no accounts](decisions/no-backend-no-accounts.md): Haylee
 - [Native Swift iPad app](decisions/native-swift-ipad.md): Haylee
-- [Stateless relay for API keys](decisions/stateless-relay.md): Claude's call, Haylee agreed; demo uses direct keys, relay is post-hackathon (Haylee)
+- [Stateless relay for API keys](decisions/stateless-relay.md): Claude's call, Haylee agreed; demo uses direct keys, relay is post-hackathon (Haylee) · **built 2026-11-15, see relay-for-shared-builds**
 - [On-device speech-to-text](decisions/on-device-stt.md): Claude's call, Haylee agreed · **superseded for planning by D2**
 - [Kids' names tokenized for Claude](decisions/names-tokenized.md): Claude's call, Haylee agreed · **superseded by roles-not-names**
 - [Claude's calls C1–C12 approved](decisions/claudes-calls-c1-c12.md): Haylee
@@ -81,6 +81,7 @@ The map. Read this first, then open only what you need.
 - [Face art method: eyes/mouth only on green, attach the current eye sheet, swap one eye at a time; focus-face redo pending](decisions/2026-11-14-face-art-method.md): Haylee
 
 - [Launch prep: iPad install, pretendthat.app site, public repo + README, deck refresh](decisions/2026-11-14-launch-ipad-site-repo.md): Haylee
+- [Relay for shared builds: deploy the stateless relay, $20/month cap; routes, allow-lists, ephemeral Realtime secrets, Relay.xcconfig](decisions/2026-11-15-relay-for-shared-builds.md): Haylee (relay + cap), Claude's calls noted
 
 ## Work queue
 - [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–15 done (round 15 = skip reassurance, varied kit lines, checklist cheers, floor behind the curtains)

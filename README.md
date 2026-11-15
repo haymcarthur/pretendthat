@@ -25,7 +25,7 @@ Built by Haylee McArthur for Southern Utah Code Camp 2026. Demo site: https://pr
 - No accounts, no sign-in, no backend storage.
 - Nutmeg never asks for kids' names. Kids are addressed by role (the chef, the captain), not by name.
 - Nothing about kids is stored. The whole adventure lives in memory and nothing is written to disk. Every adventure starts fresh.
-- API keys come from a git-ignored `Secrets.xcconfig`. A stateless relay that keeps the keys off the iPad is planned (see [relay/README.md](relay/README.md)). The app already supports it through `RELAY_HOST` and `RELAY_TOKEN`, but it isn't deployed yet.
+- No API keys in the app. AI calls go through a stateless relay (a Cloudflare Worker in [`relay/`](relay/README.md)) that holds the keys, checks an app token, rate-limits per IP and forwards the request. It logs and stores nothing. The voice conversation connects to OpenAI with a short-lived secret the relay mints for each session. Developers can use their own keys instead (git-ignored `Secrets.xcconfig`).
 
 ## Features
 
@@ -65,7 +65,7 @@ No third-party Swift packages. Everything else is Apple frameworks or a web API.
 | Image processing and animation | Core Image, Core Graphics, QuartzCore |
 | State | Observation |
 | Project generation | XcodeGen |
-| Planned relay (not deployed) | Cloudflare Workers stub in `relay/` |
+| Stateless key relay | Cloudflare Workers (Rate Limiting binding), Wrangler, TypeScript, Vitest (`relay/`) |
 | Art creation | ChatGPT image generation, Figma (vectorize and clean up) |
 | Development help | Claude Code |
 
@@ -78,18 +78,20 @@ No third-party Swift packages. Everything else is Apple frameworks or a web API.
 | `design/` | Art, brand and pitch screens |
 | `tools/` | Build, screenshot and art-import scripts |
 | `docs/` | Design spec and build plan |
-| `relay/` | Plan and stub for the stateless key relay |
+| `relay/` | The stateless key relay (Cloudflare Worker), its tests and deploy steps |
 | `thinking/` | Decision log, ideas and open questions ([index](thinking/INDEX.md)) |
 
 ## Build and run
 
 Requires Xcode 16+ (Swift 6) and [XcodeGen](https://github.com/yonaskolb/XcodeGen).
 
-1. Copy the secrets template and add your keys:
+A fresh clone just works: no keys and no `Secrets.xcconfig` needed. The committed `Relay.xcconfig` points the app at the shared relay, which supplies Claude, the images and Nutmeg's realtime voice. (If `RELAY_HOST` there is still the `<subdomain>` placeholder, the relay isn't deployed yet and the app runs the bundled fallback adventure.)
+
+1. Optional, dev mode with your own keys:
    ```sh
    cp Secrets.example.xcconfig Secrets.xcconfig
    ```
-   Keys: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`. Optional: `RELAY_HOST`, `RELAY_TOKEN`. Without keys, the app runs the bundled fallback adventure.
+   Paste `ANTHROPIC_API_KEY` and/or `OPENAI_API_KEY`. Personal keys win over the relay. The file is git-ignored.
 2. Generate the project:
    ```sh
    xcodegen
@@ -103,8 +105,8 @@ Requires Xcode 16+ (Swift 6) and [XcodeGen](https://github.com/yonaskolb/XcodeGe
 ### Tests
 
 ```sh
-cd NutmegCore
-swift test
+cd NutmegCore && swift test        # app logic
+cd relay && npm install && npm test  # relay Worker (fetch mocked, no keys)
 ```
 
 ## Docs
