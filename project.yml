@@ -8,8 +8,8 @@ configs:
   Debug: debug
   Release: release
 configFiles:
-  Debug: Secrets.xcconfig
-  Release: Secrets.xcconfig
+  Debug: Relay.xcconfig
+  Release: Relay.xcconfig
 packages:
   NutmegCore:
     path: NutmegCore

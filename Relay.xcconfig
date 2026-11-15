@@ -1,0 +1,15 @@
+// Shared AI relay (relay/, a stateless Cloudflare Worker). Committed on purpose so a fresh clone gets working AI
+// with no keys of its own. Claude, images and the Realtime voice all go through it.
+//
+// RELAY_TOKEN is NOT a secret: it ships inside every build, so anyone can read it. It only keeps casual scanners
+// off the relay. The real protection is the relay's per-IP rate limits and the spend caps on the OpenAI and
+// Anthropic accounts (see relay/README.md).
+//
+// RELAY_HOST has no https:// (xcconfig treats // as a comment); the app adds it. Until the relay is deployed this
+// is a placeholder, which the app treats as "no relay" (it runs the bundled fallback adventure).
+RELAY_HOST = pretendthat-relay.<subdomain>.workers.dev
+RELAY_TOKEN = BT9jhDKOezuNUTP4695NTKfV02yHOht1
+
+// Optional, git-ignored personal keys (dev mode). Anything set there overrides the lines above, and personal keys
+// win over the relay. A fresh clone builds without it.
+#include? "Secrets.xcconfig"

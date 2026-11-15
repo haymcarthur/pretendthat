@@ -33,17 +33,11 @@ public struct ClaudeConfig: Sendable {
     public var model = "claude-opus-5-5"
     public init(mode: Mode) { self.mode = mode }
 
-    /// Reads Info.plist values (filled from Secrets.xcconfig). Relay wins when RELAY_HOST is set.
+    /// Reads Info.plist values (Relay.xcconfig, overridden by the optional Secrets.xcconfig). A personal
+    /// ANTHROPIC_API_KEY wins (dev mode); otherwise the shared relay; otherwise nil (bundled fallback adventure).
     public static func from(info: [String: Any]) -> ClaudeConfig? {
-        func value(_ k: String) -> String? {
-            guard let s = (info[k] as? String)?.trimmingCharacters(in: .whitespaces), !s.isEmpty, !s.hasPrefix("$(") else { return nil }
-            return s
-        }
-        if let host = value("RELAY_HOST"), let token = value("RELAY_TOKEN"),
-           let url = URL(string: host.hasPrefix("http") ? host : "https://\(host)") {
-            return ClaudeConfig(mode: .relay(url: url, token: token))
-        }
-        if let key = value("ANTHROPIC_API_KEY") { return ClaudeConfig(mode: .direct(apiKey: key)) }
+        if let key = InfoValue.string(info, "ANTHROPIC_API_KEY") { return ClaudeConfig(mode: .direct(apiKey: key)) }
+        if let relay = RelayConfig.from(info: info) { return ClaudeConfig(mode: .relay(url: relay.url, token: relay.token)) }
         return nil
     }
     public static func fromBundle(_ bundle: Bundle = .main) -> ClaudeConfig? { from(info: bundle.infoDictionary ?? [:]) }
@@ -77,7 +71,7 @@ public final class ClaudeClient: LLM {
             req.setValue(key, forHTTPHeaderField: "x-api-key")
         case .relay(let url, let token):
             req = URLRequest(url: url.appendingPathComponent("v1/messages"))
-            req.setValue(token, forHTTPHeaderField: "x-nutmeg-token")
+            req.setValue(token, forHTTPHeaderField: RelayConfig.tokenHeader)
         }
         req.httpMethod = "POST"
         req.timeoutInterval = 90  // live kit calls took 15–25 s; leave room for a slow day

@@ -19,15 +19,10 @@ public final class ImageClient: @unchecked Sendable {
     let transport: HTTPTransport
     public init(mode: Mode, transport: HTTPTransport = URLSessionTransport()) { self.mode = mode; self.transport = transport }
 
+    /// A personal OPENAI_API_KEY wins (dev mode); otherwise the shared relay; otherwise nil (bundled art).
     public static func from(info: [String: Any]) -> ImageClient? {
-        func value(_ k: String) -> String? {
-            guard let s = (info[k] as? String)?.trimmingCharacters(in: .whitespaces), !s.isEmpty, !s.hasPrefix("$(") else { return nil }
-            return s
-        }
-        if let host = value("RELAY_HOST"), let token = value("RELAY_TOKEN"), let url = URL(string: host.hasPrefix("http") ? host : "https://\(host)") {
-            return ImageClient(mode: .relay(url: url, token: token))
-        }
-        if let key = value("OPENAI_API_KEY") { return ImageClient(mode: .direct(apiKey: key)) }
+        if let key = InfoValue.string(info, "OPENAI_API_KEY") { return ImageClient(mode: .direct(apiKey: key)) }
+        if let relay = RelayConfig.from(info: info) { return ImageClient(mode: .relay(url: relay.url, token: relay.token)) }
         return nil
     }
 
@@ -39,7 +34,7 @@ public final class ImageClient: @unchecked Sendable {
             req.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
         case .relay(let url, let token):
             req = URLRequest(url: url.appendingPathComponent("v1/images/generations"))
-            req.setValue(token, forHTTPHeaderField: "x-nutmeg-token")
+            req.setValue(token, forHTTPHeaderField: RelayConfig.tokenHeader)
         }
         req.httpMethod = "POST"
         req.timeoutInterval = 120

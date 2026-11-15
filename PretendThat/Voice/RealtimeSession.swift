@@ -264,7 +264,7 @@ final class RealtimeSession {
     // MARK: Lifecycle
 
     /// Connects, configures the session and starts the audio. Returns false (with `status = .failed`) on any problem.
-    func connect(apiKey: String, config: VoiceConfig, echoCancel: Bool = false,
+    func connect(auth: RealtimeAuth, config: VoiceConfig, echoCancel: Bool = false,
                  instructions: String = Realtime.instructions, keepChat: Bool = false) async -> Bool {
         // Round 13: a socket opened on the start screen with exactly this voice + instructions is used as is.
         if let p = preparing { await p.value }
@@ -289,7 +289,9 @@ final class RealtimeSession {
             socket = reuse; ready = true
             rtLog("connect: pre-connected socket reused")
         } else {
-            socket = Self.openSocket(apiKey: apiKey)
+            // Relay mode: a fresh ephemeral secret for every connect (first, silent reconnect, audition).
+            guard let bearer = try? await auth.bearer() else { return fail("Couldn't get a voice session from the relay") }
+            socket = Self.openSocket(bearer: bearer)
             socket.send(config.sessionUpdate(instructions: instructions))
             ready = await Self.waitReady(socket)
         }
@@ -323,13 +325,16 @@ final class RealtimeSession {
 
     /// Opens the socket and sends session.update (voice + instructions) while the start screen shows. No audio and no
     /// mic permission yet: `connect` with the same config and instructions picks it up.
-    func preconnect(apiKey: String, config: VoiceConfig, instructions: String) {
+    func preconnect(auth: RealtimeAuth, config: VoiceConfig, instructions: String) {
         guard status == .idle || { if case .failed = status { return true }; return false }(), preparing == nil else { return }
         if let p = prepared, p.config == config, p.instructions == instructions, p.socket.firstError == nil,
            Date().timeIntervalSince(p.at) < 10 * 60 { return }
         prepared?.socket.close(); prepared = nil
         preparing = Task { [weak self] in
-            let socket = Self.openSocket(apiKey: apiKey)
+            guard let bearer = try? await auth.bearer() else {
+                self?.preparing = nil; rtLog("pre-connect: no voice session from the relay"); return
+            }
+            let socket = Self.openSocket(bearer: bearer)
             socket.send(config.sessionUpdate(instructions: instructions))
             let ok = await Self.waitReady(socket)
             guard let self else { socket.close(); return }
@@ -341,9 +346,10 @@ final class RealtimeSession {
 
     func dropPrepared() { prepared?.socket.close(); prepared = nil }
 
-    private static func openSocket(apiKey: String) -> RealtimeSocket {
+    /// `bearer` is the personal key (dev mode) or a relay-minted ephemeral client secret.
+    private static func openSocket(bearer: String) -> RealtimeSocket {
         var req = URLRequest(url: Realtime.url())
-        req.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        req.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
         return RealtimeSocket(request: req)
     }
 
@@ -542,10 +548,10 @@ final class RealtimeSession {
 
     /// Grown-ups voice audition: a short session with `voice` that plays the fixed sample line through the same
     /// audio path and pitch settings, then hangs up. (The Realtime voice can't change inside a session.)
-    func audition(apiKey: String, config: VoiceConfig) async {
+    func audition(auth: RealtimeAuth, config: VoiceConfig) async {
         guard status != .live, status != .connecting else { return }
         micWanted = false
-        guard await connect(apiKey: apiKey, config: config) else { return }
+        guard await connect(auth: auth, config: config) else { return }
         socket?.send(Realtime.sayExactly(Realtime.auditionLine))
         for _ in 0..<80 where !isSpeaking { try? await Task.sleep(for: .milliseconds(100)) }
         for _ in 0..<300 where isSpeaking { try? await Task.sleep(for: .milliseconds(100)) }

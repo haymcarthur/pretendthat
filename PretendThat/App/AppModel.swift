@@ -16,7 +16,8 @@ final class AppModel {
     /// The writing moment's quiet scribble loop (round 5).
     @ObservationIgnored let scribble = ScribbleSound()
     let voiceSettings = VoiceSettings()
-    @ObservationIgnored private let openAIKey: String?
+    /// Realtime auth: a personal OPENAI_API_KEY (dev mode) or the shared relay's ephemeral secrets.
+    @ObservationIgnored private let realtimeAuth: RealtimeAuth?
     /// Only the IDs of last session's suggested games/themes (UserDefaults), so the next session differs. Nothing about kids.
     @ObservationIgnored private let suggestionMemory = SuggestionMemory()
 
@@ -36,9 +37,7 @@ final class AppModel {
         hasImages = images != nil
         art = KitArtService(client: images)
         stickers = ItemArtService(client: images)
-        openAIKey = (info["OPENAI_API_KEY"] as? String).flatMap { k in
-            let k = k.trimmingCharacters(in: .whitespaces); return k.isEmpty || k.hasPrefix("$(") ? nil : k
-        }
+        realtimeAuth = RealtimeAuth.from(info: info)
         realtime.onTurnDone = { [weak self] text in
             guard let self, Self.isPlanning(self.store.phase), !self.realtime.propLinePending else { return nil }
             // Round 7: roles set but no prop yet → she continues straight into the first prop (no "Sound good?" wait).
@@ -89,7 +88,7 @@ final class AppModel {
 
     // MARK: Voice conversation
 
-    var hasRealtime: Bool { openAIKey != nil }
+    var hasRealtime: Bool { realtimeAuth != nil }
     /// Round 11: the game opens on the talking close-up (voice conversation), so the start screen's exit pushes its
     /// camera there. Without voice the tap screens take over from the arrival framing.
     var opensInCloseUp: Bool {
@@ -101,10 +100,10 @@ final class AppModel {
 
     /// Grown-ups: hear `voice` say the sample line through the conversation's audio path and pitch settings.
     func auditionVoice(_ voice: String) async {
-        guard let key = openAIKey else { return }
+        guard let auth = realtimeAuth else { return }
         realtime.dropPrepared()   // its voice may change; the start screen pre-connects again afterwards
         var c = voiceConfig; c.voice = voice
-        await realtime.audition(apiKey: key, config: c)
+        await realtime.audition(auth: auth, config: c)
     }
 
     /// Round 13: Nutmeg's voice for every connect (first, pre-connect, reconnect, audition), from the Grown-ups settings.
@@ -121,9 +120,9 @@ final class AppModel {
         #if DEBUG
         if DemoDriver.autoStart || DemoDriver.requestedPhase != nil { return }
         #endif
-        guard let key = openAIKey, store.phase == .hello else { return }
+        guard let auth = realtimeAuth, store.phase == .hello else { return }
         if preparedGames.isEmpty { preparedGames = suggestionMemory.pickGames() }
-        realtime.preconnect(apiKey: key, config: voiceConfig, instructions: Realtime.instructions(todayGames: preparedGames))
+        realtime.preconnect(auth: auth, config: voiceConfig, instructions: Realtime.instructions(todayGames: preparedGames))
     }
     @ObservationIgnored private var preparedGames: [Suggestion] = []
     /// DEBUG screenshots: show the conversation stage without a live session.
@@ -147,7 +146,7 @@ final class AppModel {
         #endif
         realtime.beginTrace("let's play")
         store.beginConversation()
-        guard let key = openAIKey else { await store.start(); return }
+        guard let auth = realtimeAuth else { await store.start(); return }
         // Fresh suggestions every session (round 7): 3 games picked now (never last session's), injected as today's ideas.
         // Round 13: the start screen already picked them for the pre-connected socket.
         let games = preparedGames.isEmpty ? suggestionMemory.pickGames() : preparedGames
@@ -158,7 +157,7 @@ final class AppModel {
         #endif
         let config = voiceConfig
         gameVoice = config
-        let ok = await realtime.connect(apiKey: key, config: config, echoCancel: voiceSettings.echoCancel,
+        let ok = await realtime.connect(auth: auth, config: config, echoCancel: voiceSettings.echoCancel,
                                         instructions: Realtime.instructions(todayGames: games))
         guard store.phase == .pickGame else { return }   // left while connecting
         if ok {
@@ -764,7 +763,7 @@ final class AppModel {
     /// Reconnects with the CURRENT game in the instructions (step, choices, current prop, kit, latest lines). No kick-off:
     /// no greeting, no repeated question, no new suggestions; she waits for the kid.
     func reconnectSilently() async {
-        guard let key = openAIKey, store.phase != .hello, !resuming else { return }
+        guard let auth = realtimeAuth, store.phase != .hello, !resuming else { return }
         // At most one attempt every 5 s (a dead network must not loop).
         if Date().timeIntervalSince(lastReconnect) < 5 { try? await Task.sleep(for: .seconds(5)) }
         lastReconnect = Date()
@@ -778,7 +777,7 @@ final class AppModel {
         rtLog("reconnect: voice identical to first connect: \(gameVoice == nil || config == realtime.connectedConfig ?? config)")
         assert(gameVoice == nil || config == gameVoice, "reconnect must use the first connect's voice")
         #endif
-        let ok = await realtime.connect(apiKey: key, config: config, echoCancel: voiceSettings.echoCancel,
+        let ok = await realtime.connect(auth: auth, config: config, echoCancel: voiceSettings.echoCancel,
                                         instructions: Realtime.resumeInstructions(todayGames: todayGames, context: ctx),
                                         keepChat: true)
         guard store.phase != .hello else { realtime.disconnect(); return }   // left meanwhile

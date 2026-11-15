@@ -4,11 +4,12 @@ import Testing
 
 final class FakeTransport: HTTPTransport, @unchecked Sendable {
     let status: Int; let body: String
-    private let lock = NSLock(); private var _last: URLRequest?
+    private let lock = NSLock(); private var _last: URLRequest?; private var _count = 0
     var last: URLRequest? { lock.withLock { _last } }
+    var count: Int { lock.withLock { _count } }
     init(status: Int = 200, body: String) { self.status = status; self.body = body }
     func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
-        lock.withLock { _last = request }
+        lock.withLock { _last = request; _count += 1 }
         return (Data(body.utf8), HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!)
     }
 }
@@ -44,7 +45,7 @@ func bodyJSON(_ r: URLRequest?) throws -> [String: Any] {
     _ = try await c.structured(NutmegTurn.self, system: "s", user: "u", schema: JSONSchema(Schemas.turn()), effort: .medium)
     let r = try #require(t.last)
     #expect(r.url?.absoluteString == "https://relay.example.dev/v1/messages")
-    #expect(r.value(forHTTPHeaderField: "x-nutmeg-token") == "tok")
+    #expect(r.value(forHTTPHeaderField: "X-PT-Token") == "tok")
     #expect(r.value(forHTTPHeaderField: "x-api-key") == nil)
 }
 
@@ -79,8 +80,12 @@ func bodyJSON(_ r: URLRequest?) throws -> [String: Any] {
     #expect(ClaudeConfig.from(info: ["ANTHROPIC_API_KEY": ""]) == nil)
     #expect(ClaudeConfig.from(info: ["ANTHROPIC_API_KEY": "$(ANTHROPIC_API_KEY)"]) == nil)
     if case .direct(let k)? = ClaudeConfig.from(info: ["ANTHROPIC_API_KEY": "abc"])?.mode { #expect(k == "abc") } else { Issue.record("expected direct") }
-    if case .relay(let u, _)? = ClaudeConfig.from(info: ["ANTHROPIC_API_KEY": "abc", "RELAY_HOST": "r.example.dev", "RELAY_TOKEN": "t"])?.mode {
-        #expect(u.absoluteString == "https://r.example.dev")
+    // A personal key wins over the relay (dev mode).
+    if case .direct(let k)? = ClaudeConfig.from(info: ["ANTHROPIC_API_KEY": "abc", "RELAY_HOST": "r.example.dev", "RELAY_TOKEN": "t"])?.mode {
+        #expect(k == "abc")
+    } else { Issue.record("expected direct") }
+    if case .relay(let u, let t)? = ClaudeConfig.from(info: ["ANTHROPIC_API_KEY": "", "RELAY_HOST": "r.example.dev", "RELAY_TOKEN": "t"])?.mode {
+        #expect(u.absoluteString == "https://r.example.dev"); #expect(t == "t")
     } else { Issue.record("expected relay") }
 }
 
