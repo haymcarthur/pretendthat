@@ -1,0 +1,19 @@
+{
+  "name": "pretendthat-relay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Stateless Cloudflare Worker that holds PretendThat's API keys and forwards requests. Stores and logs nothing.",
+  "type": "module",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20261030.1",
+    "typescript": "5.8.3",
+    "vitest": "4.1.12",
+    "wrangler": "4.156.0"
+  }
+}

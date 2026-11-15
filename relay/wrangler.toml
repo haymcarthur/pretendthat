@@ -1,0 +1,28 @@
+# PretendThat relay: a stateless Cloudflare Worker. See README.md for the deploy steps.
+# Secrets (never in this file): OPENAI_API_KEY, ANTHROPIC_API_KEY, APP_TOKEN. Set them with `npx wrangler secret put`.
+name = "pretendthat-relay"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+workers_dev = true
+
+# No request logs: Workers Logs stay off, and the code never logs bodies or headers.
+[observability]
+enabled = false
+
+# Per-IP rate limits (Workers Rate Limiting binding). Cloudflare only allows a 10 or 60 second period,
+# and each limit is counted per Cloudflare location, so these are burst limits; the provider spend caps
+# are the real ceiling. namespace_id is any number unique within the Cloudflare account.
+[[ratelimits]]
+name = "CLAUDE_LIMIT"
+namespace_id = "7101"
+simple = { limit = 10, period = 60 }
+
+[[ratelimits]]
+name = "IMAGE_LIMIT"
+namespace_id = "7102"
+simple = { limit = 40, period = 60 }
+
+[[ratelimits]]
+name = "REALTIME_LIMIT"
+namespace_id = "7103"
+simple = { limit = 6, period = 60 }
