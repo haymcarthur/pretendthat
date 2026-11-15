@@ -2,7 +2,8 @@ import Foundation
 
 /// The fixed steps of the planning conversation (decisions/conversation-structure.md). Wording varies; goals don't.
 public enum PlanningStep: Int, Comparable, Sendable, CaseIterable {
-    case game, theme, players, roles, props, finish
+    /// Round 19: `confirm` sits between the player count and the roles: she recaps and waits for a yes or a change.
+    case game, theme, players, confirm, roles, props, finish
     public static func < (a: Self, b: Self) -> Bool { a.rawValue < b.rawValue }
 
     /// The step's goal, for nudges.
@@ -11,6 +12,7 @@ public enum PlanningStep: Int, Comparable, Sendable, CaseIterable {
         case .game: "Ask what they want to play today, suggesting today's game ideas (from your instructions)."
         case .theme: "Ask what theme or twist their game should have, suggesting today's theme ideas (from the set_game result)."
         case .players: "Ask an open question: \"How many friends are playing today?\" (never a list of numbers)."
+        case .confirm: "Recap the game, theme and number of friends in ONE short sentence and ask \"\(ConfirmStep.question)\""
         case .roles: "Call set_roles, then show_next_prop, then announce the roles and go straight into the first prop. Never ask \"Sound good?\"."
         case .props: "Tell them exactly which props to go find, and to tell you when they've found them or don't have one."
         case .finish: "Say you're making their play kit."
@@ -23,6 +25,7 @@ public enum PlanningStep: Int, Comparable, Sendable, CaseIterable {
         case .game: "set_game"
         case .theme: "set_theme"
         case .players: "set_player_count"
+        case .confirm: "confirm_plan (or set_game / set_theme / set_player_count for a change)"
         case .roles: "set_roles"
         case .props: "finish_planning (when they're ready)"
         case .finish: "finish_planning"
@@ -66,6 +69,10 @@ public enum TurnCheck {
         if mentionsGoPlay(lower) {
             return "(Silent coaching, don't mention it.) Never tell the kids to go play or start their adventure: that "
                 + "only happens later, after they print and tap Let's play. Step goal: \(step.goal)"
+        }
+        // Round 19: the recap's "Ready, or want to change something?" is the confirm step's own question.
+        if step == .confirm {
+            return endsWithQuestion ? nil : "(Silent coaching, don't mention it.) End with the recap question: \(step.goal)"
         }
         if endsWithQuestion && isPermissionCheck(lastSentence) {
             // Round 7 (Haylee): never "Sound good?" / "Okay?" / "Ready?". Her only questions are the steps' questions.

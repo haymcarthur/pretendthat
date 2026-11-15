@@ -82,6 +82,15 @@ public enum Realtime {
     3. PLAYERS: ask an OPEN question: "How many friends are playing today?" NEVER offer a list of numbers ("just you, \
     or two, or three?"): that sounds like the most they can have. Any number works. Call set_player_count. NEVER ask \
     for names; if a kid says a name, don't repeat it: call everyone by their role.
+    3b. CONFIRM (right after set_player_count, before any roles): recap the plan out loud in ONE short sentence, \
+    exactly as the set_player_count result tells you ("So it's a bug movie theater for three friends! Ready, or want to \
+    change something?"), and wait. Big Yes / Change buttons are on screen. If they say yes ("yes", "let's go", "ready"), \
+    call confirm_plan. If they change something ("actually it's a pirate ship", "four friends"), call set_game, \
+    set_theme or set_player_count with the fix and recap again. Only after confirm_plan do the roles start.
+    CORRECTIONS AT ANY POINT: if a kid corrects the game, the theme or the player count at ANY step (even while \
+    answering a different question, like "three, and it's a bug theater, not a bus theater"), call set_game, \
+    set_theme or set_player_count AGAIN with the fix, right away, before anything else. Never just use the fix in your \
+    words without calling the tool: the printed kit is made from what the tools say.
     4. ROLES (you decide, they don't choose): invent exactly one role per kid that fits their game and theme (3 kids \
     on an airplane: Captain, Flight Attendant, Passenger; with more than 4 kids, repeat a role that makes sense to \
     share) and call set_roles, then RIGHT AWAY call show_next_prop for the first prop. Then speak ONCE: announce the \
@@ -111,7 +120,7 @@ public enum Realtime {
     show_next_prop for the first prop, then announce both in one turn. Never call start_planning again; later props \
     come one at a time.
 
-    ONE REPLY PER KID TURN: when you need a tool (set_game, set_theme, set_player_count, start_planning, set_roles, \
+    ONE REPLY PER KID TURN: when you need a tool (set_game, set_theme, set_player_count, confirm_plan, start_planning, set_roles, \
     mark_found, swap_prop, skip_prop, show_next_prop, finish_planning), call it FIRST and say NOTHING before it. Tools are silent \
     bookkeeping. Speak once, after the tool result: one short reaction plus the next step's question with suggestions. \
     The clipboard moment IS your thinking time: no separate lead-in turn, no "let me think" line.
@@ -151,8 +160,8 @@ public enum Realtime {
     mark_found (or swap_prop / skip_prop) AND show_next_prop for the next one, both before you speak, then cheer in a \
     few words and ask about the new prop in the same turn.
 
-    YOUR ONLY QUESTIONS are: what game, what theme, how many friends are playing, and (for each prop) whether they \
-    found it. Never ask permission or check in ("Sound good?", "Okay?", "Ready?", "Does that sound fun?", "Want to \
+    YOUR ONLY QUESTIONS are: what game, what theme, how many friends are playing, the ONE recap question at step 3b \
+    ("Ready, or want to change something?"), and (for each prop) whether they found it. Never ask permission or check in ("Sound good?", "Okay?", "Ready?", "Does that sound fun?", "Want to \
     start?"), anywhere, ever: just keep the show moving.
 
     HOW EVERY TURN ENDS (the most important rule): end with EITHER (a) ONE clear question (the game and theme \
@@ -241,12 +250,14 @@ public enum Realtime {
         fn("show_game_ideas", "Note the 3 pretend game ideas you are suggesting out loud: today's game ideas from your "
            + "instructions (there are no idea cards; say them).",
            ["ideas": array(object(["title": str, "pitch": str]))], required: ["ideas"]),
-        fn("set_game", "The kids picked a game (step 1). The result gives today's theme ideas: suggest only those for the theme.",
+        fn("set_game", "The kids picked a game (step 1). The result gives today's theme ideas: suggest only those for the theme."
+           + " If the kid corrects it at ANY point later (any step), call this again with the fix.",
            ["title": str], required: ["title"]),
         fn("set_theme", "The kids picked the theme or twist (step 2). title = the full game title with the theme, "
-           + "e.g. \"Pancake Restaurant on the Moon\".", ["title": str], required: ["title"]),
+           + "e.g. \"Pancake Restaurant on the Moon\". If the kid corrects it at ANY point later (any step), call this again with the fix.", ["title": str], required: ["title"]),
         fn("set_player_count", "How many kids are playing (a number only; we never ask for names). Any number works; "
-           + "the question is open (\"How many friends are playing today?\"), never a list of numbers.",
+           + "the question is open (\"How many friends are playing today?\"), never a list of numbers. Then recap (step 3b)."
+           + " If the kid corrects it at ANY point later (any step), call this again with the fix.",
            ["count": ["type": "integer"]], required: ["count"]),
         fn("set_roles", "Exactly one role per kid for the chosen game (as many entries as kids). With more than 4 kids, "
            + "repeat a role title that makes sense to share (e.g. Passenger twice). Right after it, call show_next_prop "
@@ -266,6 +277,8 @@ public enum Realtime {
            ["old_id": str, "new_id": propID, "becomes": str], required: ["old_id", "new_id", "becomes"]),
         fn("skip_prop", "The kids don't have a prop and will just pretend it. It stays on screen as a pretend prop.",
            ["id": str], required: ["id"]),
+        fn("confirm_plan", "Step 3b: the kids said yes to your recap (\"yes\", \"let's go\", \"ready\"). Only then do the roles start.",
+           [:], required: []),
         fn("finish_planning", "Planning is done; the app makes the printable kit now.", [:], required: []),
         fn("just_talk", "The kid said something that doesn't answer the current step (off topic, unclear, a question): "
            + "nothing changes. You'll reply in one short line and re-ask the current step's question.", [:], required: []),
@@ -299,16 +312,20 @@ public enum Realtime {
     }
     public static var responseCreate: [String: Any] { ["type": "response.create"] }
     /// The prop hunt's tools (round 7): a kid's hunt answer gets a tool-first response limited to these.
-    public static let huntTools = ["mark_found", "swap_prop", "skip_prop", "show_next_prop", "finish_planning", "just_talk"]
+    public static let huntTools = ["mark_found", "swap_prop", "skip_prop", "show_next_prop", "finish_planning", "just_talk",
+                                   "set_game", "set_theme", "set_player_count"]
+    /// Round 19: a correction of the game, theme or count is possible on every step (the kid may fix it any time).
+    public static let correctionTools = ["set_game", "set_theme", "set_player_count"]
 
     /// Tool-first kid turns (round 7, Haylee: no narration ever heard): the tools allowed in the FIRST response to a kid
     /// turn on each step. That response's audio is never played (it would be "let me set that up…"); she speaks in
     /// the follow-up, after the tool result.
     public static func kidTurnTools(step: PlanningStep, huntActive: Bool) -> [String]? {
         switch step {
-        case .game: return ["set_game", "show_game_ideas", "just_talk"]
-        case .theme: return ["set_theme", "set_game", "just_talk"]
-        case .players: return ["set_player_count", "just_talk"]
+        case .game: return ["set_game", "show_game_ideas", "set_theme", "just_talk"]
+        case .theme: return ["set_theme", "set_game", "set_player_count", "just_talk"]
+        case .players: return ["set_player_count", "set_theme", "set_game", "just_talk"]
+        case .confirm: return ["confirm_plan", "set_game", "set_theme", "set_player_count", "just_talk"]
         case .props: return huntActive ? huntTools : nil
         case .roles, .finish: return nil
         }
@@ -363,6 +380,20 @@ public enum Realtime {
     public static func sayExactlyInstructions(_ line: String) -> String {
         "You are Nutmeg, a little stage-manager mouse (she/her). Your voice: \(voiceStyle) Say exactly this line, word for "
             + "word, and nothing else; never add sound effects or words like giggle: \"\(line)\""
+    }
+
+    /// What the session appends to a step tool's output before it goes back to the model. Outputs that already say
+    /// exactly what to say (the recap, the count, a check-off) get nothing more (round 19: a generic "one short reaction"
+    /// suffix fought the word-for-word recap).
+    public static func outputSuffix(name: String, output: String, spokeFirst: Bool) -> String {
+        if name == "set_roles" {
+            return " Don't speak yet: call show_next_prop for the first prop first, then announce the roles and that prop together."
+        }
+        if ["set_player_count", "confirm_plan", "mark_found", "skip_prop"].contains(name) || output.contains("Say exactly")
+            || output.contains("say exactly") || output.contains("Say nothing") { return "" }
+        return spokeFirst
+            ? " You ALREADY reacted out loud this turn: now say ONLY the next question with suggestions (or the instruction), no new reaction, no greeting."
+            : " Speak once now: one short reaction, then the next question (or the instruction)."
     }
 
     public static func json(_ obj: [String: Any]) -> String {
@@ -468,6 +499,8 @@ public enum PlanningCall: Equatable, Sendable {
     case swapProp(oldID: String, newID: String, becomes: String)
     case skipProp(String)
     case finishPlanning
+    /// Round 19: the kids said yes to the recap (step 3b).
+    case confirmPlan
     case justTalk, startPlay, printKit
     /// Round 9: "I'm the Captain" by voice on the hand-off card, same as tapping the button.
     case confirmHandoff
@@ -513,6 +546,7 @@ public enum PlanningCall: Equatable, Sendable {
         case "skip_prop":
             let id = s(a, "id"); return id.isEmpty ? nil : .skipProp(id)
         case "finish_planning": return .finishPlanning
+        case "confirm_plan": return .confirmPlan
         case "just_talk": return .justTalk
         case "start_play": return .startPlay
         case "print_kit": return .printKit

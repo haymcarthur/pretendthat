@@ -64,6 +64,16 @@ struct RootView: View {
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                // Round 19: the confirm step's Yes / Change buttons, above the control pill (left of the chat panel).
+                .overlay(alignment: .bottom) {
+                    if model.showsConfirm && chromeVisible {
+                        PTConfirmButtons(onYes: { model.confirmYes() }, onChange: { model.confirmChange() })
+                            .padding(.horizontal, Theme.Space.xl)
+                            .padding(.bottom, 128)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+                }
+                .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: model.showsConfirm)
                 // Round 11 (Haylee): the keyboard never re-frames the stage; it just covers its bottom. Only the chat
                 // panel (and its text field) rises above it.
                 .ignoresSafeArea(.keyboard)

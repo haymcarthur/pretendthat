@@ -234,3 +234,21 @@ extension PTStageItem {
     /// Done in the hunt: found, or skipped (we'll pretend).
     var isDone: Bool { chip == .found || isPretend }
 }
+
+/// Round 19 (Haylee): the confirm step's two big buttons under Nutmeg's recap ("So it's a bug movie theater for three
+/// friends! Ready, or want to change something?"). Voice answers work too.
+struct PTConfirmButtons: View {
+    let onYes: () -> Void
+    let onChange: () -> Void
+    var body: some View {
+        HStack(spacing: Theme.Space.m) {
+            PTHuntPill(title: ConfirmStep.yesLabel, symbol: "checkmark", fill: Theme.lime, edge: Theme.limeShade, action: onYes)
+            PTHuntPill(title: ConfirmStep.changeLabel, symbol: "pencil", fill: Theme.white, edge: Theme.line, action: onChange)
+        }
+        .frame(maxWidth: 560)
+        .padding(Theme.Space.s)
+        .ptPanel(radius: 40)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Is the plan right?")
+    }
+}

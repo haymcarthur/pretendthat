@@ -143,6 +143,8 @@ final class RealtimeSession {
     private(set) var propLinePending = false
     @ObservationIgnored private var propLineSerial = 0
     @ObservationIgnored var onPropLine: (@MainActor () -> String)?
+    /// Round 19: a note to add after a tool-first pass, before her spoken reply (nil = none).
+    @ObservationIgnored var onSilentPassDone: (@MainActor () -> String?)?
     func holdFirstPropLine() { propLinePending = true; propLineSerial = responseSerial }
 
     /// The silent tool-first response ended: send its tool outputs and ask for her one spoken reply.
@@ -151,6 +153,9 @@ final class RealtimeSession {
             for (id, out) in pendingOutputs { socket.send(Realtime.functionOutput(callID: id, output: out)) }
             pendingOutputs = []
         }
+        // Round 19: after all of this pass's tools ran (e.g. set_theme AND set_player_count), the app may add one
+        // authoritative note (the newest recap), so her one reply uses the final state.
+        if let note = onSilentPassDone?() { socket?.send(Realtime.systemNote(note)); rtLog("note after the silent pass") }
         let followUp = gate.done(allowFollowUp: holdStartedAt == nil && !dropAudio && !beatRunning)
         rtLog("tool-first done: followUp=\(followUp)")
         if followUp { trace.mark("spoken.create"); socket?.send(Realtime.responseCreateSpoken()) }
@@ -406,7 +411,8 @@ final class RealtimeSession {
     /// Round 13: a tap on the prop card the app has ALREADY applied (the card changed at once). The kid's words go in
     /// the chat, the note tells her what happened. `requiring` = tools she still has to call first (the next prop is
     /// her pick: a cheap text-only pass); nil = she speaks straight away with no tools (one response).
-    func tapTurn(kidLine: String, note: String, requiring tools: [String]?) {
+    /// `speakWithTools` (round 19, the confirm step's Yes): she speaks at once but may still call tools (start_planning).
+    func tapTurn(kidLine: String, note: String, requiring tools: [String]?, speakWithTools: Bool = false) {
         guard let socket, isLive, micWanted else { return }
         trace.begin("tap")
         if responseActive || isSpeaking { interrupt() }
@@ -414,7 +420,7 @@ final class RealtimeSession {
         chat.kidTyped(kidLine)
         socket.send(Realtime.systemNote(note))
         kidTurnEnded(tools: .some(tools))
-        if tools == nil { nextResponseNoTools = true }
+        if tools == nil && !speakWithTools { nextResponseNoTools = true }
         requestResponse()
     }
 
@@ -893,12 +899,7 @@ final class RealtimeSession {
             // She already spoke before the tool (against the instructions): the follow-up must not react again, so the
             // two parts read as ONE reply (the chat panel joins them into one bubble).
             let spokeFirst = responseHadAudio
-            pendingOutputs.append((callID, result.output + (name == "set_roles"
-                ? " Don't speak yet: call show_next_prop for the first prop first, then announce the roles and that prop together."
-                : name == "set_player_count" || name == "mark_found" || name == "skip_prop" ? ""   // its output already says: start_planning, set_roles, show_next_prop, then speak
-                : spokeFirst
-                ? " You ALREADY reacted out loud this turn: now say ONLY the next question with suggestions (or the instruction), no new reaction, no greeting."
-                : " Speak once now: one short reaction, then the next question (or the instruction).")))
+            pendingOutputs.append((callID, result.output + Realtime.outputSuffix(name: name, output: result.output, spokeFirst: spokeFirst)))
             if result.respond { gate.toolCalled() } else { gate.endTurn() }   // finish_planning: she stops talking   // a real step tool: her next words must follow its output
         case .responseCreated:
             if reminderPending { reminderPending = false; reminderPlaying = true }

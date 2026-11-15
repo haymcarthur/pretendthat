@@ -110,11 +110,33 @@ public final class AdventureStore {
 
     public static let oops = "Oops, my clipboard got mixed up! Let's try that again."
 
+    /// Round 19: the line when a late theme fix remakes the kit.
+    public nonisolated static func remakeLine(_ title: String) -> String {
+        "Ooh, \(ConfirmStep.phrase(title))! Let me fix your kit to match. Wait for it..."
+    }
+
     public init(service: PhaseService?) { self.service = service }
 
-    var context: AdventureContext {
-        AdventureContext(gameTitle: gameTitle, plan: plan, props: props, playerCount: max(1, playerCount))
+    /// Round 19 (Haylee: a corrected theme reached the roles and props but the kit used the old one): every request is
+    /// built from THIS, at call time: the current game title and count, with the plan's title kept in step with it.
+    public var context: AdventureContext {
+        var p = plan
+        if let t = gameTitle, var q = p, q.gameTitle != t {
+            if q.setting == q.gameTitle { q.setting = t }   // the voice path's setting is the title itself
+            q.gameTitle = t; p = q
+        }
+        return AdventureContext(gameTitle: gameTitle ?? plan?.gameTitle, plan: p, props: props, playerCount: max(1, playerCount))
     }
+
+    /// The ONE game title every later step uses (kit pages, page art prompts, the print job, the recap).
+    public var currentTitle: String { gameTitle ?? plan?.gameTitle ?? "Pretend" }
+
+    /// Round 19: the recap line for the confirm step, from the current title and count.
+    public var recapLine: String { ConfirmStep.recap(title: currentTitle, playerCount: max(1, playerCount)) }
+
+    /// Bumped when a correction remakes the kit (the app resets the page art).
+    public private(set) var kitRemakes = 0
+    @ObservationIgnored private var kitGeneration = 0
 
     // MARK: Setup flow
 
@@ -189,14 +211,24 @@ public final class AdventureStore {
     /// next scene or the finale), so the tap gets ONE spoken reply.
     public var sceneLeadIn: String?
 
-    public func makeKit() async {
+    public func makeKit(remakeFor title: String? = nil) async {
         phase = .makingKit
-        let lead = kitLeadIn.flatMap { Date().timeIntervalSince($0.at) < Self.leadInWindow ? $0.line + " " : nil } ?? ""
-        kitLeadIn = nil
-        say(lead + "Ooh, let me make your kit! Wait for it...")
+        kitGeneration += 1
+        let gen = kitGeneration
+        if let title {
+            kitLeadIn = nil
+            say(Self.remakeLine(title))
+        } else {
+            let lead = kitLeadIn.flatMap { Date().timeIntervalSince($0.at) < Self.leadInWindow ? $0.line + " " : nil } ?? ""
+            kitLeadIn = nil
+            say(lead + "Ooh, let me make your kit! Wait for it...")
+        }
         await run("kit", kidSaid: nil) { [self] svc in
-            kit = try await svc.kit(ctx: context)
-        } fallback: { [self] in useFallbackGame() }
+            // The context is read now (the current title, count, roles and props), and a newer remake wins.
+            let made = try await svc.kit(ctx: context)
+            if gen == kitGeneration { kit = made }
+        } fallback: { [self] in if gen == kitGeneration { useFallbackGame() } }
+        guard gen == kitGeneration else { return }
         if kit != nil {
             // Round 7: the ready line waits for the whole kit (pages and art), so the app says it at kitFinal
             // (`kitReadyLine`), and it's about printing, never "go play" (that's only the play step).
@@ -339,22 +371,48 @@ public final class AdventureStore {
             phase = .pickGame; presenting = .none
             return "Noted (there are no idea cards; the chat shows your words). Say the ideas in a fun way and end by asking which one they want to play."
         case .setGame(let title):
+            if let late = lateCorrection(title: title, what: "game") { return late }
+            if planningStep >= .players {
+                // A fix while the count is asked or the plan is being confirmed (or after the roles): stay on track.
+                return correct(title: title, what: "Game fixed: \(title).")
+            }
             gameTitle = title; plan = nil; props = nil
             phase = .pickGame; presenting = .none; planningStep = .theme
             let ideas = themeIdeas.isEmpty ? "with 2 or 3 example themes that fit this game"
                 : "suggesting ONLY today's theme ideas, and make it sound open (\"Any twist you like! Maybe \(Suggestions.spoken(themeIdeas))?\"; say them so they fit this game; no other examples)"
             return "Game set: \(title). Step 2: react in one short sentence, then ask what theme or twist it should have, \(ideas). If the kids say their own theme, take it. Call set_theme when they pick."
         case .setTheme(let title):
+            if let late = lateCorrection(title: title, what: "theme") { return late }
+            if planningStep >= .players { return correct(title: title, what: "Theme fixed: \(title).") }
             gameTitle = title; plan = nil; props = nil
             phase = .players; presenting = .none; planningStep = .players
             return "Theme set: \(title). Step 3: react in one short sentence, then ask an OPEN question like \"How many friends are playing today?\" (never a list of numbers like 'just you, or two, or three?': any number works). Never ask for names."
         case .setPlayerCount(let count):
-            playerCount = max(1, min(count, Players.max))
-            plan = nil; props = nil
-            phase = .players; presenting = .none; planningStep = .roles
-            let shared = playerCount > RoleID.allCases.count ? " With more than 4 kids, repeat a role that makes sense to share." : ""
-            return "\(playerCount) kid\(playerCount == 1 ? "" : "s"). Say ONE short line like \"Great, let me put some plans together!\" and call start_planning (topic roles) now (nothing longer, no other narration); after it, invent exactly \(playerCount) role\(playerCount == 1 ? "" : "s") for this game, call set_roles, then show_next_prop, and only then announce the roles and the first prop in ONE turn.\(shared) Never ask for names."
+            let n = max(1, min(count, Players.max))
+            switch phase {
+            case .makingKit, .kitReady, .handoff, .scene, .end:
+                return "The kit is already made for \(playerCount). Say in ONE short, kind line that this adventure is all set, "
+                    + "and they can tap New game to plan one for a different number of friends."
+            default: break
+            }
+            let redo = planningStep >= .roles && (plan != nil || props != nil)
+            playerCount = n
+            // Round 19: the recap comes next (step 3b); the roles wait for a yes.
+            clearPlanForRedo()
+            let what = "\(n) kid\(n == 1 ? "" : "s")."
+            return redo ? ConfirmStep.redoOutput(what: what, recap: recapLine)
+                : ConfirmStep.recapAgainOutput(what: what, recap: recapLine)
+        case .confirmPlan:
+            guard planningStep == .confirm else {
+                return planningStep < .confirm ? "Not yet: finish the current step first. Answer in ONE short line and ask its question."
+                    : "Already confirmed. Carry on with the current step."
+            }
+            planningStep = .roles; phase = .players; presenting = .none
+            return ConfirmStep.confirmedOutput(playerCount: max(1, playerCount))
         case .setRoles(let drafts):
+            if planningStep == .confirm {
+                return "Not yet: the kids haven't said yes to your recap. Say exactly: \"\(recapLine)\" and wait (yes → confirm_plan)."
+            }
             if playerCount == 0 { playerCount = max(1, min(drafts.count, Players.max)) }
             let roles = drafts.enumerated().map { i, d in
                 Role(id: RoleID.allCases[min(i, RoleID.allCases.count - 1)], roleName: d.roleName, emoji: "", symbol: "star", job: d.job)
@@ -449,6 +507,47 @@ public final class AdventureStore {
             return "Hand-off confirmed: the scene starts and the app says its line. Say nothing."
         case .printKit:
             return "The print screen is open. Say one short line like \"Here's the print screen!\""
+        }
+    }
+
+    // MARK: Corrections (round 19)
+
+    /// The roles and props were made for the old plan (or the count/theme just changed): clear them and wait on the recap.
+    private func clearPlanForRedo() {
+        plan = nil; props = nil; foundProps = []; currentPropID = nil
+        phase = .players; presenting = .none; planningStep = .confirm
+    }
+
+    /// A game or theme fix from the player-count step on. Before the count is known it stays on the count question;
+    /// with a count it (re)opens the confirm step; roles and props made for the old plan are cleared and redone.
+    private func correct(title: String, what: String) -> String {
+        gameTitle = title
+        if planningStep == .players && playerCount == 0 {
+            phase = .players; presenting = .none
+            return "\(what) Now ask how many friends are playing (an OPEN question, never a list of numbers), unless they "
+                + "already told you: then call set_player_count."
+        }
+        let redo = planningStep >= .roles && (plan != nil || props != nil)
+        if playerCount == 0 { playerCount = 1 }
+        clearPlanForRedo()
+        return redo ? ConfirmStep.redoOutput(what: what, recap: recapLine) : ConfirmStep.recapAgainOutput(what: what, recap: recapLine)
+    }
+
+    /// A game or theme fix after planning: while the kit is being made or waits to print, the kit is remade for the
+    /// new title (the app says so out loud); once play has started the adventure stays as printed.
+    private func lateCorrection(title: String, what: String) -> String? {
+        switch phase {
+        case .makingKit, .kitReady:
+            gameTitle = title
+            kit = nil; kitRemakes += 1; phase = .makingKit
+            presenting = .none; planningStep = .finish
+            Task { await self.makeKit(remakeFor: title) }
+            return "The \(what) is now \(title): the app is remaking the kit to match and says so. Say nothing."
+        case .handoff, .scene, .end:
+            return "The kit is printed and the game is on. Say in ONE short, kind line that this adventure is all set, and "
+                + "they can tap New game for a different one."
+        default:
+            return nil
         }
     }
 

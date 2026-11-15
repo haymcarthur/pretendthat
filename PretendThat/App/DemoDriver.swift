@@ -118,6 +118,9 @@ enum DemoDriver {
             // (the hand-off card's I'm the ___! button). Timed like real taps.
             if turn == "#found" || turn == "#missing" { model.huntReply(found: turn == "#found"); continue }
             if turn == "#done" { await model.sceneDone(); continue }
+            // Round 19: the confirm step's buttons.
+            if turn == "#yes" { model.confirmYes(); continue }
+            if turn == "#change" { model.confirmChange(); continue }
             // Round 15: "#check N": the kid checks step N of the current scene's checklist.
             if turn.hasPrefix("#check "), let n = Int(turn.dropFirst(7)) { model.checkStep(n); continue }
             // Round 16/17: "#repeat": the pill's Repeat (the checklist read-aloud in play, else her last line again).
@@ -229,7 +232,13 @@ enum DemoDriver {
                                               GameIdea(id: "c", title: "Pet Vet", emoji: "", pitch: "help sick puppies")]))
         if target == "convIdeas" { return }
         _ = await store.apply(.setGame("Airplane"))
+        _ = await store.apply(.setTheme("Airplane to the Beach"))
         _ = await store.apply(.setPlayerCount(3))
+        if target == "convConfirm" {   // round 19: the recap + Yes / Change buttons
+            model.realtime.debugSeedTranscript([store.recapLine])
+            return
+        }
+        _ = await store.apply(.confirmPlan)
         _ = await store.apply(.setRoles([.init(roleName: "Captain", job: "Fly the plane"),
                                          .init(roleName: "Flight Attendant", job: "Serve snacks"),
                                          .init(roleName: "Passenger", job: "Enjoy the trip")]))

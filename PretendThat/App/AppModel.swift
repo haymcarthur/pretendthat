@@ -50,6 +50,7 @@ final class AppModel {
         }
         realtime.onPlanningBeat = { [weak self] topic in await self?.planningBeat(topic) }
         realtime.onPropLine = { [weak self] in self?.revealFirstProp() ?? "" }
+        realtime.onSilentPassDone = { [weak self] in self?.noteAfterSilentPass() }
         // Tool-first kid turns (round 7): no narration is ever heard; she speaks after the tool result.
         realtime.onKidTurnTools = { [weak self] in
             guard let self, Self.isPlanning(self.store.phase) else { return nil }
@@ -227,7 +228,8 @@ final class AppModel {
     /// and left the pages app-drawn.
     func kitChanged() {
         guard let kit = store.kit else { return }
-        let title = store.plan?.gameTitle ?? store.gameTitle ?? "Pretend"
+        // Round 19: the CURRENT title (a corrected theme wins over the one the roles were planned with).
+        let title = store.currentTitle
         Task { await art.generate(kit: kit, gameTitle: title) }
     }
 
@@ -374,7 +376,7 @@ final class AppModel {
     func printKit() {
         let pdf = KitPrinter.pdf(pages: kitPages, art: art.images,
                                  cutouts: Dictionary(uniqueKeysWithValues: (store.kit?.items ?? []).map { ($0.id, art.cutoutImages($0)) }))
-        KitPrinter.print(pdf, jobName: "PretendThat \(store.plan?.gameTitle ?? "kit")")
+        KitPrinter.print(pdf, jobName: "PretendThat \(store.currentTitle)")
     }
     /// The papers are out (kit final, she looked up, the camera zoomed out).
     var kitPapersOut: Bool { kitFinal && kitBeat == .papers }
@@ -447,7 +449,13 @@ final class AppModel {
         // Round 15: the skip's reassurance goes with the next prop card; only a hunt that ends right after the skip
         // (finish_planning) uses it as the kit line's lead-in (live run: it was said twice).
         if case .showNextProp = call { store.kitLeadIn = nil }
+        let remakes = store.kitRemakes
         let output = await store.apply(call)
+        if store.kitRemakes != remakes {
+            // Round 19: a theme/game fix at the print step remakes the kit: the old pages' art and ready line go too.
+            remakeKitArt()
+            return (output, false)
+        }
         realtime.huntMode = store.huntActive
         if case .showNextProp = call {
             if realtime.isLive && (store.props?.props.count ?? 0) == 1 && shownProps == 0 {
@@ -460,6 +468,52 @@ final class AppModel {
         if store.props == nil { shownProps = 0 }
         // finish_planning and start_play end her turn: the app speaks the kit and scene lines.
         return (output, call != .finishPlanning && call != .startPlay && call != .confirmHandoff)
+    }
+
+    /// Round 19: the kit is being remade for a corrected title: drop the old art and beats so the new kit runs fresh.
+    private func remakeKitArt() {
+        rtLog("kit: remade for a corrected title")
+        art.reset()
+        kitReadySaid = false; deferredLine = nil
+        kitBeatTask?.cancel(); kitBeat = .coloring
+    }
+
+    // MARK: Confirm step (round 19, Haylee)
+
+    /// The recap she was last told to say word for word (a new one is only sent when it changed).
+    @ObservationIgnored private var lastRecap: String?
+    /// The Yes / Change buttons: on the confirm step of the live conversation, once her recap reply has started.
+    var showsConfirm: Bool {
+        inConversation && store.planningStep == .confirm && !realtime.thinkingGap
+    }
+
+    /// After a tool-first pass on the confirm step: the newest recap, word for word (only when it changed).
+    func noteAfterSilentPass() -> String? {
+        guard Self.isPlanning(store.phase), store.planningStep == .confirm else { lastRecap = nil; return nil }
+        let recap = store.recapLine
+        guard recap != lastRecap else { return nil }
+        lastRecap = recap
+        return ConfirmStep.sayRecapNote(recap)
+    }
+
+    /// "Yes, let's go!": confirmed at once; she says the planning line and starts the roles (one reply).
+    func confirmYes() {
+        guard realtime.isLive, store.planningStep == .confirm else { return }
+        wakeUp()
+        Task { @MainActor in
+            _ = await store.apply(.confirmPlan)
+            lastRecap = nil
+            realtime.tapTurn(kidLine: ConfirmStep.yesLabel, note: ConfirmStep.yesTapNote(playerCount: max(1, store.playerCount)),
+                             requiring: nil, speakWithTools: true)
+        }
+    }
+
+    /// "Change something": she asks what to change (one reply); the kid's answer is a normal confirm-step turn.
+    func confirmChange() {
+        guard realtime.isLive, store.planningStep == .confirm else { return }
+        wakeUp()
+        lastRecap = nil   // the fix's recap is said again even if they end up keeping the same plan
+        realtime.tapTurn(kidLine: "Let's change something.", note: ConfirmStep.changeTapNote, requiring: nil)
     }
 
     /// Nutmeg's on-screen state, derived from everything that's happening.

@@ -26,7 +26,9 @@ final class KitArtService {
     /// Set after OpenAI says this account can't make images this run (no credits, unverified org, bad key).
     var unavailableReason: String? { client?.unavailableReason }
 
-    func reset() { images = [:]; cutouts = [:]; isGenerating = false; progress = 0; finished = false }
+    /// Round 19: a remade kit (corrected theme) starts a new generation; results from an older one are dropped.
+    @ObservationIgnored private var generation = 0
+    func reset() { generation += 1; images = [:]; cutouts = [:]; isGenerating = false; progress = 0; finished = false }
 
     func cutout(_ itemID: String, _ index: Int) -> UIImage? { cutouts[itemID]?[index] }
     /// The cut-out images of an item in order (nil where not drawn yet).
@@ -65,20 +67,21 @@ final class KitArtService {
         guard !isGenerating else { return }
         isGenerating = true
         finished = false
-        defer { isGenerating = false; finished = true }
+        let gen = generation
+        defer { if gen == generation { isGenerating = false; finished = true } }
         // Round 9: a request that failed for a network reason (the iPad was locked or the app went to the background
         // mid-kit) is retried once the app is active again. The kit stays not-final meanwhile, so the papers and the
         // kit-ready line wait for it (and play once).
         for attempt in 0..<3 {
-            let transient = await runMissingJobs(kit: kit, gameTitle: gameTitle, client: client)
-            guard transient > 0, client.unavailableReason == nil, attempt < 2 else { break }
+            let transient = await runMissingJobs(kit: kit, gameTitle: gameTitle, client: client, gen: gen)
+            guard gen == generation, transient > 0, client.unavailableReason == nil, attempt < 2 else { break }
             while UIApplication.shared.applicationState != .active { try? await Task.sleep(for: .milliseconds(500)) }
             NSLog("[RT] kit art: retrying %d page(s) after a network failure", transient)
         }
     }
 
     /// Runs one image job per missing page/cut-out; returns how many failed for a network (transient) reason.
-    private func runMissingJobs(kit: Kit, gameTitle: String, client: ImageClient) async -> Int {
+    private func runMissingJobs(kit: Kit, gameTitle: String, client: ImageClient, gen: Int) async -> Int {
         // Job key: "<item id>" for a whole item, "<item id>#<n>" for one cut-out.
         var jobs: [(String, String, String)] = []
         for item in kit.items {
@@ -101,6 +104,7 @@ final class KitArtService {
                 }
             }
             for await (id, result) in group {
+                guard gen == generation else { continue }   // a remade kit: this old page is dropped
                 switch result {
                 case .success(let data):
                     if let image = UIImage(data: data).map(PaperWhite.normalize) {
