@@ -277,6 +277,8 @@ struct PTChatPanel: View {
     @State private var hasUnseen = false
     @State private var panelHeight: CGFloat = 0
     private static let bottomID = "chat-bottom"
+    /// The panel's width (round 21: the stage layer keeps an empty slot this wide while the panel is open).
+    static let width: CGFloat = 360
     /// Changes when a line is added or the last line's text grows (streaming).
     private var followKey: String { "\(lines.count)-\(lines.last?.text.count ?? 0)-\(typing)" }
 
@@ -332,7 +334,7 @@ struct PTChatPanel: View {
         .animation(Theme.stageMove, value: pinnedKey)
         .animation(.easeOut(duration: 0.2), value: tab?.wrappedValue)
         .padding(Theme.Space.m)
-        .frame(width: 360)
+        .frame(width: Self.width)
         .frame(maxHeight: .infinity)
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { panelHeight = $0 }
         .ptPanel(radius: 28)
@@ -365,8 +367,23 @@ struct PTChatPanel: View {
                 if atBottom { hasUnseen = false }
             })
             .onChange(of: followKey) { _, _ in
-                if following { withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(Self.bottomID, anchor: .bottom) } }
+                // Round 21: while the kid is typing, the newest line always shows just above the field.
+                if following || focused { withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(Self.bottomID, anchor: .bottom) } }
                 else { hasUnseen = true }
+            }
+            // Round 21 (Haylee: the chat wasn't scrolled with the keyboard up): when the keyboard opens (or changes
+            // size) the panel gets shorter, so jump back to the bottom once it has settled.
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidShowNotification)) { _ in
+                following = true; hasUnseen = false
+                withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(Self.bottomID, anchor: .bottom) }
+            }
+            .onChange(of: focused) { _, on in
+                guard on else { return }
+                following = true; hasUnseen = false
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(350))   // the keyboard's rise
+                    withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(Self.bottomID, anchor: .bottom) }
+                }
             }
             .onAppear { proxy.scrollTo(Self.bottomID, anchor: .bottom) }
             // The newest line stays in view when the panel opens or the pinned hunt card appears / changes height.
@@ -409,7 +426,10 @@ struct PTChatPanel: View {
         guard !t.isEmpty else { return }
         onSend(t); draft = ""
         following = true
-        focused = true   // keep typing without tapping the field again
+        // Round 21 (Haylee: the keyboard closed, then opened again): after a send the keyboard closes and STAYS closed
+        // so the kid sees Nutmeg answer. Focus is cleared once here and nothing re-requests it; tapping the field
+        // opens it again. (The return key sends too: onSubmit.)
+        focused = false
     }
 }
 
