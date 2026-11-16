@@ -14,3 +14,8 @@
 - **Save at The End instead of "Play again":** a "Save it to play again ⭐" button. Unsaved games are discarded when they leave.
 - **No shelf cap.**
 - **Grown-up delete:** a grown-up-gated delete on the saved-game shelf (for example a long press plus a confirm).
+
+## Pricing (Haylee, 2026-11-15)
+- **Pro:** $9.99/mo or $79.99/yr, **10 new games a month**, unlimited replays.
+- **Unlimited:** $14.99/mo or $119.99/yr, with a large fair-use cap on new games (Claude suggests 30/mo, about one a day; to be confirmed after re-measuring the cost per game).
+- Margins depend on getting the cost per new game to about $0.40 (see the conversation and research/2026-11-15-cost-per-game.md). No-printer games skip images, so they cost less.

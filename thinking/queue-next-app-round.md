@@ -130,3 +130,24 @@ Art ready in design/export/ to import:
 ## Round 22 (queued 2026-11-15, Haylee)
 1. **The Repeat button's icon doesn't read as "repeat".** Use a clearer replay icon in the control pill (for example SF Symbol `arrow.counterclockwise` or `arrow.trianglehead.counterclockwise`; pick what reads as "again" for a 4-year-old) and keep the "Hear it again" accessibility label. **DONE R22** (speaker inside a counterclockwise replay ring).
 2. **Sleeping Nutmeg sits ON her clipboard.** In the sit/doze pose the clipboard layer lands under her seat. Reposition the sit-pose clipboard (layer transform or alignment only, no art redraw) so it rests beside her or leans on her lap, not under her. **DONE R22.** See [decision](decisions/2026-11-15-round22-repeat-icon-sleep-clipboard.md).
+
+## Round 24 (queued 2026-11-15, Haylee)
+1. **Props must make sense (bug):** a bowl was suggested "as a pirate map". Add guardrails so each household item → pretend-use pairing is plausible by shape or function (a bowl can be a helmet, a steering wheel or a treasure bowl; a map should be paper, a towel or a pillowcase). Claude's proposal:
+   (a) Extend PropLibrary with each household item's plausible pretend uses (shape/function tags: round, flat, long, soft, container, wearable, sheet-like…), and match each pretend need to items with compatible tags.
+   (b) Claude's schema adds a short kid-friendly "why it works" reason ("A bowl is round like a captain's hat!"), and the validator rejects pairs whose tags don't fit, then retries once and falls back to a curated pair.
+   (c) Nutmeg can say the reason when presenting the card.
+   Tests: a table of good and bad pairs.
+2. **Printer question + no-printer path (Haylee, 2026-11-15):**
+   - **Ask early:** right after the confirm step, before the color question, Nutmeg asks "Do you have a printer?" (Yes / No buttons plus voice).
+   - **Yes:** the color question and the normal kit (round 20 flow).
+   - **No:** skip kit IMAGE generation entirely (it also saves cost). Claude writes a VERY SIMPLE draw-your-own guide instead: one or two shapes per piece that a 4-year-old can draw ("Draw a big star. Write a 1 in the middle." / "Draw a circle and color it gold for a coin"), with at most about 5 pieces.
+   - **The Print step becomes "Draw it!":** Nutmeg walks through each piece one at a time, with a simple built-in icon of the shape (reuse the PrintSymbols/PropLibrary icons, no AI images), Next/Repeat buttons, and voice. It's much simpler than the printed kit.
+   - **"Save printables for later" button** on that step: generates the normal kit and opens the share sheet (Save to Files / send to a grown-up) to print elsewhere.
+   - The App Store copy says "Works best with a printer; no printer needed."
+   - Tests for the state machine and the simple-guide schema limits.
+
+## Round 23 (2026-11-15, Haylee): DONE
+0. Repeat uses Haylee's own "Hear it again" icon (Figma cleanup, vector template asset). **DONE R23.**
+1. Players 1–6 with a cheerful cap line; badges = exactly the player count; one $1 bill page and $1–$5 menu prices. **DONE R23** ("More money" built, then removed by Haylee).
+2. Back-navigation: picture step rail with go-back marks, voice go_to_step (tool-first after the hunt). **DONE R23** (Print again buttons built, then removed by Haylee: the rail is enough).
+3. Mid-round (Haylee): steps renamed Pick · Props · Paper · Play (paper + crayon icon); no Skip on the props grid; no arrows on prop cards; she no longer points at an empty card zone. **DONE R23.** See [decision](decisions/2026-11-15-round23-icon-kit-fixes-backnav.md).

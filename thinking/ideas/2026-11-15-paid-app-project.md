@@ -3,14 +3,14 @@
 Status: **queued, needs a design doc first** (Claude writes it, Haylee reviews, then build in rounds).
 Decisions are in decisions/2026-11-15-paid-app-direction.md. This file is the full checklist so nothing gets lost.
 
-## A. Kit and player fixes (small, can go first)
+## A. Kit and player fixes (small, can go first): **DONE R23**
 - **Players capped at 6.** Count buttons 1–6; if a kid says more, Nutmeg says up to six friends can play.
 - **Badges = the exact player count** (bug today: 2–3 players still get 6 badges).
-- **Money = one $1 bill page**, plus a "More money" button on the Print screen that prints extra copies of just that page. Menu prices stay small whole dollars ($1–5).
+- **Money = one $1 bill page.** Menu prices stay small whole dollars ($1–5). (A "More money" button was built in R23 and removed at Haylee's request.)
 
-## B. Clearer navigation back to earlier steps
+## B. Clearer navigation back to earlier steps: **DONE R23** (steps renamed Pick · Props · Paper · Play)
 - Finished steps on the step rail look tappable: a picture icon (game / props / printer / play) plus a small ↺.
-- A "Print again" button where it's needed: the checklist screen and The End.
+- ~~A "Print again" button on the checklist screen and The End~~ (built in R23, removed by Haylee: the rail's ↺ marks are enough).
 - Voice: "print it again" or "go back to the props" works.
 
 ## C. Generate for 6 with ranked roles
@@ -22,7 +22,7 @@ Decisions are in decisions/2026-11-15-paid-app-direction.md. This file is the fu
 - Saved on the iPad and synced with the family's iCloud (CloudKit private database). No accounts, no backend. Game content only, never anything about kids.
 - A "My games" shelf on the start screen: big picture cards. **No shelf cap.** Grown-up-gated delete (long press, then confirm).
 - **Nutmeg's real voice on replays:** record her scripted lines on the first play and replay the recordings. Never the system voices; her voice never changes. Live voice only for new interaction (or a role line never said before, which is then saved too).
-- Replay path (same stage, its own step rail): **Players** (how many this time, 1–6) → **Props** (the whole list at once: "still have these?", with missing ones becoming pretend swaps) → **Print** ("everything" / "just the badges" / "skip, we have them") → **Play**. No AI calls when the count changes.
+- Replay path (same stage, **same step rail: Pick → Props → Paper → Play** (renamed R23); Haylee 2026-11-15): on replay, the **Game** step only asks how many are playing this time (1–6), then **Get Ready / Props** (the whole list at once: "still have these?", with missing ones becoming pretend swaps) → **Print** ("everything" / "just the badges" / "skip, we have them") → **Play**. No AI calls when the count changes.
 
 ## E. Paid app (iPad only to start; Android only if it clearly matters)
 - Plans (to set from the measured cost per game): a free trial (about 2 new games), **Pro** (a monthly cap on NEW games, unlimited replays), and **Unlimited** (a generous fair-use number of new games). Optional one-time "new game" purchase.
