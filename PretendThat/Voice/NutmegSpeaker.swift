@@ -16,11 +16,13 @@ import NutmegCore
 ///   the cheers' wait, and the session's silence timer (`onFinishedSpeaking`).
 /// - Barge-in: `cancel()` clears the player, the mouth and the clock at once (the session cancels the responses and
 ///   truncates her item at `heardMs`).
-/// - App lines (`say`): her fixed lines go to the live voice (the session's `sayExactly`). D3b adds the clip-first path
-///   here (`clips` + `NutmegClipPlayback.playClip`), through the same `schedule` path, so a clip gets the same Varispeed,
-///   lip sync and barge-in.
+/// - App lines (`say`, round D3b): CLIP FIRST. A recorded clip of the line (the game's, or a bundled common line) plays
+///   through the same `schedule` path in ~100 ms chunks, so it gets the same Varispeed 1.20 (the clip is stored before
+///   Varispeed, so the pitch unit applies it exactly once), the same lip sync and the same barge-in `cancel()`. With no
+///   clip, the line goes to the live voice (the session's `sayExactly`, recorded when asked). Offline on a replay
+///   with no clip, the caller pauses on the line (the Wi-Fi note). Never the system voice.
 /// - Memory: the last app line she was given (Repeat's fallback, round 17).
-/// Nothing is recorded or stored: audio buffers are played and dropped.
+/// The speaker itself stores nothing: buffers are played and dropped (the session's recorder keeps app lines only).
 @Observable @MainActor
 final class NutmegSpeaker {
     /// 0…1 loudness of her voice (the mouth envelope, coarsely updated).
@@ -49,8 +51,14 @@ final class NutmegSpeaker {
 
     /// Where her live app lines go (the Realtime session's `sayExactly`).
     @ObservationIgnored weak var live: (any NutmegLiveVoice)?
-    /// D3b seam (not used yet): the game's recorded clips. Nil in D3a, so every line is said live.
+    /// Round D3b: the game's recorded clips (`ClipStore`) and the bundled common lines.
     @ObservationIgnored var clips: (any NutmegClipSource)?
+    /// Round D3b: the app keeps the engine running between sessions (a replay plays clips offline, and a dropped
+    /// session must not silence them). `stop()` from the session then only releases the mic tap.
+    @ObservationIgnored var holdEngine = false
+    /// A clip is playing (the pseudo-response a barge-in stops like live audio).
+    private(set) var clipPlaying = false
+    @ObservationIgnored private var clipEnd: Task<Void, Never>?
 
     @ObservationIgnored private var engine: AVAudioEngine?
     @ObservationIgnored private var player = AVAudioPlayerNode()
@@ -74,9 +82,19 @@ final class NutmegSpeaker {
 
     // MARK: App lines
 
-    /// One of her fixed app lines. D3a: always the live voice. D3b: a clip first when the game has one (§D4.4).
-    func say(_ line: String, thinking: Bool = false, echo: Bool = false) {
-        live?.say(line, thinking: thinking, echo: echo)
+    /// One of her fixed app lines (round D3b, §D4.4): a clip first when the game (or the bundle) has one; else the live
+    /// voice, recorded when `record` (her app lines are; a safety steer isn't). Returns how it was said; on
+    /// `.waitForNetwork` nothing was said and the caller pauses on the line (Haylee's answer 1).
+    @discardableResult
+    func say(_ line: String, thinking: Bool = false, echo: Bool = false, record: Bool = true, replay: Bool = false) -> LineRoute {
+        let clip = clips?.clip(for: line)
+        let route = LineRoute.choose(hasClip: clip != nil, live: live?.canSpeakLive ?? false, replay: replay, recordable: record)
+        switch route {
+        case .clip: playClip(clip!, echo: echo)
+        case .live(let rec): live?.say(line, thinking: thinking, echo: echo, record: rec)
+        case .waitForNetwork, .unavailable: break
+        }
+        return route
     }
 
     // MARK: Engine
@@ -87,8 +105,23 @@ final class NutmegSpeaker {
         timeline.playbackRate = playbackRate
     }
 
+    /// Round D3b: the engine for clips with no live session (a replay starting or offline). Same output chain.
+    func startForClips() {
+        guard engine == nil else { ensureRunning(); return }
+        do { try start(echoCancel: false) { _ in } ; rtLog("speaker: engine started for clips") }
+        catch { rtLog("speaker: clip engine failed: \(error.localizedDescription)") }
+    }
+
     /// Starts the audio session and the engine. `installInput` is the mic's tap on the shared engine's input node.
     func start(echoCancel: Bool, installInput: (AVAudioInputNode) -> Void) throws {
+        if let engine {
+            // Round D3b: the engine is already running (clips on a replay): the session only adds its mic tap, so a
+            // clip playing while the voice connects isn't cut.
+            engine.inputNode.removeTap(onBus: 0)
+            installInput(engine.inputNode)
+            ensureRunning()
+            return
+        }
         let session = AVAudioSession.sharedInstance()
         try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothA2DP])
         try session.setActive(true)
@@ -121,8 +154,15 @@ final class NutmegSpeaker {
         }
     }
 
-    /// Stops the engine (and the mic tap on it) and silences her.
+    /// Stops the engine (and the mic tap on it) and silences her. Round D3b: while the app holds the engine (a replay),
+    /// the session's stop only releases the mic tap; `shutdown()` stops it for good.
     func stop() {
+        if holdEngine, let engine { engine.inputNode.removeTap(onBus: 0); return }
+        shutdown()
+    }
+
+    func shutdown() {
+        holdEngine = false
         if let configObserver { NotificationCenter.default.removeObserver(configObserver) }
         configObserver = nil
         if let engine {
@@ -180,10 +220,42 @@ final class NutmegSpeaker {
         scheduleEndCheck()
     }
 
-    /// Barge-in: the player is cleared and she stops at once (mouth closed, clock reset).
+    /// Barge-in: the player is cleared and she stops at once (mouth closed, clock reset). A clip is just stopped (the
+    /// stored clip is unchanged).
     func cancel() {
+        let t0 = CACurrentMediaTime()
+        let wasClip = clipPlaying
         player.stop(); player.play()
         silence()
+        if wasClip {
+            let latency = AVAudioSession.sharedInstance().outputLatency + AVAudioSession.sharedInstance().ioBufferDuration
+            rtLog(String(format: "CLIP cut: player cleared in %.1f ms (+ %.0f ms output latency)", (CACurrentMediaTime() - t0) * 1000, latency * 1000))
+        }
+    }
+
+    // MARK: Clips (round D3b, §D4.4)
+
+    /// A recorded line: float PCM 24 kHz (before Varispeed) fed in ~100 ms chunks into the ONE `schedule` path, so the
+    /// pitch unit, lip sync, speaking state, end check and barge-in are exactly the live voice's.
+    func playClip(_ clip: NutmegClip, echo: Bool) {
+        if engine == nil { startForClips() }
+        guard engine != nil, !clip.samples.isEmpty else { return }
+        ensureRunning()
+        live?.clipStarted(clip.text, echo: echo)
+        clipPlaying = true
+        rtLog(String(format: "CLIP play %@ (%.1f s%@)", String(clip.key.prefix(8)), Double(clip.samples.count) / Realtime.sampleRate, echo ? ", repeat" : ""))
+        for r in ClipAudio.chunks(count: clip.samples.count) {
+            guard let buf = AVAudioPCMBuffer(pcmFormat: playFormat, frameCapacity: AVAudioFrameCount(r.count)),
+                  let out = buf.floatChannelData?[0] else { continue }
+            clip.samples.withUnsafeBufferPointer { src in out.update(from: src.baseAddress! + r.lowerBound, count: r.count) }
+            buf.frameLength = AVAudioFrameCount(r.count)
+            schedule(buf)
+        }
+        clipEnd?.cancel()
+        clipEnd = Task { [weak self] in
+            while let self, self.isSpeaking, !Task.isCancelled { try? await Task.sleep(for: .milliseconds(50)) }
+            self?.clipPlaying = false
+        }
     }
 
     /// Where a new conversation item's audio starts, in player samples.
@@ -200,6 +272,7 @@ final class NutmegSpeaker {
     }
 
     private func silence() {
+        clipEnd?.cancel(); clipPlaying = false
         timeline.clear(); tailTask?.cancel()
         isSpeaking = false; level = 0
         resetMouth()
@@ -293,24 +366,33 @@ final class NutmegSpeaker {
 
 /// The live source of her app lines: the Realtime session's out-of-band `sayExactly` (round 13: one voice for every line).
 @MainActor protocol NutmegLiveVoice: AnyObject {
-    func say(_ line: String, thinking: Bool, echo: Bool)
+    /// The live voice can say a line now (connected, not in the background).
+    var canSpeakLive: Bool { get }
+    /// `record` (round D3b): capture this line's audio; kept with the game only if it passes the transcript gate.
+    func say(_ line: String, thinking: Bool, echo: Bool, record: Bool)
+    /// A clip of `text` started playing (her chat bubble unless it's a Repeat; nothing in the conversation to truncate).
+    func clipStarted(_ text: String, echo: Bool)
 }
 
-/// D3b seam (not implemented in D3a): one recorded app line, float PCM 24 kHz mono, stored BEFORE Varispeed so it plays
-/// through the same pitch unit and sounds exactly like her live voice (§D4.2, §D4.4).
+/// One recorded app line, float PCM 24 kHz mono, stored BEFORE Varispeed so it plays through the same pitch unit and
+/// sounds exactly like her live voice (§D4.2, §D4.4).
 struct NutmegClip: Sendable {
     let key: String
     let text: String
     let samples: [Float]
+    /// A bundled common line (not this game's).
+    var common = false
 }
 
-/// D3b seam: the game's clips (`ClipStore`). `clip(for:)` is nil for a line she has never said.
+/// The game's clips (`ClipStore`). `clip(for:)` is nil for a line she has never said.
 @MainActor protocol NutmegClipSource: AnyObject {
     func clip(for line: String) -> NutmegClip?
 }
 
-/// D3b seam: playing a clip through the speaker's one `schedule` path (~100 ms chunks), as a pseudo-response the
-/// round 19 stop rules cancel like live audio. D3a declares it only; `NutmegSpeaker` adopts it in D3b.
+/// Playing a clip through the speaker's one `schedule` path (~100 ms chunks), as a pseudo-response the round 19 stop
+/// rules cancel like live audio.
 @MainActor protocol NutmegClipPlayback: AnyObject {
     func playClip(_ clip: NutmegClip, echo: Bool)
 }
+
+extension NutmegSpeaker: NutmegClipPlayback {}

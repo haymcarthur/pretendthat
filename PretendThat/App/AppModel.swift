@@ -45,6 +45,16 @@ final class AppModel {
     @ObservationIgnored private var replayStartCalls: [AICallLog.Kind: Int] = [:]
     enum SaveState: Equatable { case idle, saving, failed }
     private(set) var saveState: SaveState = .idle
+    /// Round D3b: Nutmeg's recorded lines for the current game (her app lines only), the speaker's clip source.
+    @ObservationIgnored let clipStore: ClipStore
+    /// Round D3b: the network (an unrecorded replay line offline pauses the game with the Wi-Fi note).
+    let network = NetworkWatch()
+    /// Round D3b (Haylee's answer 1): offline on a replay, a line she never said: the Wi-Fi note, paused on that line.
+    private(set) var wifiPause = WiFiPause()
+    /// Round D3b: the replay's clip hit rate (counts only) and the Realtime usage when the replay started.
+    @ObservationIgnored private(set) var clipLog = ClipHitLog()
+    @ObservationIgnored private var replayUsageStart = RealtimeUsageTotals()
+    @ObservationIgnored private var wifiTask: Task<Void, Never>?
 
     /// The planning conversation is running (a replay has no planning: its Pick and Props steps are taps and app lines).
     var planningNow: Bool { Self.isPlanning(store.phase) && !store.isReplay }
@@ -53,6 +63,8 @@ final class AppModel {
         let speaker = NutmegSpeaker()
         self.speaker = speaker
         realtime = RealtimeSession(speaker: speaker)
+        clipStore = ClipStore(games: savedGames)
+        speaker.clips = clipStore
         let config = ClaudeConfig.from(info: info)
         // Round 19: kid text and generated text are checked locally and with OpenAI moderation (fails safe to local).
         let moderation = ModerationClient.from(info: info)
@@ -87,6 +99,16 @@ final class AppModel {
         realtime.onPropLine = { [weak self] in self?.revealFirstProp() ?? "" }
         realtime.onSilentPassDone = { [weak self] in self?.noteAfterSilentPass() }
         realtime.onKidTranscript = { [weak self] text in self?.spokenSafetyCheck(text) }
+        // Round D3b: her app lines that passed the transcript gate are kept with the game (unsaved: until Save).
+        realtime.onRecorded = { [weak self] line in
+            guard let self else { return }
+            self.clipStore.store(line, roles: self.store.plan?.roles ?? [])
+        }
+        realtime.onRecordRejected = { [weak self] _ in self?.clipLog.rejectedOne() }
+        realtime.recordRoles = { [weak self] in self?.store.plan?.roles }
+        clipStore.onStored = { [weak self] _ in if self?.store.isReplay == true { self?.clipLog.savedOne() } }
+        store.isRecorded = { [weak self] line in self?.clipStore.has(line) ?? false }
+        network.onChange = { [weak self] online in self?.networkChanged(online) }
         gate.onFlag = { [weak self] verdict, ticket in self?.lateFlag(verdict, ticket) }
         gate.onAllClear = { [weak self] in self?.safeSnap = nil; self?.screenedTurns = [:] }
         store.outboundGate = { [weak self] in await self?.gate.cleared() ?? true }
@@ -190,6 +212,7 @@ final class AppModel {
         #endif
         realtime.beginTrace("let's play")
         store.beginConversation()
+        clipStore.startFirstPlay()   // round D3b: her app lines are recorded for this game (kept only if it's saved)
         guard let auth = realtimeAuth else { await store.start(); return }
         // Fresh suggestions every session (round 7): 3 games picked now (never last session's), injected as today's ideas.
         // Round 13: the start screen already picked them for the pre-connected socket.
@@ -227,7 +250,7 @@ final class AppModel {
         let line = SafetySteer.line(for: verdict, ideas: steerIdeas)
         if realtime.isLive {
             realtime.stopSpeaking("safety")
-            speaker.say(line)
+            speaker.say(line, record: false)   // round D3b: a safety steer is never kept with a game
         } else {
             store.steerLine(line)
         }
@@ -343,8 +366,13 @@ final class AppModel {
     /// Leave activity: hang up and go home. Nothing is kept.
     func leave() {
         userAction(.goHome)
+        if store.isReplay { logReplayClips("left") }
         cheerTask?.cancel(); repeatTask?.cancel(); pointTask?.cancel(); beatEndTask?.cancel(); kitWait?.cancel()
+        speaker.holdEngine = false   // round D3b: the session's stop now stops the engine too
+        wifiPause.clear(); wifiTask?.cancel(); wifiTask = nil
+        clipStore.reset()            // an unsaved game's clips go with it
         realtime.disconnect()
+        speaker.shutdown()
         gameVoice = nil
         kitReadySaid = false; deferredLine = nil; doze.wake(); dozeStage = .awake; wokePop = false; endKitBackgroundTask()
         huntStartedAt = nil; printReachedAt = nil
@@ -552,8 +580,10 @@ final class AppModel {
             }
             guard !Task.isCancelled, case .scene(i) = store.phase, !store.autoChecking,
                   store.checkedSteps.contains(index) else { return }
+            // Round D3b: on a replay, a variant she already recorded in this game first.
+            let recorded: ((String) -> Bool)? = store.isReplay ? { [clipStore] in clipStore.has($0) } : nil
             guard let line = ChecklistCheers.afterCheck(index: index, steps: steps, checked: store.checkedSteps,
-                                                        deck: &lineDeck, using: &rng) else { return }
+                                                        deck: &lineDeck, using: &rng, recorded: recorded) else { return }
             if store.checkedSteps.count == steps.count { congratulatedScene = i }
             cheerTask = nil
             rtLog("checklist cheer: \(line)")
@@ -616,7 +646,9 @@ final class AppModel {
             lastRepeatAt = Date()
             wakeUp()
             rtLog("repeat last line: \(line)")
-            if realtime.isLive { speaker.say(line, echo: true) }
+            // Round D3b: Repeat replays the clip (her recorded voice), or says it live; never the device voice on a replay.
+            if realtime.isLive || clipStore.has(line) { speaker.say(line, echo: true, replay: store.isReplay) }
+            else if store.isReplay { owe(line) }
             else if !(hasRealtime && gameVoice != nil && Self.wasLive(store.phase)) { Task { await voice.say(line) } }
         }
     }
@@ -1114,11 +1146,24 @@ final class AppModel {
     /// Nutmeg's voice for app-written lines. With a live Realtime session she keeps her conversation voice;
     /// during planning she speaks for herself, so app lines are skipped there.
     func speak(_ text: String, deferIfAway: Bool = false) {
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         speaker.remember(text)   // whitespace-only lines aren't remembered
+        // Round D3b: her recorded clip plays at once (no network, no thinking face), on a replay and on a first play
+        // once a line has been recorded. Planning lines are hers to say in the conversation (never app lines).
+        if clipStore.has(text) && !planningNow && !realtime.suspended {
+            if store.isReplay { clipLog.note(.clip, common: clipStore.clip(for: text)?.common ?? false, kind: ClipMeta.kind(of: text)) }
+            speaker.say(text, replay: store.isReplay)
+            return
+        }
         // Round 9: away (background, or reconnecting): an important line (kit ready) waits for the session; others drop.
         // Round D1: a replay's first lines wait for its voice session (never the device voice while it connects).
         if replayConnecting { deferredLine = text; return }
-        if store.isReplay && realtime.isLive { store.ledger.paidAICall(kind: .replayLine) }   // E hook: a live replay line
+        // Round D3b (Haylee's answer 1): offline on a replay, a line she never said: the Wi-Fi note, paused on it.
+        if store.isReplay && !realtime.isLive { owe(text); return }
+        if store.isReplay && realtime.isLive {
+            store.ledger.paidAICall(kind: .replayLine)   // E hook: a live replay line
+            clipLog.note(.live(record: true), kind: ClipMeta.kind(of: text))
+        }
         if realtime.suspended || (realtime.status == .connecting && Self.wasLive(store.phase)) || resuming {
             if deferIfAway { deferredLine = text; rtLog("line deferred until the session is back") }
             return
@@ -1372,10 +1417,15 @@ final class AppModel {
                 for (key, img) in images { if let d = img.heicData() ?? img.jpegData(compressionQuality: 0.9) { files[key] = d } }
                 return (files, sign.flatMap { Self.coverData($0) })
             }.value
-            guard store.canSave, let game = store.savedGame(id: id, art: files.keys.sorted(), cover: cover == nil ? nil : "cover.jpg",
+            guard store.canSave, var game = store.savedGame(id: id, art: files.keys.sorted(), cover: cover == nil ? nil : "cover.jpg",
                                                             printables: printables) else { saveState = .failed; return }
+            // Round D3b: her lines recorded on this play are saved with it.
+            let recorded = clipStore.pendingForSave()
+            game.clips = recorded.clips
             do {
-                try savedGames.save(game, art: files, cover: cover)
+                try savedGames.save(game, art: files, cover: cover, clips: recorded.data)
+                clipStore.didSave(game.id)
+                rtLog("SAVE clips: \(recorded.clips.count) recorded lines, \(recorded.data.values.reduce(0) { $0 + $1.count } / 1024) KB AAC")
             } catch {
                 rtLog("save: failed (\(error.localizedDescription))")
                 saveState = .failed
@@ -1438,18 +1488,29 @@ final class AppModel {
         savedGames.touch(g.id)
         replayStartCalls = AICallLog.snapshot
         rtLog("REPLAY start \"\(g.title)\": \(decoded.count) art files restored, no generation; AI calls so far: \(AICallLog.summary())")
+        // Round D3b: her recorded lines for this game; the speaker's engine runs on its own so clips play at once
+        // (and offline), and a dropped session never silences them.
+        clipStore.load(savedGames.game(g.id) ?? g)
+        clipLog = ClipHitLog()
+        replayUsageStart = realtime.usageTotals
+        wifiPause.clear()
+        speaker.holdEngine = true
+        speaker.startForClips()
         let live = realtime.isLive
-        replayConnecting = !live && realtimeAuth != nil
+        if !live { realtime.resetChat() }
+        // Offline: no connect at all (clips only; a never-said line pauses with the Wi-Fi note).
+        replayConnecting = !live && realtimeAuth != nil && network.online
         showingShelf = false
-        store.loadReplay(g)   // Pick; her greeting goes through speak (waits for the session if it's connecting)
+        store.loadReplay(g)   // Pick; her greeting: a clip at once, else live once (waits for the session if it's connecting)
         if live {
             realtime.addNote(Realtime.systemNote(replayNote))
             return
         }
-        guard let auth = realtimeAuth else { flushDeferredLine(); return }
+        guard let auth = realtimeAuth, network.online else { flushDeferredLine(); return }
         let config = voiceConfig
         gameVoice = config
-        let ok = await realtime.connect(auth: auth, config: config, echoCancel: Self.echoCancel, instructions: Realtime.instructions)
+        let ok = await realtime.connect(auth: auth, config: config, echoCancel: Self.echoCancel, instructions: Realtime.instructions,
+                                        keepChat: true)
         replayConnecting = false
         guard store.isReplay, store.replayGameID == g.id else { return }   // left meanwhile
         if ok {
@@ -1457,7 +1518,7 @@ final class AppModel {
             realtime.micWanted = true
             gesture(.wave)
         }
-        rtLog("REPLAY voice session \(ok ? "live" : "failed: lines use the device voice")")
+        rtLog("REPLAY voice session \(ok ? "live" : "failed: clips only, a never-said line waits for Wi-Fi")")
         flushDeferredLine()
     }
 
@@ -1474,6 +1535,103 @@ final class AppModel {
         let d = AICallLog.Kind.allCases.map { "\($0.rawValue)=\((now[$0] ?? 0) - (replayStartCalls[$0] ?? 0))" }.joined(separator: " ")
         let content = (now[.claude] ?? 0) - (replayStartCalls[.claude] ?? 0) + (now[.image] ?? 0) - (replayStartCalls[.image] ?? 0)
         rtLog("REPLAY AI calls since start (\(moment)): \(d) → content calls: \(content)")
+        logReplayClips(moment)
+    }
+
+    // MARK: Recorded voice on replays (round D3b)
+
+    /// The replay's clip hit rate and Realtime usage since it started (counts only, never content).
+    func logReplayClips(_ moment: String) {
+        guard store.isReplay else { return }
+        let u = realtime.usageTotals
+        var d = RealtimeUsageTotals()
+        d.responses = u.responses - replayUsageStart.responses; d.input = u.input - replayUsageStart.input
+        d.cached = u.cached - replayUsageStart.cached; d.output = u.output - replayUsageStart.output
+        d.outAudio = u.outAudio - replayUsageStart.outAudio
+        rtLog("REPLAY clips (\(moment)): \(clipLog.line)")
+        rtLog(String(format: "REPLAY realtime usage (%@): %d responses, in %d (cached %d), out %d (audio %d) ≈ $%.4f", moment,
+                     d.responses, d.input, d.cached, d.output, d.outAudio, d.dollars))
+    }
+
+    #if DEBUG
+    /// Round D3b (§D4.6): records the bundled common lines in her real Realtime voice, through the same recorder and
+    /// transcript gate, into Documents/CommonClips/common-<key>.aac (copied into the app bundle by hand). Never TTS.
+    func debugRecordCommonLines() async {
+        guard let auth = realtimeAuth else { rtLog("COMMON: no voice auth"); return }
+        let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("CommonClips", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        var kept = Set<String>()
+        realtime.onRecorded = { line in
+            let key = CommonLines.key(line.request.line)
+            let pcm = line.pcm16
+            Task.detached {
+                guard let data = ClipStore.encodeAAC(pcm) else { return }
+                try? data.write(to: dir.appendingPathComponent("common-\(key).aac"))
+                rtLog(String(format: "COMMON kept %@ (%.1f s, %d KB)", String(key.prefix(8)), line.duration, data.count / 1024))
+            }
+            Task { @MainActor in kept.insert(line.request.line) }
+        }
+        let ok = await realtime.connect(auth: auth, config: voiceConfig, echoCancel: Self.echoCancel, instructions: Realtime.instructions)
+        guard ok else { rtLog("COMMON: connect failed"); return }
+        for line in CommonLines.all {
+            for attempt in 1...3 where !kept.contains(line) {
+                realtime.say(line, record: true)
+                for _ in 0..<50 where !realtime.isSpeaking { try? await Task.sleep(for: .milliseconds(100)) }
+                for _ in 0..<300 where realtime.isSpeaking || realtime.isBusy { try? await Task.sleep(for: .milliseconds(100)) }
+                try? await Task.sleep(for: .seconds(1.5))
+                rtLog("COMMON line \(CommonLines.all.firstIndex(of: line)! + 1)/\(CommonLines.all.count) attempt \(attempt): \(kept.contains(line) ? "kept" : "not kept")")
+            }
+        }
+        try? await Task.sleep(for: .seconds(2))
+        rtLog("COMMON done: \(kept.count)/\(CommonLines.all.count) kept in \(dir.path)")
+        realtime.disconnect()
+    }
+    #endif
+
+    /// Haylee's answer 1: a replay line she never said, with no voice: the Wi-Fi note (her bundled clip says it) and
+    /// the game pauses on this line until the connection is back; then she says it live (and it's saved).
+    private func owe(_ line: String) {
+        let first = !wifiPause.isPaused
+        wifiPause.owe(line)
+        clipLog.note(.waitForNetwork, kind: ClipMeta.kind(of: line))
+        rtLog("WIFI pause: a never-said line with no voice (\(ClipMeta.kind(of: line).rawValue)); waiting for the network")
+        if first {
+            gesture(.point, hold: 2)
+            _ = speaker.say(WiFiPause.spokenNote, record: false)   // her bundled clip; nothing if it isn't bundled
+        }
+        if network.online { resumeAfterWiFi() }   // online but the voice dropped: try to get it back
+    }
+
+    private func networkChanged(_ online: Bool) {
+        rtLog("network: \(online ? "online" : "offline")")
+        #if DEBUG
+        // The debug offline switch also drops the live voice, like a lost connection.
+        if !online && network.debugOffline && realtime.status != .idle && store.isReplay { realtime.disconnect() }
+        #endif
+        if online && wifiPause.isPaused { resumeAfterWiFi() }
+    }
+
+    /// The connection is back: the voice reconnects, then she says the owed line live (recorded), and the game goes on.
+    private func resumeAfterWiFi() {
+        guard wifiTask == nil, store.isReplay else { return }
+        wifiTask = Task { @MainActor in
+            defer { wifiTask = nil }
+            while !Task.isCancelled && wifiPause.isPaused && store.isReplay {
+                if !realtime.isLive, network.online, let auth = realtimeAuth {
+                    let ok = await realtime.connect(auth: auth, config: gameVoice ?? voiceConfig, echoCancel: Self.echoCancel,
+                                                    instructions: Realtime.instructions, keepChat: true)
+                    if ok { realtime.addNote(Realtime.systemNote(replayNote)); realtime.micWanted = true }
+                    rtLog("WIFI voice reconnect: \(ok ? "live" : "failed")")
+                }
+                if realtime.isLive, let line = wifiPause.resume(live: true) {
+                    rtLog("WIFI back: saying the owed line live")
+                    for _ in 0..<80 where speaker.isSpeaking { try? await Task.sleep(for: .milliseconds(50)) }   // the note ends
+                    speak(line)
+                    return
+                }
+                try? await Task.sleep(for: .seconds(2))
+            }
+        }
     }
 
     func replayPick(_ n: Int) {
@@ -1559,10 +1717,12 @@ final class AppModel {
         }
     }
 
-    var mouthLevel: Float { realtime.isLive ? speaker.level : voice.level }
+    /// Round D3b: her speaker plays (live audio, or a clip with no session): its lip sync and speaking state.
+    private var speakerVoice: Bool { realtime.isLive || speaker.isRunning }
+    var mouthLevel: Float { speakerVoice ? speaker.level : voice.level }
     /// The live voice's lip-synced mouth (nil: fall back to the amplitude mouth from `mouthLevel`).
-    var mouthShape: NutmegMouth? { realtime.isLive ? NutmegMouth(rawValue: speaker.mouth.rawValue) : nil }
-    var isSpeaking: Bool { realtime.isLive ? realtime.isSpeaking : voice.isSpeaking }
+    var mouthShape: NutmegMouth? { speakerVoice ? NutmegMouth(rawValue: speaker.mouth.rawValue) : nil }
+    var isSpeaking: Bool { speakerVoice ? speaker.isSpeaking : voice.isSpeaking }
 
     // MARK: Push-to-talk (decisions/2026-11-13-push-to-talk.md)
 

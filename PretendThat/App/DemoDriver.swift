@@ -94,6 +94,8 @@ enum DemoDriver {
             try? await Task.sleep(for: .seconds(secs))
         }
         // Round D1: "-PTStayHome": stay on the start screen (the socket pre-connects) for the My games / replay turns.
+        // Round D3b: "-PTRecordCommon": record the bundled common lines in her real Realtime voice, then stop.
+        if args.contains("-PTRecordCommon") { await model.debugRecordCommonLines(); rtLog("DRIVER-END"); return }
         if args.contains("-PTStayHome") { model.preconnect() } else { await model.startConversation() }
         for raw in turns {
             // Round 15: a leading "!" sends the turn right away (a quick tap while she's still talking).
@@ -210,7 +212,7 @@ enum DemoDriver {
             if turn == "#shelf" { model.openShelf(); try? await Task.sleep(for: .seconds(1)); continue }
             if turn.hasPrefix("#replay "), let n = Int(turn.dropFirst(8)), model.shelfGames.indices.contains(n) {
                 model.tapSavedGame(model.shelfGames[n])
-                for _ in 0..<150 where !(model.store.isReplay && (model.realtime.isLive || !model.hasRealtime)) { try? await Task.sleep(for: .milliseconds(100)) }
+                for _ in 0..<150 where !(model.store.isReplay && (model.realtime.isLive || !model.hasRealtime || !model.network.online)) { try? await Task.sleep(for: .milliseconds(100)) }
                 rtLog("REPLAY: phase=\(model.store.phase) live=\(model.realtime.isLive)")
                 continue
             }
@@ -222,6 +224,18 @@ enum DemoDriver {
             if turn.hasPrefix("#paper "), let c = PaperChoice(rawValue: String(turn.dropFirst(7))) { model.replayPaper(c); continue }
             if turn == "#dismissprint" { UIPrintInteractionController.shared.dismiss(animated: true); try? await Task.sleep(for: .seconds(1)); continue }
             if turn.hasPrefix("#calls ") { model.logReplayCalls(String(turn.dropFirst(7))); continue }
+            // Round D3b: "#offline" / "#online" (the in-app network switch), "#waitwifi" (until the Wi-Fi pause ends,
+            // ≤ 60 s), "#clips" (the clip hit-rate log), "#waitclip" (until a clip has started playing, ≤ 5 s).
+            if turn == "#offline" { model.network.debugOffline = true; try? await Task.sleep(for: .seconds(1)); continue }
+            if turn == "#online" { model.network.debugOffline = false; continue }
+            if turn == "#waitwifi" {
+                let t0 = Date()
+                for _ in 0..<600 where model.wifiPause.isPaused { try? await Task.sleep(for: .milliseconds(100)) }
+                rtLog(String(format: "WIFI pause ended after %.1f s (paused=%@)", Date().timeIntervalSince(t0), model.wifiPause.isPaused ? "yes" : "no"))
+                continue
+            }
+            if turn == "#clips" { model.logReplayClips("driver"); continue }
+            if turn == "#waitclip" { for _ in 0..<50 where !model.speaker.clipPlaying { try? await Task.sleep(for: .milliseconds(100)) }; continue }
             if turn == "#again" { model.tapPlayItAgain(); try? await Task.sleep(for: .seconds(3)); continue }
             if turn == "#props" {
                 rtLog("PROPS " + (model.store.props?.props.map { "\($0.id)=\($0.householdItem)\($0.isSkipped ? "(pretend)" : "")" }.joined(separator: ", ") ?? "-"))
@@ -229,6 +243,7 @@ enum DemoDriver {
             }
             if turn == "#playthrough" {
                 for _ in 0..<30 {
+                    for _ in 0..<600 where model.wifiPause.isPaused { try? await Task.sleep(for: .milliseconds(100)) }   // round D3b
                     for _ in 0..<80 where model.realtime.isSpeaking || model.realtime.isBusy { try? await Task.sleep(for: .milliseconds(100)) }
                     try? await Task.sleep(for: .seconds(1))
                     switch model.store.phase {
@@ -238,6 +253,8 @@ enum DemoDriver {
                         rtLog("driver: done scene \(i)"); await model.sceneDone()
                     default: break
                     }
+                    // Round D3b: let her line start before the next tap (a tap 1 s in cut the hand-off lines, so they were never recorded).
+                    for _ in 0..<50 where !model.realtime.isSpeaking && !model.wifiPause.isPaused { try? await Task.sleep(for: .milliseconds(100)) }
                     if model.store.phase == .end { break }
                 }
                 for _ in 0..<80 where model.realtime.isSpeaking || model.realtime.isBusy { try? await Task.sleep(for: .milliseconds(100)) }

@@ -306,6 +306,43 @@ struct PTLeaveDialog: View {
     }
 }
 
+/// Round D3b (Haylee's answer 1): a replay reached a line Nutmeg has never said and the iPad is offline. A friendly note
+/// asks a grown-up to connect to Wi-Fi so Nutmeg can talk; the game pauses on that line (the stage below takes no taps)
+/// until the connection is back. Nutmeg says the note herself (her bundled recorded line), never another voice.
+struct PTWiFiNote: View {
+    var note: String
+    var onLeave: () -> Void
+
+    var body: some View {
+        ZStack {
+            Theme.scrim.ignoresSafeArea()
+                .accessibilityHidden(true)
+            VStack(spacing: Theme.Space.m) {
+                Image(systemName: "wifi").font(.system(size: 54, weight: .bold)).foregroundStyle(Theme.ink)
+                    .accessibilityHidden(true)
+                Text("Nutmeg needs the internet").font(Theme.displayFont(32)).foregroundStyle(Theme.ink)
+                    .multilineTextAlignment(.center)
+                    .accessibilityAddTraits(.isHeader)
+                Text(note)
+                    .font(Theme.uiFont(20, .medium)).foregroundStyle(Theme.inkMuted)
+                    .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: Theme.Space.s) {
+                    ProgressView().tint(Theme.ink)
+                    Text("Waiting for Wi-Fi…").font(Theme.uiFont(18, .semibold)).foregroundStyle(Theme.ink)
+                }
+                .accessibilityElement(children: .combine)
+                Button("Leave the game", action: onLeave).buttonStyle(.ptSecondary)
+                    .padding(.top, Theme.Space.xs)
+            }
+            .padding(.horizontal, Theme.Space.l).padding(.vertical, Theme.Space.l)
+            .frame(maxWidth: 480)
+            .ptPanel(radius: 32)
+            .padding(Theme.Space.m)
+            .accessibilityAddTraits(.isModal)
+        }
+    }
+}
+
 // MARK: - Chat panel
 
 /// Dark rounded panel from the right: the live transcript as bubbles and a native TextField to type to Nutmeg.

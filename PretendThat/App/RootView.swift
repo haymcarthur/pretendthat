@@ -166,6 +166,12 @@ struct RootView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .ignoresSafeArea(.keyboard)   // round 11: the keyboard covers it (the chat panel has its own field)
             }
+            // Round D3b: offline on a replay, a line she never said: paused on it until the Wi-Fi is back.
+            if model.wifiPause.isPaused && store.phase != .hello {
+                PTWiFiNote(note: WiFiPause.note, onLeave: { chatOpen = false; model.leave() })
+                    .transition(.opacity)
+                    .zIndex(19)
+            }
             if confirmLeave {
                 PTLeaveDialog(onStay: { confirmLeave = false },
                               onLeave: { confirmLeave = false; chatOpen = false; model.leave() })
@@ -197,6 +203,7 @@ struct RootView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in keyboardUp = true }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in keyboardUp = false }
         .animation(.easeOut(duration: 0.2), value: confirmLeave)
+        .animation(.easeOut(duration: 0.25), value: model.wifiPause.isPaused)
         // Round 10: the panel/rail slide on the same spring as the camera move they cause (one shared animation).
         .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: chatOpen)
         .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: chromeVisible)

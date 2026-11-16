@@ -17,7 +17,10 @@ import NutmegCore
 ///   `level`, `mouth` and `isSpeaking` here read the speaker.
 /// - Voice-processing IO (echo cancellation) is OFF by default: on iOS it runs on the whole IO unit, so it also
 ///   processes (and dulls/ducks) the OUTPUT. The mic is gated while Nutmeg talks, so she never hears herself anyway.
-/// Nothing is recorded or stored: audio buffers are sent and dropped.
+/// Recording (round D3b, §D4.1): ONLY the app's own scripted lines, sent with `sayExactly` and a metadata tag, are
+/// captured (`ClipRecorder`): her output audio for that response, kept with the game only if her transcript matches the
+/// script. The kid's mic audio is never recorded (the recorder can't see the mic path), nor her conversational replies,
+/// nor any transcript. Everything else is sent or played and dropped.
 @Observable @MainActor
 final class RealtimeSession {
     enum Status: Equatable { case idle, connecting, live, failed(String) }
@@ -378,6 +381,7 @@ final class RealtimeSession {
         reminderPending = false; reminderPlaying = false; propLinePending = false; echoPending = false; echoActive = false
         forcedTools = nil; silentAllowed = nil; silentPending = false; silentResponse = false; silentItems = []; quickReplyOnly = false
         speech = SpeechStop(); cancelThrough = 0; createdSeen = 0
+        recorder = ClipRecorder()   // round D3b: a half-recorded line is dropped with the session
         if status != .idle, case .failed = status {} else { status = .idle }
     }
 
@@ -540,15 +544,46 @@ final class RealtimeSession {
 
     /// `thinking`: a kid is waiting on this line (a hand-off or Let's play! tap): show the thinking face + dots until it plays.
     /// `echo` (round 17, the pill's Repeat): a line she already said, said again: heard, but not a second chat bubble.
-    func say(_ line: String, thinking: Bool = false, echo: Bool = false) {
+    func say(_ line: String, thinking: Bool = false, echo: Bool = false, record: Bool = false) {
         guard let socket, isLive, !suspended, !line.isEmpty else { return }
         if thinking { thinkingGap = true }
         if echo { echoPending = true } else { chat.breakTurn() }   // each app line (kit progress, ready line) is its own bubble
         if !trace.running { trace.begin("app line") }
         lastSayAt = Date()
-        socket.send(Realtime.sayExactly(line))
+        if record {
+            // Round D3b: the app's own line, tagged so the recorder captures exactly this response.
+            let r = recorder.request(line: line, kind: ClipMeta.kind(of: line), role: recordRoles().flatMap { ClipMeta.role(of: line, roles: $0) })
+            socket.send(Realtime.sayExactly(line, tag: r.tag))
+        } else {
+            socket.send(Realtime.sayExactly(line))
+        }
         trace.mark("say.create")
     }
+
+    // MARK: Recording her app lines (round D3b)
+
+    @ObservationIgnored private var recorder = ClipRecorder()
+    /// A recorded app line passed the gate (the app encodes it and keeps it with the game).
+    @ObservationIgnored var onRecorded: (@MainActor (RecordedLine) -> Void)?
+    /// A recorded line was rejected (counts only, for the hit-rate log).
+    @ObservationIgnored var onRecordRejected: (@MainActor (ClipRecorder.Reason) -> Void)?
+    /// The game's roles (clip metadata: which role a line is about).
+    @ObservationIgnored var recordRoles: () -> [Role]? = { nil }
+    var canSpeakLive: Bool { isLive && !suspended }
+
+    /// Round D3b: a recorded clip started (played by the speaker, no response): her chat bubble (not for a Repeat), and
+    /// nothing in the conversation to truncate on a barge-in.
+    func clipStarted(_ text: String, echo: Bool) {
+        audioItemID = nil; audioItemStart = nil
+        silenceTask?.cancel(); thinkingGap = false; gapTask?.cancel()
+        guard !echo else { return }
+        chat.breakTurn()
+        chat.apply(.transcriptDone(text))
+        chat.breakTurn()
+    }
+
+    /// Round D3b: a replay starts a fresh chat (its first clip may play before the voice connects).
+    func resetChat() { chat.clear() }
 
     /// Applies pitch changes right away (a method change takes effect on the next conversation).
     private func fail(_ reason: String) -> Bool {
@@ -688,7 +723,21 @@ final class RealtimeSession {
                 speech.created(id)
             }
         }
-        if speech.drops(event, responseID: id) { return }
+        if event == .responseCreated { recorder.created(responseID: id, tag: Realtime.lineTag(text)) }
+        if speech.drops(event, responseID: id) { recorder.cancel(id.map { [$0] } ?? []); return }
+        if recorder.isCapturing(id) {
+            switch event {
+            case .audioDelta(let d): recorder.audio(responseID: id, d)
+            case .transcriptDone(let t): recorder.transcript(responseID: id, t)
+            case .responseDone:
+                switch recorder.done(responseID: id, status: Realtime.responseStatus(text)) {
+                case .kept(let line): onRecorded?(line)
+                case .rejected(let why): rtLog("CLIP rejected (\(why.rawValue))"); onRecordRejected?(why)
+                case .notTracked: break
+                }
+            default: break
+            }
+        }
         if event == .responseDone { speech.done(id) }
         await handle(event)
     }
@@ -697,9 +746,14 @@ final class RealtimeSession {
     /// every in-flight response is cancelled, the local player is cleared, her line is cut at what was heard (and marked
     /// "…" in the chat), and pending reminder/repeat lines are dropped. The newest line is whatever the app says next.
     func stopSpeaking(_ reason: String) {
-        guard let socket, status == .live else { return }
+        guard let socket, status == .live else {
+            // Round D3b: no live session (an offline replay): a playing clip still stops at once, line cut in the chat.
+            if speaker.hasAudioQueued { speaker.cancel(); chat.cutOff(); rtLog("stop (\(reason)): clip stopped (no session), line cut") }
+            return
+        }
         let wasSpeaking = speaker.hasAudioQueued
         let ids = speech.cancelAll()
+        recorder.cancel(ids)   // round D3b: a cut line is never saved
         for id in ids { socket.send(Realtime.responseCancel(id: id)) }
         cancelThrough = socket.createsSent
         stopAt = Date()

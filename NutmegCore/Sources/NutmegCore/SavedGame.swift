@@ -160,8 +160,9 @@ public final class SavedGameStore: @unchecked Sendable {
 
     func folder(_ id: UUID) -> URL { root.appendingPathComponent(id.uuidString, isDirectory: true) }
 
-    /// Writes a game with its art (key → HEIC data) and cover (JPEG data).
-    public func save(_ game: SavedGame, art: [String: Data], cover: Data?) throws {
+    /// Writes a game with its art (key → HEIC data), cover (JPEG data) and (round D3b) its recorded clips
+    /// (clip key → AAC data, ADTS `.aac`; `game.clips` lists them).
+    public func save(_ game: SavedGame, art: [String: Data], cover: Data?, clips: [String: Data] = [:]) throws {
         try lock.withLock {
             try fm.createDirectory(at: root, withIntermediateDirectories: true)
             let tmp = root.appendingPathComponent(game.id.uuidString + ".tmp", isDirectory: true)
@@ -171,6 +172,9 @@ public final class SavedGameStore: @unchecked Sendable {
             g.art = art.keys.sorted()
             g.cover = cover == nil ? nil : "cover.jpg"
             for (key, data) in art { try write(data, to: tmp.appendingPathComponent("art").appendingPathComponent(ArtKey.fileName(key))) }
+            if !clips.isEmpty { try fm.createDirectory(at: tmp.appendingPathComponent("clips", isDirectory: true), withIntermediateDirectories: true) }
+            g.clips = g.clips.filter { clips[$0.key] != nil }.map { var c = $0; c.file = SavedGame.clipFile($0.key); return c }
+            for c in g.clips { try write(clips[c.key]!, to: tmp.appendingPathComponent(SavedGame.clipFile(c.key))) }
             if let cover { try write(cover, to: tmp.appendingPathComponent("cover.jpg")) }
             try write(SavedGame.encoder().encode(g), to: tmp.appendingPathComponent("game.json"))
             let dest = folder(game.id)
@@ -220,12 +224,37 @@ public final class SavedGameStore: @unchecked Sendable {
 
     /// A replay started: only `lastPlayedAt` changes (the content is immutable after saving).
     public func touch(_ id: UUID, at date: Date = Date()) {
-        guard var g = game(id) else { return }
-        g.lastPlayedAt = date
-        lock.withLock {
-            if let data = try? SavedGame.encoder().encode(g) { try? write(data, to: folder(id).appendingPathComponent("game.json")) }
+        lock.withLock {   // read and write under the lock (round D3b: a clip may be added at the same moment)
+            let json = folder(id).appendingPathComponent("game.json")
+            guard let d = try? Data(contentsOf: json), var g = try? SavedGame.decode(d) else { return }
+            g.lastPlayedAt = date
+            if let data = try? SavedGame.encoder().encode(g) { try? write(data, to: json) }
         }
     }
+
+    // MARK: Clips (round D3b)
+
+    /// A clip recorded on a later play (or after the save) joins the saved game: append-only, the first one saved for a
+    /// key wins (both are her real voice saying the same line). Returns false when the game is gone or the key exists.
+    @discardableResult
+    public func addClip(_ clip: SavedClip, data: Data, to id: UUID) -> Bool {
+        lock.withLock {
+            let json = folder(id).appendingPathComponent("game.json")
+            guard let d = try? Data(contentsOf: json), var g = try? SavedGame.decode(d) else { return false }
+            guard !g.clips.contains(where: { $0.key == clip.key }) else { return false }
+            do {
+                try fm.createDirectory(at: folder(id).appendingPathComponent("clips", isDirectory: true), withIntermediateDirectories: true)
+                var c = clip; c.file = SavedGame.clipFile(clip.key)
+                try write(data, to: folder(id).appendingPathComponent(c.file))
+                g.clips.append(c)
+                try write(SavedGame.encoder().encode(g), to: json)
+                return true
+            } catch { return false }
+        }
+    }
+
+    /// A stored clip's audio file.
+    public func clipURL(_ clip: SavedClip, in id: UUID) -> URL { folder(id).appendingPathComponent(SavedGame.clipFile(clip.key)) }
 
     /// Removes a game (Grown-ups delete is round D2; used by tests now).
     public func delete(_ id: UUID) { lock.withLock { try? fm.removeItem(at: folder(id)) } }

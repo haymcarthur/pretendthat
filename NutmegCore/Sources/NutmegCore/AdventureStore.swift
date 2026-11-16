@@ -246,6 +246,9 @@ public final class AdventureStore {
     /// Round 15: the one overall congratulations after an early Done!, said as the start of the next line (hand-off,
     /// next scene or the finale), so the tap gets ONE spoken reply.
     public var sceneLeadIn: String?
+    /// Round D3b (§D4.3 clip-aware lines): whether a whole line already has a recorded clip in this game. On a replay,
+    /// the congratulations lead-in prefers a variant whose whole line (lead-in + the next line) was recorded.
+    @ObservationIgnored public var isRecorded: ((String) -> Bool)?
 
     public func makeKit(remakeFor title: String? = nil) async {
         phase = .makingKit
@@ -1401,7 +1404,11 @@ public final class AdventureStore {
 
     /// A play-step line, starting with the pending congratulations if there is one.
     private func sayInPlay(_ line: String) {
-        let lead = sceneLeadIn.map { $0 + " " } ?? ""
+        var lead = sceneLeadIn.map { $0 + " " } ?? ""
+        if isReplay, sceneLeadIn != nil, let rec = isRecorded, !rec(lead + line),
+           let alt = ChecklistCheers.congrats.filter({ rec($0 + " " + line) }).randomElement() {
+            lead = alt + " "   // round D3b: the recorded variant
+        }
         sceneLeadIn = nil
         say(lead + line)
     }
