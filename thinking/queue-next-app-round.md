@@ -131,6 +131,16 @@ Art ready in design/export/ to import:
 1. **The Repeat button's icon doesn't read as "repeat".** Use a clearer replay icon in the control pill (for example SF Symbol `arrow.counterclockwise` or `arrow.trianglehead.counterclockwise`; pick what reads as "again" for a 4-year-old) and keep the "Hear it again" accessibility label. **DONE R22** (speaker inside a counterclockwise replay ring).
 2. **Sleeping Nutmeg sits ON her clipboard.** In the sit/doze pose the clipboard layer lands under her seat. Reposition the sit-pose clipboard (layer transform or alignment only, no art redraw) so it rests beside her or leans on her lap, not under her. **DONE R22.** See [decision](decisions/2026-11-15-round22-repeat-icon-sleep-clipboard.md).
 
+## Round 25 (2026-11-15, Haylee, after testing a replay): DONE (see [decision](decisions/2026-11-15-round25-no-draw-checklist-fix-end.md))
+1. Remove the no-printer Draw it! path entirely (printer question, Draw it! card, Save printables, Draw it instead, DrawGuide, set_printer/draw_step). Every game prints. Add back only if lots of feedback about no printer. **DONE R25.**
+2. The step is "Print" again with a printer icon (was Paper + crayon). **DONE R25.**
+3. The "x" checklist bug (one scene titled "x", props in no step) and 3b (replay 1 → 2: no checklist for the second player): same root cause, a cut-short guide kept by a non-fatal check. `GuideRepair` + a retry. **DONE R25.**
+4. The End: no Back to the checklist; the rail's Play step (finished, ↺) goes back; voice too. **DONE R25.**
+5. Fewer buttons (obvious ones): replay Print = Print everything / Just the badges / Let's play!; replay Props = one toggle per card. **DONE R25.**
+6. Button audit screenshots for the next conversation: /tmp/pt-buttons/sheet.png + inventory.md. **DONE R25.**
+7. (Mid-round) Her voice wasn't as high: the mixer → output link was 44.1 kHz on a 48 kHz session (effective rate 1.10 on the old and new builds); now wired at the hardware rate (1.20). **DONE R25.**
+Next: the full button audit with Haylee.
+
 ## Round 24 (queued 2026-11-15, Haylee): DONE (see [decision](decisions/2026-11-15-round24-props-sense-printer-path.md))
 1. **Props must make sense (bug):** a bowl was suggested "as a pirate map". Add guardrails so each household item → pretend-use pairing is plausible by shape or function (a bowl can be a helmet, a steering wheel or a treasure bowl; a map should be paper, a towel or a pillowcase). Claude's proposal:
    (a) Extend PropLibrary with each household item's plausible pretend uses (shape/function tags: round, flat, long, soft, container, wearable, sheet-like…), and match each pretend need to items with compatible tags.

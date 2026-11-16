@@ -9,7 +9,7 @@ Decisions are in decisions/2026-11-15-paid-app-direction.md. This file is the fu
 - **Money = one $1 bill page.** Menu prices stay small whole dollars ($1–5). (A "More money" button was built in R23 and removed at Haylee's request.)
 
 ## B. Clearer navigation back to earlier steps: **DONE R23** (steps renamed Pick · Props · Paper · Play)
-- Finished steps on the step rail look tappable: a picture icon (game / props / printer / play) plus a small ↺.
+- Finished steps on the step rail look tappable: a picture icon (game / props / printer / play; R25: the step is Print again with a printer icon) plus a small ↺.
 - ~~A "Print again" button on the checklist screen and The End~~ (built in R23, removed by Haylee: the rail's ↺ marks are enough).
 - Voice: "print it again" or "go back to the props" works.
 
@@ -31,9 +31,9 @@ Decisions are in decisions/2026-11-15-paid-app-direction.md. This file is the fu
 - Cost work first: test the smaller realtime voice model side by side (report only, no switch without Haylee's OK); re-measure the cost per game after round 20.
 - **A small "Grown-ups" corner behind a parental gate** (not a full settings menu): Manage subscription, Restore purchases (Apple requires it), privacy policy, help/contact, and manage saved games. (D2 built the corner with Saved games + About saved games; E turns on `GrownUpsFeatures.storeSections` and fills the four slots.) **No login or logout:** iCloud and App Store purchases use the device's Apple ID automatically.
 
-## F. Printer question + no-printer "Draw it!": **DONE R24**
+## F. Printer question + no-printer "Draw it!": DONE R24, then **REMOVED in R25** (Haylee: every game prints; add back only if lots of feedback about no printer; see decisions/2026-11-15-round25-no-draw-checklist-fix-end.md)
 - "Do you have a printer?" after the confirm yes; no printer = a hand-drawn kit (no images, cheaper) with "Save printables for later".
-- Still to do: App Store copy says "Works best with a printer; no printer needed."
+- (Dropped with the path: the "no printer needed" App Store line.)
 - Props make sense (shape/function tags, a spoken reason): **DONE R24**.
 
 ## Small queued items

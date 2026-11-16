@@ -88,7 +88,9 @@ The map. Read this first, then open only what you need.
 - [Round 22: Repeat icon = speaker inside a replay arrow ring; sleeping Nutmeg's clipboard moved off her seat to the floor beside her feet; Zzz shows when asleep](decisions/2026-11-15-round22-repeat-icon-sleep-clipboard.md): Haylee (Claude's calls noted)
 - [Round 23: Haylee's own Repeat icon, players 1–6 with a cap line, exact badges, $1 money + $1–5 prices, picture step rail + voice go_to_step, steps renamed Pick · Props · Paper · Play, no Skip / arrows / More money / Print again, no pointing at an empty card zone](decisions/2026-11-15-round23-icon-kit-fixes-backnav.md): Haylee (Claude's calls noted)
 
-- [Round 24: props make sense (tags, a spoken reason, one retry then a curated pair), "Do you have a printer?", no-printer Draw it! path with Save printables for later](decisions/2026-11-15-round24-props-sense-printer-path.md): Haylee (Claude's calls noted)
+- [Round 24: props make sense (tags, a spoken reason, one retry then a curated pair), "Do you have a printer?", no-printer Draw it! path with Save printables for later](decisions/2026-11-15-round24-props-sense-printer-path.md): Haylee (Claude's calls noted) · **printer question + Draw it! removed in round 25**
+
+- [Round 25: no-printer Draw it! removed (add back only if lots of feedback), Paper → Print with a printer icon, the "x" checklist fix (GuideRepair: real titles, ≥4 scenes, props in the steps; same root cause as the replay 1 → 2 missing turn), The End's Play rail step goes back to the checklist, fewer replay buttons, button audit screenshots, voice heard at Varispeed 1.20 again (mixer → output link was 44.1 kHz on a 48 kHz session)](decisions/2026-11-15-round25-no-draw-checklist-fix-end.md): Haylee (Claude's calls noted)
 
 - [Paid-app direction: iPad only, iCloud saved games, real-voice replays, 6-player cap, exact badges, $1 money](decisions/2026-11-15-paid-app-direction.md): Haylee
 - [Saved-game delete lives in the Grown-ups corner (no delete on the kids' shelf)](decisions/2026-11-15-saved-games-delete-in-grownups.md): Haylee
@@ -100,7 +102,7 @@ The map. Read this first, then open only what you need.
 - [Round D3b: Nutmeg's real recorded voice on replays (app lines recorded with a transcript gate, AAC with the saved game, clip-first playback through the same speaker, live once then saved, offline = Wi-Fi note + pause, 9 bundled lines recorded from her real voice, hit-rate log; same-count replay 100% clips, 0 Realtime responses)](decisions/2026-11-15-roundD3b-voice-clips.md): Haylee (real voice, answer 1), Claude's calls noted
 
 ## Work queue
-- [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–24 + C1 + D1 + D2 + D3a done (D3a = speaker refactor); next per the design: D3b voice clips
+- [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–25 + C1 + D1 + D2 + D3a + D3b done; next: the button audit with Haylee, then D4 iCloud
 
 ## Research
 - [Cost per game (2026-11-15)](research/2026-11-15-cost-per-game.md): about $1.60/game, OpenAI voice is the biggest share; levers ranked
