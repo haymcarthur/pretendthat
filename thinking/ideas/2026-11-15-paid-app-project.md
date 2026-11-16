@@ -17,7 +17,7 @@ Decisions are in decisions/2026-11-15-paid-app-direction.md. This file is the fu
 - Every game generates 6 ranked roles (R1 lead … R6), a 6-up badge sheet (one image, sliced), and ~~checklist steps for extra roles marked optional~~ (Haylee changed it: every playing role gets its OWN called-out step in every scene; hand-offs rotate through all playing roles).
 - Show and print only the current player count. A count change makes no AI call.
 
-## D. Saved games and replays
+## D. Saved games and replays: **D1 DONE** (decisions/2026-11-15-roundD1-local-saved-games.md: local save on this iPad, My games bookshelf, replay flow with the live voice, GameLedger hook). Next: D2 Grown-ups + delete, D3a/D3b recorded voice, D4 iCloud.
 - At The End, "Save it to play again ⭐" replaces "Play again". Unsaved games are discarded.
 - Saved on the iPad and synced with the family's iCloud (CloudKit private database). No accounts, no backend. Game content only, never anything about kids.
 - A "My games" shelf on the start screen: big picture cards. **No shelf cap.** Grown-up-gated delete (long press, then confirm).

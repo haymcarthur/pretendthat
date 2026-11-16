@@ -94,9 +94,10 @@ The map. Read this first, then open only what you need.
 - [Saved-game delete lives in the Grown-ups corner (no delete on the kids' shelf)](decisions/2026-11-15-saved-games-delete-in-grownups.md): Haylee
 - [Round C1: generate for 6 (6 ranked roles, a step per playing role in every scene, rotating hand-offs, 6-up badge sheet, no AI call on a count change; Claude +3¢/game)](decisions/2026-11-15-roundC1-generate-for-6.md): Haylee (answer 2), Claude's calls noted
 - [Guide prefetch: play guide written during the hunt, props woven in per card, skips/swaps applied with no call, Paper never waits (20–24 s → ~1 s)](decisions/2026-11-15-guide-prefetch.md): Haylee (fix it first), Claude's calls noted
+- [Round D1: local saved games (Save it to play again ⭐, this iPad only, game content only + privacy test), My games button + bookshelf screen, replay flow Pick · Props · Paper · Play with no content AI calls (live voice), GameLedger no-op](decisions/2026-11-15-roundD1-local-saved-games.md): Haylee (design + §10/§11), Claude's calls noted
 
 ## Work queue
-- [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–24 + C1 done (C1 = generate for 6); next per the design: D1 local saved games (shelf mockup first)
+- [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–24 + C1 + D1 done (D1 = local saved games + replays); next per the design: D2 Grown-ups corner + delete
 
 ## Research
 - [Cost per game (2026-11-15)](research/2026-11-15-cost-per-game.md): about $1.60/game, OpenAI voice is the biggest share; levers ranked
