@@ -751,6 +751,13 @@ final class AppModel {
                 }
                 try? await Task.sleep(for: .milliseconds(500))
             }
+            // The last image of each set really landed (the set is only "final" once the hunt is over).
+            for (name, set) in [("color", colorArt), ("outline", outlineArt)] {
+                if let last = set.landedAt.values.max() {
+                    rtLog(String(format: "TIMING r27 %@ last image landed %.1f s after the hunt started (%+.1f s vs Print)", name,
+                                 last.timeIntervalSince(hunt), last.timeIntervalSince(print)))
+                }
+            }
             let u = ImageUsageLog.snapshot(since: hunt.addingTimeInterval(-120))
             rtLog(String(format: "TIMING r27 images: %d requests, peak %d/min, %d 429s, %d in + %d out tokens = $%.3f",
                          u.requests, u.peakPerMinute, u.rateLimited, u.inputTokens, u.outputTokens, u.dollars))

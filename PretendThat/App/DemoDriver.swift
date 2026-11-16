@@ -190,6 +190,14 @@ enum DemoDriver {
                 saveShot(String(turn.dropFirst(6)))         // round 25: the app renders its own window (exact timing)
                 try? await Task.sleep(for: .seconds(1.3)); continue
             }
+            // Round 27: "#allart": wait (≤ 3 min) until both print sets and the cover have settled, then log it.
+            if turn == "#allart" {
+                for _ in 0..<1800 where !(model.colorArt.finished && model.outlineArt.finished && (model.coverArt.settledAt != nil || model.store.isReplay)) {
+                    try? await Task.sleep(for: .milliseconds(100))
+                }
+                rtLog("ART: color=\(model.colorArt.finished) outline=\(model.outlineArt.finished) cover=\(model.coverArt.image != nil) set=\(model.store.printSet.toolValue)")
+                continue
+            }
             if turn == "#saveGame" {
                 model.tapSave()
                 for _ in 0..<100 where model.store.savedAs == nil { try? await Task.sleep(for: .milliseconds(100)) }
