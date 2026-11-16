@@ -1,0 +1,72 @@
+{
+  "art": "bookshelf.svg",
+  "artSize": {
+    "width": 990,
+    "height": 1131
+  },
+  "units": "fractions of the art's width/height (px = the SVG's own units)",
+  "howToUse": "Each slot is one compartment's inner opening: from the bottom of whatever is above it (the arch trim, or the shelf board above) down to the front edge of the board it stands on. Stand cards with their bottom between shelfBackY and shelfFrontY (just behind shelfFrontY) so they sit ON the board, and bottom-align every row to its board.",
+  "measuredHeights": "Top 161 px, middle 185 px, bottom 181 px (top to front edge). The open back-panel area above each board is 133 / 149 / 137 px. So in this cleaned art the top compartment is NOT taller: the arch's scallops and trim fill the space above it. Cards in the top row still bottom-align to shelf 1.",
+  "slots": [
+    {
+      "name": "top",
+      "note": "under the arch: top edge is the lowest point of the wood trim scallops (~y 246; between scallops the opening reaches ~y 230)",
+      "inner": {
+        "x": 0.1061,
+        "y": 0.2175,
+        "width": 0.7869,
+        "height": 0.1424
+      },
+      "shelfBackY": 0.3351,
+      "shelfFrontY": 0.3599,
+      "px": {
+        "x": 105,
+        "y": 246,
+        "width": 779,
+        "height": 161,
+        "shelfBackY": 379,
+        "shelfFrontY": 407
+      }
+    },
+    {
+      "name": "middle",
+      "note": "under shelf 1",
+      "inner": {
+        "x": 0.1061,
+        "y": 0.397,
+        "width": 0.7869,
+        "height": 0.1636
+      },
+      "shelfBackY": 0.5287,
+      "shelfFrontY": 0.5606,
+      "px": {
+        "x": 105,
+        "y": 449,
+        "width": 779,
+        "height": 185,
+        "shelfBackY": 598,
+        "shelfFrontY": 634
+      }
+    },
+    {
+      "name": "bottom",
+      "note": "under shelf 2; the coral star drawer below is not a slot",
+      "inner": {
+        "x": 0.1061,
+        "y": 0.5977,
+        "width": 0.7869,
+        "height": 0.16
+      },
+      "shelfBackY": 0.7188,
+      "shelfFrontY": 0.7577,
+      "px": {
+        "x": 105,
+        "y": 676,
+        "width": 779,
+        "height": 181,
+        "shelfBackY": 813,
+        "shelfFrontY": 857
+      }
+    }
+  ]
+}
