@@ -85,7 +85,7 @@ The map. Read this first, then open only what you need.
 - [Round 19: writing hand moves as one unit, corrections update everything + recap/confirm step, taps stop her speech, kid-safety guardrails (local filter + moderation, relay /v1/moderations)](decisions/2026-11-15-round19-crayon-corrections-bargein-guardrails.md): Haylee (Claude's calls noted)
 - [Round 20: color choice (full color / I'll color them), kit made during the prop hunt, settings removed, "Now it's time to hunt for props!", stable Realtime prefix (44% → 84% cached), low-quality images + one cut-out sheet, pretend swords, typed turn stops her speech](decisions/2026-11-15-round20-color-prefetch-settings-cost.md): Haylee (Claude's calls noted)
 - [Round 21: lag measured (round 19 moderation blocked every typed turn; now in parallel, typed 2.1–2.7 s → 1.2–1.5 s), choice buttons on top, keyboard never rezooms Nutmeg, chat scrolls, no keyboard bounce](decisions/2026-11-15-round21-lag-buttons-keyboard.md): Haylee (Claude's calls noted)
-- [Round 22: Repeat icon = speaker inside a replay arrow ring; sleeping Nutmeg's clipboard moved off her seat to the floor beside her feet](decisions/2026-11-15-round22-repeat-icon-sleep-clipboard.md): Haylee (Claude's calls noted)
+- [Round 22: Repeat icon = speaker inside a replay arrow ring; sleeping Nutmeg's clipboard moved off her seat to the floor beside her feet; Zzz shows when asleep](decisions/2026-11-15-round22-repeat-icon-sleep-clipboard.md): Haylee (Claude's calls noted)
 
 - [Paid-app direction: iPad only, iCloud saved games, real-voice replays, 6-player cap, exact badges, $1 money](decisions/2026-11-15-paid-app-direction.md): Haylee
 
@@ -98,6 +98,7 @@ The map. Read this first, then open only what you need.
 - [Name check: Boxley](research/name-check-boxley.md): why Boxley is out
 
 ## Ideas
+- [Paid-app project checklist: kit fixes, back-navigation, generate-for-6, saved games + real-voice replays, StoreKit, Grown-ups corner](ideas/2026-11-15-paid-app-project.md): queued, design doc first
 - [Later and stretch ideas](ideas/later-ideas.md): photo scan, accounts, cloud voice, B2B, pricing
 - [Save the current game to disk](ideas/save-game-to-disk.md): stretch, only if time (Haylee)
 

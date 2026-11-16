@@ -8,7 +8,7 @@ import NutmegCore
 enum NutmegState: String, CaseIterable, Identifiable {
     case idle, listening, thinking, talking, excited, amazed, oops, napping, coloring
     /// Sleepy Nutmeg (round 9): nobody answered after the reminder + ~30 s. She sits down (eyes open), her eyes droop
-    /// (slow heavy blinks), then she's asleep (nap face, slow deep breathing). No text, no "z"s.
+    /// (slow heavy blinks), then she's asleep (nap face, slow deep breathing). No text; round 22 (Haylee) adds the floating Zzz when asleep.
     case sitting, drowsy, asleep
     var id: String { rawValue }
 
@@ -38,6 +38,8 @@ enum NutmegState: String, CaseIterable, Identifiable {
         NutmegPose(PoseRules.base(napping: isSeated, coloring: self == .coloring))
     }
     /// The sit pose: the step-back nap and the three sleepy stages.
+    /// Round 22 (Haylee): the floating Zzz beside her head, while napping or asleep (never drowsy or just sitting).
+    var showsZzz: Bool { self == .napping || self == .asleep }
     var isSeated: Bool { self == .napping || self == .sitting || self == .drowsy || self == .asleep }
     /// The resting pose with the kit step's clipboard hold (`PoseRules.holdsClipboard`).
     func basePose(holdingClipboard: Bool) -> NutmegPose {

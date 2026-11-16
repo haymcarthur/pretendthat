@@ -20,3 +20,14 @@ Claude's calls, noted.
   tucked just behind her toes, still drawn behind her. Transform only, no art change. She stays grounded (round 14's
   `sitDrop` untouched). Checked chat closed and open: /tmp/pt-round22/sleep-chat-closed.png, sleep-chat-open.png,
   pill-zoom.png.
+
+## 3. Zzz when she's asleep (Haylee)
+- The floating Zzz only drew in the old `.napping` state; the real doze flow (round 9, Doze.swift: sitting → drowsy →
+  asleep) never showed it (round 9 had said "no z's"; Haylee now wants them). `NutmegState.showsZzz` = napping or
+  asleep; never drowsy or sitting.
+- The Zzz is always in the view tree and its opacity eases 0.8 s with `showsZzz` (fades in as she falls asleep, out when
+  she wakes), so the pose-swap animations aren't touched.
+- Claude's call: a tighter, lower drift by her head (1024-space x 710→760, y 280→110; was 720→840, 240→40) so it clears
+  the big stage star up and to her right with the chat open, and stays low, away from the choice buttons at the top.
+- Reduce Motion: the three z's hold still at staggered spots (no drift) and still fade with sleep.
+- Screenshots: /tmp/pt-round22/asleep-zzz.png, asleep-zzz-chat-open.png, drowsy-no-zzz.png (none).

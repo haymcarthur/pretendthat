@@ -172,7 +172,11 @@ struct NutmegCharacter: View {
             }
             .frame(width: w, height: h)
             .scaleEffect(x: 1 - (m.breathe - 1) * 0.42, y: m.breathe, anchor: .bottom)
-            if state == .napping { zzz(t: t, unit: unit) }
+            // Round 22 (Haylee): the Zzz shows in the real doze flow's `.asleep` too (not drowsy/sitting); it fades in as
+            // she falls asleep and out when she wakes.
+            zzz(t: t, unit: unit)
+                .opacity(state.showsZzz ? 1 : 0)
+                .animation(.easeInOut(duration: 0.8), value: state.showsZzz)
         }
         .frame(width: w, height: h, alignment: .topLeading)
         .scaleEffect(x: squash.width, y: squash.height, anchor: .bottom)
@@ -238,12 +242,16 @@ struct NutmegCharacter: View {
     private func zzz(t: Double, unit: CGFloat) -> some View {
         ZStack {
             ForEach(0..<3, id: \.self) { i in
-                let phase = (t / 2.4 + Double(i) / 3).truncatingRemainder(dividingBy: 1)
+                // Reduce Motion: the three z's hold still at staggered spots (no drift), still fading in/out with sleep.
+                let phase = reduceMotion ? 0.12 + Double(i) * 0.28
+                    : (t / 2.4 + Double(i) / 3).truncatingRemainder(dividingBy: 1)
                 Text("z")
                     .font(Theme.displayFont(CGFloat(60 + i * 20) * unit * 2))
                     .foregroundStyle(Theme.purple)
                     .opacity(1 - phase)
-                    .position(x: (720 + phase * 120) * unit, y: (240 - phase * 200) * unit)
+                    // Round 22: a tighter, lower drift hugging her head (was x 720→840, y 240→40), so it stays clear of the
+                    // stage star upper right of her (chat open) and the choice buttons at the top.
+                    .position(x: (710 + phase * 50) * unit, y: (280 - phase * 170) * unit)
             }
         }
         .accessibilityHidden(true)
