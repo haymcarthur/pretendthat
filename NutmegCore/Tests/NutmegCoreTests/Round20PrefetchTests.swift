@@ -5,11 +5,10 @@ import Testing
 /// Round 20 (Haylee): the kit is made during the prop hunt. The pages start as soon as the color and the roles are set;
 /// the play guide and the skipped props' cut-outs wait for the hunt's end; a correction restarts the dependent work.
 @MainActor struct Round20PrefetchTests {
-    private func hunting(_ store: AdventureStore, style: PrintStyle? = .fullColor, kids: Int = 2) async {
+    private func hunting(_ store: AdventureStore, kids: Int = 2) async {
         store.beginConversation()
         _ = await store.apply(.setGame("Bakery")); _ = await store.apply(.setTheme("Bakery on the Moon"))
         _ = await store.apply(.setPlayerCount(kids)); _ = await store.confirmYes()
-        if let style { _ = await store.apply(.setPrintStyle(style)) }
         _ = await store.apply(.setRoles((0..<kids).map { .init(roleName: ["Baker", "Customer", "Cashier"][$0 % 3], job: "") }))
     }
     private func waitFor(_ cond: () -> Bool) async {
@@ -45,11 +44,11 @@ import Testing
         #expect((store.kit?.scenes.count ?? 0) >= 4)
     }
 
-    @Test func noPagesBeforeTheColorOrWithoutClaude() async {
+    @Test func noPagesBeforeTheRolesOrWithoutClaude() async {
         let store = AdventureStore(service: PhaseService(llm: FakeLLM()))
         store.beginConversation()
         _ = await store.apply(.setGame("Bakery")); _ = await store.apply(.setPlayerCount(2)); _ = await store.confirmYes()
-        #expect(store.planningStep == .color && store.draftStartedAt == nil)
+        #expect(store.planningStep == .roles && store.draftStartedAt == nil)   // round 26: no color step; the roles come next
         let offline = AdventureStore(service: nil)
         await hunting(offline)
         #expect(offline.draftStartedAt == nil && offline.wantedDraft == nil)
@@ -58,19 +57,16 @@ import Testing
         #expect(KitDraft.inputs(title: "X", playerCount: 2, plan: Fallback.airplane.plan, printStyle: .colorIn, step: .props) != nil)
     }
 
-    @Test func aCorrectionCancelsAndNewRolesRestartButTheColorDoesNot() async {
+    @Test func aCorrectionCancelsAndNewRolesRestart() async {
         let llm = FakeLLM()
         let store = AdventureStore(service: PhaseService(llm: llm))
         await hunting(store)
         await waitFor { store.draftItems != nil }
         let gen = store.draftGeneration
-        // The color only changes the art (the app redraws it): the pages' text stays.
-        _ = await store.apply(.setPrintStyle(.colorIn))
-        #expect(store.draftGeneration == gen && store.draftItems != nil)
         // A theme fix mid-hunt: the roles are cleared, so the pages for them are dropped.
         _ = await store.apply(.setTheme("Bakery Under the Sea"))
         #expect(store.draftItems == nil && store.draftGeneration > gen && store.draftStartedAt == nil)
-        _ = await store.apply(.confirmPlan)                                       // the color is kept: straight to roles
+        _ = await store.apply(.confirmPlan)                                       // straight to roles (round 26: no color question)
         _ = await store.apply(.setRoles([.init(roleName: "Baker", job: ""), .init(roleName: "Diver", job: "")]))
         await waitFor { store.draftItems != nil }
         #expect(store.draftItems != nil)

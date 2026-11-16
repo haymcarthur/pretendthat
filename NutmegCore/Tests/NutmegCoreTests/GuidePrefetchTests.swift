@@ -24,7 +24,7 @@ import Testing
     private func hunting(_ store: AdventureStore, title: String = "Airplane to the Beach") async {
         store.beginConversation()
         _ = await store.apply(.setGame("Airplane")); _ = await store.apply(.setTheme(title))
-        _ = await store.apply(.setPlayerCount(2)); _ = await store.confirmYes(); _ = await store.apply(.setPrintStyle(.colorIn))
+        _ = await store.apply(.setPlayerCount(2)); _ = await store.confirmYes()
         _ = await store.apply(.setRoles([.init(roleName: "Captain", job: "fly the plane"), .init(roleName: "Flight Attendant", job: "serve snacks")]))
     }
     private func waitFor(_ cond: () -> Bool) async {

@@ -44,7 +44,7 @@ func walk(_ store: AdventureStore) async -> [Phase] {
     #expect(store.plan?.roles.allSatisfy { $0.count == 1 } == true)
     store.beginPlay()
     #expect(store.phase == .handoff(sceneIndex: 0))
-    #expect(store.nutmegLine == "Pass the iPad to the Captain, then tap I'm the Captain!")
+    #expect(store.nutmegLine == "Pass the iPad to the Captain! Tap the green check when you have the iPad!")
 }
 
 @Test @MainActor func handoffLineUsesTheRoleNeverAName() async {
@@ -52,7 +52,7 @@ func walk(_ store: AdventureStore) async -> [Phase] {
     store.autoCheckStep = .zero; store.autoCheckHold = .zero
     store.beginPlay(); store.badgeTapped(.R1)
     await store.sceneDone()
-    #expect(store.nutmegLine.hasSuffix("Pass the iPad to the Flight Attendant, then tap I'm the Flight Attendant!"))
+    #expect(store.nutmegLine.hasSuffix("Pass the iPad to the Flight Attendant! Tap the green check when you have the iPad!"))
 }
 
 @Test @MainActor func handoffsRotateThroughThePlayingRoles() async {
@@ -168,41 +168,25 @@ struct RefusingLLM: LLM {
     #expect(store.usingFallback && store.lastError == nil)
 }
 
-// MARK: Round 10: Done! auto-checks, goes straight to the hand-off; Back restores the checklist
+// MARK: Round 10 / 26: finishing a scene (no Done button; "we're done" by voice checks the rest)
 
 @MainActor
-func storeAtFirstScene() async -> AdventureStore {
+func storeAtFirstScene(grace: Duration = .milliseconds(150)) async -> AdventureStore {
     let store = await storeWithKit(owners: [.R1, .R2, .all, .R1], players: 3)
     store.autoCheckStep = .zero; store.autoCheckHold = .zero
+    store.autoAdvanceGrace = grace
     store.beginPlay()
     if case .handoff(let i) = store.phase, let owner = store.kit?.scenes[i].owner.role { store.badgeTapped(owner) }
     return store
 }
 
-@Test @MainActor func earlyDoneAutoChecksThenGoesToTheHandoff() async {
+@Test @MainActor func finishingEarlyAutoChecksThenGoesToTheHandoff() async {
     let store = await storeAtFirstScene()
     #expect(store.phase == .scene(0))
     store.toggleStep(0)
     await store.sceneDone()
     #expect(store.phase == .handoff(sceneIndex: 1))
     #expect(store.checkedSteps.count == store.kit?.scenes[0].steps.count)
-    #expect(store.doneSnapshot == .init(scene: 0, checked: [0]))
-    #expect(store.canGoBackToChecklist)
-}
-
-@Test @MainActor func backRestoresTheChecklistExactly() async {
-    let store = await storeAtFirstScene()
-    store.toggleStep(1)
-    await store.sceneDone()
-    store.backToChecklist()
-    #expect(store.phase == .scene(0))
-    #expect(store.checkedSteps == [1])
-    #expect(!store.canGoBackToChecklist)
-    // Done again → hand-off again; the next role confirms → Back is gone.
-    await store.sceneDone()
-    guard case .handoff(let i) = store.phase, let owner = store.kit?.scenes[i].owner.role else { Issue.record("no hand-off"); return }
-    store.badgeTapped(owner)
-    #expect(store.phase == .scene(1) && store.checkedSteps.isEmpty && !store.canGoBackToChecklist)
 }
 
 @Test @MainActor func tappingACheckedStepUnchecksIt() async {
@@ -211,17 +195,60 @@ func storeAtFirstScene() async -> AdventureStore {
     #expect(store.checkedSteps.isEmpty)
 }
 
-@Test @MainActor func backWorksWithVoiceConfirmAfterwards() async {
+@Test @MainActor func voiceFinishThenVoiceHandoff() async {
     let store = await storeAtFirstScene()
-    await store.sceneDone()
-    store.backToChecklist()
-    await store.sceneDone()
+    let done = await store.apply(.finishScene)
+    #expect(done.contains("Say nothing") && store.phase == .handoff(sceneIndex: 1))
     let out = await store.apply(.confirmHandoff)
     #expect(out.contains("Hand-off confirmed"))
     #expect(store.phase == .scene(1))
+    #expect(await store.apply(.finishScene) == "Scene finished: the app moves on and says the next line. Say nothing.")
+    #expect(Realtime.afterHuntTools(.scene(0)) == ["finish_scene", "go_to_step", "just_talk"])
+    #expect(PlanningCall.decode(name: "finish_scene", arguments: "{}") == .finishScene)
+    #expect(Realtime.tools.contains { $0["name"] as? String == "finish_scene" })
 }
 
-@Test @MainActor func lastSceneDoneGoesToTheFinaleWithBack() async {
+// Round 26 (Haylee): the checklist moves on by itself once every step is checked, after a grace.
+@Test @MainActor func checkingEveryStepAutoAdvancesAfterTheGrace() async throws {
+    let store = await storeAtFirstScene()
+    var told = 0
+    store.willAutoAdvance = { told += 1 }
+    let n = store.kit?.scenes[0].steps.count ?? 0
+    for s in 0..<n { store.toggleStep(s) }
+    #expect(store.advancePending && store.phase == .scene(0))   // a beat first: the last check is still visible
+    for _ in 0..<300 where store.phase == .scene(0) { try await Task.sleep(for: .milliseconds(10)) }
+    #expect(store.phase == .handoff(sceneIndex: 1), "\(store.phase)")
+    #expect(told == 1 && !store.advancePending)
+}
+
+@Test @MainActor func uncheckingInsideTheGraceCancelsTheAdvance() async throws {
+    let store = await storeAtFirstScene(grace: .milliseconds(300))
+    let n = store.kit?.scenes[0].steps.count ?? 0
+    for s in 0..<n { store.toggleStep(s) }
+    try await Task.sleep(for: .milliseconds(100))
+    store.toggleStep(n - 1)   // an accidental last tap, undone in time
+    #expect(!store.advancePending)
+    try await Task.sleep(for: .milliseconds(500))
+    #expect(store.phase == .scene(0) && store.checkedSteps.count == n - 1)
+    store.toggleStep(n - 1)   // checked again: the grace starts over, then it moves on
+    for _ in 0..<300 where store.phase == .scene(0) { try await Task.sleep(for: .milliseconds(10)) }
+    #expect(store.phase == .handoff(sceneIndex: 1))
+}
+
+@Test @MainActor func theDefaultGraceIsAboutASecondAndAHalf() async {
+    #expect(AdventureStore(service: nil).autoAdvanceGrace == .milliseconds(1500))
+}
+
+@Test @MainActor func leavingTheSceneCancelsAPendingAdvance() async throws {
+    let store = await storeAtFirstScene(grace: .milliseconds(200))
+    let n = store.kit?.scenes[0].steps.count ?? 0
+    for s in 0..<n { store.toggleStep(s) }
+    #expect(store.goTo(.print))   // the rail, inside the grace
+    try await Task.sleep(for: .milliseconds(400))
+    #expect(store.phase == .kitReady && !store.advancePending)
+}
+
+@Test @MainActor func lastSceneGoesToTheEndAndThePlayStepReopensItUnchecked() async {
     let store = await storeAtFirstScene()
     let n = store.kit?.scenes.count ?? 0
     for _ in 0..<(n - 1) {
@@ -230,7 +257,7 @@ func storeAtFirstScene() async -> AdventureStore {
     }
     #expect(store.phase == .scene(n - 1))
     await store.sceneDone()
-    #expect(store.phase == .end && store.canGoBackToChecklist)
-    store.backToChecklist()
-    #expect(store.phase == .scene(n - 1))
+    #expect(store.phase == .end && store.nutmegLine.hasSuffix(HandOffLines.end()))
+    #expect(store.goTo(.play))
+    #expect(store.phase == .scene(n - 1) && store.checkedSteps.isEmpty && store.nutmegLine == HandOffLines.backToChecklist)
 }

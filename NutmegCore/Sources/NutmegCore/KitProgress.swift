@@ -140,7 +140,7 @@ public enum PropSkip {
     /// The silent note for the model's spoken reply after a skip (the next prop's card is already out).
     public static func note(item: String, becomes: String, then: String) -> String {
         let example = templates(item: item, becomes: becomes)[1]
-        return "(Silent coaching, don't mention it.) The kids tapped Don't have it again: the \(item.lowercased()) is ALREADY "
+        return "(Silent coaching, don't mention it.) The kids tapped the X again (don't have it): the \(item.lowercased()) is ALREADY "
             + "marked as pretend on screen (don't call skip_prop or swap_prop). Say nothing yet: \(then) FIRST. Then speak ONCE: "
             + "start with \"That's okay, we'll just pretend that\" plus a quick pretend idea for it (like \"\(example)\"), "
             + "then say the new prop in the same turn. Never narrate."
@@ -158,8 +158,6 @@ public enum ChecklistCheers {
                                   "You finished it all! What a team!", "Every step is checked! You're superstars!",
                                   "Hooray, you did the whole scene!", "That's every step! Fantastic work!",
                                   "Bravo! The whole list is done!", "You did it all! That scene was wonderful!"]
-    public static let doneTails = ["Tap Done for what's next!", "Tap Done when you want the next part!",
-                                   "Tap Done to keep the story going!"]
 
     /// The step as a phrase after "Next," ("Hand out the pancakes." → "hand out the pancakes").
     public static func phrase(_ step: String) -> String {
@@ -172,20 +170,20 @@ public enum ChecklistCheers {
     }
 
     /// What she says right after a step was checked: praise + the next unchecked step (in list order, after the one
-    /// just checked first), or the overall congratulations + "tap Done" when every step is checked. nil if `index`
-    /// isn't checked (an uncheck says nothing).
+    /// just checked first). nil if `index` isn't checked (an uncheck says nothing) or every step is checked: round 26,
+    /// the checklist then moves on by itself and the overall congratulations leads the next line (`finished`).
     public static func afterCheck<G: RandomNumberGenerator>(index: Int, steps: [String], checked: Set<Int>,
                                                             deck: inout LineDeck, using rng: inout G) -> String? {
         guard checked.contains(index), steps.indices.contains(index) else { return nil }
         let open = steps.indices.filter { !checked.contains($0) }
-        if open.isEmpty { return finished(deck: &deck, using: &rng) + " " + (deck.draw("check.tail", from: doneTails, using: &rng) ?? "") }
+        if open.isEmpty { return nil }
         let next = open.first { $0 > index } ?? open[0]
         let p = deck.draw("check.praise", from: praise, using: &rng) ?? "Good job!"
         let n = deck.draw("check.next", from: nextWords, using: &rng) ?? "Next, %@!"
         return p + " " + n.replacingOccurrences(of: "%@", with: phrase(steps[next]))
     }
 
-    /// The one overall congratulations (the last step checked, or Done! tapped early).
+    /// The one overall congratulations (every step checked, or "we're done" said early), leading the next line.
     public static func finished<G: RandomNumberGenerator>(deck: inout LineDeck, using rng: inout G) -> String {
         deck.draw("check.congrats", from: congrats, using: &rng) ?? congrats[0]
     }

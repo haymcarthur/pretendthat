@@ -170,9 +170,9 @@ struct SeededRNG: RandomNumberGenerator {
     // Unchecked: says nothing.
     let unchecked = ChecklistCheers.afterCheck(index: 1, steps: steps, checked: [0], deck: &deck, using: &rng)
     #expect(unchecked == nil)
-    // Last step: the overall congratulations + Done.
-    let c = ChecklistCheers.afterCheck(index: 1, steps: steps, checked: [0, 1, 2], deck: &deck, using: &rng)!
-    #expect(ChecklistCheers.congrats.contains { c.hasPrefix($0) } && c.contains("Tap Done"))
+    // Last step (round 26): nothing here; the checklist moves on by itself and the congratulations leads the next line.
+    #expect(ChecklistCheers.afterCheck(index: 1, steps: steps, checked: [0, 1, 2], deck: &deck, using: &rng) == nil)
+    #expect(ChecklistCheers.congrats.allSatisfy { !$0.contains("Done") })
 }
 
 @Test func checklistCheersAreVaried() {
@@ -183,7 +183,7 @@ struct SeededRNG: RandomNumberGenerator {
     let openers = lines.map { l in ChecklistCheers.praise.first { l.hasPrefix($0) }! }
     #expect(Set(openers).count == openers.count)       // no praise repeats
     #expect(ChecklistCheers.praise.count >= 10 && ChecklistCheers.congrats.count >= 6)
-    for l in ChecklistCheers.praise + ChecklistCheers.congrats + ChecklistCheers.doneTails {
+    for l in ChecklistCheers.praise + ChecklistCheers.congrats {
         #expect(!TurnCheck.hasSoundEffect(l), "\(l)")
     }
     #expect(ChecklistCheers.phrase("Captain, check the plane.") == "captain, check the plane")

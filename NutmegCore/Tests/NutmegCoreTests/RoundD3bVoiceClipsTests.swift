@@ -214,9 +214,9 @@ struct RoundD3bVoiceClipsTests {
         #expect(ClipMeta.role(of: HandOffLines.handoff(spokenRole: r2.spoken), roles: roles) == r2.id.rawValue)
         #expect(ClipMeta.role(of: "Good job! Next, wave!", roles: roles) == nil)
         #expect(ClipMeta.kind(of: HandOffLines.printReady) == .printReady)
-        #expect(ClipMeta.kind(of: HandOffLines.end(canGoBack: false, replay: true)) == .end)
+        #expect(ClipMeta.kind(of: HandOffLines.end(replay: true)) == .end)
         #expect(ClipMeta.kind(of: "Wonderful! Next, serve the snacks!") == .cheer)
-        #expect(ClipMeta.kind(of: ChecklistCheers.congrats[0] + " " + ChecklistCheers.doneTails[0]) == .congrats)
+        #expect(ClipMeta.kind(of: ChecklistCheers.congrats[0] + " " + HandOffLines.printReady) == .congrats)
         #expect(ClipMeta.kind(of: ReplayLines.greeting(title: "Airplane to the Beach")) == .replay)
         #expect(ClipMeta.kind(of: WiFiPause.spokenNote) == .wifi)
         #expect(ClipMeta.kind(of: BackNav.arrivalLine(.play)) == .arrival)
@@ -237,9 +237,8 @@ struct RoundD3bVoiceClipsTests {
         var deck = LineDeck()
         let free = ChecklistCheers.afterCheck(index: 1, steps: steps, checked: [0, 1], deck: &deck, using: &rng, recorded: { recorded.contains($0) })
         #expect(free?.hasSuffix("fasten your seatbelts!") == true)
-        // The finished list: a recorded congrats + tail wins.
-        let fin = ChecklistCheers.congrats[3] + " " + ChecklistCheers.doneTails[2]
-        #expect(ChecklistCheers.afterCheck(index: 2, steps: steps, checked: [0, 1, 2], deck: &deck, using: &rng, recorded: { $0 == fin }) == fin)
+        // Round 26: the finished list says nothing here (the auto-advance's congratulations leads the next line).
+        #expect(ChecklistCheers.afterCheck(index: 2, steps: steps, checked: [0, 1, 2], deck: &deck, using: &rng, recorded: { _ in true }) == nil)
         // The generic deck.
         var d2 = LineDeck()
         for _ in 0..<10 { #expect(d2.drawPreferring("kit", from: ["a", "b", "c"], recorded: { $0 == "b" }, using: &rng) == "b") }
@@ -249,7 +248,7 @@ struct RoundD3bVoiceClipsTests {
     @Test func replayLeadInPrefersTheRecordedCongratsWholeLine() async {
         let store = AdventureStore(service: nil)
         store.loadReplay(fixture())
-        store.replayPick(3); store.replayPickDone(); store.replayPropsDone(); store.replayPaper(.skip)
+        store.replayPick(3); store.replayAllFound(); store.beginPlay()
         store.autoCheckStep = .zero; store.autoCheckHold = .zero
         store.beginPlay()
         if case .handoff(let i) = store.phase, let r = store.kit?.scenes[i].owner.role { store.badgeTapped(r) }
@@ -279,7 +278,8 @@ struct RoundD3bVoiceClipsTests {
             var lines: [String] = []
             func take() { if !store.nutmegLine.isEmpty, lines.last != store.nutmegLine { lines.append(store.nutmegLine) } }
             take()
-            store.replayPick(n); take(); store.replayPickDone(); take(); store.replayPropsDone(); take(); store.replayPaper(.skip); take()
+            store.replayPick(n); take()
+            while store.replayHuntActive { store.replayHunt(found: true); take() }
             store.beginPlay(); take()
             for _ in 0..<40 {
                 switch store.phase {

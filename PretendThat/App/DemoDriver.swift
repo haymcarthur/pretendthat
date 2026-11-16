@@ -5,7 +5,7 @@ import NutmegCore
 
 /// DEBUG only: `-PTDemo <phase>` launches straight into a phase with the bundled airplane game
 /// (no network), so every screen can be screenshotted and reviewed quickly.
-/// Phases: hello, pickGame, players, roles, props, kitReady, handoff, scene, end; doneFlow (round 10: scene 0 with one step checked → early Done! after 3 s → hand-off → Back after 4 s more).
+/// Phases: hello, pickGame, players, roles, props, kitReady, handoff, scene, end; doneFlow (scene 0 with one step checked → finished early after 3 s → the hand-off).
 enum DemoDriver {
     static var requestedPhase: String? {
         let args = ProcessInfo.processInfo.arguments
@@ -128,16 +128,14 @@ enum DemoDriver {
             }
             // Round 13 taps: "#found" / "#missing" (prop card buttons), "#play" (print step Let's play!), "#handoff"
             // (the hand-off card's I'm the ___! button). Timed like real taps.
-            if turn == "#found" || turn == "#missing" { model.huntReply(found: turn == "#found"); continue }
+            // Round 26: on a replay the same card buttons answer the replay's one-card hunt.
+            if turn == "#found" || turn == "#missing" {
+                if model.store.isReplay { model.replayHunt(found: turn == "#found") } else { model.huntReply(found: turn == "#found") }
+                continue
+            }
             if turn == "#done" { await model.sceneDone(); continue }
-            // Round 19: the confirm step's buttons.
-            if turn == "#yes" { model.confirmYes(); continue }
-            // Round 20: the color question's buttons.
-            if turn == "#fullcolor" { model.chooseColor(.fullColor); continue }
-            if turn == "#colorin" { model.chooseColor(.colorIn); continue }
-            // Round 19: "#back" (Back to the checklist), "#newgame" (the finale's New game: all the way home),
+            // Round 19: "#newgame" (the finale's New game: all the way home),
             // "#home" (the X close → Leave), "#sleep N" (a short pause in ms between fast taps).
-            if turn == "#back" { model.tapBackToChecklist(); continue }
             // Round 23: "#rail pick|props|paper|play" (a step-rail tap), "#chat" (dump the chat transcript to the log).
             if turn.hasPrefix("#rail "), let step = BackNav.toolSteps[String(turn.dropFirst(6))] { model.tapStepRail(step); continue }
             if turn == "#chat" {
@@ -154,7 +152,6 @@ enum DemoDriver {
                 return
             }
             if turn.hasPrefix("#sleep "), let ms = Int(turn.dropFirst(7)) { try? await Task.sleep(for: .milliseconds(ms)); continue }
-            if turn == "#change" { model.confirmChange(); continue }
             // Round 15: "#check N": the kid checks step N of the current scene's checklist.
             if turn.hasPrefix("#check "), let n = Int(turn.dropFirst(7)) { model.checkStep(n); continue }
             // Round 16/17: "#repeat": the pill's Repeat (the checklist read-aloud in play, else her last line again).
@@ -183,10 +180,10 @@ enum DemoDriver {
             }
             if turn == "#play" { model.realtime.beginTrace("play tap"); model.tapLetsPlay(); continue }
             // Round D1 (saved games + replays): "#shot NAME" (the host script screenshots on this log line), "#saveGame"
-            // (The End's Save it to play again), "#tohome" (Leave, and keep going), "#shelf" (My games), "#replay N"
-            // (the Nth card), "#count N" / "#letsgo" (Pick), "#nothave ID" / "#alt ID" / "#allset" (Props),
-            // "#paper everything|badges|skip" (Print; skip = Let's play!), "#dismissprint", "#calls MOMENT" (AI calls since the replay
-            // started), "#playthrough" (every hand-off and Done! to The End), "#again" (Play it again).
+            // (The End's star: save, then home), "#tohome" (Leave, and keep going), "#shelf" (Saved games), "#replay N"
+            // (the Nth card), "#count N" (Pick's tile fallback; by voice say the number), "#found" / "#missing" (the card's
+            // ✓ / ✗, a replay too), "#print" (the printer), "#dismissprint", "#calls MOMENT" (AI calls since the replay
+            // started), "#playthrough" (every hand-off and every checklist step tapped, to The End; round 26: auto-advance).
             if turn.hasPrefix("#shot ") {
                 rtLog("SHOT \(turn.dropFirst(6))")
                 try? await Task.sleep(for: .seconds(1.2))   // let the screen settle
@@ -213,11 +210,7 @@ enum DemoDriver {
                 continue
             }
             if turn.hasPrefix("#count "), let n = Int(turn.dropFirst(7)) { model.replayPick(n); continue }
-            if turn == "#letsgo" { model.replayPickDone(); continue }
-            if turn.hasPrefix("#nothave ") { model.replayProp(String(turn.dropFirst(9)), have: false); continue }
-            if turn.hasPrefix("#alt ") { model.replayUseAlternate(String(turn.dropFirst(5))); continue }
-            if turn == "#allset" { model.replayPropsDone(); continue }
-            if turn.hasPrefix("#paper "), let c = PaperChoice(rawValue: String(turn.dropFirst(7))) { model.replayPaper(c); continue }
+            if turn == "#print" { model.tapPrint(); try? await Task.sleep(for: .seconds(1.5)); continue }   // round 26: the printer button
             if turn == "#dismissprint" { UIPrintInteractionController.shared.dismiss(animated: true); try? await Task.sleep(for: .seconds(1)); continue }
             if turn.hasPrefix("#calls ") { model.logReplayCalls(String(turn.dropFirst(7))); continue }
             // Round D3b: "#offline" / "#online" (the in-app network switch), "#waitwifi" (until the Wi-Fi pause ends,
@@ -235,7 +228,6 @@ enum DemoDriver {
             // Round 25 (button audit): "#leavedialog" / "#stay" (the X's leave dialog on / off).
             if turn == "#leavedialog" { model.debugLeaveDialog = true; try? await Task.sleep(for: .seconds(1)); continue }
             if turn == "#stay" { model.debugLeaveDialog = false; try? await Task.sleep(for: .seconds(1)); continue }
-            if turn == "#again" { model.tapPlayItAgain(); try? await Task.sleep(for: .seconds(3)); continue }
             if turn == "#props" {
                 rtLog("PROPS " + (model.store.props?.props.map { "\($0.id)=\($0.householdItem)\($0.isSkipped ? "(pretend)" : "")" }.joined(separator: ", ") ?? "-"))
                 continue
@@ -249,7 +241,11 @@ enum DemoDriver {
                     case .handoff(let i):
                         if let t = model.store.kit?.scenes[i].owner.role { rtLog("driver: handoff to \(t.rawValue)"); model.tapHandoff(t) }
                     case .scene(let i):
-                        rtLog("driver: done scene \(i)"); await model.sceneDone()
+                        // Round 26: no Done: tap every step, then the checklist moves on by itself after its grace.
+                        let n = model.store.kit?.scenes[i].steps.count ?? 0
+                        rtLog("driver: check all \(n) steps of scene \(i)")
+                        for s in 0..<n where !model.store.checkedSteps.contains(s) { model.checkStep(s); try? await Task.sleep(for: .milliseconds(500)) }
+                        for _ in 0..<60 where model.store.phase == .scene(i) { try? await Task.sleep(for: .milliseconds(100)) }
                     default: break
                     }
                     // Round D3b: let her line start before the next tap (a tap 1 s in cut the hand-off lines, so they were never recorded).
@@ -258,6 +254,13 @@ enum DemoDriver {
                 }
                 for _ in 0..<80 where model.realtime.isSpeaking || model.realtime.isBusy { try? await Task.sleep(for: .milliseconds(100)) }
                 rtLog("PLAYTHROUGH: phase=\(model.store.phase)")
+                continue
+            }
+            // Round 26: "#checkall": tap every open step of the current checklist (it then moves on by itself).
+            if turn == "#checkall", case .scene(let i) = model.store.phase {
+                for s in 0..<(model.store.kit?.scenes[i].steps.count ?? 0) where !model.store.checkedSteps.contains(s) {
+                    model.checkStep(s); try? await Task.sleep(for: .milliseconds(600))
+                }
                 continue
             }
             if turn == "#handoff" {
@@ -345,8 +348,6 @@ enum DemoDriver {
         if target == "doneFlow" {
             try? await Task.sleep(for: .seconds(3))
             await store.sceneDone()
-            try? await Task.sleep(for: .seconds(4))
-            store.backToChecklist()
             return
         }
         store.autoCheckStep = .zero; store.autoCheckHold = .zero
@@ -395,15 +396,11 @@ enum DemoDriver {
         _ = await store.apply(.setGame("Airplane"))
         _ = await store.apply(.setTheme("Airplane to the Beach"))
         _ = await store.apply(.setPlayerCount(3))
-        if target == "convConfirm" {   // round 19: the recap + Yes / Change buttons
+        if target == "convConfirm" {   // round 19: the recap (round 26: voice only, no buttons)
             model.realtime.debugSeedTranscript([store.recapLine])
             return
         }
         _ = await store.apply(.confirmPlan)
-        if target == "convColor" {   // round 20/21: the color question's Full color / I'll color them buttons
-            model.realtime.debugSeedTranscript([ColorChoice.question])
-            return
-        }
         _ = await store.apply(.setRoles([.init(roleName: "Captain", job: "Fly the plane"),
                                          .init(roleName: "Flight Attendant", job: "Serve snacks"),
                                          .init(roleName: "Passenger", job: "Enjoy the trip")]))

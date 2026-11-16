@@ -38,8 +38,6 @@ struct RootView: View {
     /// Round 21: the stage area's and the root's global tops (the choice row hangs at the same line as the corner X).
     @State private var stageTop: CGFloat = 0
     @State private var rootTop: CGFloat = 0
-    /// Round 21: the step-choice row's height (measured; her close-up keeps clear of it).
-    @State private var choiceRowHeight: CGFloat = 80
 
     private var store: AdventureStore { model.store }
 
@@ -82,28 +80,7 @@ struct RootView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).minY } action: { stageTop = $0 }
-                // Round 19: the confirm step's Yes / Change buttons. Round 21 (Haylee: "show up on top"): every step-choice
-                // row sits at the TOP of the stage, under the valance, centered over the stage (between the corner X and
-                // the right curtain, or the chat panel), clear of Nutmeg's head and the control pill.
-                .overlay(alignment: .top) {
-                    if model.showsConfirm && chromeVisible {
-                        PTConfirmButtons(onYes: { model.confirmYes() }, onChange: { model.confirmChange() })
-                            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { choiceRowHeight = $0 }
-                            .padding(.horizontal, Theme.Space.xl)
-                            .padding(.top, choiceRowTop)
-                            .transition(.move(edge: .top).combined(with: .opacity))
-                    }
-                    // Round 20: the color question's two big buttons, in the same place.
-                    if model.showsColorChoice && chromeVisible {
-                        PTColorChoiceButtons(onChoose: { model.chooseColor($0) })
-                            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { choiceRowHeight = $0 }
-                            .padding(.horizontal, Theme.Space.xl)
-                            .padding(.top, choiceRowTop)
-                            .transition(.move(edge: .top).combined(with: .opacity))
-                    }
-                }
-                .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: model.showsConfirm)
-                .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: model.showsColorChoice)
+                // (Round 26, Haylee's button audit: the confirm and color steps are voice only; their button row is gone.)
                 // The chat panel's slot (the panel itself is drawn in its own layer below, so it can rise above the
                 // keyboard while the stage can't).
                 if chatOpen && chromeVisible {
@@ -265,11 +242,6 @@ struct RootView: View {
         .statusBarHidden()
     }
 
-    /// Round 21: the step-choice row's top: just under the valance (the same line the corner X hangs from).
-    private var choiceRowTop: CGFloat {
-        PTCurtain.metrics(screenSize == .zero ? rootSize : screenSize).valance + Theme.Space.s + (rootTop - stageTop)
-    }
-
     // MARK: The shared stage (every phase)
 
     private var sharedStage: some View {
@@ -313,12 +285,7 @@ struct RootView: View {
     /// Round 11 (Haylee: one way everywhere): every phase goes through `PTStageDirector.preset` (talk, writing, prop
     /// card, prop card + chat, hop, presented cards); no per-screen framing here.
     private func stageFrame(_ g: PTStageGeometry) -> PTStageFrame {
-        var f = directorFrame(g)
-        // Round 21: the step-choice row hangs along the top: her head keeps clear of it.
-        if (model.showsConfirm || model.showsColorChoice) && chromeVisible && f.shot == .closeUp && !f.writing {
-            f.topReserve = max(f.topReserve, choiceRowTop + choiceRowHeight + Theme.Space.s - PTStageGeometry.topMargin)
-        }
-        return f
+        directorFrame(g)
     }
     private func directorFrame(_ g: PTStageGeometry) -> PTStageFrame {
         return PTStageDirector.frame(phase: store.phase, conversation: model.inConversation, conversationShot: shot,
@@ -485,10 +452,9 @@ struct RootView: View {
         switch store.phase {
         case .hello: EmptyView()   // the start screen replaces the classic stage (see body)
         case .pickGame: EmptyView()   // games are talked about only: no idea cards, no caption (no-text-overlays.md)
-        // Round D1: a replay's Pick, Props and Paper steps.
+        // Round D1: a replay's Pick and Props (round 26: the first play's flows; its Print is the first play's KitView).
         case .players: if store.isReplay { ReplayPickView(model: model) } else { PlayersView(model: model) }
         case .props: if store.isReplay { ReplayPropsView(model: model) } else { PropsView(model: model) }
-        case .makingKit where store.isReplay, .kitReady where store.isReplay: ReplayPaperView(model: model)
         case .makingKit, .kitReady: KitView(model: model, clipboard: clipboard, chatOpen: chatOpen && chromeVisible, preview: $kitPreview,
                                             onCelebrate: { celebrate() })
         case .handoff(let i): if !(chatOpen && chromeVisible) { HandoffView(model: model, sceneIndex: i).frame(width: width) }   // chat open: pinned

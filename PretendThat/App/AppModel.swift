@@ -60,8 +60,11 @@ final class AppModel {
     @ObservationIgnored private var replayUsageStart = RealtimeUsageTotals()
     @ObservationIgnored private var wifiTask: Task<Void, Never>?
 
-    /// The planning conversation is running (a replay has no planning: its Pick and Props steps are taps and app lines).
+    /// The planning conversation is running (a replay has no planning: its Pick and Props steps are app lines).
     var planningNow: Bool { Self.isPlanning(store.phase) && !store.isReplay }
+    /// Round 26 (the fallback, so a replay can't dead-end): with no voice session (offline, or Realtime can't connect),
+    /// a replay's Pick shows number tiles. With voice, the count is said out loud.
+    var noVoiceSession: Bool { realtime.status != .live && realtime.status != .connecting }
 
     init(info: [String: Any] = Bundle.main.infoDictionary ?? [:]) {
         let speaker = NutmegSpeaker()
@@ -112,6 +115,8 @@ final class AppModel {
         realtime.recordRoles = { [weak self] in self?.store.plan?.roles }
         clipStore.onStored = { [weak self] _ in if self?.store.isReplay == true { self?.clipLog.savedOne() } }
         store.isRecorded = { [weak self] line in self?.clipStore.has(line) ?? false }
+        // Round 26: no Done button; the checklist moves on by itself (after a grace) with the congratulations first.
+        store.willAutoAdvance = { [weak self] in self?.prepareSceneFinish() }
         network.onChange = { [weak self] online in self?.networkChanged(online) }
         gate.onFlag = { [weak self] verdict, ticket in self?.lateFlag(verdict, ticket) }
         gate.onAllClear = { [weak self] in self?.safeSnap = nil; self?.screenedTurns = [:] }
@@ -138,7 +143,7 @@ final class AppModel {
                     .flatMap { self.store.plan?.role(for: $0)?.roleName } ?? "next player"
                 return "(Silent coaching, don't mention it.) The iPad is being passed to the \(role). If the kid says they're "
                     + "the \(role) or that they've got the iPad, call confirm_handoff and say nothing. Otherwise answer in ONE "
-                    + "short line (remind them to tap I'm the \(role)!)."
+                    + "short line (remind them to tap the green check when they have the iPad)."
             case .scene, .end:
                 // Round 23: the only tool while playing is going back ("print it again", "back to the props").
                 return BackNav.playNote
@@ -290,7 +295,6 @@ final class AppModel {
     }
 
     func tapHandoff(_ role: RoleID) { userAction(.handoff); store.badgeTapped(role) }
-    func tapBackToChecklist() { userAction(.backToChecklist); store.backToChecklist() }
     func tapLetsPlay() {
         userAction(.letsPlay)
         store.beginPlay()
@@ -348,7 +352,14 @@ final class AppModel {
     func navigate(to step: JourneyStep) {
         // Round 25 (Haylee): at The End, Play (finished, ↺) goes back to the last checklist with its own line.
         let toChecklist = step == .play && store.phase == .end
+        // Round 26: a replay's Props restarts its one-card hunt and the store says the first card's line.
+        let storeSays = store.isReplay && step == .getReady
         guard store.goTo(step) else { return }
+        if storeSays {
+            rtLog("back-nav: \(step.label) (tap, replay hunt again)")
+            if realtime.isLive { realtime.addNote(Realtime.systemNote(BackNav.tapNote(step))) }
+            return
+        }
         let line = toChecklist ? HandOffLines.backToChecklist : BackNav.arrivalLine(step)
         rtLog("back-nav: \(step.label) (tap)")
         if realtime.isLive {
@@ -556,16 +567,17 @@ final class AppModel {
 
     // MARK: Checklist cheers (round 15, Haylee)
 
-    /// A checklist row was tapped: check/uncheck it, then (checked) ONE short varied cheer + the next step, or the
-    /// overall congratulations when the list is complete. Quick taps never overlap: a pending cheer is replaced by
-    /// the newest one (it waits a moment, and for anything she's saying to finish).
+    /// A checklist row was tapped: check/uncheck it, then (checked) ONE short varied cheer + the next step. Round 26: the
+    /// last check says nothing here; after the store's grace the checklist moves on and the congratulations leads the
+    /// next line (`willAutoAdvance`). Quick taps never overlap: a pending cheer is replaced by the newest one (it waits
+    /// a moment, and for anything she's saying to finish).
     func checkStep(_ index: Int) {
         guard case .scene(let i) = store.phase, let scene = store.kit?.scenes[i], !store.autoChecking else { return }
         userAction(.checkStep)
         store.toggleStep(index)
         cheerTask?.cancel(); cheerTask = nil
         let steps = scene.steps.map(\.text)
-        guard store.checkedSteps.contains(index) else { return }   // an uncheck says nothing
+        guard store.checkedSteps.contains(index), !store.advancePending else { return }   // an uncheck says nothing
         cheerTask = Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(600))   // a quick second tap replaces this one
             for _ in 0..<160 where (realtime.isLive ? realtime.voiceBusy : isSpeaking) && !Task.isCancelled {
@@ -577,7 +589,6 @@ final class AppModel {
             let recorded: ((String) -> Bool)? = store.isReplay ? { [clipStore] in clipStore.has($0) } : nil
             guard let line = ChecklistCheers.afterCheck(index: index, steps: steps, checked: store.checkedSteps,
                                                         deck: &lineDeck, using: &rng, recorded: recorded) else { return }
-            if store.checkedSteps.count == steps.count { congratulatedScene = i }
             cheerTask = nil
             rtLog("checklist cheer: \(line)")
             speak(line)
@@ -643,19 +654,19 @@ final class AppModel {
             else if !(hasRealtime && gameVoice != nil && Self.wasLive(store.phase)) { Task { await voice.say(line) } }
         }
     }
-    /// The scene whose overall congratulations has been said (the last step checked normally).
-    @ObservationIgnored private var congratulatedScene: Int?
-
-    /// "Done!": a pending step cheer is dropped; if the list wasn't finished (Done! checks the rest) or its
-    /// congratulations hasn't been said yet, ONE overall congratulations starts the next line (hand-off, scene, end).
+    /// The scene is finished: "we're done" by voice (it checks the rest), or every step checked (round 26: the store's
+    /// auto-advance after its grace, `willAutoAdvance`). A pending step cheer is dropped and ONE overall
+    /// congratulations starts the next line (hand-off, scene, The End).
     func sceneDone() async {
-        guard case .scene(let i) = store.phase, !store.autoChecking else { return }
-        userAction(.done)
-        if congratulatedScene != i {
-            store.sceneLeadIn = ChecklistCheers.finished(deck: &lineDeck, using: &rng)
-        }
-        congratulatedScene = nil
+        guard case .scene = store.phase, !store.autoChecking else { return }
+        prepareSceneFinish()
         await store.sceneDone()
+    }
+    /// The congratulations lead-in for the next line (and a stop for anything still being said about this checklist).
+    private func prepareSceneFinish() {
+        userAction(.done)
+        store.sceneLeadIn = ChecklistCheers.finished(deck: &lineDeck, using: &rng)
+        rtLog("checklist finished: moving on")
     }
     @ObservationIgnored private var kitWait: Task<Void, Never>?
 
@@ -741,10 +752,15 @@ final class AppModel {
             return ("(Silent coaching, don't mention it.) That was undone. Say nothing more.", false)
         }
         realtime.markTrace("checked \(name)")
-        if case .printKit = call, store.isReplay, store.phase == .kitReady {
-            replayPaper(.everything)   // round D1: "print it" on a replay = Print everything
-            return ("The print screen is open. Say one short line like \"Here's the print screen!\"", true)
+        // Round 26: "we're done" on a checklist: the same finish as every step checked (the congratulations leads the
+        // app's next line), so she says nothing herself.
+        if case .finishScene = call {
+            guard case .scene = store.phase else { return ("There's no checklist right now. Answer in ONE short line.", true) }
+            rtLog("checklist: finished by voice")
+            await sceneDone()
+            return ("Scene finished: the app moves on and says the next line. Say nothing.", false)
         }
+        // (Round 26: a replay's Print is the first play's, so "print it" prints every page for the current count.)
         if case .printKit = call, store.phase.step != .play {
             guard store.phase == .kitReady || kitFinal else { return ("Not yet: the kit isn't ready. Say only \"Almost ready!\"", true) }
             printKit()
@@ -767,20 +783,19 @@ final class AppModel {
         // Round 15: the skip's reassurance goes with the next prop card; only a hunt that ends right after the skip
         // (finish_planning) uses it as the kit line's lead-in (live run: it was said twice).
         if case .showNextProp = call { store.kitLeadIn = nil; if huntStartedAt == nil { huntStartedAt = Date(); rtLog("TIMING hunt started") } }
-        let remakes = store.kitRemakes, restyles = store.kitRestyles
+        let remakes = store.kitRemakes
         let queued = store.playQueued
         let output = await store.apply(call)
+        // Round 26: a replay's count or hunt answer by voice: the app already said the next line.
+        if output == ReplayLines.appSaysOutput {
+            if case .setPlayerCount = call { noteReplayStep() }
+            return (output, false)
+        }
         if !queued && store.playQueued { guideWaitStarted() }   // guide prefetch: start_play / go to Play while it's finishing
         releasePointIfNoCard()   // round 23: mark_found / skip_prop / finish_planning by voice
         if store.kitRemakes != remakes {
             // Round 19: a theme/game fix at the print step remakes the kit: the old pages' art and ready line go too.
             remakeKitArt()
-            return (output, false)
-        }
-        if store.kitRestyles != restyles {
-            // Round 20: a color change at the print step redraws the same kit's pages in the new style.
-            remakeKitArt()
-            kitChanged()
             return (output, false)
         }
         realtime.huntMode = store.huntActive
@@ -809,11 +824,6 @@ final class AppModel {
 
     /// The recap she was last told to say word for word (a new one is only sent when it changed).
     @ObservationIgnored private var lastRecap: String?
-    /// The Yes / Change buttons: on the confirm step of the live conversation, once her recap reply has started.
-    var showsConfirm: Bool {
-        inConversation && store.planningStep == .confirm && !realtime.thinkingGap
-    }
-
     /// After a tool-first pass on the confirm step: the newest recap, word for word (only when it changed).
     func noteAfterSilentPass() -> String? {
         guard planningNow, store.planningStep == .confirm else { lastRecap = nil; return nil }
@@ -821,53 +831,6 @@ final class AppModel {
         guard recap != lastRecap else { return nil }
         lastRecap = recap
         return ConfirmStep.sayRecapNote(recap)
-    }
-
-    /// "Yes, let's go!": confirmed at once. Round 20: her one reply is the color question (or, when the kids already
-    /// chose a color, the planning line and the roles).
-    func confirmYes() {
-        guard realtime.isLive, store.planningStep == .confirm else { return }
-        realtime.beginTrace("tap")
-        wakeUp()
-        Task { @MainActor in
-            _ = await store.apply(.confirmPlan)
-            lastRecap = nil
-            if store.planningStep == .color {
-                realtime.tapTurn(kidLine: ConfirmStep.yesLabel, note: ColorChoice.yesTapNote(), requiring: nil)
-            } else {
-                realtime.tapTurn(kidLine: ConfirmStep.yesLabel, note: ConfirmStep.yesTapNote(playerCount: max(1, store.playerCount)),
-                                 requiring: nil, speakWithTools: true)
-            }
-        }
-    }
-
-    // MARK: Color choice (round 20, Haylee)
-
-    /// The Full color / I'll color them buttons: on the color step, once her question has started.
-    var showsColorChoice: Bool {
-        inConversation && store.planningStep == .color && !realtime.thinkingGap
-    }
-
-    /// A color button: set at once (the one source of truth); she says the planning line and starts the roles.
-    func chooseColor(_ style: PrintStyle) {
-        guard realtime.isLive, store.planningStep == .color else { return }
-        realtime.beginTrace("tap")
-        wakeUp()
-        userAction(.colorChoice)
-        Task { @MainActor in
-            _ = await store.apply(.setPrintStyle(style))
-            rtLog("print style: \(style.rawValue) (tap)")
-            realtime.tapTurn(kidLine: style.label, note: ColorChoice.tapNote(style, playerCount: max(1, store.playerCount)),
-                             requiring: nil, speakWithTools: true)
-        }
-    }
-
-    /// "Change something": she asks what to change (one reply); the kid's answer is a normal confirm-step turn.
-    func confirmChange() {
-        guard realtime.isLive, store.planningStep == .confirm else { return }
-        wakeUp()
-        lastRecap = nil   // the fix's recap is said again even if they end up keeping the same plan
-        realtime.tapTurn(kidLine: "Let's change something.", note: ConfirmStep.changeTapNote, requiring: nil)
     }
 
     /// Nutmeg's on-screen state, derived from everything that's happening.
@@ -981,7 +944,7 @@ final class AppModel {
                 _ = await store.apply(.markFound(p.id))
                 releasePointIfNoCard()
                 realtime.tapTurn(kidLine: "We found the \(name)!",
-                                 note: "(Silent coaching, don't mention it.) The kids tapped Found it: the \(name) is ALREADY checked off "
+                                 note: "(Silent coaching, don't mention it.) The kids tapped the green check (found it): the \(name) is ALREADY checked off "
                                     + "on screen (don't call mark_found). Say nothing yet: \(then) FIRST, then cheer in a few words and ask "
                                     + "about the new prop in the same turn. Never narrate.",
                                  requiring: next)
@@ -989,7 +952,7 @@ final class AppModel {
                 _ = await store.apply(.swapProp(oldID: p.id, newID: alt, becomes: ""))
                 let altName = (PropLibrary.name(alt) ?? alt).lowercased()
                 realtime.tapTurn(kidLine: "We don't have a \(name).",
-                                 note: "(Silent coaching, don't mention it.) The kids tapped Don't have it. The card ALREADY changed to "
+                                 note: "(Silent coaching, don't mention it.) The kids tapped the X (don't have it). The card ALREADY changed to "
                                     + "a \(altName) (it'll still be \(p.becomes)). No tools: in ONE short turn say a \(altName) works too and ask "
                                     + "if they can find one.",
                                  requiring: nil)
@@ -1313,8 +1276,8 @@ final class AppModel {
         rtLog("grown-ups: deleted a saved game (\(gone ? "files removed" : "FILES LEFT")), \(shelfGames.count) left")
     }
 
-    /// "Save it to play again": the game is written to this iPad at once (game content only), she says its title and
-    /// that it's on the shelf, and the button becomes "Play it again".
+    /// The End's star (round 26; was "Save it to play again"): the game is written to this iPad at once (game content
+    /// only), she says its title and that it's on the shelf, then the game goes home (the round 19 hang-up rules).
     func tapSave() {
         guard store.canSave, saveState != .saving else { return }
         userAction(.saveGame)
@@ -1349,10 +1312,19 @@ final class AppModel {
             rtLog(String(format: "SAVE game saved in %.2f s: %d art files, %d KB on disk, %d on the shelf", Date().timeIntervalSince(started),
                          files.count, savedGames.size(of: game.id) / 1024, shelfGames.count))
             gesture(.celebrate); celebrations += 1
-            // Design: "<Title>!" then the shelf line (one app line here; separate title clips come with round D3b).
+            // Design: "<Title>!" then the shelf line. Round 26 (Haylee): the star saves AND goes home, once her line ends.
             speak("\(game.title)! It's on your shelf now. Play it again anytime!")
+            homeAfterSave = Task { @MainActor in
+                for _ in 0..<30 where !(isSpeaking || realtime.voiceBusy) && !Task.isCancelled { try? await Task.sleep(for: .milliseconds(100)) }
+                for _ in 0..<100 where (isSpeaking || realtime.voiceBusy) && !Task.isCancelled { try? await Task.sleep(for: .milliseconds(100)) }
+                try? await Task.sleep(for: .milliseconds(400))
+                guard !Task.isCancelled, store.phase == .end, store.savedAs == game.id else { return }
+                rtLog("SAVE: home after the shelf line")
+                leave()
+            }
         }
     }
+    @ObservationIgnored private var homeAfterSave: Task<Void, Never>?
 
     /// A 600 px wide JPEG of the sign art for the shelf card.
     nonisolated static func coverData(_ image: UIImage) -> Data? {
@@ -1361,14 +1333,6 @@ final class AppModel {
         let format = UIGraphicsImageRendererFormat(); format.scale = 1
         return UIGraphicsImageRenderer(size: size, format: format).image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
             .jpegData(compressionQuality: 0.8)
-    }
-
-    /// The End's "Play it again": a replay of the game just saved, or of the game being replayed (back to Pick).
-    func tapPlayItAgain() {
-        let id = store.savedAs ?? store.replayGameID
-        guard let id, let g = savedGames.game(id) else { return }
-        userAction(.playAgain)
-        Task { await startReplay(g) }
     }
 
     /// A card on the shelf: the replay starts (Pick: how many are playing). No AI calls for content anywhere in it.
@@ -1545,47 +1509,19 @@ final class AppModel {
         }
     }
 
+    /// Round 26: the count on a replay's Pick (voice: set_player_count; the tiles only without a voice session). It
+    /// goes straight on to Props, the first saved card.
     func replayPick(_ n: Int) {
         userAction(.replayPick)
         store.replayPick(n)
         noteReplayStep()
     }
-    func replayPickDone() {
-        userAction(.replayPick)
-        store.replayPickDone()
-        noteReplayStep()
-    }
-    func replayProp(_ id: String, have: Bool) {
+    /// Round 26: ✓ / ✗ on a replay's prop card (the first play's hunt card, with no AI). After the last card: Print.
+    func replayHunt(found: Bool) {
+        guard store.replayHuntActive else { return }
         userAction(.replayProp)
-        store.replayProp(id, have: have)
-    }
-    func replayUseAlternate(_ id: String) {
-        userAction(.replayProp)
-        store.replayUseAlternate(id)
-    }
-    func replayPropsDone() {
-        userAction(.replayProp)
-        store.replayPropsDone()
-        noteReplayStep()
-    }
-    /// The pages a replay prints: the kit for the current count.
-    var replayPages: [KitPage] { kitPages }
-    /// Paper on a replay: Print everything / Just the badges (the saved art, rebuilt as a PDF for this count) or Skip.
-    func replayPaper(_ choice: PaperChoice) {
-        userAction(.paperChoice)
-        let pages = ReplayProps.pages(replayPages, for: choice)
-        store.replayPaper(choice)
-        guard choice != .skip else { rtLog("REPLAY paper: skip → play"); return }
-        let items = store.kit?.items ?? []
-        let pdf = KitPrinter.pdf(pages: pages, art: art.images,
-                                 cutouts: Dictionary(uniqueKeysWithValues: items.map { ($0.id, art.cutoutImages($0)) }))
-        rtLog("REPLAY paper: \(choice.rawValue): \(pages.count) page(s), \(pages.flatMap(\.slots).filter { $0.role != nil }.count) badge(s) for \(store.playerCount), PDF \(pdf.count / 1024) KB")
-        #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("-PTPDFOut") {
-            try? pdf.write(to: FileManager.default.temporaryDirectory.appendingPathComponent("replay-\(choice.rawValue).pdf"))
-        }
-        #endif
-        KitPrinter.print(pdf, jobName: "PretendThat \(store.currentTitle)")
+        store.replayHunt(found: found)
+        if store.phase == .kitReady { noteReplayStep() }
     }
     /// A silent note so the replay's session knows where the kids are.
     private func noteReplayStep() {

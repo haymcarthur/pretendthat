@@ -94,7 +94,7 @@ struct Round23Tests {
         #expect(JourneyStep.allCases.allSatisfy({ BackNav.overlay($0) == nil }))   // round 25: no crayon
         #expect(BackNav.mark(.game, current: .print) == "arrow.counterclockwise")
         #expect(BackNav.mark(.play, current: .print) == "arrow.clockwise")
-        #expect(BackNav.arrivalLine(.print) == "Back to Print! Tap Print to print it again.")
+        #expect(BackNav.arrivalLine(.print) == "Back to Print! Tap the printer to print it again.")
         #expect(BackNav.arrivalLine(.game).hasPrefix("Back to Pick!"))
         #expect(BackNav.output(moved: true, to: .print, current: .play).contains("Moved to the Print step"))
     }
@@ -111,7 +111,7 @@ struct Round23Tests {
         let props = await store.apply(.goToStep(.getReady))
         #expect(store.phase == .props && props.contains(BackNav.arrivalLine(.getReady)))
         let print = await store.apply(.goToStep(.print))
-        #expect(store.phase == .kitReady && print.contains("Say exactly") && print.contains("Tap Print to print it again"))
+        #expect(store.phase == .kitReady && print.contains("Say exactly") && print.contains("Tap the printer to print it again"))
         let same = await store.apply(.goToStep(.print))
         #expect(same.contains("Already") && store.phase == .kitReady)
         _ = await store.apply(.goToStep(.play))

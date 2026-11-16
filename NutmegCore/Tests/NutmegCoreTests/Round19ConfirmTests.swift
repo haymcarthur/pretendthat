@@ -6,15 +6,15 @@ import Testing
 struct Round19ConfirmTests {
     @Test func recapText() {
         #expect(ConfirmStep.recap(title: "Bug Movie Theater", playerCount: 3)
-                == "So it's a bug movie theater for three friends! Ready, or want to change something?")
+                == "So it's a bug movie theater for three friends! Say yes, or tell me what to change!")
         #expect(ConfirmStep.recap(title: "Ice Cream Truck", playerCount: 2).hasPrefix("So it's an ice cream truck for two friends!"))
-        #expect(ConfirmStep.recap(title: "Pirate Ship", playerCount: 1) == "So it's a pirate ship, just for you! Ready, or want to change something?")
+        #expect(ConfirmStep.recap(title: "Pirate Ship", playerCount: 1) == "So it's a pirate ship, just for you! Say yes, or tell me what to change!")
         #expect(ConfirmStep.recap(title: "Dinosaur Explorers", playerCount: 4).hasPrefix("So it's dinosaur explorers for four friends!"))
         #expect(ConfirmStep.recap(title: "Castle with Friendly Monsters", playerCount: 3).hasPrefix("So it's a castle with friendly monsters"))
         #expect(ConfirmStep.recap(title: "The Great Bake Off", playerCount: 12).hasPrefix("So it's the great bake off for 12 friends!"))
         #expect(ConfirmStep.recap(title: "Circus on the Moon", playerCount: 2).hasPrefix("So it's a circus on the moon"))
         #expect(ConfirmStep.recap(title: "UFO Rescue", playerCount: 2).hasPrefix("So it's a UFO rescue"))
-        // One short sentence + the one question; the turn check accepts it on the confirm step (not a "permission check").
+        // Round 26: voice only, so the recap ends by saying what to SAY; the turn check accepts it on the confirm step (not a "permission check").
         let r = ConfirmStep.recap(title: "Bug Movie Theater", playerCount: 3)
         #expect(TurnCheck.nudge(for: r, step: .confirm) == nil)
         #expect(TurnCheck.nudge(for: "So it's a bug movie theater for three friends!", step: .confirm) != nil)
@@ -40,16 +40,15 @@ struct Round19ConfirmTests {
         #expect(fewer.contains("for two friends") && store.planningStep == .confirm)
         let game = await store.apply(.setGame("Pirate Ship"))
         #expect(game.contains("So it's a pirate ship for two friends!") && store.planningStep == .confirm)
-        // Yes → the color question (round 20) → roles.
+        // Yes → roles (round 26, Haylee: the color question is gone; coloring pages by default).
         let yes = await store.confirmYes()
-        #expect(store.planningStep == .color && yes.contains(ColorChoice.question))
+        #expect(store.planningStep == .roles && yes.contains("start_planning") && yes.contains("exactly 6 ranked roles"))
         let again = await store.apply(.confirmPlan)
-        #expect(again.contains("Already confirmed") && store.planningStep == .color)
-        let color = await store.apply(.setPrintStyle(.colorIn))
-        #expect(store.planningStep == .roles && color.contains("start_planning") && color.contains("exactly 6 ranked roles"))
+        #expect(again.contains("Already confirmed") && store.planningStep == .roles && store.currentPrintStyle == .colorIn)
+        #expect(!Realtime.tools.contains { $0["name"] as? String == "set_print_style" } && PlanningCall.decode(name: "set_print_style", arguments: "{}") == nil)
+        #expect(!Realtime.instructions.contains("3c.") && !Realtime.instructions.lowercased().contains("color question"))
         #expect(PlanningCall.decode(name: "confirm_plan", arguments: "{}") == .confirmPlan)
-        #expect(ConfirmStep.yesTapNote(playerCount: 2).contains("don't call confirm_plan"))
-        #expect(Realtime.kidTurnTools(step: .confirm, huntActive: false) == ["confirm_plan", "set_game", "set_theme", "set_player_count", "set_print_style", "just_talk"])
+        #expect(Realtime.kidTurnTools(step: .confirm, huntActive: false) == ["confirm_plan", "set_game", "set_theme", "set_player_count", "just_talk"])
     }
 
     /// The real test: the kid fixed the theme WHILE answering the player count. Every later request uses the fix.
@@ -64,7 +63,7 @@ struct Round19ConfirmTests {
         #expect(store.planningStep == .players && fix.contains("how many friends"))
         _ = await store.apply(.setPlayerCount(3))
         #expect(store.recapLine.contains("bug movie theater"))
-        _ = await store.confirmYes(); _ = await store.apply(.setPrintStyle(.colorIn))
+        _ = await store.confirmYes()
         _ = await store.apply(.setRoles([.init(roleName: "Usher", job: ""), .init(roleName: "Projectionist", job: ""), .init(roleName: "Snack Seller", job: "")]))
         _ = await store.apply(.showNextProp(.init(itemID: "box", becomes: "the ticket booth", forRole: "all")))
         #expect(store.plan?.gameTitle == "Bug Movie Theater" && store.currentTitle == "Bug Movie Theater")
@@ -83,7 +82,7 @@ struct Round19ConfirmTests {
         let store = AdventureStore(service: nil)
         store.beginConversation()
         _ = await store.apply(.setGame("Train")); _ = await store.apply(.setTheme("Snowy Train"))
-        _ = await store.apply(.setPlayerCount(2)); _ = await store.confirmYes(); _ = await store.apply(.setPrintStyle(.colorIn))
+        _ = await store.apply(.setPlayerCount(2)); _ = await store.confirmYes()
         _ = await store.apply(.setRoles([.init(roleName: "Conductor", job: ""), .init(roleName: "Passenger", job: "")]))
         _ = await store.apply(.showNextProp(.init(itemID: "hat", becomes: "conductor's cap", forRole: "Conductor")))
         #expect(store.huntActive)
@@ -93,7 +92,7 @@ struct Round19ConfirmTests {
         #expect(store.planningStep == .confirm && store.presenting == .none)
         #expect(out.contains("redo the roles and props") && out.contains("So it's a jungle train for two friends!"))
         // Even a plan made from a stale title stays in step with the current one.
-        _ = await store.confirmYes(); _ = await store.apply(.setPrintStyle(.colorIn))
+        _ = await store.confirmYes()
         _ = await store.apply(.setRoles([.init(roleName: "Explorer", job: ""), .init(roleName: "Driver", job: "")]))
         #expect(store.context.plan?.gameTitle == "Jungle Train" && store.context.gameTitle == "Jungle Train")
     }
@@ -105,7 +104,7 @@ struct Round19ConfirmTests {
         let store = AdventureStore(service: PhaseService(llm: llm))
         store.beginConversation()
         _ = await store.apply(.setGame("Shop")); _ = await store.apply(.setTheme("Toy Shop"))
-        _ = await store.apply(.setPlayerCount(1)); _ = await store.confirmYes(); _ = await store.apply(.setPrintStyle(.colorIn))
+        _ = await store.apply(.setPlayerCount(1)); _ = await store.confirmYes()
         _ = await store.apply(.setRoles([.init(roleName: "Shopkeeper", job: "")]))
         _ = await store.apply(.finishPlanning)
         for _ in 0..<100 where store.phase != .kitReady { try? await Task.sleep(for: .milliseconds(10)) }
@@ -124,7 +123,7 @@ struct Round19ConfirmTests {
         #expect(count.contains("Nothing is remade") && store.playerCount == 3 && llm.calls == calls && store.phase == .kitReady)
         store.beginPlay()
         let late = await store.apply(.setTheme("Pet Shop"))
-        #expect(late.contains("New game") && store.gameTitle == "Candy Shop")
+        #expect(late.contains("new game") && store.gameTitle == "Candy Shop")
     }
 
     @Test func outputSuffixNeverFightsAWordForWordLine() {

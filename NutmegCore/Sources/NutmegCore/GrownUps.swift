@@ -150,7 +150,7 @@ public enum GrownUpsCopy {
     public static let deleteMessage = "This can't be undone."
     /// "Delete Moon Crumbs Bakery? This can't be undone."
     public static func deleteConfirm(_ gameTitle: String) -> String { "\(deleteTitle(gameTitle)) \(deleteMessage)" }
-    public static let emptySavedGames = "No saved games yet. Tap \"Save it to play again\" at the end of a game to keep it here."
+    public static let emptySavedGames = "No saved games yet. Tap the star at the end of a game to keep it here."
     /// From the design's §D7, for this iPad only (D1/D2; iCloud is D4).
     public static let about: [(title: String, body: String)] = [
         ("Saved on this iPad", "Saved games stay on this iPad. There are no accounts, and we don't have servers that store your games."),

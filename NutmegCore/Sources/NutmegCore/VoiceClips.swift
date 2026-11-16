@@ -75,13 +75,13 @@ public enum ClipMeta {
         if l.contains("Pass the iPad") { return .handoff }
         if l.hasPrefix("The end!") { return .end }
         if l.contains("on your shelf now") { return .save }
-        if l == HandOffLines.printReady || l == ReplayLines.printed { return .printReady }
+        if l == HandOffLines.printReady { return .printReady }
         if l == HandOffLines.backToChecklist || l.contains("Tap the steps as you go") || l.contains("Tap each step when you do it") { return .checklistIntro }
         if ChecklistCheers.congrats.contains(where: { l.hasPrefix($0) }) { return .congrats }
         if ChecklistCheers.praise.contains(where: { l.hasPrefix($0) }) { return .cheer }
         if l.hasPrefix("Let's draw") || l.contains("Make one") || l.contains(", one for each friend") || l.hasPrefix("Next, draw") { return .draw }
         if l.contains("How many friends") || l.hasPrefix("Do you still have") || l.hasPrefix("No problem, we'll pretend")
-            || l == ReplayLines.paperQuestion || l == ReplayLines.savedGame || l.contains(" friends! Our crew") || l.hasPrefix("Just you!") { return .replay }
+            || l.hasPrefix("Next, do you still have") || l.hasPrefix("A ") && l.hasSuffix(" works too! Do you have one?") || l == ReplayLines.savedGame || l.contains(" friends! Our crew") || l.hasPrefix("Just you!") { return .replay }
         if KitProgress.lines.values.contains(where: { $0.contains(l) }) { return .kit }
         if l.hasPrefix("Back to ") { return .arrival }
         return .line
@@ -305,8 +305,6 @@ public enum CommonLines {
         WiFiPause.spokenNote,
         HandOffLines.printReady,
         HandOffLines.backToChecklist,
-        ReplayLines.paperQuestion,
-        ReplayLines.printed,
         ReplayLines.savedGame,
         ReplayLines.howMany,
         "No problem, we'll pretend!",
@@ -336,13 +334,10 @@ extension ChecklistCheers {
             return afterCheck(index: index, steps: steps, checked: checked, deck: &deck, using: &rng)
         }
         let open = steps.indices.filter { !checked.contains($0) }
-        let variants: [String]
-        if open.isEmpty {
-            variants = congrats.flatMap { c in doneTails.map { c + " " + $0 } }
-        } else {
-            let next = phrase(steps[open.first { $0 > index } ?? open[0]])
-            variants = praise.flatMap { p in nextWords.map { p + " " + $0.replacingOccurrences(of: "%@", with: next) } }
-        }
+        // Round 26: every step checked = no cheer here (the auto-advance's congratulations leads the next line).
+        if open.isEmpty { return nil }
+        let next = phrase(steps[open.first { $0 > index } ?? open[0]])
+        let variants = praise.flatMap { p in nextWords.map { p + " " + $0.replacingOccurrences(of: "%@", with: next) } }
         let have = variants.filter(recorded)
         if !have.isEmpty { return deck.draw("check.rec", from: have, using: &rng) }
         return afterCheck(index: index, steps: steps, checked: checked, deck: &deck, using: &rng)

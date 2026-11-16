@@ -135,10 +135,12 @@ struct PTKitPinnedCard<Page: View>: View {
     var body: some View {
         VStack(spacing: Theme.Space.s) {
             // Buttons above the paper thumbnails (same order as the stage's kit reveal).
-            HStack(spacing: Theme.Space.xs) {
-                Button(action: onPrint) { Label("Print", systemImage: "printer") }.buttonStyle(.ptPrimary)   // single tap
-                Button("Let's play!", action: onPlay).buttonStyle(.ptSecondary)
+            // Round 26: icon only, the same printer and green ▶ as the stage.
+            HStack(spacing: Theme.Space.l) {
+                PTBigIconButton(kind: .print, size: 72, label: "Print", action: onPrint)   // single tap
+                PTBigIconButton(kind: .play, size: 72, label: "Let's play", action: onPlay)
             }
+            .padding(.bottom, Theme.depth)
             ScrollView(.horizontal) {
                 HStack(spacing: Theme.Space.xs) {
                     ForEach(0..<count, id: \.self) { i in

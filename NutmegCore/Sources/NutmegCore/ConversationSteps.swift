@@ -3,9 +3,9 @@ import Foundation
 /// The fixed steps of the planning conversation (decisions/conversation-structure.md). Wording varies; goals don't.
 public enum PlanningStep: Int, Comparable, Sendable, CaseIterable {
     /// Round 19: `confirm` sits between the player count and the roles: she recaps and waits for a yes or a change.
-    /// Round 20: `color` (full color, or color them yourself?) follows the yes, before the roles.
+    /// (Round 20's `color` step was removed in round 26, Haylee: the kit makes coloring pages by default.)
     /// (Round 24's `printer` step was removed in round 25, Haylee: every game makes the printable kit.)
-    case game, theme, players, confirm, color, roles, props, finish
+    case game, theme, players, confirm, roles, props, finish
     public static func < (a: Self, b: Self) -> Bool { a.rawValue < b.rawValue }
 
     /// The step's goal, for nudges.
@@ -13,9 +13,8 @@ public enum PlanningStep: Int, Comparable, Sendable, CaseIterable {
         switch self {
         case .game: "Ask what they want to play today, suggesting today's game ideas (from your instructions)."
         case .theme: "Ask what theme or twist their game should have, suggesting today's theme ideas (from the set_game result)."
-        case .players: "Ask an open question: \"How many friends are playing today?\" (never a list of numbers)."
+        case .players: "Ask an open question: \"How many friends are playing? Tell me!\" (never a list of numbers)."
         case .confirm: "Recap the game, theme and number of friends in ONE short sentence and ask \"\(ConfirmStep.question)\""
-        case .color: "Ask exactly: \"\(ColorChoice.question)\""
         case .roles: "Call set_roles, then show_next_prop, then announce the roles and say \"\(AdventureStore.huntTransition)\" (the first prop follows). Never ask \"Sound good?\"."
         case .props: "Tell them exactly which props to go find, and to tell you when they've found them or don't have one."
         case .finish: "Say you're making their play kit."
@@ -29,7 +28,6 @@ public enum PlanningStep: Int, Comparable, Sendable, CaseIterable {
         case .theme: "set_theme"
         case .players: "set_player_count"
         case .confirm: "confirm_plan (or set_game / set_theme / set_player_count for a change)"
-        case .color: "set_print_style"
         case .roles: "set_roles"
         case .props: "finish_planning (when they're ready)"
         case .finish: "finish_planning"
@@ -58,8 +56,10 @@ public enum TurnCheck {
             }
         }
         let lower = t.lowercased()
-        let endsWithQuestion = t.hasSuffix("?")
         let lastSentence = Self.lastSentence(lower)
+        // Round 26 (voice-only steps): a question may close with what to SAY ("How many friends are playing? Tell me!",
+        // the recap's "Say yes, or tell me what to change!").
+        let endsWithQuestion = t.hasSuffix("?") || Self.saysWhatToSay(lastSentence)
         let instruction = !isNarration(lastSentence) && instructionWords.contains { lastSentence.contains($0) }
         let problem: String?
         if hasSoundEffect(t) {
@@ -77,10 +77,6 @@ public enum TurnCheck {
         // Round 19: the recap's "Ready, or want to change something?" is the confirm step's own question.
         if step == .confirm {
             return endsWithQuestion ? nil : "(Silent coaching, don't mention it.) End with the recap question: \(step.goal)"
-        }
-        // Round 20: the color question is this step's own question.
-        if step == .color {
-            return endsWithQuestion ? nil : "(Silent coaching, don't mention it.) End with the color question: \(step.goal)"
         }
         if endsWithQuestion && isPermissionCheck(lastSentence) {
             // Round 7 (Haylee): never "Sound good?" / "Okay?" / "Ready?". Her only questions are the steps' questions.
@@ -128,7 +124,7 @@ public enum TurnCheck {
     /// Roles are announced, the first prop isn't out yet: continue the same turn with it (never wait for an answer).
     public static let firstPropNote = "(Silent coaching, don't mention it.) Don't wait for the kids and don't ask anything "
         + "about the roles. Call show_next_prop for the FIRST prop right now, then say ONLY what to find and what it becomes, "
-        + "plus: say 'found it' when you have it, or tell me if you don't. Don't repeat the roles. No \"Sound good?\"."
+        + "plus: say 'found it' or tap the green check when you have it, or tap the X if you don't. Don't repeat the roles. No \"Sound good?\"."
 
     static func nextPropNote(propsShown: Int) -> String {
         "(Silent coaching, don't mention it.) Don't stop: call show_next_prop for the next prop right now"
@@ -242,6 +238,12 @@ public enum TurnCheck {
     /// Suggestions: an "or" choice, or a comma list.
     static func hasSuggestions(_ s: String) -> Bool {
         s.contains(" or ") || s.filter { $0 == "," }.count >= 2
+    }
+
+    /// Round 26: the last sentence tells the kids what to say back ("tell me", "say yes, or tell me what to change").
+    static func saysWhatToSay(_ last: String) -> Bool {
+        let l = last.trimmingCharacters(in: .whitespacesAndNewlines)
+        return l == "tell me" || l.hasPrefix("say yes") || l.hasPrefix("tell me what to change")
     }
 
     static func lastSentence(_ s: String) -> String {

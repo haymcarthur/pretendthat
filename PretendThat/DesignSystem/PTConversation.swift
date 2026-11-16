@@ -174,7 +174,7 @@ struct PTPresentedCards: View {
                 let slot = nutmeg.slot(i, fallback: CGPoint(x: size.width / 2, y: size.height / 2))
                 PTItemCard(item: item, chip: item.chip, width: nutmeg.cardWidth)
                     .overlay(alignment: .bottom) {
-                        if item.huntButtons, let onHunt { PTHuntButtons { onHunt(item.id, $0) }.offset(y: 26) }
+                        if item.huntButtons, let onHunt { PTHuntButtons(size: 64) { onHunt(item.id, $0) }.offset(y: 40) }
                     }
                     .rotationEffect(.degrees(slot.tilt))
                     .onTapGesture { onTapItem?(item.id) }
@@ -333,23 +333,16 @@ struct PTRoundControl: View {
     }
 }
 
-/// The backup buttons under the current prop card ("Got it" / "Don't have it") for noisy rooms.
+/// The hunt buttons on the current prop card (round 26, Haylee's button audit: icon only): a big green ✓ (found it)
+/// and an ✗ (don't have it). Voice works too ("found it", "we don't have one").
 struct PTHuntButtons: View {
+    var size: CGFloat = 72
     let action: (Bool) -> Void
     var body: some View {
-        HStack(spacing: 8) {
-            button("Got it", symbol: "checkmark", fill: Theme.lime, found: true)
-            button("Don't have it", symbol: "xmark", fill: Theme.white, found: false)
+        HStack(spacing: Theme.Space.l) {
+            PTBigIconButton(kind: .check, size: size, label: "We found it") { action(true) }
+            PTBigIconButton(kind: .cross, size: size, label: "We don't have it") { action(false) }
         }
-    }
-    private func button(_ title: String, symbol: String, fill: Color, found: Bool) -> some View {
-        Button { action(found) } label: {
-            Label(title, systemImage: symbol).font(Theme.uiFont(14)).foregroundStyle(Theme.ink)
-                .padding(.horizontal, 12).frame(height: 40)
-                .background(Capsule().fill(fill))
-                .overlay(Capsule().strokeBorder(Theme.line, lineWidth: 1))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(found ? "We found it" : "We don't have it")
+        .padding(.bottom, Theme.depth)   // the depth edge stays inside the card
     }
 }

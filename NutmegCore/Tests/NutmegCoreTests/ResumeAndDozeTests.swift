@@ -63,7 +63,7 @@ struct ResumeTests {
         store.beginConversation()
         _ = await store.apply(.setGame("Train"))
         _ = await store.apply(.setTheme("Snowy Mountain Train"))
-        _ = await store.apply(.setPlayerCount(2)); _ = await store.confirmYes(); _ = await store.apply(.setPrintStyle(.colorIn))
+        _ = await store.apply(.setPlayerCount(2)); _ = await store.confirmYes()
         _ = await store.apply(.setRoles([.init(roleName: "Conductor", job: "tickets"), .init(roleName: "Passenger", job: "rides")]))
         _ = await store.apply(.showNextProp(.init(itemID: "hat", becomes: "conductor's cap", forRole: "Conductor")))
         _ = await store.apply(.markFound("hat"))

@@ -86,8 +86,7 @@ public struct ResumeContext: Equatable, Sendable {
         case .game: return "step 1, you asked what they want to play and are waiting for their answer (call set_game when they pick)."
         case .theme: return "step 2, you asked for a theme or twist and are waiting (call set_theme when they pick)."
         case .players: return "step 3, you asked how many friends are playing and are waiting (call set_player_count)."
-        case .color: return "step 3c, you asked \"\(ColorChoice.question)\" and are waiting: their answer → set_print_style (full_color or color_myself), then the roles."
-        case .confirm: return "step 3b, you recapped the plan (\"So it's ... Ready, or want to change something?\") and are waiting: yes → confirm_plan; a change → set_game, set_theme or set_player_count with the fix, then recap again."
+        case .confirm: return "step 3b, you recapped the plan (\"So it's ... Say yes, or tell me what to change!\") and are waiting: yes → confirm_plan; a change → set_game, set_theme or set_player_count with the fix, then recap again."
         case .roles: return "step 4, you were planning the roles (call set_roles, then show_next_prop)."
         case .props:
             if let cur = props.first(where: { $0.status == .looking }) {

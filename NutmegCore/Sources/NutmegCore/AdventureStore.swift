@@ -34,6 +34,7 @@ public final class AdventureStore {
         didSet {
             if let st = phase.step, st.rawValue > (reachedStep?.rawValue ?? -1) { reachedStep = st }
             if phase.step == .play { lastPlayPhase = phase }
+            if phase != oldValue { cancelAutoAdvance() }   // round 26: a pending auto-advance belongs to its scene
         }
     }
     /// The furthest journey step reached this adventure (the step rail lets kids jump back up to here).
@@ -123,7 +124,8 @@ public final class AdventureStore {
         "(Silent coaching, don't mention it.) The \(item.lowercased()) card is on screen now and you're pointing at it. You already said "
             + "\"\(huntTransition)\": start RIGHT AWAY with the first prop line (no second lead-in like \"let's start the hunt\"), like \"First, can you find a \(item.lowercased())? It'll be \(becomes)!\""
             + (reason.map { " plus why it works, in a few words (\"\($0)\")," } ?? ",") + " then explain "
-            + "ONCE: say 'found it' when you have it, or tell me if you don't. Don't repeat the roles, no check-in, no narration. "
+            + "ONCE (round 26: the card has a green check and an X): say 'found it' or tap the green check when you have it, or "
+            + "tap the X if you don't. Don't repeat the roles, no check-in, no narration. "
             + "If you already named this prop, say only the 'found it' explanation."
     }
 
@@ -171,8 +173,6 @@ public final class AdventureStore {
 
     /// Bumped when a correction remakes the kit (the app resets the page art).
     public private(set) var kitRemakes = 0
-    /// Round 20: bumped when a color change at the print step redraws the pages (same kit text, new art).
-    public private(set) var kitRestyles = 0
     @ObservationIgnored private var kitGeneration = 0
 
     // MARK: Setup flow
@@ -306,28 +306,54 @@ public final class AdventureStore {
         enterScene(i)
     }
 
-    /// Tap a step to check it; tap a checked step again to uncheck it (round 10).
+    /// Tap a step to check it; tap a checked step again to uncheck it (round 10). Round 26: checking the LAST open step
+    /// starts the auto-advance (after `autoAdvanceGrace`); an uncheck inside the grace cancels it.
     public func toggleStep(_ index: Int) {
         guard !autoChecking else { return }
         if checkedSteps.contains(index) { checkedSteps.remove(index) } else { checkedSteps.insert(index) }
+        scheduleAutoAdvance()
     }
 
-    /// The checklist as it was when "Done!" was tapped (before the auto-check), so the hand-off card's
-    /// "← Back to the checklist" restores it exactly. Kept until the next role confirms (or the next scene starts).
-    public struct DoneSnapshot: Equatable, Sendable { public let scene: Int; public let checked: Set<Int> }
-    public private(set) var doneSnapshot: DoneSnapshot?
-    /// "Done!" is quickly checking the remaining steps (the rows animate; taps are ignored meanwhile).
+    /// "We're done" (voice) is quickly checking the remaining steps (the rows animate; taps are ignored meanwhile).
     public private(set) var autoChecking = false
     /// Auto-check timing: one step every `autoCheckStep`, then `autoCheckHold` before the hand-off card.
     public var autoCheckStep: Duration = .milliseconds(140)
     public var autoCheckHold: Duration = .milliseconds(350)
 
-    /// Round 10 (Haylee): no "Go play!" screen. "Done!" is always available: steps not checked yet are checked
-    /// quickly for the kid, then it moves straight on to the next "Pass the iPad to the …" card (or the next scene
-    /// for the same role, or the finale after the last scene). The checklist from before the auto-check is kept.
+    /// Round 26 (Haylee's button audit): no Done button. Once every step is checked the checklist moves on by itself
+    /// after this grace (a beat to see the last check, and time to undo an accidental last tap), then the cheer and the
+    /// next hand-off / scene / The End.
+    public var autoAdvanceGrace: Duration = .milliseconds(1500)
+    /// Every step is checked and the checklist is about to move on (the grace is running).
+    public private(set) var advancePending = false
+    @ObservationIgnored private var advanceTask: Task<Void, Never>?
+    /// Called right before an auto-advance (the app drops a pending cheer and sets the congratulations lead-in).
+    @ObservationIgnored public var willAutoAdvance: (() -> Void)?
+
+    private func cancelAutoAdvance() {
+        advanceTask?.cancel(); advanceTask = nil; advancePending = false
+    }
+
+    private func scheduleAutoAdvance() {
+        cancelAutoAdvance()
+        guard case .scene(let i) = phase, let scene = kit?.scenes[i], !scene.steps.isEmpty,
+              scene.steps.indices.allSatisfy({ checkedSteps.contains($0) }) else { return }
+        advancePending = true
+        let grace = autoAdvanceGrace
+        advanceTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: grace)
+            guard let self, !Task.isCancelled, self.advancePending, case .scene(i) = self.phase else { return }
+            self.advancePending = false; self.advanceTask = nil
+            self.willAutoAdvance?()
+            await self.sceneDone()
+        }
+    }
+
+    /// Moves on from the current scene: steps not checked yet are checked quickly (voice "we're done"), then straight
+    /// on to the next "Pass the iPad to the …" card (or the next scene for the same role, or The End after the last).
     public func sceneDone() async {
         guard case .scene(let i) = phase, !autoChecking, let scene = kit?.scenes[i] else { return }
-        doneSnapshot = DoneSnapshot(scene: i, checked: checkedSteps)
+        cancelAutoAdvance()
         let remaining = scene.steps.indices.filter { !checkedSteps.contains($0) }
         if !remaining.isEmpty {
             autoChecking = true
@@ -340,36 +366,14 @@ public final class AdventureStore {
             guard case .scene(i) = phase else { sceneLeadIn = nil; return }   // left the scene meanwhile (step rail, leave)
         }
         goToScene(i + 1)
-        if case .scene = phase { doneSnapshot = nil }   // same role continues: no hand-off card to go back from
-    }
-
-    /// "← Back to the checklist" is offered (hand-off card or finale right after a Done!).
-    public var canGoBackToChecklist: Bool {
-        guard let snap = doneSnapshot else { return false }
-        switch phase {
-        case .handoff(let i): return i == snap.scene + 1
-        case .end: return snap.scene == (kit?.scenes.count ?? 0) - 1
-        default: return false
-        }
-    }
-
-    /// Back to the previous scene's checklist, checkmarks restored exactly as they were before "Done!".
-    public func backToChecklist() {
-        guard canGoBackToChecklist, let snap = doneSnapshot else { return }
-        doneSnapshot = nil
-        checkedSteps = snap.checked
-        phase = .scene(snap.scene)
-        say(HandOffLines.backToChecklist)   // round 16: the checklist is back, so she says what to do
     }
 
     /// Round 25: at The End, the rail's Play step (or voice "go back to the checklist") reopens the last scene's
-    /// checklist: the checkmarks from before Done! when there are some, else every step checked (it was finished).
+    /// checklist. Round 26: its steps start unchecked (there's no Done: checking them all again moves on to The End).
     public var playFinished: Bool { phase == .end }
     private func backToLastChecklist() {
-        if canGoBackToChecklist { backToChecklist(); return }
-        guard let last = kit?.scenes.indices.last, let scene = kit?.scenes[last] else { return }
-        doneSnapshot = nil
-        checkedSteps = Set(scene.steps.indices)
+        guard let last = kit?.scenes.indices.last else { return }
+        checkedSteps = []
         phase = .scene(last)
         say(HandOffLines.backToChecklist)
     }
@@ -388,7 +392,7 @@ public final class AdventureStore {
     }
 
     public func playAgain() {
-        checkedSteps = []; doneSnapshot = nil
+        checkedSteps = []
         beginPlay()
     }
 
@@ -397,14 +401,14 @@ public final class AdventureStore {
         playerCount = 0; gameTitle = nil; printStyle = nil; planningStep = .game; themeIdeas = []
         ideas = nil; plan = nil; props = nil; fullKit = nil
         choices = []; lastError = nil; usingFallback = false
-        foundProps = []; checkedSteps = []; doneSnapshot = nil; failures = [:]; retryAction = nil; holder = nil
+        foundProps = []; checkedSteps = []; failures = [:]; retryAction = nil; holder = nil
         nutmegLine = ""; presenting = .none; reachedStep = nil; lastPlayPhase = nil; steerIdeas = SteerIdeas()
-        kitRemakes = 0; kitRestyles = 0; propMisfits = 0
+        kitRemakes = 0; propMisfits = 0
         cancelDraft()
         guidePending = false; playQueued = false; guideCalls = 0
         // Round D1: a new adventure (or a replay that loads over this) starts clean.
         gameID = UUID(); countedNewGame = false; savedAs = nil
-        replayGameID = nil; replaySaved = []; replayBase = []; replayPrinted = nil
+        replayGameID = nil; replaySaved = []; replayBase = []
     }
 
     // MARK: Saved games and replays (round D1, Haylee)
@@ -431,8 +435,8 @@ public final class AdventureStore {
     /// The saved props and play guide (the replay's prop answers are applied to these, never to each other).
     @ObservationIgnored private var replaySaved: [SavedProp] = []
     @ObservationIgnored private var replayBase: [Scene] = []
-    /// The print choice made on this Print visit.
-    public private(set) var replayPrinted: PaperChoice?
+    /// Round 26: the props whose saved alternate was offered on this hunt (✗ offers it once, then pretends).
+    @ObservationIgnored private var replaySwapped: Set<String> = []
 
     /// Loads a saved game for a replay: Pick is current (only "how many are playing?"), nothing is generated.
     public func loadReplay(_ g: SavedGame) {
@@ -457,48 +461,78 @@ public final class AdventureStore {
         ledger.replayStarted(id: g.id)
     }
 
-    /// Pick: how many are playing (1–6). The playing roles, badges and checklists follow, with no AI call.
+    /// Pick: how many are playing (1–6, said out loud; tiles only without a voice session). The playing roles, badges
+    /// and checklists follow, with no AI call. Round 26: then straight on to Props, the first saved card.
     public func replayPick(_ n: Int) {
-        guard isReplay else { return }
+        guard isReplay, phase == .players else { return }
         playerCount = max(1, min(n, Players.max))
         resetPlayProgress()
-        say(PlayCast.countChangeLine(roles: plan?.roles ?? [], players: playerCount))
+        let count = PlayCast.countChangeLine(roles: plan?.roles ?? [], players: playerCount)
+        say(count + " " + startReplayHunt())
     }
 
-    /// Pick → Props: the whole saved list at once.
-    public func replayPickDone() {
-        guard isReplay, playerCount > 0 else { return }
+    /// Round 26: Props on a replay works like the first play's hunt: the saved props one card at a time, from the
+    /// first (all unchecked, the first play's pretend undone). Returns the line to say.
+    private func startReplayHunt() -> String {
+        let list = replaySaved.map(\.replayProp)
+        props = Props(nutmegSays: "", props: list)
+        foundProps = []; replaySwapped = []
+        replayRefreshGuide()
+        presenting = .none
+        guard let first = list.first else { currentPropID = nil; phase = .kitReady; return HandOffLines.printReady }
+        currentPropID = first.id
         phase = .props
-        say(ReplayLines.stillHave(props?.props ?? []))
+        return ReplayLines.propAsk(first, first: true)
     }
 
-    /// Props: Got it (have) or Don't have it (a pretend swap: its steps say "the pretend …").
-    public func replayProp(_ id: String, have: Bool) {
-        guard isReplay, var p = props, let i = p.props.firstIndex(where: { $0.id == id }) else { return }
-        guard p.props[i].isSkipped == have else { return }
-        p.props[i].skipped = !have
+    /// The replay's hunt is on: one card, ✓ / ✗ (or "found it" / "we don't have one").
+    public var replayHuntActive: Bool { isReplay && phase == .props && currentPropID != nil }
+    /// The card being asked about on a replay.
+    public var replayCurrentProp: Prop? { replayHuntActive ? props?.props.first { $0.id == currentPropID } : nil }
+
+    /// ✓ / ✗ on a replay's prop card (or the voice answer). ✓ checks it off; ✗ offers the saved alternate once (the
+    /// card changes, same question), then it's pretend. After the last card: Print, with its printer + ▶ line.
+    public func replayHunt(found: Bool) {
+        guard isReplay, phase == .props, var p = props, let id = currentPropID,
+              let i = p.props.firstIndex(where: { $0.id == id }) else { return }
+        if found {
+            foundProps.insert(id)
+            say(advanceReplayHunt(lead: nil))
+            return
+        }
+        if !replaySwapped.contains(id),
+           let alt = p.props[i].alternates?.first(where: { PropLibrary.contains($0) && $0 != p.props[i].libraryID }) {
+            replaySwapped.insert(id)
+            p.props[i].libraryID = alt
+            p.props[i].householdItem = PropLibrary.name(alt) ?? alt
+            p.props[i].reason = PropFit.reason(itemID: alt, becomes: p.props[i].becomes)
+            p.props[i].skipped = false; p.props[i].swapped = true
+            p.props[i].alternates = p.props[i].alternates?.filter { $0 != alt }
+            props = p
+            replayRefreshGuide()
+            say(ReplayLines.useInstead(p.props[i].householdItem))
+            return
+        }
+        p.props[i].skipped = true
         props = p
-        if have { foundProps.insert(id) } else { foundProps.remove(id) }
         replayRefreshGuide()
-        if !have { say(ReplayLines.pretend(p.props[i].becomes)) }
+        say(advanceReplayHunt(lead: ReplayLines.pretend(p.props[i].becomes)))
     }
 
-    /// The missing prop's saved alternate, in one tap ("Use a towel instead?").
-    public func replayAlternate(for id: String) -> String? {
-        guard isReplay, let p = props?.props.first(where: { $0.id == id }), p.isSkipped else { return nil }
-        return p.alternates?.first(where: PropLibrary.contains)
-    }
-    public func replayUseAlternate(_ id: String) {
-        guard let alt = replayAlternate(for: id), var p = props, let i = p.props.firstIndex(where: { $0.id == id }) else { return }
-        p.props[i].libraryID = alt
-        p.props[i].householdItem = PropLibrary.name(alt) ?? alt
-        p.props[i].reason = PropFit.reason(itemID: alt, becomes: p.props[i].becomes)
-        p.props[i].skipped = false; p.props[i].swapped = true
-        p.props[i].alternates = p.props[i].alternates?.filter { $0 != alt }
-        props = p
-        foundProps.insert(id)
-        replayRefreshGuide()
-        say(ReplayLines.useInstead(p.props[i].householdItem))
+    /// The next card not answered yet, or Print after the last one. Returns the line to say.
+    private func advanceReplayHunt(lead: String?) -> String {
+        let next = (props?.props ?? []).first { !foundProps.contains($0.id) && !$0.isSkipped }
+        let line: String
+        if let next {
+            currentPropID = next.id
+            line = ReplayLines.propAsk(next, first: false)
+        } else {
+            currentPropID = nil
+            presenting = .none
+            phase = .kitReady
+            line = HandOffLines.printReady
+        }
+        return lead.map { $0 + " " + line } ?? line
     }
 
     private func replayRefreshGuide() {
@@ -506,23 +540,6 @@ public final class AdventureStore {
         k.scenes = ReplayProps.apply(replayBase, saved: replaySaved, current: props?.props ?? [], items: k.items)
         fullKit = k
         resetPlayProgress()
-    }
-
-    /// Props → Print: the print choices.
-    public func replayPropsDone() {
-        guard isReplay, phase == .props else { return }
-        replayPrinted = nil
-        phase = .kitReady
-        say(ReplayLines.paperQuestion)
-    }
-
-    /// Paper: print everything or just the badges (the app opens the print screen; Let's play! shows next), or skip
-    /// straight to Play.
-    public func replayPaper(_ choice: PaperChoice) {
-        guard isReplay, phase == .kitReady else { return }
-        if choice == .skip { beginPlay(); return }
-        replayPrinted = choice
-        say(ReplayLines.printed)
     }
 
     // MARK: Kit made during the hunt (round 20, Haylee)
@@ -544,7 +561,7 @@ public final class AdventureStore {
     /// What the pages should be written for right now (nil: not yet, or no Claude).
     var wantedDraft: KitInputs? {
         guard service != nil, !usingFallback, planningStep == .props else { return nil }
-        return KitDraft.inputs(title: currentTitle, playerCount: playerCount, plan: plan, printStyle: printStyle, step: .props)
+        return KitDraft.inputs(title: currentTitle, playerCount: playerCount, plan: plan, printStyle: currentPrintStyle, step: .props)
     }
 
     /// Starts, restarts or cancels the pages so they always match the current plan. Once the hunt is over (the kit is
@@ -582,7 +599,7 @@ public final class AdventureStore {
     /// them if they're still on the way), else nil (the whole kit is written in one call, as before round 20).
     private func draftForKit() async -> [KitItem]? {
         guard let d = draftInputs,
-              d == KitDraft.inputs(title: currentTitle, playerCount: playerCount, plan: plan, printStyle: printStyle, step: .props)
+              d == KitDraft.inputs(title: currentTitle, playerCount: playerCount, plan: plan, printStyle: currentPrintStyle, step: .props)
         else { return nil }
         if let draftItems { return draftItems }
         let gen = draftGeneration
@@ -613,10 +630,11 @@ public final class AdventureStore {
             phase = plan != nil || playerCount > 0 ? .players : .pickGame
             presenting = .none
         case .getReady:
+            // Round 26: a replay's Props starts its one-card-at-a-time hunt again, with the first card's line.
+            if isReplay { say(startReplayHunt()); return true }
             phase = .props; presenting = .props
         case .print:
             phase = .kitReady; presenting = .none
-            replayPrinted = nil   // round D1: the replay's Paper choices again
         case .play:
             presenting = .none
             if phase == .end { backToLastChecklist(); return true }
@@ -646,11 +664,22 @@ public final class AdventureStore {
         // Round D1: a saved game never changes on a replay (no game, theme, roles, props, printer or color calls).
         if isReplay {
             switch call {
+            // Round 26: a replay reuses the first play's flows by voice: the count on Pick, the hunt answers on Props.
+            case .setPlayerCount(let n) where phase == .players:
+                if n > Players.max { return Players.overCapOutput(said: n) }
+                replayPick(n)
+                return ReplayLines.appSaysOutput
+            case .markFound where replayHuntActive:
+                replayHunt(found: true)
+                return ReplayLines.appSaysOutput
+            case .swapProp where replayHuntActive, .skipProp where replayHuntActive:
+                replayHunt(found: false)
+                return ReplayLines.appSaysOutput
             case .showGameIdeas, .setGame, .setTheme, .setRoles, .showProps, .showNextProp, .markFound, .swapProp, .skipProp,
-                 .finishPlanning, .confirmPlan, .setPrintStyle:
+                 .finishPlanning, .confirmPlan:
                 return ReplayLines.savedGameOutput
             case .startPlay where phase == .props:
-                return "Not yet: they're checking the props. Say ONE short line: tap All set when they're ready."
+                return "Not yet: they're checking the props. Say ONE short line: tap the green check or the X on the card."
             default: break
             }
         }
@@ -675,7 +704,7 @@ public final class AdventureStore {
             if planningStep >= .players { return correct(title: title, what: "Theme fixed: \(title).") }
             gameTitle = title; plan = nil; props = nil
             phase = .players; presenting = .none; planningStep = .players
-            return "Theme set: \(title). Step 3: react in one short sentence, then ask an OPEN question like \"How many friends are playing today?\" (never a list of numbers like 'just you, or two, or three?': any number works). Never ask for names."
+            return "Theme set: \(title). Step 3: react in one short sentence, then ask an OPEN question that says to answer out loud, like \"How many friends are playing? Tell me!\" (never a list of numbers like 'just you, or two, or three?': any number works). Never ask for names."
         case .setPlayerCount(let count):
             // Round 23 (Haylee): at most 6. More → she says so and asks again; nothing changes.
             if count > Players.max, phase.step == nil || phase.step == .game || phase.step == .getReady {
@@ -701,19 +730,12 @@ public final class AdventureStore {
             }
             countNewGame()   // round D1: a new game counts at the confirm-step yes (design §7)
             phase = .players; presenting = .none
-            // Round 20: the color question comes next, unless the kids already chose (a correction re-opened the recap).
-            // (Round 25: round 24's printer question is gone; every game makes the printable kit.)
-            if printStyle == nil { planningStep = .color; return ColorChoice.askOutput(playerCount: max(1, playerCount)) }
+            // Round 26 (Haylee): no color question any more: straight on to the roles (coloring pages by default).
             planningStep = .roles
             return ConfirmStep.confirmedOutput(playerCount: max(1, playerCount))
-        case .setPrintStyle(let style):
-            return setPrintStyle(style)
         case .setRoles(let drafts):
             if planningStep == .confirm {
                 return "Not yet: the kids haven't said yes to your recap. Say exactly: \"\(recapLine)\" and wait (yes → confirm_plan)."
-            }
-            if planningStep == .color {
-                return "Not yet: ask the color question first. Say exactly: \"\(ColorChoice.question)\" and wait (their answer → set_print_style)."
             }
             // Round C1: the model gives 6 ranked roles (any fewer, or repeats, are filled from generic extras); the
             // first N play. A model that skipped the count and gave one role per kid sets it.
@@ -822,9 +844,9 @@ public final class AdventureStore {
             // Round 23: after the hunt just_talk is the plain-answer path of the tool-first turn.
             switch phase {
             case .kitReady:
-                return "Nothing changes. Answer in ONE short line (no narration). If it fits, remind them to tap Print or Let's play (call that button exactly \"Let's play!\", never Start). No \"go play\" yet."
+                return "Nothing changes. Answer in ONE short line (no narration). If it fits, remind them to tap the printer to print, then the green play button (never call it Start). No \"go play\" yet."
             case .handoff:
-                return "Nothing changes. Answer in ONE short line and remind them to tap the I'm the ___! button."
+                return "Nothing changes. Answer in ONE short line and remind them to tap the green check when they have the iPad."
             case .scene, .end:
                 return "Nothing changes. Answer in ONE short, fun line that helps the current scene (no narration)."
             default:
@@ -842,6 +864,11 @@ public final class AdventureStore {
             }
             badgeTapped(owner)
             return "Hand-off confirmed: the scene starts and the app says its line. Say nothing."
+        case .finishScene:
+            // Round 26: "we're done" on the checklist (there's no Done button): the rest is checked, then the app moves on.
+            guard case .scene = phase else { return "There's no checklist right now. Answer in ONE short line." }
+            await sceneDone()
+            return "Scene finished: the app moves on and says the next line. Say nothing."
         case .printKit:
             // Round 23: "print it again" from the play step (or The End) goes back to the Print step.
             if phase.step == .play, goTo(.print) { return BackNav.output(moved: true, to: .print, current: .print) }
@@ -885,7 +912,7 @@ public final class AdventureStore {
 
     /// Round C1: the play progress is for the old crew (who holds the iPad, the checkmarks): Play starts over.
     private func resetPlayProgress() {
-        holder = nil; lastPlayPhase = nil; checkedSteps = []; doneSnapshot = nil
+        holder = nil; lastPlayPhase = nil; checkedSteps = []
     }
 
     /// The tap path: the count after the roles were made (no AI call; the roles and kit stay).
@@ -917,37 +944,6 @@ public final class AdventureStore {
         if alts.isEmpty { alts = Array(PropFit.candidates(for: d.becomes, avoiding: used.union([d.itemID])).prefix(1)) }
         d.alternates = Array(alts.prefix(2))
         return (d, fellBack)
-    }
-
-    // MARK: Color choice (round 20)
-
-    /// The kids chose full color or coloring pages (voice: set_print_style; or a button). On the color step the roles
-    /// start; earlier it's just kept; later it's a correction (the app redraws the pages; play keeps what was printed).
-    private func setPrintStyle(_ style: PrintStyle) -> String {
-        switch phase {
-        case .handoff, .scene, .end:
-            return "The kit is printed and the game is on. Say in ONE short, kind line that this adventure is all set, and "
-                + "they can tap New game for a different one."
-        case .makingKit, .kitReady:
-            guard style != printStyle else { return "Already \(style.spoken). Answer in ONE short line." }
-            printStyle = style
-            kitRestyles += 1
-            say(ColorChoice.restyleLine(style))
-            return "The pages are now \(style.spoken): the app redraws them to match and says so. Say nothing."
-        default: break
-        }
-        let was = printStyle
-        printStyle = style
-        switch planningStep {
-        case .color:
-            planningStep = .roles
-            return ColorChoice.chosenOutput(style, playerCount: max(1, playerCount))
-        case .game, .theme, .players, .confirm:
-            return "Noted: the printables will be \(style.spoken). Carry on with the current step (don't ask about color again)."
-        case .roles, .props, .finish:
-            return was == style ? "Already \(style.spoken). Carry on with the current step in ONE short line."
-                : "Got it: the printables will be \(style.spoken) (the app changes them). Say so in a few words, then carry on with the current step."
-        }
     }
 
     // MARK: Corrections (round 19)
@@ -985,7 +981,7 @@ public final class AdventureStore {
             return "The \(what) is now \(title): the app is remaking the kit to match and says so. Say nothing."
         case .handoff, .scene, .end:
             return "The kit is printed and the game is on. Say in ONE short, kind line that this adventure is all set, and "
-                + "they can tap New game for a different one."
+                + "a new game starts from home (the house at the end, or the X in the corner)."
         default:
             return nil
         }
@@ -1262,7 +1258,7 @@ public final class AdventureStore {
     }
 
     private func goToScene(_ i: Int) {
-        guard let kit, i < kit.scenes.count else { phase = .end; sayInPlay(HandOffLines.end(canGoBack: canGoBackToChecklist, replay: isReplay)); return }
+        guard let kit, i < kit.scenes.count else { phase = .end; sayInPlay(HandOffLines.end(replay: isReplay)); return }
         // Hand-offs are by role (round 8: "iPad", and she says which button to tap; the card's button reads "I'm the Captain!").
         let owner = kit.scenes[i].owner.role
         if playerCount > 1, let owner, owner != holder, let role = plan?.role(for: owner) {
@@ -1274,7 +1270,7 @@ public final class AdventureStore {
     }
 
     private func enterScene(_ i: Int) {
-        checkedSteps = []; doneSnapshot = nil
+        checkedSteps = []
         phase = .scene(i)
         if let s = kit?.scenes[i] { sayInPlay(HandOffLines.checklist(sceneLine: s.nutmegSays, firstScene: i == 0, firstStep: s.steps.first?.text)) }
     }

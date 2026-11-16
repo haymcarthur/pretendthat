@@ -7,17 +7,17 @@ import Testing
 @Test func checklistLineNamesTheFirstStep() {
     let l = HandOffLines.checklist(sceneLine: "Pretend that the show is about to start!", firstScene: true,
                                    firstStep: "Hang up the theater sign.")
-    #expect(l == "Pretend that the show is about to start! First, hang up the theater sign! Tap each step when you do it, then tap Done!")
+    #expect(l == "Pretend that the show is about to start! First, hang up the theater sign! Tap each step when you do it!")
     let later = HandOffLines.checklist(sceneLine: "Snack time!", firstScene: false, firstStep: "Pass out the cups")
-    #expect(later == "Snack time! First, pass out the cups! Tap the steps as you go, then tap Done!")
+    #expect(later == "Snack time! First, pass out the cups! Tap the steps as you go!")
     let noLine = HandOffLines.checklist(sceneLine: "", firstScene: true, firstStep: "Hang up the sign")
-    #expect(noLine == "First, hang up the sign! Tap each step when you do it, then tap Done!")
+    #expect(noLine == "First, hang up the sign! Tap each step when you do it!")
 }
 
 @Test func checklistLineSkipsTheFirstStepIfTheSceneLineNamesIt() {
     let l = HandOffLines.checklist(sceneLine: "Let's hang up the theater sign!", firstScene: true,
                                    firstStep: "Hang up the theater sign.")
-    #expect(l == "Let's hang up the theater sign! Tap each step when you do it, then tap Done!")
+    #expect(l == "Let's hang up the theater sign! Tap each step when you do it!")
     #expect(l.components(separatedBy: "theater sign").count == 2)
 }
 

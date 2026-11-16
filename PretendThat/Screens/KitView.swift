@@ -22,7 +22,7 @@ struct KitView: View {
 
     private var pages: [KitPage] { model.kitPages }
     /// The Print / Let's play row above the fan: its height and its gap to the pages.
-    private static let buttonRow: CGFloat = 56, buttonGap: CGFloat = 24
+    private static let buttonRow: CGFloat = 80, buttonGap: CGFloat = 24
 
     var body: some View {
         printBody
@@ -35,9 +35,8 @@ struct KitView: View {
             // the floor and the control pill. The fan keeps the row's room below it, so nothing shifts when they pop in.
             GeometryReader { geo in
                 let n = pages.count
-                // A narrow zone (the prop-card step's camera, Haylee) stacks the two buttons.
-                let stacked = geo.size.width < 400
-                let rowH = stacked ? Self.buttonRow * 2 + Theme.Space.s : Self.buttonRow
+                // Round 26: two round icon buttons always fit side by side.
+                let rowH = Self.buttonRow + Theme.depth
                 let row = rowH + Self.buttonGap
                 let g = PTPageFan(count: n, in: CGSize(width: geo.size.width, height: max(120, geo.size.height - row)))
                 let fanTop = row / 2 - (CGFloat(g.rows - 1) / 2 * g.paper.height * PTPageFan.rowStep + g.paper.height / 2) - 6
@@ -57,17 +56,18 @@ struct KitView: View {
                 .offset(y: row / 2)
                 .frame(width: geo.size.width, height: geo.size.height)
                 .overlay {
-                    let layout = stacked ? AnyLayout(VStackLayout(spacing: Theme.Space.s)) : AnyLayout(HStackLayout(spacing: Theme.Space.m))
-                    layout {
+                    // Round 26 (Haylee's button audit): icon only, a printer and a green ▶ (she names the pictures).
+                    HStack(spacing: Theme.Space.l) {
                         // One tap opens the iOS print screen (decisions/2026-11-13-single-tap-print.md).
-                        Button { model.tapPrint() } label: { Label("Print", systemImage: "printer") }.buttonStyle(.ptPrimary)
-                        Button("Let's play!") { model.tapLetsPlay() }.buttonStyle(.ptSecondary)
+                        PTBigIconButton(kind: .print, size: Self.buttonRow, label: "Print") { model.tapPrint() }
+                        PTBigIconButton(kind: .play, size: Self.buttonRow, label: "Let's play") { model.tapLetsPlay() }
                     }
                     .frame(height: rowH)
-                    // Round 11: the buttons come in WITH the papers (one move), not after they land.
-                    .opacity(revealed && !chatOpen ? 1 : 0)
+                    // Round 11: the buttons come in WITH the papers (one move), not after they land. Round 26: hidden
+                    // while a page preview is open (they showed behind it as a duplicate Print / Let's play).
+                    .opacity(revealed && !chatOpen && preview == nil ? 1 : 0)
                     .scaleEffect(revealed && !chatOpen ? 1 : 0.8)
-                    .allowsHitTesting(revealed && !chatOpen)
+                    .allowsHitTesting(revealed && !chatOpen && preview == nil)
                     .animation(Theme.stageMove, value: revealed)
                     .position(x: geo.size.width / 2, y: geo.size.height / 2 + fanTop - Self.buttonGap - rowH / 2)
                 }

@@ -155,14 +155,13 @@ struct PTPropCard: View {
 }
 
 /// "Pass the iPad to the Captain!" card (round 8, Haylee: "Tap your badge" was confusing; "badge" is also the printed
-/// name badge). The new holder taps a big role-colored button that says who they are, "I'm the Captain!" + arrow,
-/// with a 3D depth edge that presses down. Nutmeg points at the card from the shared stage and says the line aloud.
+/// name badge). Round 26 (Haylee's button audit): the new holder taps ONE big green check (no "I'm the Captain!" text:
+/// most players can't read), and there's no "Back to the checklist" on the card. Nutmeg points at the card from the
+/// shared stage and says the line aloud ("…Tap the green check when you have the iPad!").
 struct PTHandoffCard<Figure: View>: View {
     let role: Role
     @ViewBuilder var figure: Figure
     let onTap: () -> Void
-    /// Round 10: "← Back to the checklist" (undo a Done!), shown until the next role confirms.
-    var onBack: (() -> Void)? = nil
     /// Round 10: chat open, the card is pinned at the top of the chat panel (panel width, same big button).
     var pinned = false
     @State private var shown = false
@@ -173,20 +172,16 @@ struct PTHandoffCard<Figure: View>: View {
             VStack(spacing: Theme.Space.m) {
                 Text("Pass the iPad to \(role.spoken)!").font(Theme.headlineFont(26)).foregroundStyle(Theme.inkMuted)
                     .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
-                roleButton(minWidth: 0)
-                if let onBack { PTBackToChecklistButton(compact: true, action: onBack) }
+                checkButton
             }
             .padding(.vertical, Theme.Space.s)
             .ptPinnedCard()
         } else {
-            // Round 14 (Haylee: the panel's button was much bigger): the stage card uses the SAME big role button as
-            // the panel (34 pt, full card width, scales to fit), at natural size in the shared card zone.
             VStack(spacing: Theme.Space.l) {
                 Text("Pass the iPad to \(role.spoken)!").font(Theme.headlineFont(26)).foregroundStyle(Theme.inkMuted)
                     .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
                 if Figure.self != EmptyView.self { figure.frame(height: 200) }
-                roleButton(minWidth: 0)
-                if let onBack { PTBackToChecklistButton(compact: true, action: onBack) }
+                checkButton
             }
             .frame(maxWidth: .infinity)
             .ptCard(fill: Theme.white, edge: Theme.playerColor(role.id.index), padding: Theme.Space.m)
@@ -198,36 +193,10 @@ struct PTHandoffCard<Figure: View>: View {
         }
     }
 
-    private func roleButton(minWidth: CGFloat) -> some View {
-        Button(action: onTap) {
-            HStack(spacing: Theme.Space.s) {
-                Text("I'm \(role.spoken)!").multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.6)
-                Image(systemName: "arrow.right").font(.system(size: 30, weight: .heavy))
-            }
-            .frame(maxWidth: minWidth == 0 ? .infinity : nil)
-        }
-        .buttonStyle(PTRoleButtonStyle(color: role.id.index, minWidth: minWidth))
-        .ptBounce(trigger: shown)
-        .accessibilityLabel("I'm \(role.spoken)")
-    }
-}
-
-/// A big role-colored pill button with a darker depth edge under it; pressing sinks the face onto the edge.
-struct PTRoleButtonStyle: ButtonStyle {
-    let color: Int
-    var minWidth: CGFloat = 300
-    func makeBody(configuration: Configuration) -> some View {
-        let pressed = configuration.isPressed, depth: CGFloat = 7
-        configuration.label
-            .font(Theme.headlineFont(34)).foregroundStyle(Theme.white)
-            .padding(.horizontal, minWidth == 0 ? Theme.Space.m : Theme.Space.xl).padding(.vertical, Theme.Space.m)
-            .frame(minWidth: minWidth, minHeight: 88)
-            .background(Capsule().fill(Theme.playerColor(color)))
-            .offset(y: pressed ? depth : 0)
-            .background(Capsule().fill(Theme.playerShade(color)).offset(y: depth))
-            .contentShape(Capsule())
-            .animation(Theme.press, value: pressed)
-            .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.7), trigger: pressed) { _, new in new }
+    private var checkButton: some View {
+        PTBigIconButton(kind: .check, size: 104, label: "I'm \(role.spoken)! I have the iPad", action: onTap)
+            .ptBounce(trigger: shown)
+            .padding(.bottom, Theme.depth)
     }
 }
 
@@ -502,5 +471,68 @@ struct PTTypingBubble: View {
             .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Theme.chipGray))
         }
         .accessibilityLabel("Nutmeg is thinking")
+    }
+}
+
+/// Round 26 (Haylee's button audit): kids 4–8 mostly can't read, so the play buttons are big pictures. A round, chunky
+/// icon-only button (≥ 64 pt, a pressable depth edge like the start button) with an accessibility label; Nutmeg says
+/// what to tap ("Tap the green check…", "Tap the star…").
+struct PTBigIconButton: View {
+    enum Kind {
+        case check, cross, print, play, star, home
+        var symbol: String {
+            switch self {
+            case .check: "checkmark"; case .cross: "xmark"; case .print: "printer.fill"
+            case .play: "play.fill"; case .star: "star.fill"; case .home: "house.fill"
+            }
+        }
+        var face: Color {
+            switch self {
+            case .check, .play: Theme.lime; case .print: Theme.cta; case .cross, .star, .home: Theme.white
+            }
+        }
+        var shade: Color {
+            switch self {
+            case .check, .play: Theme.limeShade; case .print: Color.black; case .star: Theme.yellowShade
+            case .cross: Theme.line; case .home: Theme.lavenderShade
+            }
+        }
+        var ink: Color {
+            switch self {
+            case .check, .play: Theme.ink; case .print: Theme.white; case .star: Theme.yellow
+            case .cross: Theme.coralStrong; case .home: Theme.purple
+            }
+        }
+    }
+    let kind: Kind
+    var size: CGFloat = 88
+    let label: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: kind.symbol)
+                .font(.system(size: size * (kind == .star ? 0.5 : 0.42), weight: .heavy, design: .rounded))
+                .foregroundStyle(kind.ink)
+                .offset(x: kind == .play ? size * 0.04 : 0)   // ▶ looks centered when nudged right
+                .frame(width: size, height: size)
+        }
+        .buttonStyle(Style(face: kind.face, shade: kind.shade, outlined: kind.face == Theme.white))
+        .accessibilityLabel(label)
+    }
+
+    private struct Style: ButtonStyle {
+        let face: Color, shade: Color, outlined: Bool
+        func makeBody(configuration: Configuration) -> some View {
+            let down = configuration.isPressed ? Theme.depth : 0
+            configuration.label
+                .background(Circle().fill(face))
+                .overlay(Circle().strokeBorder(outlined ? Theme.line : .clear, lineWidth: 1.5))
+                .offset(y: down)
+                .background(Circle().fill(shade).offset(y: Theme.depth))
+                .contentShape(Circle())
+                .animation(Theme.press, value: configuration.isPressed)
+                .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.7), trigger: configuration.isPressed) { _, new in new }
+        }
     }
 }

@@ -1,14 +1,13 @@
 import Foundation
 
 /// Round 19 (Haylee): after the player count and before the roles, Nutmeg recaps the plan out loud in ONE short sentence
-/// ("So it's a bug movie theater for three friends! Ready, or want to change something?") and two big buttons show:
-/// "Yes, let's go!" and "Change something". Voice works too ("yes", "actually it's a pirate ship"). A change is applied
-/// (set_game / set_theme / set_player_count again) and she recaps again; only a yes moves on to the roles.
+/// ("So it's a bug movie theater for three friends! Say yes, or tell me what to change!"). Round 26 (Haylee's button
+/// audit): voice only, no Yes / Change buttons; the line tells the kids what to SAY ("yes", "actually it's a pirate
+/// ship"). A change is applied (set_game / set_theme / set_player_count again) and she recaps again; only a yes moves on.
 /// Pure text and rules, unit-tested (Round19ConfirmTests).
 public enum ConfirmStep {
-    public static let yesLabel = "Yes, let's go!"
-    public static let changeLabel = "Change something"
-    public static let question = "Ready, or want to change something?"
+    /// Round 26: what to say (there are no buttons on this step).
+    public static let question = "Say yes, or tell me what to change!"
 
     /// The recap line, e.g. "So it's a bug movie theater for three friends! Ready, or want to change something?"
     public static func recap(title: String, playerCount: Int) -> String {
@@ -49,22 +48,11 @@ public enum ConfirmStep {
         "(Silent coaching, don't mention it.) Now say exactly this and nothing else, then wait for the kids: \"\(recap)\""
     }
 
-    /// What she does once the kids say yes (by voice: confirm_plan; or the Yes, let's go! button).
+    /// What she does once the kids say yes (confirm_plan; round 26: voice only).
     public static func confirmedOutput(playerCount: Int) -> String {
         // Round C1: always 6 ranked roles; the set_roles result says which ones to announce (the first N).
         "Confirmed: \(playerCount) kid\(playerCount == 1 ? "" : "s"). Say ONE short line like \"Great, let me put some plans together!\" and call start_planning (topic roles) now (nothing longer, no other narration); after it, invent exactly 6 ranked roles for this game (R1 the lead, R2 the second core role, R3 to R6 fun extras; six different titles), call set_roles, then show_next_prop, and only then announce ONLY the roles the set_roles result says are playing, ending with \"\(AdventureStore.huntTransition)\" in ONE turn (the first prop card and line follow). Never ask for names."
     }
-
-    /// The Yes, let's go! tap (the app already confirmed): the same next step, spoken with tools allowed.
-    public static func yesTapNote(playerCount: Int) -> String {
-        "(Silent coaching, don't mention it.) The kids tapped Yes, let's go!: the plan is confirmed (don't call confirm_plan). "
-            + confirmedOutput(playerCount: playerCount)
-    }
-
-    /// The Change something tap: she asks what to change, nothing else.
-    public static let changeTapNote = "(Silent coaching, don't mention it.) The kids tapped Change something. No tools now: in "
-        + "ONE short, cheerful question ask what they want to change: the game, the theme, or how many friends. When they "
-        + "tell you, call set_game, set_theme or set_player_count with the fix."
 
     /// The output for a fix while she's waiting on the recap: she recaps again.
     public static func recapAgainOutput(what: String, recap: String) -> String {

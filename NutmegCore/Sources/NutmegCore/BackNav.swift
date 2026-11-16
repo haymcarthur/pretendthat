@@ -29,7 +29,7 @@ public enum BackNav {
         switch step {
         case .game: return "Back to Pick! This is the game we picked."
         case .getReady: return "Back to Props! Here's everything for our game."
-        case .print: return "Back to Print! Tap Print to print it again."
+        case .print: return "Back to Print! Tap the printer to print it again."
         case .play: return "Back to Play! Let's pick up where we left off."
         }
     }

@@ -78,7 +78,7 @@ struct RoundD1SavedGamesTests {
         let store = AdventureStore(service: PhaseService(llm: llm))
         store.beginConversation()
         _ = await store.apply(.setGame("Airplane")); _ = await store.apply(.setTheme("Airplane to the Beach"))
-        _ = await store.apply(.setPlayerCount(4)); _ = await store.confirmYes(); _ = await store.apply(.setPrintStyle(.colorIn))
+        _ = await store.apply(.setPlayerCount(4)); _ = await store.confirmYes()
         _ = await store.apply(.setRoles(a.plan.roles.map { .init(roleName: $0.roleName, job: $0.job) }))
         _ = await store.apply(.showNextProp(.init(itemID: "plate", becomes: "the steering wheel", forRole: "Captain", alternates: ["bowl"], reason: "A plate is round like a wheel!")))
         _ = await store.apply(.markFound("plate"))
@@ -113,7 +113,7 @@ struct RoundD1SavedGamesTests {
         let store = AdventureStore(service: nil)
         #expect(!store.canSave)
         store.loadReplay(fixture())
-        store.replayPick(2); store.replayPickDone(); store.replayPropsDone(); store.replayPaper(.skip)
+        store.replayPick(2); store.replayAllFound(); store.beginPlay()
         store.autoCheckStep = .zero; store.autoCheckHold = .zero
         await finishPlay(store)
         #expect(store.phase == .end && !store.canSave)   // a replay is already saved
@@ -142,62 +142,70 @@ struct RoundD1SavedGamesTests {
 
     // MARK: The replay flow (no AI calls)
 
-    @Test func replayRunsPickPropsPaperPlayWithNoAICalls() async {
+    @Test func replayRunsPickPropsPrintPlayWithNoAICalls() async {
         let llm = FakeLLM()
         let store = AdventureStore(service: PhaseService(llm: llm))
         let ledger = CountingLedger(); store.ledger = ledger
         let g = fixture()
         store.loadReplay(g)
         #expect(store.isReplay && store.phase == .players && store.playerCount == 0 && store.phase.step == .game)
-        #expect(store.nutmegLine == "Airplane to the Beach! How many friends are playing this time?")
+        // Round 26: the count is said out loud.
+        #expect(store.nutmegLine == "Airplane to the Beach! How many friends are playing this time? Tell me!")
         #expect(store.reachedStep == .game && store.currentTitle == "Airplane to the Beach")
         #expect(ledger.replays == [g.id] && ledger.newGames.isEmpty)
-        // Pick: counts 1 → 6 → 2, no call; the checklists follow the count.
-        for n in [1, 6, 2] {
-            store.replayPick(n)
-            #expect(store.playerCount == n && store.phase == .players)
-            #expect(store.kit?.scenes.allSatisfy { $0.steps.compactMap(\.role.role).count == n } == true)
-        }
-        #expect(store.nutmegLine == "Two friends! Our crew is a Captain and a Flight Attendant!")
-        // Voice works too (set_player_count), and nothing about the game can change.
-        let voice = await store.apply(.setPlayerCount(3))
-        #expect(store.playerCount == 3 && voice.contains("Nothing is remade"))
+        // Nothing about the game can change.
         let theme = await store.apply(.setTheme("Pirates instead"))
         #expect(theme == ReplayLines.savedGameOutput && store.currentTitle == "Airplane to the Beach")
         #expect(await store.apply(.finishPlanning) == ReplayLines.savedGameOutput && store.phase == .players)
-        // Props: the whole list at once, all Got it.
-        store.replayPickDone()
-        #expect(store.phase == .props && store.foundProps.count == g.props.count)
-        #expect(store.nutmegLine.hasPrefix("Do you still have these? A chair for the Airplane seats"))
-        // Don't have it → a pretend swap (no call): its steps say "pretend".
-        store.replayProp("plate", have: false)
-        #expect(store.nutmegLine == "No problem, we'll pretend the steering wheel!" && store.props?.props.first { $0.id == "plate" }?.isSkipped == true)
-        #expect(store.fullKit?.scenes[0].steps[0].text == "Captain, hold the pretend Steering wheel")
-        // The saved alternate in one tap.
-        #expect(store.replayAlternate(for: "plate") == "bowl")
-        store.replayUseAlternate("plate")
-        let plate = store.props?.props.first { $0.id == "plate" }
-        #expect(plate?.libraryID == "bowl" && plate?.isSkipped == false && store.foundProps.contains("plate"))
-        #expect(store.fullKit?.scenes[0].steps[0].text == "Captain, hold the steering wheel" || store.fullKit?.scenes[0].steps[0].text == "Captain, hold the Steering wheel")
-        // Paper: the choices; just the badges = only badge pages for the count.
-        store.replayPropsDone()
-        #expect(store.phase == .kitReady && store.nutmegLine == ReplayLines.paperQuestion)
-        store.replayPaper(.badges)
-        #expect(store.replayPrinted == .badges && store.phase == .kitReady)
-        let pages = KitLayout.pages(for: store.kit!, roles: store.plan!.roles, playerCount: store.playerCount)
-        let badges = ReplayProps.pages(pages, for: .badges)
-        #expect(!badges.isEmpty && badges.allSatisfy { $0.item.recipe == .badges } && badges.flatMap(\.slots).count == 3)
-        #expect(ReplayProps.pages(pages, for: .everything) == pages && ReplayProps.pages(pages, for: .skip).isEmpty)
-        // Play: the saved scenes, hand-offs rotating through the 3 playing roles.
-        store.beginPlay()
+        // Round 26: the count BY VOICE (set_player_count) → straight on to Props, the first saved card (the first
+        // play's hunt: one card at a time, nothing checked yet). No call.
+        #expect(await store.apply(.setPlayerCount(9)).contains("6"))   // over the cap: nothing moves
+        #expect(store.phase == .players)
+        let voice = await store.apply(.setPlayerCount(3))
+        #expect(voice == ReplayLines.appSaysOutput && store.playerCount == 3 && store.phase == .props)
+        #expect(store.kit?.scenes.allSatisfy { $0.steps.compactMap(\.role.role).count == 3 } == true)
+        let props = g.props.map(\.replayProp)
+        #expect(store.replayHuntActive && store.replayCurrentProp?.id == props[0].id && store.foundProps.isEmpty)
+        #expect(store.nutmegLine.hasPrefix("Three friends!") && store.nutmegLine.contains(ReplayLines.propAsk(props[0], first: true)))
+        #expect(store.nutmegLine.contains("Tap the green check if you do, or the X if you don't!"))
+        #expect(ReplayLines.tools(.props) == ["mark_found", "skip_prop", "swap_prop", "go_to_step", "just_talk"])
+        // Walk the cards: "found it" by voice for every card but the plate; the plate: ✗ → the saved alternate (the
+        // card changes, same question), ✗ again → pretend ("the pretend …" in its steps).
+        var sawPlate = false
+        for _ in 0..<12 where store.replayHuntActive {
+            let cur = store.replayCurrentProp!
+            if cur.id == "plate" {
+                sawPlate = true
+                store.replayHunt(found: false)
+                let swapped = store.replayCurrentProp
+                #expect(swapped?.id == "plate" && swapped?.libraryID == "bowl" && store.nutmegLine == "A bowl works too! Do you have one?")
+                #expect(await store.apply(.skipProp("plate")) == ReplayLines.appSaysOutput)   // "we don't have one" by voice
+                #expect(store.props?.props.first { $0.id == "plate" }?.isSkipped == true)
+                #expect(store.nutmegLine.hasPrefix("No problem, we'll pretend the steering wheel!"))
+                #expect(store.fullKit?.scenes[0].steps[0].text.lowercased().contains("pretend") == true)
+            } else {
+                #expect(await store.apply(.markFound(cur.id)) == ReplayLines.appSaysOutput)
+                #expect(store.foundProps.contains(cur.id))
+            }
+        }
+        #expect(sawPlate)
+        // After the last card: Print, the first play's printer + ▶ line.
+        #expect(store.phase == .kitReady && !store.replayHuntActive && store.nutmegLine.hasSuffix(HandOffLines.printReady))
+        // "let's play" by voice (start_play), as on a first play.
+        _ = await store.apply(.startPlay)
         #expect(store.phase == .handoff(sceneIndex: 0))   // the first holder (R1) gets the iPad
         store.autoCheckStep = .zero; store.autoCheckHold = .zero
         await finishPlay(store)
-        #expect(store.phase == .end)
-        // Back to Pick on the rail, a new count: still no call.
+        #expect(store.phase == .end && store.nutmegLine.hasSuffix(HandOffLines.end(replay: true)))
+        // Back to Pick on the rail, a new count (the tile fallback): still no call; Props starts over at card 1.
         #expect(store.goTo(.game) && store.phase == .players)
         store.replayPick(5)
+        #expect(store.phase == .props && store.replayCurrentProp?.id == props[0].id && store.foundProps.isEmpty)
         #expect(store.kit?.scenes.allSatisfy { $0.steps.compactMap(\.role.role).count == 5 } == true)
+        // The rail's Props restarts the hunt with the first card's line.
+        store.replayAllFound()
+        #expect(store.goTo(.getReady) && store.replayCurrentProp?.id == props[0].id)
+        #expect(store.nutmegLine == ReplayLines.propAsk(props[0], first: true))
         #expect(llm.calls == 0)
         #expect(ledger.newGames.isEmpty && ledger.replays == [g.id])
     }
@@ -213,8 +221,9 @@ struct RoundD1SavedGamesTests {
         store.loadReplay(g)
         #expect(store.fullKit?.scenes[0].steps[0].text == "Captain, hold the Steering wheel")
         #expect(store.fullKit?.scenes[0].steps[0].picture == .prop("plate"))
-        store.replayPick(1); store.replayPickDone()
-        store.replayProp("plate", have: false)
+        store.replayPick(1)
+        while store.replayCurrentProp?.id != "plate" { store.replayHunt(found: true) }
+        store.replayHunt(found: false); store.replayHunt(found: false)   // the alternate, then pretend
         #expect(store.fullKit?.scenes[0].steps[0].text.contains("pretend") == true)
     }
 
@@ -223,7 +232,7 @@ struct RoundD1SavedGamesTests {
                                     scenes: a.kit.scenes.map(\.title))
         #expect(note.contains("REPLAY") && note.contains("playing now: Captain, Flight Attendant") && note.contains("Current step: Props"))
         #expect(note.contains(ReplayLines.savedGame))
-        #expect(ReplayLines.stillHave([]).contains("All set"))
+        #expect(note.contains("mark_found") && note.contains("skip_prop") && note.contains("print_kit"))
     }
 
     // MARK: The GameLedger hook (section E later)
@@ -256,7 +265,7 @@ final class CountingLedger: GameLedger {
 
 @Test func replayToolsAreTheExistingSessionToolsByStep() {
     #expect(ReplayLines.tools(.players) == ["set_player_count", "go_to_step", "just_talk"])
-    #expect(ReplayLines.tools(.props) == ["go_to_step", "just_talk"])
+    #expect(ReplayLines.tools(.props) == ["mark_found", "skip_prop", "swap_prop", "go_to_step", "just_talk"])   // round 26: the hunt by voice
     #expect(ReplayLines.tools(.kitReady) == Realtime.afterHuntTools(.kitReady))
     let names = Set(Realtime.tools.compactMap { $0["name"] as? String })
     for phase in [Phase.players, .props, .kitReady, .handoff(sceneIndex: 0), .scene(0), .end] {

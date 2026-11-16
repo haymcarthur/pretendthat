@@ -100,19 +100,15 @@ public enum Realtime {
     2. THEME: react in one short sentence, then ask what kind of theme or twist, suggesting ONLY the theme ideas the \
     set_game result gives you (say them so they fit THEIR game). When they pick, call set_theme with the full title \
     ("Pancake Restaurant on the Moon").
-    3. PLAYERS: ask an OPEN question: "How many friends are playing today?" NEVER offer a list of numbers ("just you, \
+    3. PLAYERS: ask an OPEN question that says to answer out loud: "How many friends are playing? Tell me!" NEVER offer a list of numbers ("just you, \
     or two, or three?"). 1 to 6 kids can play. Call set_player_count with the number they say, even if it's more than \
     6 (the result tells you what to say: up to six friends can play). NEVER ask \
     for names; if a kid says a name, don't repeat it: call everyone by their role.
     3b. CONFIRM (right after set_player_count, before any roles): recap the plan out loud in ONE short sentence, \
-    exactly as the set_player_count result tells you ("So it's a bug movie theater for three friends! Ready, or want to \
-    change something?"), and wait. Big Yes / Change buttons are on screen. If they say yes ("yes", "let's go", "ready"), \
+    exactly as the set_player_count result tells you ("So it's a bug movie theater for three friends! Say yes, or tell \
+    me what to change!"), and wait. There are no buttons: the kids answer out loud. If they say yes ("yes", "let's go", "ready"), \
     call confirm_plan. If they change something ("actually it's a pirate ship", "four friends"), call set_game, \
     set_theme or set_player_count with the fix and recap again.
-    3c. COLOR (right after confirm_plan, before any roles): say exactly "\(ColorChoice.question)" and wait. Big \
-    "\(ColorChoice.fullColorLabel)" / "\(ColorChoice.colorInLabel)" buttons are on screen. When they answer, call \
-    set_print_style (full_color or color_myself). Only after it do the roles start. If they change their mind about \
-    the color later, call set_print_style again.
     CORRECTIONS AT ANY POINT: if a kid corrects the game, the theme or the player count at ANY step (even while \
     answering a different question, like "three, and it's a bug theater, not a bus theater"), call set_game, \
     set_theme or set_player_count AGAIN with the fix, right away, before anything else. Never just use the fix in your \
@@ -127,9 +123,10 @@ public enum Realtime {
     printing, so never assign a role to a particular kid.
     5. PROPS, ONE AT A TIME (the first prop comes right after the roles: say the roles, the app shows its card, then \
     you're asked for the prop line): call show_next_prop for ONE household \
-    item from the item list (with 1 or 2 alternates); its card appears. Say what to find and what it becomes. Only on \
-    the FIRST prop, also explain once: say "found it" when you have it, or tell me if you don't ("Can you find a \
-    blanket? It'll be our big blue ocean! Say 'found it' when you have it, or tell me if you don't."). NEVER repeat that explanation after the first prop. Later props stay \
+    item from the item list (with 1 or 2 alternates); its card appears with a green check and an X. Say what to find and \
+    what it becomes. Only on the FIRST prop, also explain once: say "found it" or tap the green check when you have it, \
+    or tap the X if you don't ("Can you find a blanket? It'll be our big blue ocean! Say 'found it' or tap the green \
+    check when you have it, or tap the X if you don't."). NEVER repeat that explanation after the first prop. Later props stay \
     short and fun ("Next, can you find a spoon? It'll be the big stirrer for swirly batter!"). Then WAIT while they hunt: \
     they'll tell you when they're back. When they found it, call mark_found, cheer in a few \
     words, then show_next_prop for the next one. If they don't have it, offer ONE alternate (call swap_prop) or say \
@@ -137,6 +134,8 @@ public enum Realtime {
     7. PRINT STEP (after the kit is ready, the kids can still talk to you): if they want to play ("let's play", \
     "we're ready", "we printed it"), call start_play; if they want to print ("print it"), call print_kit. Otherwise \
     answer in one short line. "Go play" wording is only for after start_play.
+    PLAY STEP: on a checklist, if they say they're done ("we're done", "done", "finished"), call finish_scene and say \
+    nothing (the checklist also moves on by itself once every step is checked).
     GOING BACK (after the hunt: print step, play step, The End; the steps are Pick, Props, Print, Play): "print it \
     again", "go back to the props", "back to the game", "back to the checklist" → call go_to_step (pick, props, print \
     or play) and say only the line its result gives you.
@@ -144,17 +143,17 @@ public enum Realtime {
     when the kit is ready. Never say the kit is done, ready or "go play" yourself.
     NEVER say "go play", "go have your adventure", "dive into your adventure", "hop into the story", "let's play" or \
     anything like it in ANY of these steps: the kids print their kit first and only start playing after they tap \
-    "Let's play!" (the app's play step). At kit time the talk is about the pages and printing. \
-    NAMING THE BUTTON IS FINE: when you tell the kids what to tap, call the button exactly "Let's play!" ("Tap Print, \
-    then tap Let's play when you're set!"). Never call it Start, Go, Begin or Play. The ban above is only on telling \
-    them to go play, never on naming the button.
+    the green play button (the app's play step). At kit time the talk is about the pages and printing. \
+    NAMING THE BUTTONS IS FINE: the buttons are pictures (most kids can't read), so name the picture: "Tap the \
+    printer to print it, then tap the green play button when you're set!". Never call it Start, Go or Begin. The ban \
+    above is only on telling them to go play, never on naming the button.
 
     PLANNING ON YOUR CLIPBOARD (once per adventure): right before set_roles (step 4) call start_planning (topic \
     roles): you write the roles AND the prop list on your clipboard for a moment. When it returns, call set_roles, then \
     show_next_prop for the first prop, then announce both in one turn. Never call start_planning again; later props \
     come one at a time.
 
-    ONE REPLY PER KID TURN: when you need a tool (set_game, set_theme, set_player_count, confirm_plan, set_print_style, start_planning, set_roles, \
+    ONE REPLY PER KID TURN: when you need a tool (set_game, set_theme, set_player_count, confirm_plan, start_planning, set_roles, \
     mark_found, swap_prop, skip_prop, show_next_prop, finish_planning), call it FIRST and say NOTHING before it. Tools are silent \
     bookkeeping. Speak once, after the tool result: one short reaction plus the next step's question with suggestions. \
     The clipboard moment IS your thinking time: no separate lead-in turn, no "let me think" line.
@@ -195,8 +194,8 @@ public enum Realtime {
     mark_found (or swap_prop / skip_prop) AND show_next_prop for the next one, both before you speak, then cheer in a \
     few words and ask about the new prop in the same turn.
 
-    YOUR ONLY QUESTIONS are: what game, what theme, how many friends are playing, the ONE recap question at step 3b \
-    ("Ready, or want to change something?"), the ONE color question at step 3c, and (for each prop) whether they found it. Never ask permission or check in ("Sound good?", "Okay?", "Ready?", "Does that sound fun?", "Want to \
+    YOUR ONLY QUESTIONS are: what game, what theme, how many friends are playing, the ONE recap at step 3b \
+    ("Say yes, or tell me what to change!"), and (for each prop) whether they found it. Never ask permission or check in ("Sound good?", "Okay?", "Ready?", "Does that sound fun?", "Want to \
     start?"), anywhere, ever: just keep the show moving.
 
     HOW EVERY TURN ENDS (the most important rule): end with EITHER (a) ONE clear question (the game and theme \
@@ -205,7 +204,7 @@ public enum Realtime {
     without ideas. Never ask more than one question in a turn.
     - Good: "Ooh, a bakery! Should it be a bakery on the moon, under the sea, or in a dragon's castle?" (using the \
     theme ideas the set_game result gave you)
-    - Good: "How many friends are playing today?"
+    - Good: "How many friends are playing? Tell me!"
     - Good: "Our crew is a Captain and a Flight Attendant! Now it's time to hunt for props!" (then the card and the prop line)
     - Bad: "Our crew is a Captain and a Flight Attendant! Sound good?" (a permission check)
     - Bad: "You're the Captain and the Flight Attendant!" (sounds like one kid gets both roles)
@@ -325,18 +324,18 @@ public enum Realtime {
            ["id": str], required: ["id"]),
         fn("confirm_plan", "Step 3b: the kids said yes to your recap (\"yes\", \"let's go\", \"ready\"). Only then do the roles start.",
            [:], required: []),
-        fn("set_print_style", "Step 3c: the kids answered \"\(ColorChoice.question)\": full_color (printed in color) or "
-           + "color_myself (pages to color in). If they change their mind later (any step), call this again.",
-           ["style": ["type": "string", "enum": PrintStyle.allCases.map(\.rawValue)]], required: ["style"]),
         fn("finish_planning", "Planning is done; the app makes the printable kit now.", [:], required: []),
         fn("just_talk", "The kid said something that doesn't answer the current step (off topic, unclear, a question): "
            + "nothing changes. You'll reply in one short line and re-ask the current step's question.", [:], required: []),
         fn("start_play", "PRINT STEP only: the kids want to start playing (\"let's play\", \"we're ready\", \"we printed "
-           + "it\"). Does exactly what tapping Let's play! does.", [:], required: []),
-        fn("print_kit", "PRINT STEP only: the kids want to print (\"print it\"). Opens the iOS print screen, like tapping Print.",
+           + "it\"). Does exactly what tapping the green play button does.", [:], required: []),
+        fn("print_kit", "PRINT STEP only: the kids want to print (\"print it\"). Opens the iOS print screen, like tapping the printer.",
            [:], required: []),
         fn("confirm_handoff", "PLAY STEP hand-off only: the kid holding the iPad says they're the role it was passed to "
-           + "(\"I'm the Captain\", \"I've got it\"). Does exactly what tapping the I'm the Captain! button does. Say nothing.",
+           + "(\"I'm the Captain\", \"I've got it\"). Does exactly what tapping the card's green check does. Say nothing.",
+           [:], required: []),
+        fn("finish_scene", "PLAY STEP checklist only: the kids say they're done with this scene (\"we're done\", \"done\", "
+           + "\"finished\", \"we did it all\"). Checks the rest and moves on, like checking every step. Say nothing.",
            [:], required: []),
         fn("go_to_step", "After the hunt (print step, play step, The End): the kids want to go back to a step they already "
            + "did (\"print it again\", \"go back to the props\", \"back to the game\", \"back to the checklist\"). The "
@@ -364,7 +363,7 @@ public enum Realtime {
     public static var responseCreate: [String: Any] { ["type": "response.create"] }
     /// The prop hunt's tools (round 7): a kid's hunt answer gets a tool-first response limited to these.
     public static let huntTools = ["mark_found", "swap_prop", "skip_prop", "show_next_prop", "finish_planning", "just_talk",
-                                   "set_game", "set_theme", "set_player_count", "set_print_style"]
+                                   "set_game", "set_theme", "set_player_count"]
     /// Round 19: a correction of the game, theme or count is possible on every step (the kid may fix it any time).
     public static let correctionTools = ["set_game", "set_theme", "set_player_count"]
 
@@ -376,8 +375,7 @@ public enum Realtime {
         case .game: return ["set_game", "show_game_ideas", "set_theme", "just_talk"]
         case .theme: return ["set_theme", "set_game", "set_player_count", "just_talk"]
         case .players: return ["set_player_count", "set_theme", "set_game", "just_talk"]
-        case .confirm: return ["confirm_plan", "set_game", "set_theme", "set_player_count", "set_print_style", "just_talk"]
-        case .color: return ["set_print_style", "set_game", "set_theme", "set_player_count", "just_talk"]
+        case .confirm: return ["confirm_plan", "set_game", "set_theme", "set_player_count", "just_talk"]
         case .props: return huntActive ? huntTools : nil
         case .roles, .finish: return nil
         }
@@ -388,7 +386,8 @@ public enum Realtime {
         switch phase {
         case .kitReady: return ["start_play", "print_kit", "go_to_step", "just_talk"]
         case .handoff: return ["confirm_handoff", "go_to_step", "just_talk"]
-        case .scene, .end: return ["go_to_step", "just_talk"]
+        case .scene: return ["finish_scene", "go_to_step", "just_talk"]
+        case .end: return ["go_to_step", "just_talk"]
         default: return nil
         }
     }
@@ -458,7 +457,7 @@ public enum Realtime {
         if name == "set_roles" {
             return " Don't speak yet: call show_next_prop for the first prop first, then announce the roles and that prop together."
         }
-        if ["set_player_count", "confirm_plan", "set_print_style", "mark_found", "skip_prop"].contains(name) || output.contains("Say exactly")
+        if ["set_player_count", "confirm_plan", "mark_found", "skip_prop"].contains(name) || output.contains("Say exactly")
             || output.contains("say exactly") || output.contains("Say nothing") { return "" }
         return spokeFirst
             ? " You ALREADY reacted out loud this turn: now say ONLY the next question with suggestions (or the instruction), no new reaction, no greeting."
@@ -573,11 +572,11 @@ public enum PlanningCall: Equatable, Sendable {
     case finishPlanning
     /// Round 19: the kids said yes to the recap (step 3b).
     case confirmPlan
-    /// Round 20: full color, or color them yourself (step 3c).
-    case setPrintStyle(PrintStyle)
     case justTalk, startPlay, printKit
     /// Round 9: "I'm the Captain" by voice on the hand-off card, same as tapping the button.
     case confirmHandoff
+    /// Round 26: "we're done" on the checklist (there is no Done button): checks the rest and moves on.
+    case finishScene
     /// Round 23: "print it again", "go back to the props": the same navigation as tapping a step on the rail.
     case goToStep(JourneyStep)
 
@@ -625,11 +624,11 @@ public enum PlanningCall: Equatable, Sendable {
             let id = s(a, "id"); return id.isEmpty ? nil : .skipProp(id)
         case "finish_planning": return .finishPlanning
         case "confirm_plan": return .confirmPlan
-        case "set_print_style": return PrintStyle(rawValue: s(a, "style")).map { .setPrintStyle($0) }
         case "just_talk": return .justTalk
         case "start_play": return .startPlay
         case "print_kit": return .printKit
         case "confirm_handoff": return .confirmHandoff
+        case "finish_scene": return .finishScene
         case "go_to_step": return BackNav.toolSteps[s(a, "step").lowercased()].map { .goToStep($0) }
         default: return nil
         }

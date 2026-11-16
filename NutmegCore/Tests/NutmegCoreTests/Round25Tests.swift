@@ -119,7 +119,7 @@ import Testing
     func playThrough(_ store: AdventureStore) async -> [(owner: RoleID?, roles: [SceneOwner])] {
         store.autoCheckStep = .zero; store.autoCheckHold = .zero
         var seen: [(RoleID?, [SceneOwner])] = []
-        store.replayPickDone(); store.replayPropsDone(); store.replayPaper(.skip)
+        store.replayAllFound(); store.beginPlay()
         for _ in 0..<20 where store.phase != .end {
             if case .handoff(let i) = store.phase, let o = store.kit?.scenes[i].owner.role { store.badgeTapped(o) }
             guard case .scene(let i) = store.phase, let sc = store.kit?.scenes[i] else { break }
@@ -149,7 +149,7 @@ import Testing
         }
         // And the count change in the middle of one replay (1 → 2 at Pick) needs no reload.
         store.loadReplay(Self.bakeryGame)
-        store.replayPick(1); store.replayPick(2)
+        store.replayPick(1); #expect(store.goTo(.game)); store.replayPick(2)   // round 26: Pick moves on to Props
         let scenes = await playThrough(store)
         #expect(Set(scenes.compactMap(\.owner)) == [.R1, .R2])
     }
@@ -163,7 +163,8 @@ import Testing
         let texts = kit.scenes.flatMap { $0.steps.map(\.text) }.joined(separator: " ").lowercased()
         for p in Self.props { #expect(texts.contains(p.becomes)) }
         // A prop they don't have now: its woven step says "pretend".
-        store.replayProp("bowl", have: false)
+        while store.replayHuntActive, store.replayCurrentProp?.id != "bowl" { store.replayHunt(found: true) }
+        for _ in 0..<2 where store.props?.props.first(where: { $0.id == "bowl" })?.isSkipped != true { store.replayHunt(found: false) }
         #expect(store.kit!.scenes.flatMap { $0.steps.map(\.text) }.contains { $0.contains("pretend mixing bowl") })
     }
 
@@ -175,10 +176,10 @@ import Testing
         store.replayPick(2)
         _ = await playThrough(store)
         #expect(store.phase == .end && store.playFinished && store.canGoTo(.play))
-        #expect(store.nutmegLine.contains(HandOffLines.endBackHint))
+        #expect(store.nutmegLine.hasSuffix(HandOffLines.end(replay: true)))   // round 26: the house only
         let last = store.kit!.scenes.count - 1
         #expect(store.goTo(.play) && store.phase == .scene(last))
-        #expect(store.checkedSteps.isEmpty)   // the checkmarks from before Done! (none were tapped), restored exactly
+        #expect(store.checkedSteps.isEmpty)   // round 26: unchecked again (checking them all moves on to The End)
         #expect(store.nutmegLine == HandOffLines.backToChecklist)
         // Voice: "go back to the checklist" = go_to_step play.
         await store.sceneDone()
@@ -195,13 +196,13 @@ import Testing
         #expect(!names.contains("set_printer") && !names.contains("draw_step"))
         #expect(!Realtime.instructions.contains("Draw it") && !Realtime.instructions.contains("printer question"))
         #expect(!SavedGame.allowedKeys.contains("drawGuide") && !SavedGame.allowedKeys.contains("hasPrinter"))
-        // The confirm yes goes straight to the color question (the round 20 flow).
+        // The confirm yes goes straight to the roles (round 26: no color question either).
         let store = AdventureStore(service: nil)
         store.beginConversation()
         _ = await store.apply(.setGame("Bakery")); _ = await store.apply(.setTheme("Magic Bakery"))
         _ = await store.apply(.setPlayerCount(2))
         let out = await store.confirmYes()
-        #expect(store.planningStep == .color && out.contains(ColorChoice.question))
+        #expect(store.planningStep == .roles && out.contains("start_planning"))
     }
 
     @Test func printIsTheStepNameAgainWithAPrinterIcon() {
@@ -224,7 +225,7 @@ import Testing
     let store = AdventureStore(service: nil)
     store.beginConversation()
     _ = await store.apply(.setGame("Bakery")); _ = await store.apply(.setTheme("Magic Bakery"))
-    _ = await store.apply(.setPlayerCount(2)); _ = await store.confirmYes(); _ = await store.apply(.setPrintStyle(.colorIn))
+    _ = await store.apply(.setPlayerCount(2)); _ = await store.confirmYes()
     _ = await store.apply(.setRoles(Round25Tests.roles.map { .init(roleName: $0.roleName, job: $0.job) }))
     _ = await store.apply(.finishPlanning)
     for _ in 0..<50 where store.phase != .kitReady { try? await Task.sleep(for: .milliseconds(20)) }

@@ -10,56 +10,56 @@ private func clean(_ line: String) {
     #expect(!line.contains("*") && !line.contains("("), "no stage directions: \(line)")
 }
 
-@Test func printReadyNamesBothButtonsAndNeverSaysGoPlay() {
+@Test func printReadyNamesBothPictureButtonsAndNeverSaysGoPlay() {
     let l = HandOffLines.printReady
-    #expect(l.contains("Print") && l.contains("Let's play"))
-    #expect(!TurnCheck.mentionsGoPlay(l.replacingOccurrences(of: "Let's play", with: "")))
+    // Round 26: the buttons are pictures, so she names them: the printer and the green play button.
+    #expect(l.contains("Tap the printer") && l.contains("the green play button"))
+    #expect(!TurnCheck.mentionsGoPlay(l))
     #expect(AdventureStore.kitReadyLine == l)
     clean(l)
 }
 
 @Test func handoffLineMatchesTheCardButton() {
-    #expect(HandOffLines.handoff(spokenRole: "the Captain") == "Pass the iPad to the Captain, then tap I'm the Captain!")
-    #expect(HandOffLines.handoff(spokenRole: "a Pirate") == "Pass the iPad to a Pirate, then tap I'm a Pirate!")
+    #expect(HandOffLines.handoff(spokenRole: "the Captain") == "Pass the iPad to the Captain! Tap the green check when you have the iPad!")
+    #expect(HandOffLines.handoff(spokenRole: "a Pirate") == "Pass the iPad to a Pirate! Tap the green check when you have the iPad!")
     clean(HandOffLines.handoff(spokenRole: "the Captain"))
 }
 
 @Test func checklistLineAddsHowToOnceAndNotTwice() {
     let first = HandOffLines.checklist(sceneLine: "Time to board the plane", firstScene: true)
-    #expect(first == "Time to board the plane. Tap each step when you do it, then tap Done!")
+    #expect(first == "Time to board the plane. Tap each step when you do it!")
     let later = HandOffLines.checklist(sceneLine: "Snack time on the plane!", firstScene: false)
-    #expect(later == "Snack time on the plane! Tap the steps as you go, then tap Done!")
+    #expect(later == "Snack time on the plane! Tap the steps as you go!")
     // The scene line already says how: nothing added (no duplicate instruction).
     let says = "Tap each step as you do it, then tap Done!"
     #expect(HandOffLines.checklist(sceneLine: says, firstScene: true) == says)
-    #expect(HandOffLines.checklist(sceneLine: "  ", firstScene: true) == "Tap each step when you do it, then tap Done!")
+    #expect(HandOffLines.checklist(sceneLine: "  ", firstScene: true) == "Tap each step when you do it!")
     clean(first)
 }
 
 @Test func endLineSaysWhatEachButtonDoes() {
-    let plain = HandOffLines.end(canGoBack: false)
-    #expect(plain.contains("Save it to play again") && plain.contains("New game") && !plain.contains("Back"))   // round D1
-    #expect(HandOffLines.end(canGoBack: false, replay: true).contains("Play it again"))
-    let back = HandOffLines.end(canGoBack: true)
-    #expect(back.contains(HandOffLines.endBackHint) && !back.contains("Back to the checklist"))   // round 25
-    clean(back)
+    // Round 26 (Haylee's button audit): The End has a star (save, then home) and a house (home); a replay only the house.
+    let plain = HandOffLines.end()
+    #expect(plain.contains("Tap the star to save it") && plain.contains("the house to go home") && !plain.contains("Back"))
+    #expect(HandOffLines.end(replay: true).contains("Tap the house to go home") && !HandOffLines.end(replay: true).contains("star"))
+    clean(plain)
 }
 
 @Test @MainActor func playLinesUseTheHandOffBuilders() async {
     let store = await storeWithKit(owners: [.R1, .R2], players: 2)
     store.autoCheckStep = .zero; store.autoCheckHold = .zero
     store.beginPlay()
-    #expect(store.nutmegLine == "Pass the iPad to the Captain, then tap I'm the Captain!")
+    #expect(store.nutmegLine == "Pass the iPad to the Captain! Tap the green check when you have the iPad!")
     store.badgeTapped(.R1)
-    #expect(store.nutmegLine.hasSuffix("then tap Done!"))
+    #expect(store.nutmegLine.hasSuffix("Tap each step when you do it!"))
     // Round 25: GuideRepair pads a short guide to 4 scenes; play through all of them.
     for _ in 0..<8 where store.phase != .end {
         if case .handoff(let i) = store.phase, let o = store.kit?.scenes[i].owner.role { store.badgeTapped(o) }
         await store.sceneDone()
     }
     #expect(store.phase == .end)
-    #expect(store.nutmegLine == HandOffLines.end(canGoBack: true))
-    store.backToChecklist()
+    #expect(store.nutmegLine == HandOffLines.end())
+    #expect(store.goTo(.play))   // the rail's Play at The End
     #expect(store.nutmegLine == HandOffLines.backToChecklist)
 }
 
@@ -90,6 +90,6 @@ private func clean(_ line: String) {
     for line in ["Let's play pirates now!", "Your kit is ready, let's play!", "Tap Print, then go play!"] {
         #expect(TurnCheck.mentionsGoPlay(line), "\(line)")
     }
-    #expect(Realtime.instructions.contains("call the button exactly \"Let's play!\""))
+    #expect(Realtime.instructions.contains("Tap the printer to print it, then tap the green play button"))
     #expect(Realtime.instructions.contains("Never call it Start"))
 }

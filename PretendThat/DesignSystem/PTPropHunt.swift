@@ -87,12 +87,7 @@ struct PTPropPinnedCard: View {
                 }
                 Spacer(minLength: 0)
             }
-            if let onHunt {
-                HStack(spacing: Theme.Space.xs) {
-                    PTHuntPill(title: "Found it!", symbol: "checkmark", fill: Theme.lime, edge: Theme.limeShade, compact: true) { onHunt(true) }
-                    PTHuntPill(title: "Don't have it", symbol: "xmark", fill: Theme.white, edge: Theme.line, compact: true) { onHunt(false) }
-                }
-            }
+            if let onHunt { PTHuntButtons(size: 64, action: onHunt) }
         }
         .padding(Theme.Space.s)
         .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Theme.white))
@@ -134,31 +129,6 @@ struct PTPropBadge: View {
     }
 }
 
-/// A backup hunt button ("Found it!" / "Don't have it"): one line, never truncated.
-struct PTHuntPill: View {
-    let title: String
-    let symbol: String
-    let fill: Color
-    let edge: Color
-    var compact = false
-    let action: () -> Void
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: compact ? 4 : 6) {
-                Image(systemName: symbol).font(.system(size: compact ? 14 : 17, weight: .heavy))
-                Text(title).lineLimit(1).fixedSize()
-            }
-            .font(Theme.uiFont(compact ? 15 : 18)).foregroundStyle(Theme.ink)
-            .padding(.horizontal, compact ? 10 : Theme.Space.m)
-            .frame(maxWidth: .infinity, minHeight: compact ? 50 : 56)
-            .background(Capsule().fill(fill))
-            .overlay(Capsule().strokeBorder(edge, lineWidth: 1.5))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(title)
-    }
-}
-
 /// The big card for the prop the kids are hunting right now.
 struct PTPropActiveCard: View {
     let item: PTStageItem
@@ -179,23 +149,14 @@ struct PTPropActiveCard: View {
                     .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)   // never truncated: the card grows
             }
             if let onHunt {
-                // Side by side when the card is wide enough, stacked otherwise: labels never truncate or wrap.
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: Theme.Space.s) { buttons(onHunt) }
-                    VStack(spacing: Theme.Space.s) { buttons(onHunt) }
-                }
-                .padding(.top, Theme.Space.xs)
+                // Round 26 (Haylee's button audit): icon only, a big green ✓ and an ✗.
+                PTHuntButtons(size: 76, action: onHunt).padding(.top, Theme.Space.xs)
             }
         }
         .padding(Theme.Space.m)
         .frame(width: width)
         .ptPanel(radius: 30)
         .accessibilityElement(children: .contain)
-    }
-
-    @ViewBuilder private func buttons(_ onHunt: @escaping (Bool) -> Void) -> some View {
-        PTHuntPill(title: "Found it!", symbol: "checkmark", fill: Theme.lime, edge: Theme.limeShade) { onHunt(true) }
-        PTHuntPill(title: "Don't have it", symbol: "xmark", fill: Theme.white, edge: Theme.line) { onHunt(false) }
     }
 }
 
@@ -235,37 +196,3 @@ extension PTStageItem {
     var isDone: Bool { chip == .found || isPretend }
 }
 
-/// Round 19 (Haylee): the confirm step's two big buttons under Nutmeg's recap ("So it's a bug movie theater for three
-/// friends! Ready, or want to change something?"). Voice answers work too.
-struct PTConfirmButtons: View {
-    let onYes: () -> Void
-    let onChange: () -> Void
-    var body: some View {
-        HStack(spacing: Theme.Space.m) {
-            PTHuntPill(title: ConfirmStep.yesLabel, symbol: "checkmark", fill: Theme.lime, edge: Theme.limeShade, action: onYes)
-            PTHuntPill(title: ConfirmStep.changeLabel, symbol: "pencil", fill: Theme.white, edge: Theme.line, action: onChange)
-        }
-        .frame(maxWidth: 560)
-        .padding(Theme.Space.s)
-        .ptPanel(radius: 40)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Is the plan right?")
-    }
-}
-
-/// Round 20 (Haylee): the color question's two big buttons ("Do you want your printables in full color, or do you want
-/// to color them yourself?"). Voice answers work too.
-struct PTColorChoiceButtons: View {
-    let onChoose: (PrintStyle) -> Void
-    var body: some View {
-        HStack(spacing: Theme.Space.m) {
-            PTHuntPill(title: ColorChoice.fullColorLabel, symbol: "paintpalette", fill: Theme.lime, edge: Theme.limeShade) { onChoose(.fullColor) }
-            PTHuntPill(title: ColorChoice.colorInLabel, symbol: "pencil.and.scribble", fill: Theme.white, edge: Theme.line) { onChoose(.colorIn) }
-        }
-        .frame(maxWidth: 560)
-        .padding(Theme.Space.s)
-        .ptPanel(radius: 40)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Full color, or color them yourself?")
-    }
-}

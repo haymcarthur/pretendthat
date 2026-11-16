@@ -121,7 +121,7 @@ extension AdventureStore {
         guard let full = fullKit, let roles = plan?.roles, !roles.isEmpty, !full.scenes.isEmpty else { return nil }
         return SavedGame(id: id, createdAt: now, title: currentTitle, roles: roles,
                          props: (props?.props ?? []).map(SavedProp.init), kit: full,
-                         printStyle: printStyle, art: art, cover: cover, voiceID: voiceID)
+                         printStyle: currentPrintStyle, art: art, cover: cover, voiceID: voiceID)   // round 26: the default style is saved
     }
 }
 

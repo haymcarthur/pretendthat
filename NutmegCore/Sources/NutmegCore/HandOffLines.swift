@@ -4,12 +4,14 @@ import Foundation
 /// screen waits on them), Nutmeg says out loud what to do next, naming the real button labels. One line per moment;
 /// "go play" words only once play has started; no stage directions.
 public enum HandOffLines {
-    /// Print step, once the whole kit has landed. Buttons: "Print" and "Let's play!".
-    public static let printReady = "Your kit is ready! Tap Print to print it, then tap Let's play when you're set!"
+    /// Print step, once the whole kit has landed (a replay's Print too). Round 26 (Haylee's button audit): icon-only
+    /// buttons, a printer and a green ▶ play button, so she names the pictures.
+    public static let printReady = "Your kit is ready! Tap the printer to print it, then tap the green play button when you're set!"
 
-    /// The hand-off card. `spokenRole` is `Role.spoken` ("the Captain"); the card's button reads "I'm the Captain!".
+    /// The hand-off card. `spokenRole` is `Role.spoken` ("the Captain"). Round 26: the card's one button is a big green
+    /// check (no "I'm the Captain!" text: most players can't read).
     public static func handoff(spokenRole: String) -> String {
-        "Pass the iPad to \(spokenRole), then tap I'm \(spokenRole)!"
+        "Pass the iPad to \(spokenRole)! Tap the green check when you have the iPad!"
     }
 
     /// The scene's checklist appears: the scene line, then the first step (round 18: she names step 1, the way
@@ -24,9 +26,10 @@ public enum HandOffLines {
             let p = ChecklistCheers.phrase(step)
             if !p.isEmpty && !normalized(line).contains(normalized(p)) { parts.append("First, " + p + "!") }
         }
-        let saysHow = l.contains("tap") && (l.contains("done") || l.contains("step") || l.contains("check"))
+        let saysHow = l.contains("tap") && (l.contains("step") || l.contains("check"))
         if !saysHow {
-            parts.append(firstScene ? "Tap each step when you do it, then tap Done!" : "Tap the steps as you go, then tap Done!")
+            // Round 26 (Haylee): no Done button; the checklist moves on by itself once every step is checked.
+            parts.append(firstScene ? "Tap each step when you do it!" : "Tap the steps as you go!")
         }
         return parts.joined(separator: " ")
     }
@@ -35,19 +38,16 @@ public enum HandOffLines {
         String(s.lowercased().map { $0.isLetter || $0.isNumber ? $0 : " " }).split(separator: " ").joined(separator: " ")
     }
 
-    /// The End. Round D1 (Haylee): "Save it to play again" replaces "Play again" on a first play; a replay (already
-    /// saved) has "Play it again". Plus "New game", and (right after the last Done!) "Back to the checklist".
-    public static func end(canGoBack: Bool, replay: Bool = false) -> String {
-        (replay ? "The end! What a show! Take a bow! Tap Play it again to do it again, or New game for a new adventure!"
-            : "The end! What a show! Take a bow! Tap Save it to play again, or New game for a new adventure!")
-            + (canGoBack ? " " + endBackHint : "")
+    /// The End. Round 26 (Haylee's button audit): two icon buttons, a star (save it, then home) and a house (home without
+    /// saving); a replay is already saved, so only the house.
+    public static func end(replay: Bool = false) -> String {
+        replay ? "The end! What a show! Take a bow! Tap the house to go home!"
+            : "The end! What a show! Take a bow! Tap the star to save it, or the house to go home!"
     }
 
-    /// Round 25 (Haylee): The End has no Back to the checklist button; the Play step on the step rail goes back.
-    public static let endBackHint = "Tap Play at the top to see your checklist again."
-
-    /// Back to the checklist from the hand-off card or The End (the checkmarks are restored).
-    public static let backToChecklist = "Here's your checklist again! Tap Done when you're finished."
+    /// Back to the last checklist from The End (the rail's Play step, or "back to the checklist"). Round 26: the steps
+    /// start unchecked again (no Done button: checking them all moves on to The End again).
+    public static let backToChecklist = "Here's your checklist again! Tap each step as you play it!"
 
     /// "Hear it again" on the checklist: the scene title, then the steps not checked yet, in order; all the steps
     /// if every one is checked.

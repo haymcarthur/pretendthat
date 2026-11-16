@@ -43,7 +43,7 @@ public struct DozeClock: Equatable, Sendable {
 
     /// Only these planning steps can get sleepy (not roles = the writing moment, not finish = kit making).
     public static func sleepyStep(_ step: PlanningStep) -> Bool {
-        switch step { case .game, .theme, .players, .confirm, .color, .props: true; case .roles, .finish: false }
+        switch step { case .game, .theme, .players, .confirm, .props: true; case .roles, .finish: false }
     }
 
     /// The silent note before the kid's turn when she was woken from drowsy/asleep: a tiny wake-up line is OK, then she

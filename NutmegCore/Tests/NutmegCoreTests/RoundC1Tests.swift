@@ -127,7 +127,7 @@ struct RoundC1Tests {
     @Test func storeHandsOffToEachPlayingRoleInTurn() async {
         let store = AdventureStore(service: nil)
         store.beginConversation()
-        _ = await store.apply(.setPlayerCount(3)); _ = await store.confirmYes(); _ = await store.apply(.setPrintStyle(.colorIn))
+        _ = await store.apply(.setPlayerCount(3)); _ = await store.confirmYes()
         _ = await store.apply(.setRoles(roles.map { .init(roleName: $0.roleName, job: $0.job) }))
         _ = await store.apply(.finishPlanning)
         for _ in 0..<100 where store.phase != .kitReady { try? await Task.sleep(for: .milliseconds(10)) }
@@ -143,7 +143,7 @@ struct RoundC1Tests {
         }
         #expect(store.phase == .end)
         let who = ["Captain", "Flight Attendant", "Co-Pilot", "Captain", "Flight Attendant", "Co-Pilot"]
-        for (line, role) in zip(lines, who) { #expect(line.contains("Pass the iPad to the \(role), then tap I'm the \(role)!"), "\(line)") }
+        for (line, role) in zip(lines, who) { #expect(line.contains("Pass the iPad to the \(role)! Tap the green check when you have the iPad!"), "\(line)") }
     }
 
     // MARK: Roles in the voice path
@@ -151,7 +151,7 @@ struct RoundC1Tests {
     @Test func setRolesRanksSixAndAnnouncesOnlyThePlayingOnes() async {
         let store = AdventureStore(service: nil)
         store.beginConversation()
-        _ = await store.apply(.setPlayerCount(2)); _ = await store.confirmYes(); _ = await store.apply(.setPrintStyle(.colorIn))
+        _ = await store.apply(.setPlayerCount(2)); _ = await store.confirmYes()
         let out = await store.apply(.setRoles(["Captain", "Navigator", "Parrot Keeper", "Cook", "Lookout", "Treasure Keeper"].map { .init(roleName: $0, job: "") }))
         #expect(store.plan?.roles.count == 6 && store.playingRoles.map(\.roleName) == ["Captain", "Navigator"])
         #expect(out.contains("2 kids are playing: announce ONLY Captain, Navigator"))
@@ -168,7 +168,7 @@ struct RoundC1Tests {
         let store = AdventureStore(service: PhaseService(llm: llm))
         store.beginConversation()
         _ = await store.apply(.setGame("Airplane")); _ = await store.apply(.setTheme("Airplane to the Beach"))
-        _ = await store.apply(.setPlayerCount(2)); _ = await store.confirmYes(); _ = await store.apply(.setPrintStyle(.colorIn))
+        _ = await store.apply(.setPlayerCount(2)); _ = await store.confirmYes()
         _ = await store.apply(.setRoles(roles.map { .init(roleName: $0.roleName, job: $0.job) }))
         for _ in 0..<300 where store.draftItems == nil { try? await Task.sleep(for: .milliseconds(10)) }
         let gen = store.draftGeneration, calls = llm.calls

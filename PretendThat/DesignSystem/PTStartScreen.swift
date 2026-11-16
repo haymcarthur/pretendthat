@@ -360,18 +360,19 @@ struct PTLogo: View {
     }
 }
 
-/// The big "Let's play!" start button: a brand-yellow pill with a dark label and arrow, sitting on the same chunky
-/// pressable bottom edge as the other primary buttons.
+/// The big start button (round 26, Haylee's button audit: "New game" with a ▶ play icon; grown-ups read the start
+/// screen, so it keeps its words): a brand-yellow pill with a dark label, on the same chunky pressable bottom edge as
+/// the other primary buttons.
 struct PTStartButton: View {
-    var title = "Let's play!"
+    var title = "New game"
     var width: CGFloat = 300
     var height: CGFloat = 88
     let action: () -> Void
     var body: some View {
         Button(action: action) {
-            HStack(spacing: height * 0.16) {
-                Text(title).font(Theme.displayFont(height * 0.36))
-                Image(systemName: "arrow.right").font(.system(size: height * 0.32, weight: .heavy, design: .rounded))
+            HStack(spacing: height * 0.14) {
+                Image(systemName: "play.fill").font(.system(size: height * 0.3, weight: .heavy, design: .rounded))
+                Text(title).font(Theme.displayFont(height * 0.34)).lineLimit(1).minimumScaleFactor(0.7)
             }
             .foregroundStyle(Theme.ink)
             .frame(width: width, height: height)
@@ -393,23 +394,25 @@ struct PTStartButton: View {
     }
 }
 
-/// Round D1 (Haylee, section 11 + mockup state 2): the white "My games" pill beside Let's play!: a little bookshelf
-/// icon and a purple label, on the same chunky pressable edge (a soft lavender shade).
+/// Round D1 (Haylee, section 11 + mockup state 2): the white button beside the start button, on the same chunky
+/// pressable edge (a soft lavender shade). Round 26 (Haylee's button audit): "Saved games" with a yellow ⭐ (the same
+/// star that saves a game at The End).
 struct PTMyGamesButton: View {
     var width: CGFloat = 252
     var height: CGFloat = 88
     let action: () -> Void
     var body: some View {
         Button(action: action) {
-            HStack(spacing: height * 0.16) {
-                PTShelfIcon().frame(width: height * 0.42, height: height * 0.46)
-                Text("My games").font(Theme.displayFont(height * 0.34)).foregroundStyle(Theme.purple)
+            HStack(spacing: height * 0.14) {
+                Image(systemName: "star.fill").font(.system(size: height * 0.34, weight: .heavy, design: .rounded))
+                    .foregroundStyle(Theme.yellow)
+                Text("Saved games").font(Theme.displayFont(height * 0.32)).foregroundStyle(Theme.purple)
                     .lineLimit(1).minimumScaleFactor(0.7)
             }
             .frame(width: width, height: height)
         }
         .buttonStyle(MyGamesStyle())
-        .accessibilityLabel("My games")
+        .accessibilityLabel("Saved games")
     }
 
     private struct MyGamesStyle: ButtonStyle {
@@ -423,33 +426,6 @@ struct PTMyGamesButton: View {
                 .animation(Theme.press, value: configuration.isPressed)
                 .sensoryFeedback(.impact(flexibility: .soft), trigger: configuration.isPressed)
         }
-    }
-}
-
-/// The small bookshelf icon on the My games button (a wooden case with two shelves of colored books and a star),
-/// drawn with shapes so it stays crisp at any size.
-struct PTShelfIcon: View {
-    var body: some View {
-        GeometryReader { g in
-            let w = g.size.width, h = g.size.height, wood = Color(red: 0.71, green: 0.40, blue: 0.22)
-            ZStack(alignment: .topLeading) {
-                RoundedRectangle(cornerRadius: w * 0.12).fill(wood)
-                RoundedRectangle(cornerRadius: w * 0.06).fill(Theme.cream)
-                    .frame(width: w * 0.76, height: h * 0.36).offset(x: w * 0.12, y: h * 0.1)
-                RoundedRectangle(cornerRadius: w * 0.06).fill(Theme.cream)
-                    .frame(width: w * 0.76, height: h * 0.34).offset(x: w * 0.12, y: h * 0.54)
-                HStack(alignment: .bottom, spacing: w * 0.05) {
-                    Rectangle().fill(Theme.coral).frame(width: w * 0.13, height: h * 0.28)
-                    Rectangle().fill(Theme.purple).frame(width: w * 0.13, height: h * 0.24)
-                    Rectangle().fill(Theme.lime).frame(width: w * 0.13, height: h * 0.28)
-                }
-                .offset(x: w * 0.18, y: h * 0.18)
-                Rectangle().fill(Theme.yellow).frame(width: w * 0.3, height: h * 0.2).offset(x: w * 0.18, y: h * 0.66)
-                Image(systemName: "star.fill").font(.system(size: w * 0.26)).foregroundStyle(Theme.yellow)
-                    .offset(x: w * 0.54, y: h * 0.6)
-            }
-        }
-        .accessibilityHidden(true)
     }
 }
 
@@ -569,7 +545,7 @@ struct PTToyChestScene<Nutmeg: View>: View {
             let bw = min(300, s.width * 0.3), bh: CGFloat = 88
             if pair {
                 // Round D1 (approved mockup state 2): the pair is centered under the chest, My games a little narrower.
-                let gap = Theme.Space.m, mw = bw * 0.84
+                let gap = Theme.Space.m, mw = bw   // round 26: "Saved games" is as wide as "New game"
                 let left = cx - (bw + gap + mw) / 2
                 button = CGRect(x: left, y: s.height - 28 - bh, width: bw, height: bh)
                 myGames = CGRect(x: left + bw + gap, y: s.height - 28 - bh, width: mw, height: bh)

@@ -10,30 +10,17 @@ struct HandoffView: View {
 
     var body: some View {
         if let id = store.kit?.scenes[sceneIndex].owner.role, let role = store.plan?.role(for: id) {
-            // Nutmeg points at the card from the shared stage (no second Nutmeg inside the card).
-            PTHandoffCard(role: role, figure: { EmptyView() }, onTap: { model.tapHandoff(id) },
-                          onBack: store.canGoBackToChecklist ? { model.tapBackToChecklist() } : nil, pinned: pinned)
+            // Nutmeg points at the card from the shared stage (no second Nutmeg inside the card). Round 26 (Haylee's
+            // button audit): one big green check, and no "Back to the checklist" (the rail and voice still go back).
+            PTHandoffCard(role: role, figure: { EmptyView() }, onTap: { model.tapHandoff(id) }, pinned: pinned)
                 .id(sceneIndex)
         }
     }
 }
 
-/// "← Back to the checklist" (round 10, Haylee): undo a "Done!", restoring the checkmarks exactly as they were.
-struct PTBackToChecklistButton: View {
-    var compact = false
-    let action: () -> Void
-    var body: some View {
-        Button(action: action) {
-            Label("Back to the checklist", systemImage: "arrow.left").frame(maxWidth: compact ? .infinity : nil)
-        }
-        .buttonStyle(.ptSecondary)
-        .accessibilityLabel("Back to the checklist")
-    }
-}
-
-/// The play step's scene checklist on the stage (chat closed). Round 8 (Haylee): it never scrolls; "Done!" is a
-/// full-width button under the paper, always visible (round 10: tapped early, it checks the rest for the kid, then the
-/// next hand-off card comes). It sits in the prop-card preset's shared card zone.
+/// The play step's scene checklist on the stage (chat closed). Round 8 (Haylee): it never scrolls. Round 26 (Haylee's
+/// button audit): no Done button; once every step is checked it moves on by itself after a short grace (an accidental
+/// last tap can still be unchecked), and "we're done" by voice finishes early. It sits in the shared card zone.
 /// Round 14 (Haylee: "Sunset Closing Time" clipped its title and last checkbox): the paper is sized to its CONTENT
 /// (measured, the title may wrap to 2 lines) and fits the stage by stepping down pictures and padding first (text
 /// ≥ 18 pt); no picture next to the title (pictures only next to each step). With the chat open the checklist is in
@@ -43,7 +30,7 @@ struct SceneView: View {
     let index: Int
     /// The shared card zone's width (round 14: natural size, no scale-down).
     var width: CGFloat = 380
-    /// The room the stage gives the whole checklist (paper + Done!).
+    /// The room the stage gives the whole checklist.
     var maxHeight: CGFloat = .infinity
     private var store: AdventureStore { model.store }
     /// D6 (revised): one sheet of paper flies off Nutmeg's clipboard and becomes the checklist beside her.
@@ -52,12 +39,11 @@ struct SceneView: View {
     @State private var heights: [Int: CGFloat] = [:]
 
     static let pad = Theme.Space.m
-    /// Done! (64 pt) + the gap above it + the paper's reveal slack.
-    static let chrome: CGFloat = 64 + Theme.Space.m + 20
+    /// The paper's reveal slack (round 26: no Done! button under it any more).
+    static let chrome: CGFloat = 20
 
     var body: some View {
         if let scene = store.kit?.scenes[index] {
-            let n = scene.steps.count
             let avail = maxHeight - Self.chrome - 2 * Self.pad
             let tier = PTSceneChecklist.tiers.indices.first { (heights[$0] ?? .infinity) <= avail } ?? PTSceneChecklist.tiers.count - 1
             let paper = CGSize(width: width, height: (heights[tier] ?? 300) + 2 * Self.pad)
@@ -73,8 +59,6 @@ struct SceneView: View {
                     .frame(width: geo.size.width, height: geo.size.height)
                 }
                 .frame(height: paper.height + 20)
-                PTSceneDoneButton(allChecked: store.checkedSteps.count == n, busy: store.autoChecking) { Task { await model.sceneDone() } }
-                    .frame(width: width)
             }
             // Measure every tier's natural height at this width (hidden), then use the densest one that's needed.
             .background {
@@ -128,20 +112,6 @@ struct PTSceneChecklist: View {
     }
 }
 
-/// "Done!" as a real full-size button (round 8): full width of its card, 64 pt tall, big label; lime once every
-/// step is checked. Round 10: always enabled (an early tap auto-checks the rest); ignored while that runs.
-struct PTSceneDoneButton: View {
-    var allChecked: Bool
-    var busy = false
-    var size: CGFloat = 26
-    var action: () -> Void
-    var body: some View {
-        Button(action: action) { Text("Done!").frame(maxWidth: .infinity) }
-            .buttonStyle(PTButtonStyle(kind: allChecked ? .success : .primary, size: size))
-            .allowsHitTesting(!busy)
-    }
-}
-
 /// Round 10 rule (Haylee): every interactive card pinned in the chat panel (prop, kit, checklist, hand-off) shares
 /// one treatment: the panel's full width, a white rounded card with a hairline, readable sizes.
 struct PTPinnedCardStyle: ViewModifier {
@@ -166,7 +136,7 @@ extension EnvironmentValues {
 
 /// The scene checklist in the chat panel's Checklist tab (chat open). Round 14 (Haylee: no pinned/collapsing list):
 /// the full-size checklist, the same as the stage's (no summary row, no picture by the title); the tab scrolls if a
-/// long scene needs it. "Done!" sits under it.
+/// long scene needs it. Round 26: no Done! (it moves on by itself once every step is checked).
 struct PTScenePinnedCard: View {
     let model: AppModel
     let index: Int
@@ -176,9 +146,6 @@ struct PTScenePinnedCard: View {
         if let scene = store.kit?.scenes[index] {
             VStack(spacing: Theme.Space.m) {
                 PTSceneChecklist(model: model, scene: scene, tier: scene.steps.count <= 4 ? 1 : 3)   // the panel is narrower: smaller pictures, same readable text
-                PTSceneDoneButton(allChecked: store.checkedSteps.count == scene.steps.count, busy: store.autoChecking) {
-                    Task { await model.sceneDone() }
-                }
             }
             .padding(.vertical, Theme.Space.xs)
             .ptPinnedCard()
@@ -187,41 +154,27 @@ struct PTScenePinnedCard: View {
     }
 }
 
+/// The End. Round 26 (Haylee's button audit): two big icon buttons, no text. ⭐ saves the game and goes home (once
+/// her shelf line ends); 🏠 goes home without saving (the round 19 hang-up rules: silence, the voice session closes).
+/// A replay is already saved, so it shows only 🏠. The step rail's Play (finished, ↺) still goes back to the checklist.
 struct EndView: View {
     let model: AppModel
-    /// Round D1 (Haylee): "Save it to play again" replaces "Play again" on a first play (an unsaved game is gone when
-    /// they leave); once saved, and on a replay, it's "Play it again" (a replay from Pick). The star is the brand-yellow
-    /// SF Symbol in the icon slot (no emoji).
-    @ViewBuilder private var playAgain: some View {
-        let store = model.store
-        if store.canSave {
-            Button { model.tapSave() } label: {
-                Label { Text(model.saveState == .failed ? "Try saving again" : "Save it to play again") } icon: {
-                    Image(systemName: "star.fill").foregroundStyle(Theme.yellow)
-                }
-            }
-            .buttonStyle(.ptSecondary)
-            .disabled(model.saveState == .saving)
-        } else if store.savedAs != nil || store.isReplay {
-            Button { model.tapPlayItAgain() } label: {
-                Label { Text("Play it again") } icon: { Image(systemName: "star.fill").foregroundStyle(Theme.yellow) }
-            }
-            .buttonStyle(.ptSecondary)
-        }
-    }
-    private var newGame: some View {
-        Button { model.tapNewGame() } label: { Label("New game", systemImage: "sparkles") }
-            .buttonStyle(.ptPrimary)
-    }
     var body: some View {
+        let store = model.store
+        let saving = model.saveState == .saving || (store.savedAs != nil && !store.isReplay)
         VStack(spacing: Theme.Space.l) {
             PTText("The End!", .hero)
-            // Round 25 (Haylee): no Back to the checklist button here; the step rail's Play step (finished, ↺) goes back.
-            // Round 14: natural size in the shared card zone; the two buttons stack when the row doesn't fit.
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: Theme.Space.m) { playAgain; newGame }
-                VStack(spacing: Theme.Space.s) { newGame; playAgain }
+            HStack(spacing: Theme.Space.xl) {
+                if store.canSave || saving {
+                    PTBigIconButton(kind: .star, size: 96, label: model.saveState == .failed ? "Try saving again" : "Save it and go home") {
+                        model.tapSave()
+                    }
+                    .disabled(saving)
+                    .opacity(saving ? 0.6 : 1)
+                }
+                PTBigIconButton(kind: .home, size: 96, label: "Go home") { model.tapNewGame() }
             }
+            .padding(.bottom, Theme.depth)
         }
     }
 }

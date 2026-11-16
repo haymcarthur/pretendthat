@@ -87,16 +87,16 @@ struct SuggestionsTests {
         store.beginConversation()
         _ = await store.apply(.setGame("Bakery"))
         let theme = await store.apply(.setTheme("Bakery on the Moon"))
-        #expect(theme.contains("How many friends are playing today?"))
+        #expect(theme.contains("How many friends are playing? Tell me!"))
         #expect(theme.contains("never a list of numbers"))
-        _ = await store.apply(.setPlayerCount(2)); _ = await store.confirmYes(); _ = await store.apply(.setPrintStyle(.colorIn))
+        _ = await store.apply(.setPlayerCount(2)); _ = await store.confirmYes()
         let roles = await store.apply(.setRoles([.init(roleName: "Baker", job: "bakes"), .init(roleName: "Customer", job: "buys")]))
         #expect(roles.contains("call show_next_prop for the FIRST prop"))
         #expect(!roles.contains("end with a quick"))
         #expect(!Realtime.instructions.contains("end with a quick \"Sound good?\""))
         #expect(!Realtime.instructions.contains("Is it just you, or two, or three friends?\"). Call"))
-        #expect(Realtime.instructions.contains("How many friends are playing today?"))
-        #expect(PlanningStep.players.goal.contains("How many friends are playing today?"))
+        #expect(Realtime.instructions.contains("How many friends are playing? Tell me!"))
+        #expect(PlanningStep.players.goal.contains("How many friends are playing? Tell me!"))
         #expect(!PlanningStep.roles.goal.contains("end with"))
     }
 
@@ -170,7 +170,7 @@ struct SuggestionsTests {
         _ = await store.apply(.setGame("Camping")); _ = await store.apply(.setTheme("Camping in a Toy Box"))
         var g = ResponseGate()
         g.newTurn(); _ = g.request(); g.created()
-        _ = await store.apply(.setPlayerCount(3)); _ = await store.confirmYes(); _ = await store.apply(.setPrintStyle(.colorIn)); g.toolCalled()
+        _ = await store.apply(.setPlayerCount(3)); _ = await store.confirmYes(); g.toolCalled()
         let afterCount = g.done(); #expect(afterCount)                       // nothing spoken yet → follow-up
         g.created()
         let roles = await store.apply(.setRoles([.init(roleName: "Lead Camper", job: "leads"), .init(roleName: "Story Camper", job: "tells"),
@@ -189,7 +189,7 @@ struct SuggestionsTests {
     @MainActor @Test func foundItFlowsIntoNextPropCard() async {
         let store = AdventureStore(service: nil)
         store.beginConversation()
-        _ = await store.apply(.setPlayerCount(1)); _ = await store.confirmYes(); _ = await store.apply(.setPrintStyle(.colorIn)); _ = await store.apply(.setRoles([.init(roleName: "Captain", job: "steer")]))
+        _ = await store.apply(.setPlayerCount(1)); _ = await store.confirmYes(); _ = await store.apply(.setRoles([.init(roleName: "Captain", job: "steer")]))
         _ = await store.apply(.showNextProp(.init(itemID: "plate", becomes: "wheel", forRole: "all")))
         #expect(!store.currentPropDone)
         _ = await store.apply(.markFound("plate"))
@@ -270,9 +270,7 @@ struct SuggestionsTests {
         let count = await store.apply(.setPlayerCount(3)); g.toolCalled()
         #expect(count.contains("So it's a castle with friendly monsters for three friends!"))
         let confirmed = await store.confirmYes()   // round 19: the kids said yes to the recap
-        #expect(confirmed.contains(ColorChoice.question))  // round 20: then the color question
-        let colored = await store.apply(.setPrintStyle(.fullColor))
-        #expect(colored.contains("start_planning"))
+        #expect(confirmed.contains("start_planning"))   // round 26: no color question, straight to the roles
         let d1 = g.done(); #expect(d1)
         g.created()                                                    // start_planning → the writing beat
         let d2 = g.done(allowFollowUp: false); #expect(!d2)
@@ -317,7 +315,7 @@ struct SuggestionsTests {
             #expect(TurnCheck.nudge(for: line, step: .props) != nil)
         }
         #expect(!TurnCheck.mentionsGoPlay(AdventureStore.kitReadyLine.replacingOccurrences(of: "Let's play", with: "")))
-        #expect(AdventureStore.kitReadyLine.contains("Print"))
+        #expect(AdventureStore.kitReadyLine.contains("printer"))
         #expect(Realtime.instructions.contains("NEVER say \"go play\""))
     }
 
@@ -325,14 +323,14 @@ struct SuggestionsTests {
         for line in ["Hi, I'm Nutmeg, your tiny stage manager friend, giggle. What should we play: a zoo, a farm, or a bus ride?",
                      "Squeak! What should we play: a zoo, a farm, or a bus ride?",
                      "Eee! What should we play: a zoo, a farm, or a bus ride?",
-                     "Friendly monsters, eep, so cute! How many friends are playing today?",
-                     "Heehee, you're speedy! How many friends are playing today?",
-                     "Teehee! How many friends are playing today?",
-                     "*laughs* How many friends are playing today?"] {
+                     "Friendly monsters, eep, so cute! How many friends are playing? Tell me!",
+                     "Heehee, you're speedy! How many friends are playing? Tell me!",
+                     "Teehee! How many friends are playing? Tell me!",
+                     "*laughs* How many friends are playing? Tell me!"] {
             #expect(TurnCheck.hasSoundEffect(line), "\(line)")
             #expect(TurnCheck.nudge(for: line, step: .players) != nil, "\(line)")
         }
-        for ok in ["Ooh! How many friends are playing today?", "Yay! Should it be on the moon, under the sea, or in a castle?",
+        for ok in ["Ooh! How many friends are playing? Tell me!", "Yay! Should it be on the moon, under the sea, or in a castle?",
                    "Can you find a sheet? It'll be the sail!", "Let's keep a steering wheel ready!"] {
             #expect(!TurnCheck.hasSoundEffect(ok), "\(ok)")
         }
@@ -396,7 +394,7 @@ struct SuggestionsTests {
         store.beginConversation()
         let early = await store.apply(.startPlay)
         #expect(early.contains("Almost ready") && store.phase == .pickGame)     // never before the kit exists
-        #expect(AdventureStore.kitReadyLine == "Your kit is ready! Tap Print to print it, then tap Let's play when you're set!")
+        #expect(AdventureStore.kitReadyLine == "Your kit is ready! Tap the printer to print it, then tap the green play button when you're set!")
         #expect(Realtime.instructions.contains("call start_play"))
         #expect(Realtime.instructions.contains("call print_kit"))
     }

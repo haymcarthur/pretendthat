@@ -68,7 +68,6 @@ import Testing
         store.beginConversation()
         _ = await store.apply(.setGame("Pirate Ship")); _ = await store.apply(.setTheme("Pirate Ship on the Moon"))
         _ = await store.apply(.setPlayerCount(2)); _ = await store.confirmYes()
-        _ = await store.apply(.setPrintStyle(.colorIn))
         _ = await store.apply(.setRoles([.init(roleName: "Captain", job: ""), .init(roleName: "Navigator", job: "")]))
     }
 
