@@ -40,22 +40,24 @@ struct PTIconButton: View {
     var selected = false
     var fill: Color? = nil
     var size: CGFloat = 64
-    /// Round 22 (Haylee: Repeat should show a speaker AND a replay arrow): an optional SF Symbol drawn as a ring
-    /// around a smaller `symbol` (Repeat = `speaker.wave.2.fill` inside `arrow.counterclockwise`). SF Symbols has no
-    /// combined speaker/replay symbol on iPadOS 17 (the nearest, hifispeaker.arrow.forward, is iOS 18 and means "send").
-    var ring: String? = nil
+    /// Round 23 (Haylee: "Replace this"): an optional asset-catalog template image drawn instead of the SF Symbol
+    /// (Repeat = `icon-hear-again`, her ChatGPT icon vectorized in Figma: a speaker inside a replay arrow). Tinted
+    /// with the same ink as the symbols, sized so its visual weight matches the chat icon.
+    var asset: String? = nil
     let action: () -> Void
+    /// The template image's square (with its ~5% built-in padding) as a fraction of the button.
+    static let assetScale: CGFloat = 0.56
 
     var body: some View {
         let ink = fill == nil || fill == Theme.chipGray || fill == Theme.white ? Theme.ink : Theme.white
         Button(action: action) {
             ZStack {
-                if let ring {
-                    Image(systemName: ring)
-                        .font(.system(size: size * 0.5, weight: .regular))
-                    Image(systemName: symbol)
-                        .font(.system(size: size * 0.19, weight: .semibold))
-                        .offset(x: size * 0.005, y: size * 0.012)
+                if let asset {
+                    Image(asset)
+                        .renderingMode(.template)
+                        .resizable()
+                        .interpolation(.high)
+                        .frame(width: size * Self.assetScale, height: size * Self.assetScale)
                 } else {
                     Image(systemName: symbol)
                         .font(.system(size: size * 0.36, weight: .regular))
@@ -162,9 +164,9 @@ struct PTControlBar: View {
     var body: some View {
         // Tight (Haylee): ~10 pt between a side button and the mic's circular backing.
         HStack(spacing: Self.gap) {
-            // Round 22 (Haylee): a speaker inside a replay arrow, so it reads as "hear it again".
+            // Round 23 (Haylee): her own speaker-in-a-replay-arrow icon (design/export/ui/icon-hear-again.svg).
             PTIconButton(symbol: "speaker.wave.2.fill", label: "Hear it again", size: Self.side,
-                         ring: "arrow.counterclockwise", action: onRepeat)
+                         asset: "icon-hear-again", action: onRepeat)
                 .opacity(canRepeat ? 1 : 0.4)
                 .disabled(!canRepeat)
                 .accessibilityHint("Nutmeg says it again")
