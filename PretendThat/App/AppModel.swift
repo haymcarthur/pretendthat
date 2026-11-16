@@ -32,6 +32,8 @@ final class AppModel {
     var shelfGames: [SavedGame] = []
     /// The My games bookshelf screen is open (on the start screen; the phase stays Hello).
     var showingShelf = false
+    /// Round D2: the Grown-ups sheet (gate, then Saved games + About saved games).
+    var showingGrownUps = false
     /// The saved game being replayed (its art, for Paper).
     @ObservationIgnored var replayGame: SavedGame?
     /// The replay's voice session is connecting: its lines wait for it (never the device voice).
@@ -1324,6 +1326,26 @@ final class AppModel {
         rtLog("my games: shelf opened (\(shelfGames.count) saved)")
     }
     func closeShelf() { showingShelf = false }
+
+    // MARK: Grown-ups corner (round D2, Haylee: delete lives here, behind the gate)
+
+    func openGrownUps() {
+        refreshShelf()
+        showingGrownUps = true
+        rtLog("grown-ups: opened (\(shelfGames.count) saved)")
+    }
+    func closeGrownUps() {
+        showingGrownUps = false
+        refreshShelf()
+    }
+    func grownUpRows() -> [SavedGameRow] { savedGames.rows() }
+    /// Deletes a saved game for good (its folder: game.json, art, cover). After the last one, My games goes away.
+    func deleteSavedGame(_ id: UUID) {
+        let gone = savedGames.deleteGame(id)
+        refreshShelf()
+        if shelfGames.isEmpty { showingShelf = false }
+        rtLog("grown-ups: deleted a saved game (\(gone ? "files removed" : "FILES LEFT")), \(shelfGames.count) left")
+    }
 
     /// "Save it to play again": the game is written to this iPad at once (game content only), she says its title and
     /// that it's on the shelf, and the button becomes "Play it again".

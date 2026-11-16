@@ -476,6 +476,8 @@ struct PTToyChestScene<Nutmeg: View>: View {
     var onIntroFinished: () -> Void = {}
     /// Round D1 (Haylee, section 11): once a game is saved, a white "My games" button sits beside Let's play!.
     var onMyGames: (() -> Void)? = nil
+    /// Round D2: the small "Grown-ups" pill in the top-right corner (always there on the start screen).
+    var onGrownUps: (() -> Void)? = nil
     let onStart: () -> Void
     @ViewBuilder var nutmeg: (_ look: PTStartNutmeg) -> Nutmeg
 
@@ -639,6 +641,7 @@ struct PTToyChestScene<Nutmeg: View>: View {
             startButton(t: t, e: e, L)
             myGamesButton(t: t, e: e, L)
             PTCurtain(progress: PTEase.progress(t, T.curtains))
+            grownUpsPill(t: t, e: e, L)
         }
         .frame(width: size.width, height: size.height)
     }
@@ -846,6 +849,22 @@ struct PTToyChestScene<Nutmeg: View>: View {
                 .opacity(min(k * 6, 1) * (1 - away))
                 .allowsHitTesting(t >= T.pop.upperBound && e < 0)
                 .position(x: r.midX, y: r.midY)
+        }
+    }
+
+    /// Round D2: the quiet Grown-ups pill, top right just inside the curtain, level with the title card (mockup
+    /// states 1–2). It fades in with the buttons and away on the exit.
+    @ViewBuilder private func grownUpsPill(t: Double, e: Double, _ L: Layout) -> some View {
+        if let onGrownUps {
+            let k = T.pop(t, peak: Self.uiPeak)
+            let away = PTEase.progress(e, X.popAway)
+            PTGrownUpsPill(action: onGrownUps)
+                .fixedSize()
+                .opacity(min(k * 3, 1) * (1 - away))
+                .allowsHitTesting(t >= T.pop.upperBound && e < 0)
+                .frame(width: L.size.width - L.curtain.visible * 1.15, alignment: .trailing)
+                .padding(.top, L.cardTop + Theme.Space.xs)
+                .frame(width: L.size.width, height: L.size.height, alignment: .topLeading)
         }
     }
 

@@ -22,6 +22,7 @@ struct HelloView: View {
                             stageStars: stageStars(geo),
                             onExitBegan: onExitBegan,
                             onMyGames: model.shelfGames.isEmpty ? nil : { model.openShelf() },
+                            onGrownUps: { model.openGrownUps() },
                             onStart: { Task { await model.startConversation() } }) { look in
                 NutmegCharacter(state: .idle, showsGround: look.ground, showsTail: look.tail)
             }

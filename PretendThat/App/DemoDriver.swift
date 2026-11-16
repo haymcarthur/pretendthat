@@ -13,6 +13,14 @@ enum DemoDriver {
         return args[i + 1]
     }
 
+    /// Round D2: `-PTGrownUps holding|grid|list|confirm|deleteAll`: open the Grown-ups sheet at launch on that state
+    /// (holding = the hold ring part filled, grid = the number question; list/confirm/deleteAll skip the gate).
+    static var grownUps: String? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-PTGrownUps"), i + 1 < args.count else { return nil }
+        return args[i + 1]
+    }
+
     /// `-PTShot closeUp|medium|wide` (hunt = medium): hold the conversation camera on one shot (screenshots).
     static var forcedShot: PTCameraShot? {
         let args = ProcessInfo.processInfo.arguments
@@ -257,6 +265,7 @@ enum DemoDriver {
     @MainActor static func drive(_ store: AdventureStore, model: AppModel, to target: String) async {
         if !target.hasPrefix("conv") { model.realtime.debugSeedTranscript(demoTranscript) }
         if target.hasPrefix("conv") { await conversation(store, model: model, to: target); return }
+        if target == "seed2" { await seedGames(store, model: model); return }
         if target == "sceneLong" {   // round 14: a long Sunset-style checklist (2-line title, 6 long steps)
             await drive(store, model: model, to: "scene")
             if case .scene(let i) = store.phase, var sc = store.kit?.scenes[i] {
@@ -317,6 +326,23 @@ enum DemoDriver {
             await store.sceneDone()
             if case .handoff(let i) = store.phase, let t = store.kit?.scenes[i].owner.role { store.badgeTapped(t) }
         }
+    }
+
+    /// Round D2: `-PTDemo seed2`: plays the bundled airplane game to The End (no network), saves it twice under two
+    /// titles (game content only, no art), then goes home: the start screen shows My games + Grown-ups.
+    @MainActor static func seedGames(_ store: AdventureStore, model: AppModel) async {
+        if model.savedGames.count < 2 {
+            await drive(store, model: model, to: "end")
+            let titles = ["Moon Crumbs Bakery", "Pirate Ship on the Moon"]
+            for (i, title) in titles.enumerated() {
+                guard var g = store.savedGame(now: Date().addingTimeInterval(Double(i - 2) * 86_400), art: [], cover: nil) else { break }
+                g.title = title
+                try? model.savedGames.save(g, art: [:], cover: nil)
+            }
+            model.leave()
+        }
+        model.refreshShelf()
+        rtLog("SEED: shelf=\(model.shelfGames.count)")
     }
 
     static let demoTranscript = [

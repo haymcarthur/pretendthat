@@ -22,6 +22,8 @@ enum Theme {
     static let creamShade = Color(hex: BrandPalette.creamShade)
     /// Round D1: the My games button's soft lavender bottom edge (mockup state 2).
     static let lavenderShade = Color(hex: 0xDCD3EC)
+    /// Round D2: the Grown-ups gate's soft lavender lock circle.
+    static let lavender = Color(hex: 0xEFEAF7)
     static let white = Color(hex: BrandPalette.white)
     static let limeTint = Color(hex: BrandPalette.limeTint)
 

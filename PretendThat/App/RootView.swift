@@ -251,8 +251,13 @@ struct RootView: View {
             if DemoDriver.chatOpen { chatOpen = true }
             if let demo = DemoDriver.requestedPhase { await DemoDriver.drive(store, model: model, to: demo) }
             if let turns = DemoDriver.liveTurns { await DemoDriver.live(model, turns: turns) }
+            if DemoDriver.grownUps != nil { try? await Task.sleep(for: .seconds(4)); model.openGrownUps() }   // round D2 shots
             #endif
             await model.listener.requestAuth()
+        }
+        // Round D2: the Grown-ups corner (gate first). Nutmeg stays quiet.
+        .sheet(isPresented: Binding(get: { model.showingGrownUps }, set: { if !$0 { model.closeGrownUps() } })) {
+            GrownUpsSheet(model: model)
         }
         .sheet(isPresented: $showTyping) { PTTypeSheet { text in Task { await model.typed(text) } } }
         // Round 24: Save printables for later (no printer): Save to Files, AirDrop, send to a grown-up.
