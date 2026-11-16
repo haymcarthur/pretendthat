@@ -50,6 +50,19 @@ public final class AdventureStore {
     public private(set) var printStyle: PrintStyle?
     /// What the pages are drawn as (the coloring pages until the kids choose).
     public var currentPrintStyle: PrintStyle { printStyle ?? .colorIn }
+    /// Round 27 (Haylee): the print set chosen on the Print screen. Both sets are drawn during the hunt; color is the
+    /// default; a tap on a set or "color" / "we'll color them" by voice (`choose_print_set`) changes it. The printer
+    /// prints this set.
+    public private(set) var printSet: PrintStyle = PrintStyle.defaultSet
+    /// Round 27: the sets this game has (both for a new game; a game saved before round 27 has one).
+    public private(set) var availableSets: [PrintStyle] = PrintStyle.sets
+    /// Chooses the print set (a tap on a set, or the voice tool). False when this game doesn't have that set.
+    @discardableResult
+    public func choosePrintSet(_ style: PrintStyle) -> Bool {
+        guard availableSets.contains(style) else { return false }
+        printSet = style
+        return true
+    }
     public private(set) var ideas: GameIdeas?
     public private(set) var plan: GamePlan?
     public private(set) var props: Props?
@@ -399,6 +412,7 @@ public final class AdventureStore {
     public func newGame() {
         phase = .hello
         playerCount = 0; gameTitle = nil; printStyle = nil; planningStep = .game; themeIdeas = []
+        printSet = PrintStyle.defaultSet; availableSets = PrintStyle.sets   // round 27
         ideas = nil; plan = nil; props = nil; fullKit = nil
         choices = []; lastError = nil; usingFallback = false
         foundProps = []; checkedSteps = []; failures = [:]; retryAction = nil; holder = nil
@@ -449,6 +463,9 @@ public final class AdventureStore {
         props = Props(nutmegSays: "", props: list)
         foundProps = Set(list.map(\.id))   // every card starts as Got it (Haylee)
         printStyle = g.printStyle
+        // Round 27: the replay's Print offers the sets it saved (both for a round 27 game), color first.
+        availableSets = g.artSets.isEmpty ? PrintStyle.sets : g.artSets
+        printSet = availableSets.contains(PrintStyle.defaultSet) ? PrintStyle.defaultSet : availableSets[0]
         // Round 25: a saved guide with a placeholder title, too few scenes or no props in it (seen in a round 24
         // Draw it! game: ONE scene titled "x") is repaired here, with no AI call (`GuideRepair`).
         let items = g.kit.items
@@ -869,6 +886,11 @@ public final class AdventureStore {
             guard case .scene = phase else { return "There's no checklist right now. Answer in ONE short line." }
             await sceneDone()
             return "Scene finished: the app moves on and says the next line. Say nothing."
+        case .choosePrintSet(let style):
+            // Round 27: "color" / "we'll color them" on the Print step: the highlight moves to that set.
+            guard phase == .kitReady else { return PrintSetLines.notNowOutput }
+            guard choosePrintSet(style) else { return PrintSetLines.onlyOneOutput(printSet) }
+            return PrintSetLines.chosenOutput(style)
         case .printKit:
             // Round 23: "print it again" from the play step (or The End) goes back to the Print step.
             if phase.step == .play, goTo(.print) { return BackNav.output(moved: true, to: .print, current: .print) }

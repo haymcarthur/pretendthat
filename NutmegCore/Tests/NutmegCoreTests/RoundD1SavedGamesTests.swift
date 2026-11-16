@@ -104,7 +104,7 @@ struct RoundD1SavedGamesTests {
         // What IS kept: the game content.
         #expect(game.title == "Airplane to the Beach" && game.roles.count == 6 && game.props.map(\.id) == ["plate"])
         #expect(game.props[0].reason == "A plate is round like a wheel!" && game.props[0].alternates == ["bowl"])
-        #expect(game.kit == store.fullKit && game.printStyle == .colorIn && game.clips.isEmpty)
+        #expect(game.kit == store.fullKit && game.printStyle == .fullColor && game.clips.isEmpty)
     }
 
     // MARK: Save at The End

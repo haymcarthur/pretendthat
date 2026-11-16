@@ -132,7 +132,9 @@ public enum Realtime {
     words, then show_next_prop for the next one. If they don't have it, offer ONE alternate (call swap_prop) or say \
     you'll pretend (call skip_prop), then the next prop. 3 to 5 props in all, then step 6.
     7. PRINT STEP (after the kit is ready, the kids can still talk to you): if they want to play ("let's play", \
-    "we're ready", "we printed it"), call start_play; if they want to print ("print it"), call print_kit. Otherwise \
+    "we're ready", "we printed it"), call start_play; if they want to print ("print it"), call print_kit. Both page sets \
+    are on screen, color and outline: "color" → choose_print_set color; "we'll color them", "the outline ones", "plain" \
+    → choose_print_set outline. Otherwise \
     answer in one short line. "Go play" wording is only for after start_play.
     PLAY STEP: on a checklist, if they say they're done ("we're done", "done", "finished"), call finish_scene and say \
     nothing (the checklist also moves on by itself once every step is checked).
@@ -331,6 +333,10 @@ public enum Realtime {
            + "it\"). Does exactly what tapping the green play button does.", [:], required: []),
         fn("print_kit", "PRINT STEP only: the kids want to print (\"print it\"). Opens the iOS print screen, like tapping the printer.",
            [:], required: []),
+        fn("choose_print_set", "PRINT STEP only: the kids choose which pages to print. Both sets are on screen: \"color\" "
+           + "(\"in color\", \"the color ones\") or \"outline\" (\"we'll color them\", \"the outline ones\", \"plain\", "
+           + "\"coloring pages\"). Moves the highlight, like tapping that set; the result says the one line to say.",
+           ["set": ["type": "string", "enum": ["color", "outline"]]], required: ["set"]),
         fn("confirm_handoff", "PLAY STEP hand-off only: the kid holding the iPad says they're the role it was passed to "
            + "(\"I'm the Captain\", \"I've got it\"). Does exactly what tapping the card's green check does. Say nothing.",
            [:], required: []),
@@ -384,7 +390,7 @@ public enum Realtime {
     /// were free replies, and live the model answered "Sure!" without moving, or narrated before the tool).
     public static func afterHuntTools(_ phase: Phase) -> [String]? {
         switch phase {
-        case .kitReady: return ["start_play", "print_kit", "go_to_step", "just_talk"]
+        case .kitReady: return ["start_play", "print_kit", "choose_print_set", "go_to_step", "just_talk"]
         case .handoff: return ["confirm_handoff", "go_to_step", "just_talk"]
         case .scene: return ["finish_scene", "go_to_step", "just_talk"]
         case .end: return ["go_to_step", "just_talk"]
@@ -573,6 +579,8 @@ public enum PlanningCall: Equatable, Sendable {
     /// Round 19: the kids said yes to the recap (step 3b).
     case confirmPlan
     case justTalk, startPlay, printKit
+    /// Round 27: "color" / "we'll color them" on the Print step: which set the printer prints.
+    case choosePrintSet(PrintStyle)
     /// Round 9: "I'm the Captain" by voice on the hand-off card, same as tapping the button.
     case confirmHandoff
     /// Round 26: "we're done" on the checklist (there is no Done button): checks the rest and moves on.
@@ -627,6 +635,7 @@ public enum PlanningCall: Equatable, Sendable {
         case "just_talk": return .justTalk
         case "start_play": return .startPlay
         case "print_kit": return .printKit
+        case "choose_print_set": return PrintStyle(choice: s(a, "set")).map { .choosePrintSet($0) }
         case "confirm_handoff": return .confirmHandoff
         case "finish_scene": return .finishScene
         case "go_to_step": return BackNav.toolSteps[s(a, "step").lowercased()].map { .goToStep($0) }

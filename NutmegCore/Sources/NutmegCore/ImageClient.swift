@@ -59,10 +59,12 @@ public final class ImageClient: @unchecked Sendable {
         var lastError: Error = ClaudeError.transport
         for model in candidates {
             AICallLog.record(.image)   // round D1: counted (numbers only)
+            ImageUsageLog.started()    // round 27: timing for the per-minute peak (numbers only)
             let (data, http) = try await transport.send(try request(prompt: prompt, size: size, model: model, quality: quality, background: background))
             let err = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["error"] as? [String: Any]
             let code = err?["code"] as? String ?? "", message = (err?["message"] as? String ?? "").lowercased()
             let verification = message.contains("verif")
+            if http.statusCode == 429 { ImageUsageLog.rateLimited() }
             if !verification && (http.statusCode == 404 || (http.statusCode == 400 && (code == "model_not_found" || message.contains("model")))) {
                 lastError = ClaudeError.http(http.statusCode); continue
             }
@@ -75,6 +77,9 @@ public final class ImageClient: @unchecked Sendable {
             guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let b64 = ((obj["data"] as? [[String: Any]])?.first?["b64_json"]) as? String,
                   let png = Data(base64Encoded: b64) else { throw ClaudeError.decoding("no b64_json") }
+            if let u = obj["usage"] as? [String: Any] {   // round 27: cost measurement (token counts only)
+                ImageUsageLog.usage(input: u["input_tokens"] as? Int ?? 0, output: u["output_tokens"] as? Int ?? 0)
+            }
             lock.withLock { working = model }
             return png
         }

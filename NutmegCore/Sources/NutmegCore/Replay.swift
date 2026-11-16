@@ -53,7 +53,7 @@ public enum ReplayLines {
                 + "\(becomes(card)). When they say they have it (\"found it\", \"yes\", \"we have it\"), call mark_found; when they "
                 + "don't (\"no\", \"we don't have one\"), call skip_prop. The app says the next line."
         } else if step == .print {
-            s += " Every prop is answered: they're on Print. \"print it\" → print_kit; \"let's play\" → start_play."
+            s += " Every prop is answered: they're on Print. \"color\" / \"we'll color them\" → choose_print_set; \"print it\" → print_kit; \"let's play\" → start_play."
         }
         return s
     }
@@ -73,7 +73,8 @@ public enum ReplayLines {
             + "roles, props and play guide are already made and never change. The app runs the steps and says every step's "
             + "line itself: Pick (how many are playing, 1 to 6: when they say a number, call set_player_count), Props (the "
             + "saved props one card at a time: \"found it\" / \"we have it\" → mark_found; \"we don't have it\" → skip_prop), "
-            + "Print (a printer button and a green play button: \"print it\" → print_kit, \"let's play\" → start_play), then "
+            + "Print (both page sets, color and outline: \"color\" / \"we'll color them\" → choose_print_set; a printer button "
+            + "and a green play button: \"print it\" → print_kit, \"let's play\" → start_play), then "
             + "Play. Ranked roles: \(roles.map(\.roleName).joined(separator: ", "))"
             + (players > 0 ? "; playing now: \(playing.joined(separator: ", "))" : "; the count isn't chosen yet") + ". "
             + "Props: \(props.map { "\($0.householdItem.lowercased()) as \($0.becomes)" }.joined(separator: ", ")). "

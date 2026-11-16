@@ -55,10 +55,12 @@ public struct SavedGame: Codable, Equatable, Sendable, Identifiable {
     public var props: [SavedProp]
     /// The kit as written for all 6 roles: the 6 recipe pages + the play guide (role-tagged steps).
     public var kit: Kit
+    /// The style of the PLAIN art keys (round 27: full color; the outline set's keys are `o`-prefixed, `ArtKey`).
+    /// Games saved before round 27 have one set, in the style chosen then.
     public var printStyle: PrintStyle?
     /// The stored page art keys (`ArtKey`), files under art/ as HEIC. The PDF is always rebuilt, never stored.
     public var art: [String]
-    /// cover.jpg (a 600 px card picture for the shelf), when the game had sign art.
+    /// cover.jpg (a 600 px card picture for the shelf): round 27's generated text-free cover, else the sign art.
     public var cover: String?
     /// Nutmeg's recorded lines (round D3b). Empty in D1: every replay line is said live.
     public var clips: [SavedClip]
@@ -121,7 +123,7 @@ extension AdventureStore {
         guard let full = fullKit, let roles = plan?.roles, !roles.isEmpty, !full.scenes.isEmpty else { return nil }
         return SavedGame(id: id, createdAt: now, title: currentTitle, roles: roles,
                          props: (props?.props ?? []).map(SavedProp.init), kit: full,
-                         printStyle: currentPrintStyle, art: art, cover: cover, voiceID: voiceID)   // round 26: the default style is saved
+                         printStyle: .fullColor, art: art, cover: cover, voiceID: voiceID)   // round 27: the plain art keys are the color set
     }
 }
 

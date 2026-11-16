@@ -394,7 +394,7 @@ struct SuggestionsTests {
         store.beginConversation()
         let early = await store.apply(.startPlay)
         #expect(early.contains("Almost ready") && store.phase == .pickGame)     // never before the kit exists
-        #expect(AdventureStore.kitReadyLine == "Your kit is ready! Tap the printer to print it, then tap the green play button when you're set!")
+        #expect(AdventureStore.kitReadyLine == "Your kit is ready! Want them in color, or plain to color yourself? Tap the ones you like, then the printer! Tap the green play button when you're set!")
         #expect(Realtime.instructions.contains("call start_play"))
         #expect(Realtime.instructions.contains("call print_kit"))
     }

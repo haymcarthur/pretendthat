@@ -6,7 +6,8 @@ import Foundation
 public enum HandOffLines {
     /// Print step, once the whole kit has landed (a replay's Print too). Round 26 (Haylee's button audit): icon-only
     /// buttons, a printer and a green ▶ play button, so she names the pictures.
-    public static let printReady = "Your kit is ready! Tap the printer to print it, then tap the green play button when you're set!"
+    /// Round 27 (Haylee): both sets are on screen, so she mentions the choice briefly.
+    public static let printReady = "Your kit is ready! Want them in color, or plain to color yourself? Tap the ones you like, then the printer! Tap the green play button when you're set!"
 
     /// The hand-off card. `spokenRole` is `Role.spoken` ("the Captain"). Round 26: the card's one button is a big green
     /// check (no "I'm the Captain!" text: most players can't read).

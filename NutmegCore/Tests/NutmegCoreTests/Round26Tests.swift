@@ -35,7 +35,7 @@ import Testing
     // MARK: Picture buttons she names (decisions 3, 4, 5, 7)
 
     @Test func linesNameThePictureButtons() {
-        #expect(HandOffLines.printReady == "Your kit is ready! Tap the printer to print it, then tap the green play button when you're set!")
+        #expect(HandOffLines.printReady == "Your kit is ready! Want them in color, or plain to color yourself? Tap the ones you like, then the printer! Tap the green play button when you're set!")
         #expect(HandOffLines.handoff(spokenRole: "the Head Baker") == "Pass the iPad to the Head Baker! Tap the green check when you have the iPad!")
         #expect(HandOffLines.end() == "The end! What a show! Take a bow! Tap the star to save it, or the house to go home!")
         #expect(HandOffLines.end(replay: true) == "The end! What a show! Take a bow! Tap the house to go home!")
@@ -100,6 +100,6 @@ import Testing
         #expect(ClipMeta.kind(of: store.nutmegLine) == .replay)
         store.replayAllFound()
         #expect(store.phase == .kitReady && store.nutmegLine == HandOffLines.printReady)
-        #expect(ReplayLines.tools(.kitReady) == ["start_play", "print_kit", "go_to_step", "just_talk"])
+        #expect(ReplayLines.tools(.kitReady) == ["start_play", "print_kit", "choose_print_set", "go_to_step", "just_talk"])
     }
 }

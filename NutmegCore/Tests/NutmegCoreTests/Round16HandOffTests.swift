@@ -13,7 +13,8 @@ private func clean(_ line: String) {
 @Test func printReadyNamesBothPictureButtonsAndNeverSaysGoPlay() {
     let l = HandOffLines.printReady
     // Round 26: the buttons are pictures, so she names them: the printer and the green play button.
-    #expect(l.contains("Tap the printer") && l.contains("the green play button"))
+    // Round 27: and the two sets (color or plain), tapped to choose, then the printer.
+    #expect(l.contains("the printer") && l.contains("the green play button") && l.contains("color"))
     #expect(!TurnCheck.mentionsGoPlay(l))
     #expect(AdventureStore.kitReadyLine == l)
     clean(l)
