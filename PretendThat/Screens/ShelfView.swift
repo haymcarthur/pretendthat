@@ -126,24 +126,26 @@ struct PTBookshelf: View {
     static func card(_ i: Int, in size: CGSize) -> (card: CGRect, label: CGRect) {
         let slot = slots[min(i / ShelfView.perShelf, slots.count - 1)], col = i % ShelfView.perShelf
         let innerX = slot.x * size.width, innerW = slot.width * size.width
+        // Stand on the board: the card's bottom halfway between the board's back and front edges.
         let bottom = (slot.shelfBackY + slot.shelfFrontY) / 2 * size.height
-        let top = (slot.y + 0.01) * size.height
-        let h = bottom - top
-        // Round 27: every card is the game's square cover, all the same size (the shortest shelf's opening).
-        let shortest = slots.map { ($0.shelfBackY + $0.shelfFrontY) / 2 - ($0.y + 0.01) }.min() ?? 0.13
-        let side = min(shortest * size.height, innerW * 0.29)
-        let w = side
-        let gap = (innerW - 3 * w) / 4
+        let h = (slot.shelfFrontY - slot.y) * size.height
+        // Shelf fix (Haylee, "make them bigger", mockup states 3–4): the 3 cards FILL the compartment. Height: 90% of
+        // the shortest compartment's opening (top of the opening to the board's front edge), the same on every shelf;
+        // width: 3 cards with 4 even gaps across the opening. The square cover fills the card (centre-cropped).
+        let shortest = slots.map { $0.shelfFrontY - $0.y }.min() ?? 0.14
+        let side = min(shortest * 0.9 * size.height, bottom - slot.y * size.height)
+        let gap = innerW * 0.035
+        let w = (innerW - 4 * gap) / 3
         let x = innerX + gap + CGFloat(col) * (w + gap)
         let card = CGRect(x: x, y: bottom - side, width: w, height: side)
-        let lh = max(18, h * 0.2), lw = w + gap * 0.7
+        let lh = max(18, h * 0.2), lw = w + gap * 0.5
         let label = CGRect(x: card.midX - lw / 2, y: slot.shelfFrontY * size.height + size.height * 0.022 - lh / 2, width: lw, height: lh)
         return (card, label)
     }
 }
 
-/// One saved game standing on the shelf: a white-framed square picture card (round 27: its text-free cover; else its
-/// color sign page; else its prop stickers on cream).
+/// One saved game standing on the shelf: a white-framed picture card filling its third of the compartment (round 27:
+/// its text-free square cover, centre-cropped to the card; else its color sign page; else its prop stickers on cream).
 struct PTGameCard: View {
     let game: SavedGame
     let cover: UIImage?

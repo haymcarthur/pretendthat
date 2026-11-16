@@ -79,3 +79,15 @@ separately). The implementation details are Claude's calls, noted here.
 - The "still drawing" veil/progress bar live (in these runs every set was final by the time the papers came out; the
   reveal waits for one set). Spoken (mic) choices; VoiceOver on the set chips; the chat-open pinned card; a real
   printout; the relay path itself (the live runs used direct keys).
+
+## Follow-up: bigger shelf cards (Haylee, "make them bigger", 2026-11-16)
+- The square cards (~79 pt) left most of each compartment empty. Now the 3 cards FILL the compartment like mockup
+  states 3–4: height = 90% of the shortest compartment opening (top of opening to the board's front edge), the same on
+  every shelf, standing on the board (bottom halfway between its back and front edges, the arched top row too);
+  width = 3 cards with 4 even gaps (3.5% of the opening each). On the 11" iPad that is about **130 × 84 pt** (was
+  ~79 × 79). **Claude's call:** the cards are landscape like the mockup, so the square cover is centre-cropped to fill
+  the card (the cover has no text, so nothing important is lost); the sign-page and prop-sticker fallbacks are unchanged.
+- Paging, page dots, the back arrow and the shelf-edge labels are unchanged. Grown-ups list thumbnails unchanged.
+- DEBUG: `-PTDemo shelf` seeds 5 games (env `PT_SEED_COUNT` for more, `PT_SEED_COVER` = a cover JPEG on every other
+  one) and opens the bookshelf. Screenshots: `/tmp/pt-shelffix/` (before-shelf, after-shelf, after-shelf-full-page1
+  with 10 games + paging, after-grownups-list). NutmegCore 382 green.

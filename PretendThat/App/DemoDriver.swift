@@ -314,6 +314,13 @@ enum DemoDriver {
         if !target.hasPrefix("conv") { model.realtime.debugSeedTranscript(demoTranscript) }
         if target.hasPrefix("conv") { await conversation(store, model: model, to: target); return }
         if target == "seed2" { await seedGames(store, model: model); return }
+        // Shelf fix (round 27 follow-up): `-PTDemo shelf` seeds 5 games (env PT_SEED_COUNT for more) (cover from env PT_SEED_COVER on every other
+        // one, so both the cover and the fallback show) and opens the bookshelf (two shelves + a second page at 10+).
+        if target == "shelf" || target == "seed5" {
+            await seedGames(store, model: model, count: Int(ProcessInfo.processInfo.environment["PT_SEED_COUNT"] ?? "") ?? 5)
+            if target == "shelf" { model.openShelf() }
+            return
+        }
         if target == "sceneLong" {   // round 14: a long Sunset-style checklist (2-line title, 6 long steps)
             await drive(store, model: model, to: "scene")
             if case .scene(let i) = store.phase, var sc = store.kit?.scenes[i] {
@@ -376,14 +383,17 @@ enum DemoDriver {
 
     /// Round D2: `-PTDemo seed2`: plays the bundled airplane game to The End (no network), saves it twice under two
     /// titles (game content only, no art), then goes home: the start screen shows My games + Grown-ups.
-    @MainActor static func seedGames(_ store: AdventureStore, model: AppModel) async {
-        if model.savedGames.count < 2 {
+    @MainActor static func seedGames(_ store: AdventureStore, model: AppModel, count: Int = 2) async {
+        if model.savedGames.count < count {
             await drive(store, model: model, to: "end")
-            let titles = ["Moon Crumbs Bakery", "Pirate Ship on the Moon"]
-            for (i, title) in titles.enumerated() {
-                guard var g = store.savedGame(now: Date().addingTimeInterval(Double(i - 2) * 86_400), art: [], cover: nil) else { break }
+            let titles = ["Moon Crumbs Bakery", "Pirate Ship on the Moon", "Bug Theater", "Sky Airlines", "Pet Vet",
+                          "Cozy Café", "Dino Dig", "Royal Ball", "Space Station", "Ice Cream Truck", "Treasure Island"]
+            let coverData = ProcessInfo.processInfo.environment["PT_SEED_COVER"].flatMap { try? Data(contentsOf: URL(fileURLWithPath: $0)) }
+            for (i, title) in titles.prefix(count - model.savedGames.count).enumerated() {
+                guard var g = store.savedGame(now: Date().addingTimeInterval(Double(i - 2) * 86_400), art: [],
+                                              cover: nil) else { break }
                 g.title = title
-                try? model.savedGames.save(g, art: [:], cover: nil)
+                try? model.savedGames.save(g, art: [:], cover: i.isMultiple(of: 2) ? coverData : nil)
             }
             model.leave()
         }
