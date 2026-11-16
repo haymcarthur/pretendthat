@@ -29,6 +29,9 @@ public final class PhaseService: Sendable {
     func safe<T: SafetyText>(_ make: (String) async throws -> T, _ user: String) async throws -> T {
         let first = try await make(user)
         guard await safety.check(first.safetyTexts, pretend: true) != nil else { return first }
+        #if DEBUG
+        NSLog("[CLAUDE] answer failed the kid-safety check, asking once more")
+        #endif
         let second = try await make(user + Self.saferNote)
         guard await safety.check(second.safetyTexts, pretend: true) != nil else { return second }
         throw ClaudeError.refusal
@@ -40,7 +43,7 @@ public final class PhaseService: Sendable {
     }
     public func plan(game: String, ctx: AdventureContext) async throws -> GamePlan {
         try await safe({ try await self.ask(GamePlan.self, $0, Schemas.plan(), .medium,
-                      clean: { Sanitizer.clean($0, playerCount: ctx.playerCount) }, problem: { Validate.plan($0, count: min(4, max(1, ctx.playerCount))) }) },
+                      clean: { Sanitizer.clean($0, playerCount: ctx.playerCount) }, problem: { Validate.plan($0, count: RoleCast.count) }) },
                        Prompts.plan(game: game, ctx: ctx))
     }
     /// Round 24: misfit pairings get one retry (`Validate.props`), then the app's curated sensible pairs.
@@ -50,13 +53,13 @@ public final class PhaseService: Sendable {
     }
     public func kit(ctx: AdventureContext) async throws -> Kit {
         try await safe({ try await self.ask(Kit.self, $0, Schemas.kit(), .medium,
-                      clean: { Sanitizer.clean($0, roleCount: ctx.plan?.roles.count ?? 4) }, problem: Validate.kit) }, Prompts.kit(ctx: ctx))
+                      clean: { Sanitizer.clean($0) }, problem: { Validate.kit($0, roles: ctx.plan?.roles.count ?? 0) }) }, Prompts.kit(ctx: ctx))
     }
 
     /// Round 20: the kit pages alone (during the hunt). Validated for all 6 recipe items.
     public func kitPages(ctx: AdventureContext) async throws -> [KitItem] {
         let pages = try await safe({ try await self.ask(KitPages.self, $0, Schemas.kitPages(), .medium,
-                                    clean: { p in KitPages(nutmegSays: p.nutmegSays, items: Sanitizer.clean(Kit(nutmegSays: "", items: p.items, scenes: []), roleCount: 4).items) },
+                                    clean: { p in KitPages(nutmegSays: p.nutmegSays, items: Sanitizer.clean(Kit(nutmegSays: "", items: p.items, scenes: [])).items) },
                                     problem: Validate.pages) }, Prompts.kitPages(ctx: ctx))
         return pages.items
     }
@@ -74,10 +77,10 @@ public final class PhaseService: Sendable {
     }
 
     public func kitScenes(ctx: AdventureContext, items: [KitItem], drawn: Bool = false, effort: Effort = PhaseService.scenesEffort) async throws -> Kit {
-        let roles = ctx.plan?.roles.count ?? 4
+        let roles = ctx.plan?.roles.count ?? 0
         let made = try await safe({ try await self.ask(KitScenes.self, $0, Schemas.kitScenes(), effort,
-                                   clean: { s in KitScenes(nutmegSays: s.nutmegSays, scenes: Sanitizer.clean(Kit(nutmegSays: "", items: [], scenes: s.scenes), roleCount: roles).scenes) },
-                                   problem: { Validate.scenes($0.scenes) }) },
+                                   clean: { s in KitScenes(nutmegSays: s.nutmegSays, scenes: Sanitizer.clean(Kit(nutmegSays: "", items: [], scenes: s.scenes)).scenes) },
+                                   problem: { Validate.scenes($0.scenes, roles: roles) }) },
                                   Prompts.kitScenes(ctx: ctx, items: items, drawn: drawn))
         return Kit(nutmegSays: made.nutmegSays, items: items, scenes: made.scenes)
     }
@@ -88,6 +91,9 @@ public final class PhaseService: Sendable {
                                       clean: (T) -> T, problem: (T) -> Validate.Problem?) async throws -> T {
         let first = clean(try await llm.structured(T.self, system: Prompts.system, user: user, schema: JSONSchema(schema), effort: effort))
         guard let issue = problem(first) else { return first }
+        #if DEBUG
+        NSLog("[CLAUDE] answer not usable, asking once more: %@", issue.message)
+        #endif
         let fix = user + "\nYour last answer was not usable: \(issue.message). Fix that and answer again."
         let second = clean(try await llm.structured(T.self, system: Prompts.system, user: fix, schema: JSONSchema(schema), effort: effort))
         switch problem(second) {
@@ -130,22 +136,30 @@ public enum Validate {
         return missing.isEmpty ? nil
             : Problem(message: "the kit was missing these item types: \(missing.map(\.rawValue).joined(separator: ", ")); include all 6", fatal: false)
     }
-    public static func kit(_ k: Kit) -> Problem? {
+    public static func kit(_ k: Kit, roles: Int = 0) -> Problem? {
         if k.items.isEmpty { return short("kit items", 0, want: "the 6 kit items", fatal: true) }
         let missing = KitRecipe.allCases.filter { r in !k.items.contains { $0.recipe == r } }
         if !missing.isEmpty {
             return Problem(message: "the kit was missing these item types: \(missing.map(\.rawValue).joined(separator: ", ")); include all 6", fatal: false)
         }
-        return scenes(k.scenes)
+        return scenes(k.scenes, roles: roles)
     }
-    public static func scenes(_ scenes: [Scene]) -> Problem? {
+    /// `roles`: how many ranked roles the game has (round C1: each needs its own step in every scene; 0 = no check).
+    public static func scenes(_ scenes: [Scene], roles: Int = 0) -> Problem? {
         if scenes.count < 4 { return short("scenes", scenes.count, want: "4 to 6 scenes", fatal: scenes.isEmpty) }
         if let s = scenes.first(where: { $0.title.trimmingCharacters(in: .whitespaces).count < 3 }) {
             return Problem(message: "scene \"\(s.id)\" had no real title", fatal: false)
         }
         if let s = scenes.first(where: { $0.steps.count < 3 }) {
-            return short("steps in scene \"\(s.title)\"", s.steps.count, want: "3 to 5 steps in every scene", fatal: s.steps.isEmpty)
+            return short("steps in scene \"\(s.title)\"", s.steps.count, want: "one step for each role plus 2 for everyone in every scene", fatal: s.steps.isEmpty)
         }
-        return nil
+        // Round C1 (Haylee): every role gets its OWN step in every scene (non-fatal: the app writes one as a last resort).
+        let ids = RoleID.allCases.prefix(min(roles, RoleCast.count))
+        let gaps = scenes.compactMap { s -> String? in
+            let missing = ids.filter { r in !s.steps.contains { $0.role.role == r } }
+            return missing.isEmpty ? nil : "scene \"\(s.title)\" had no step for \(missing.map(\.rawValue).joined(separator: ", "))"
+        }
+        return gaps.isEmpty ? nil : Problem(message: gaps.joined(separator: "; ")
+            + "; give EVERY role (R1 to R6) its own step in EVERY scene, tagged with its role id and calling it by its title", fatal: false)
     }
 }

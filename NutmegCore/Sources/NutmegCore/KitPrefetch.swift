@@ -25,6 +25,8 @@ extension KitScenes: SafetyText {
 
 /// What the kit pages depend on. A change (a round 19 correction of the game, theme or count, or new roles) cancels the
 /// pages being written and starts again. The color is NOT here: it only changes the art (the app redraws it).
+/// Round C1: the pages are written for the 6 ranked roles, so the player count is always `RoleCast.count` here and a
+/// count change never restarts them.
 public struct KitInputs: Equatable, Sendable {
     public var title: String
     public var playerCount: Int
@@ -42,8 +44,7 @@ public enum KitDraft {
     public static func inputs(title: String, playerCount: Int, plan: GamePlan?, printStyle: PrintStyle?,
                               step: PlanningStep) -> KitInputs? {
         guard printStyle != nil, let plan, !plan.roles.isEmpty, step == .props else { return nil }
-        return KitInputs(title: title, playerCount: max(1, playerCount),
-                         roles: plan.roles.map { "\($0.roleName)×\($0.count)" })
+        return KitInputs(title: title, playerCount: RoleCast.count, roles: plan.roles.map(\.roleName))
     }
 
     /// The printed cut-out for a skipped prop: what it would have become ("the steering wheel" → "steering wheel").
@@ -90,12 +91,19 @@ public enum KitArtPlan {
     /// Every image these items need, minus `settled` (landed, in flight or given up). During the hunt the items are the
     /// draft pages, so the skipped props' cut-outs simply aren't there yet; the final kit adds them.
     /// `sheetCount`: how many leading cut-outs are drawn as ONE sheet (the hunt's themed ones; nil = all of them).
+    /// `roles`: the game's 6 ranked roles (round C1): the badges are one 6-up sheet, one badge picture per role.
+    /// Without 6 roles, or after the sheet failed, the badge is one shared role-neutral image (as before).
     public static func jobs(items: [KitItem], title: String, style: PrintStyle, settled: Set<String>,
-                            sheetCount: Int? = nil) -> [KitArtJob] {
+                            sheetCount: Int? = nil, roles: [Role] = []) -> [KitArtJob] {
         var out: [KitArtJob] = []
         for item in items {
             let labels = KitArtPrompt.cutoutLabels(item)
-            if item.recipe == .cutouts, !labels.isEmpty {
+            if usesBadgeSheet(item, roles: roles, settled: settled) {
+                if !settled.contains(sheetKey(item.id)) && !(0..<BadgeSheet.count).allSatisfy({ settled.contains(cutoutKey(item.id, $0)) }) {
+                    out.append(KitArtJob(key: sheetKey(item.id), prompt: KitArtPrompt.badgeSheetPrompt(item, roles: roles, gameTitle: title, style: style),
+                                         size: BadgeSheet.size, count: BadgeSheet.count))
+                }
+            } else if item.recipe == .cutouts, !labels.isEmpty {
                 let k = CutoutSheet.enabled ? min(sheetCount ?? labels.count, labels.count) : 0
                 let sheetFailed = settled.contains(sheetFailedKey(item.id))
                 if k >= 2 && !sheetFailed && !settled.contains(sheetKey(item.id))
@@ -115,9 +123,15 @@ public enum KitArtPlan {
         return out
     }
 
+    /// The badges item is drawn as the 6-up sheet (6 ranked roles, the sheet hasn't failed).
+    public static func usesBadgeSheet(_ item: KitItem, roles: [Role], settled: Set<String>) -> Bool {
+        BadgeSheet.enabled && item.recipe == .badges && roles.count == BadgeSheet.count && !settled.contains(sheetFailedKey(item.id))
+    }
+
     /// Every key the items need (a page is done when all of these have landed or definitively failed).
-    public static func keys(items: [KitItem]) -> Set<String> {
+    public static func keys(items: [KitItem], roles: [Role] = [], settled: Set<String> = []) -> Set<String> {
         Set(items.flatMap { item -> [String] in
+            if usesBadgeSheet(item, roles: roles, settled: settled) { return [sheetKey(item.id)] }
             let labels = KitArtPrompt.cutoutLabels(item)
             return item.recipe == .cutouts && !labels.isEmpty ? labels.indices.map { cutoutKey(item.id, $0) } : [item.id]
         })

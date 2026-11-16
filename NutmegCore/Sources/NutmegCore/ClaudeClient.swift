@@ -102,6 +102,10 @@ public final class ClaudeClient: LLM {
         case "max_tokens": throw ClaudeError.truncated
         default: break
         }
+        // Round C1: token usage is metered (in memory only, no content) so the cost per game can be measured.
+        if let u = obj["usage"] as? [String: Any] {
+            ClaudeUsageMeter.shared.record(input: u["input_tokens"] as? Int ?? 0, output: u["output_tokens"] as? Int ?? 0)
+        }
         // After a server-side fallback, content can hold fallback/thinking blocks; the answer is the last text block.
         let blocks = obj["content"] as? [[String: Any]] ?? []
         guard let text = blocks.last(where: { $0["type"] as? String == "text" })?["text"] as? String else {
@@ -109,5 +113,26 @@ public final class ClaudeClient: LLM {
         }
         do { return try JSONDecoder().decode(T.self, from: Data(text.utf8)) }
         catch { throw ClaudeError.decoding(String(describing: error)) }
+    }
+}
+
+/// Round C1: Claude token counts per call (numbers only), for measuring the cost per game. Debug builds log each call.
+public final class ClaudeUsageMeter: @unchecked Sendable {
+    public static let shared = ClaudeUsageMeter()
+    public struct Call: Equatable, Sendable { public let input: Int, output: Int }
+    private let lock = NSLock()
+    private var log: [Call] = []
+    /// Opus 5.5 list prices, dollars per 1M tokens (input, output).
+    public static let pricePerMillion = (input: 4.0, output: 20.0)
+    public func record(input: Int, output: Int) {
+        lock.withLock { log.append(Call(input: input, output: output)) }
+        #if DEBUG
+        NSLog("[CLAUDE] usage: %d in, %d out (%.2f cents)", input, output, Self.cents(input: input, output: output))
+        #endif
+    }
+    public var calls: [Call] { lock.withLock { log } }
+    public func reset() { lock.withLock { log = [] } }
+    public static func cents(input: Int, output: Int) -> Double {
+        (Double(input) * pricePerMillion.input + Double(output) * pricePerMillion.output) / 10_000
     }
 }

@@ -57,18 +57,19 @@ public enum KitLayout {
         return slots + (slots.count..<target).map(extra)
     }
 
-    /// Badges: exactly one per kid, grouped by role (a role played by 2 kids prints 2 badges), each with its role title.
-    /// Tickets: one per kid with a blank name line. Kids pick their badge after printing.
+    /// Badges: exactly one per playing kid (round C1: the first N of the 6 ranked roles, one badge each, slot k = role
+    /// Rk's slice of the badge sheet), each with its role title. Tickets: one per kid with a blank name line.
+    /// Kids pick their badge after printing.
     public static func pages(for kit: Kit, roles: [Role], playerCount: Int) -> [KitPage] {
-        let kids = max(1, max(playerCount, roles.map(\.count).reduce(0, +)))
+        let kids = PlayCast.players(playerCount > 0 ? playerCount : roles.map(\.count).reduce(0, +))
+        let playing = RoleCast.playing(roles, kids: kids)
         // 1. Slots per item.
         var perItem: [[KitSlot]] = kit.items.map { item in
             if item.perPlayer {
                 let isBadge = item.recipe == .badges || (item.recipe == nil && item.size == .badge)
                 let base: [KitSlot]
-                if isBadge, !roles.isEmpty {
-                    base = roles.flatMap { r in (0..<r.count).map { _ in KitSlot(roleID: r.id, index: 0, role: r.roleName) } }
-                        .enumerated().map { var s = $0.element; s.index = $0.offset; return s }
+                if isBadge, !playing.isEmpty {
+                    base = playing.enumerated().map { KitSlot(roleID: $0.element.id, index: $0.offset, role: $0.element.roleName) }
                 } else {
                     base = (0..<kids).map { KitSlot(index: $0) }
                 }
@@ -159,6 +160,23 @@ public enum KitArtPrompt {
         if let n = item.bigNumber, !n.isEmpty, !isBadge { p += " Show the big number or code \"\(n)\"." }
         p += " Do not add any other words. No real brands, no logos, nothing scary."
         return p + ImageSafety.suffix   // round 19
+    }
+
+    /// Round C1: the 6 role badges as ONE portrait image, a 3 × 2 grid (one badge picture per role, rank order), which
+    /// the app slices into one badge per role and prints the role title and a blank name line on.
+    public static func badgeSheetPrompt(_ item: KitItem, roles: [Role], gameTitle: String, style printStyle: PrintStyle = .colorIn) -> String {
+        let list = roles.prefix(BadgeSheet.count).enumerated().map { i, r in
+            let job = r.job.trimmingCharacters(in: .whitespacesAndNewlines)
+            return "\(i + 1): \(r.roleName)" + (job.isEmpty ? "" : " (\(job))")
+        }.joined(separator: "; ")
+        return opener(printStyle, gameTitle: gameTitle) + " Draw a sheet of exactly 6 separate name badges (\(item.title)) in "
+            + "a grid of 3 columns and 2 rows, all the same size and shape: tall portrait badges, each with a thick rounded "
+            + "border and a clip hole at the top. In this order, left to right and top to bottom, each badge's middle has ONE "
+            + "cute themed picture for that job: \(list). Every badge has a BLANK white rounded banner across its top quarter "
+            + "and a second BLANK white rounded banner across its bottom fifth, with no text in them (a name line and the "
+            + "job title are printed there later). Leave wide plain white gaps between the badges; nothing touches or "
+            + "crosses into another badge, no grid lines. " + style(printStyle, cutout: false)
+            + " Write no words or letters anywhere. No real brands, no logos, nothing scary." + ImageSafety.suffix
     }
 
     /// One cut-out on its own (checklist-pictures.md): the cut-outs page is generated as one image per item so each

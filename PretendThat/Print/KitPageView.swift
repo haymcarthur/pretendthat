@@ -47,6 +47,12 @@ struct KitPageView: View {
         .environment(\.colorScheme, .light)
     }
 
+    /// Round C1: a badge prints its role's slice of the 6-up badge sheet (the shared badge image if there's none).
+    private func slotArt(_ slot: KitSlot) -> UIImage? {
+        guard page.item.recipe == .badges, let k = slot.roleID?.index, cutouts.indices.contains(k), let slice = cutouts[k] else { return art }
+        return slice
+    }
+
     private var cards: some View {
         let grid = KitLayout.grid(for: page.item.size)
         let cellW = (Self.size.width - margin * 2) / CGFloat(grid.columns)
@@ -54,7 +60,7 @@ struct KitPageView: View {
         return ZStack(alignment: .topLeading) {
             Theme.printPaper
             ForEach(Array(page.slots.enumerated()), id: \.offset) { i, slot in
-                KitCardView(item: page.item, slot: slot, art: art, fullPage: page.item.size == .fullPage)
+                KitCardView(item: page.item, slot: slot, art: slotArt(slot), fullPage: page.item.size == .fullPage)
                     .padding(grid.capacity == 1 ? 0 : 8)
                     .frame(width: cellW, height: cellH)
                     .overlay(Rectangle().strokeBorder(Theme.printInk.opacity(grid.capacity == 1 ? 0 : 0.6),

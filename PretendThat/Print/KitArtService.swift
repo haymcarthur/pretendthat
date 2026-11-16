@@ -51,7 +51,9 @@ final class KitArtService {
             })
         }
         for item in kit.items {
-            if item.recipe == .cutouts, !KitArtPrompt.cutoutLabels(item).isEmpty {
+            if item.recipe == .badges, roles.count == BadgeSheet.count {   // round C1: one slice per role
+                for k in 0..<BadgeSheet.count { cutouts[item.id, default: [:]][k] = make("341x768", "R\(k + 1)") }
+            } else if item.recipe == .cutouts, !KitArtPrompt.cutoutLabels(item).isEmpty {
                 for n in KitArtPrompt.cutoutLabels(item).indices { cutouts[item.id, default: [:]][n] = make("1024x1024", "BOTTOM") }
             } else { images[item.id] = make(KitArtPrompt.size(for: item), "BOTTOM") }
         }
@@ -59,7 +61,23 @@ final class KitArtService {
     }
     #endif
 
-    func cutoutImages(_ item: KitItem) -> [UIImage?] { KitArtPrompt.cutoutLabels(item).indices.map { cutouts[item.id]?[$0] } }
+    /// Round C1: for the badges item, the 6 role badges sliced from the badge sheet (empty when the sheet isn't there:
+    /// the shared badge image is used for every role).
+    func cutoutImages(_ item: KitItem) -> [UIImage?] {
+        if item.recipe == .badges {
+            guard let m = cutouts[item.id], !m.isEmpty else { return [] }
+            return (0..<BadgeSheet.count).map { m[$0] }
+        }
+        return KitArtPrompt.cutoutLabels(item).indices.map { cutouts[item.id]?[$0] }
+    }
+    /// Role `k`'s badge picture: its slice of the badge sheet, else the shared badge image.
+    func badge(_ itemID: String, role k: Int?) -> UIImage? {
+        if let k, let slice = cutouts[itemID]?[k] { return slice }
+        return images[itemID]
+    }
+
+    /// Round C1: the game's 6 ranked roles (the badge sheet draws one badge picture per role).
+    @ObservationIgnored private var roles: [Role] = []
 
     /// Round 20: what the art in hand was drawn for (title + style). A different one starts over.
     @ObservationIgnored private var drawnFor: String?
@@ -76,15 +94,21 @@ final class KitArtService {
     @ObservationIgnored private(set) var landedAt: [String: Date] = [:]
 
     /// Round 20: the kit pages written during the hunt: their art starts now, in the background (no commentary).
-    func prepare(items: [KitItem], gameTitle: String, style: PrintStyle) {
+    func prepare(items: [KitItem], gameTitle: String, style: PrintStyle, roles: [Role] = []) {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-PTFakeArt") { return }
         #endif
         guard let client else { return }
-        startOver(ifNot: "\(gameTitle)|\(style.rawValue)")
+        startOver(ifNot: Self.drawKey(gameTitle, style, roles))
+        self.roles = roles
         NSLog("[RT] kit art: hunt prefetch, %d item(s)", items.count)
         plan = (items, gameTitle, style, nil)
-        launch(KitArtPlan.jobs(items: items, title: gameTitle, style: style, settled: settled), client: client, style: style)
+        launch(KitArtPlan.jobs(items: items, title: gameTitle, style: style, settled: settled, roles: roles), client: client, style: style)
+    }
+
+    /// What the art is drawn for: the title, the style and (round C1) the 6 role titles of the badge sheet.
+    static func drawKey(_ title: String, _ style: PrintStyle, _ roles: [Role]) -> String {
+        "\(title)|\(style.rawValue)|" + roles.map(\.roleName).joined(separator: ",")
     }
     /// The latest items asked for (a failed cut-out sheet falls back to one image per cut-out from these).
     @ObservationIgnored private var plan: (items: [KitItem], title: String, style: PrintStyle, sheetCount: Int?)?
@@ -92,16 +116,17 @@ final class KitArtService {
 
     /// The final kit (hunt over): any art not drawn or drawing yet starts now (the skipped props' cut-outs, a page that
     /// was never prefetched); `finished` once every page has landed or definitively fallen back.
-    func generate(kit: Kit, gameTitle: String, style: PrintStyle, sheetCount: Int? = nil) async {
+    func generate(kit: Kit, gameTitle: String, style: PrintStyle, sheetCount: Int? = nil, roles: [Role] = []) async {
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("-PTFakeArt") { fakeArt(kit); return }
+        if ProcessInfo.processInfo.arguments.contains("-PTFakeArt") { self.roles = roles; fakeArt(kit); return }
         #endif
         guard let client else { finished = true; return }   // app-drawn pages: final right away
-        startOver(ifNot: "\(gameTitle)|\(style.rawValue)")
+        startOver(ifNot: Self.drawKey(gameTitle, style, roles))
+        self.roles = roles
         finalItems = kit.items
         let gen = generation
         plan = (kit.items, gameTitle, style, sheetCount)
-        let jobs = KitArtPlan.jobs(items: kit.items, title: gameTitle, style: style, settled: settled, sheetCount: sheetCount)
+        let jobs = KitArtPlan.jobs(items: kit.items, title: gameTitle, style: style, settled: settled, sheetCount: sheetCount, roles: roles)
         NSLog("[RT] kit art: final kit, %d new job(s), %d already drawing, %d landed", jobs.count, inFlight.count,
               images.count + cutouts.values.map(\.count).reduce(0, +))
         launch(jobs, client: client, style: style)
@@ -136,12 +161,13 @@ final class KitArtService {
                 // Round 21: decode + paper-white + slicing run OFF the main actor (they held the main thread for a
                 // moment during the prop hunt, when taps and her voice need it).
                 let sheet = KitArtPlan.isSheet(job.key), count = job.count
+                let badges = sheet && job.size == BadgeSheet.size   // round C1: the 6-up badge sheet (portrait slices)
                 var decoded: [UIImage] = []
                 if case .success(let data) = result {
                     decoded = await Task.detached(priority: .utility) { () -> [UIImage] in
                         guard let img = UIImage(data: data) else { return [] }
                         let white = PaperWhite.normalize(img, style: style)
-                        return sheet ? CutoutSlicer.slice(white, count: count) : [white.preparedForDisplay()]
+                        return sheet ? CutoutSlicer.slice(white, count: count, badges: badges) : [white.preparedForDisplay()]
                     }.value
                 }
                 guard gen == self.generation else { return }   // a remade kit: this old page is dropped
@@ -182,18 +208,20 @@ final class KitArtService {
     }
 
     /// The cut-out sheet didn't work out: those cut-outs are drawn one each instead (the old way).
+    /// Round C1: a failed badge sheet (or one that didn't slice into 6) falls back to the one shared badge image.
     private func sheetFailed(_ itemID: String, client: ImageClient, style: PrintStyle) {
         failed.insert(KitArtPlan.sheetFailedKey(itemID))
+        cutouts[itemID] = nil
         guard let plan else { return }
-        NSLog("[RT] kit art: cut-out sheet failed: one image per cut-out instead")
-        launch(KitArtPlan.jobs(items: plan.items, title: plan.title, style: plan.style, settled: settled, sheetCount: plan.sheetCount)
-                .filter { $0.key.hasPrefix(itemID + "#") }, client: client, style: style)
+        NSLog("[RT] kit art: sheet %@ failed: drawn the old way instead", itemID)
+        launch(KitArtPlan.jobs(items: plan.items, title: plan.title, style: plan.style, settled: settled, sheetCount: plan.sheetCount, roles: roles)
+                .filter { $0.key.hasPrefix(itemID + "#") || $0.key == itemID }, client: client, style: style)
     }
 
     private func updateFinished() {
         isGenerating = !inFlight.isEmpty
         guard let items = finalItems else { return }
-        let need = KitArtPlan.keys(items: items)
+        let need = KitArtPlan.keys(items: items, roles: roles, settled: failed)
         let s = settled.subtracting(inFlight)
         progress = need.isEmpty ? 1 : Double(need.intersection(s).count) / Double(need.count)
         if need.isSubset(of: s) { finished = true }
@@ -226,7 +254,8 @@ enum PaperWhite {
 
 /// Round 20: slices a cut-out sheet into one image per cut-out (`CutoutSheet.cells` finds the cells).
 enum CutoutSlicer {
-    static func slice(_ image: UIImage, count: Int) -> [UIImage] {
+    /// `badges`: the 6-up badge sheet (portrait cells, not squared).
+    static func slice(_ image: UIImage, count: Int, badges: Bool = false) -> [UIImage] {
         guard let cg = image.cgImage else { return [] }
         let w = cg.width, h = cg.height
         var gray = [UInt8](repeating: 255, count: w * h)
@@ -237,7 +266,8 @@ enum CutoutSlicer {
             return true
         }
         guard ok else { return [] }
-        return CutoutSheet.cells(gray: gray, width: w, height: h, count: count).compactMap { r in
+        let cells = badges ? BadgeSheet.cells(gray: gray, width: w, height: h) : CutoutSheet.cells(gray: gray, width: w, height: h, count: count)
+        return cells.compactMap { r in
             cg.cropping(to: CGRect(x: r.x, y: r.y, width: r.width, height: r.height)).map { UIImage(cgImage: $0, scale: image.scale, orientation: .up) }
         }
     }

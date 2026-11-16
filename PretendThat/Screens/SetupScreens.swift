@@ -80,7 +80,7 @@ struct PlayersView: View {
             if store.playerCount == 0 {
                 PTCountPicker(selected: nil) { store.setPlayerCount($0) }
             } else {
-                if let roles = store.plan?.roles {
+                if case let roles = store.playingRoles, !roles.isEmpty {   // round C1: only the N playing roles
                     HStack(spacing: Theme.Space.l) {
                         ForEach(Array(roles.enumerated()), id: \.element.id) { i, r in
                             PTRoleBadge(role: r).ptPopIn(index: i)

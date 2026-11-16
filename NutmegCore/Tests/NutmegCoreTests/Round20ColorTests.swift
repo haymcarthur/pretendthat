@@ -24,7 +24,7 @@ import Testing
         #expect(early.contains("Not yet") && store.plan == nil && store.planningStep == .color)
         let chosen = await store.apply(.setPrintStyle(.fullColor))
         #expect(store.printStyle == .fullColor && store.currentPrintStyle == .fullColor && store.planningStep == .roles)
-        #expect(chosen.contains("full color") && chosen.contains("start_planning") && chosen.contains("exactly 2 roles"))
+        #expect(chosen.contains("full color") && chosen.contains("start_planning") && chosen.contains("exactly 6 ranked roles"))
         _ = await store.apply(.setRoles([.init(roleName: "Baker", job: "bakes"), .init(roleName: "Customer", job: "buys")]))
         #expect(store.planningStep == .props && store.printStyle == .fullColor)
         store.newGame()

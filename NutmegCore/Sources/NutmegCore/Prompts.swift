@@ -12,7 +12,9 @@ public enum Prompts {
     phase comes next. You only fill in the content asked for, in the JSON shape asked for.
 
     We never ask for kids' names. Refer to kids only by their role ("the Captain", "a Passenger"). Never invent or ask for names. \
-    Roles have ids R1, R2, R3, R4; scenes and props belong to a role id or "all".
+    Every game has exactly 6 RANKED roles, ids R1 to R6: R1 is the lead the game can't run without, R2 the second \
+    core role, R3 to R6 fun extras. With N kids, only the first N roles play (R1 always plays). Props and checklist \
+    steps belong to a role id or "all".
 
     Voice rules for every nutmegSays line and every choice label:
     - At most 2 sentences, each at most 20 words. Words a 4-year-old knows. Enthusiastic and kind.
@@ -34,11 +36,12 @@ public enum Prompts {
     cords, food, medicine, or anything up high. Set safetyOK to false if an item breaks these rules.
 
     Limits: game ideas exactly 3; props 3 to 5; the kit is always the same 6 item types (badges, sign, money, tickets, menu, cutouts), at most 7 printed pages; \
-    scenes 4 to 6; checklist steps 3 to 5 per scene, each step a short action a kid can do; choices 2 to 4. \
+    scenes exactly 6; checklist steps per scene: exactly one for EACH role R1 to R6 plus 2 for everyone, each step a \
+    short action a kid can do; choices 2 to 4. \
     Never use emoji anywhere. Props always come from the household-prop list (their id is the list id). \
     Kids read pictures before words: every checklist step and scene title gets exactly ONE picture showing the main \
     object or action in its OWN text: kind "kit" when the step hands out or uses a printed item of this kit \
-    (ticket, money, menu, sign, badge:R1..R4 for a role's badge, cutout:N for the Nth cut-out, e.g. "Hand out the \
+    (ticket, money, menu, sign, badge:R1..R6 for a role's badge, cutout:N for the Nth cut-out, e.g. "Hand out the \
     pancakes" → kit cutout:0 if cut-out 0 is a pancake); kind "prop" for a household prop from the list ("Put the \
     plate on the tray" → prop plate); otherwise kind "action" (wave, clap, point, listen, look, count, give, knock, \
     write, stir, brush, wash, ring-bell, stamp, measure, cheer). Symbols must be simple SF Symbols such as \
@@ -59,11 +62,12 @@ public enum Prompts {
                          "a farm", "a train ride", "a library", "an ice cream truck", "a dinosaur museum"]
 
     public static func plan(game: String, ctx: AdventureContext) -> String {
-        let n = max(1, ctx.playerCount)
-        let who = n <= 4
-            ? "There are \(n) kids. Make exactly \(n) different roles (ids \(ids(n))), each with count 1."
-            : "There are \(n) kids. Make 4 different roles (ids R1, R2, R3, R4) and set count so the counts add up to \(n); give the extra kids a role that makes sense to share (e.g. 2 Passengers)."
-        return "Phase: roles. Game: \"\(game)\". \(who) Kids pick their own badge after printing, so don't assign roles to anyone. If there is 1 kid, stuffed animals can play the other parts. Return GamePlan.\n\(contextJSON(ctx))"
+        let n = PlayCast.players(ctx.playerCount)
+        let who = "Make exactly 6 different roles, ranked (ids R1 to R6 in order): R1 the lead the game can't run without, "
+            + "R2 the second core role, R3 to R6 fun extras that add to the game. Six different titles (never the same "
+            + "title twice). job is a short action (\"steer the ship\"). There \(n == 1 ? "is 1 kid" : "are \(n) kids"), "
+            + "so the first \(n) role\(n == 1 ? "" : "s") play now; nutmegSays names ONLY \(n == 1 ? "R1" : "R1 to R\(n)")."
+        return "Phase: roles. Game: \"\(game)\". \(who) Kids pick their own badge after printing, so don't assign roles to anyone. Return GamePlan.\n\(contextJSON(ctx))"
     }
 
     public static func props(ctx: AdventureContext) -> String {
@@ -78,8 +82,7 @@ public enum Prompts {
         \(recipe)
         Never put names or name placeholders anywhere: the app prints each badge's role title and a blank "Name: ____" line on badges and tickets for kids to write on. Keep wording short (lines 1 to 5 words each).
         The cutouts item's lines are the 6 to 8 cut-out items (each is drawn as its own picture), so steps can point at one (cutout:N). \
-        Then write 4 to 6 scenes for the play guide (never fewer than 4), each with 3 to 5 steps, each step and scene with ONE picture. Each scene belongs to the role id that leads it (owner) or "all"; call kids by their role ("Captain, check the plane!"). \
-        Every scene's nutmegSays MUST start with "Pretend that" (e.g. "Pretend that the first passengers just arrived! Captain, say hello!"), with different words after it in each scene. \
+        Then: \(sceneRules) \
         Return Kit.
         \(contextJSON(ctx))
         """
@@ -110,8 +113,7 @@ public enum Prompts {
         Phase: the play guide. \(drawn ? "There is no printer: the kids DREW these kit pieces themselves with crayons (JSON; lines = how they drew it)" : "The printable pages are already made (JSON)"): \(pagesJSON)
         cutout:N is the Nth line of the cutouts item (0-based). Props the kids found are real household props (kind \
         prop); props marked skipped are pretend (the kids don't have them; if a cutouts line names one, use that cut-out).
-        Write 4 to 6 scenes for the play guide (never fewer than 4), each with 3 to 5 steps, each step and scene with ONE picture. Each scene belongs to the role id that leads it (owner) or "all"; call kids by their role ("Captain, check the plane!"). \
-        Every scene's nutmegSays MUST start with "Pretend that" (e.g. "Pretend that the first passengers just arrived! Captain, say hello!"), with different words after it in each scene. \
+        \(sceneRules) \
         Use the found props and the printed pages in the steps. Return KitScenes.
         \(contextJSON(ctx))
         """
@@ -125,7 +127,17 @@ public enum Prompts {
         "Phase: help during play. The kids are in scene \"\(scene.title)\" and asked for help. Give ONE fun idea for what to do right now, in one short line, plus 2 choices. Return NutmegTurn.\n\(contextJSON(ctx))"
     }
 
-    static func ids(_ n: Int) -> String { RoleID.allCases.prefix(max(1, min(n, 4))).map(\.rawValue).joined(separator: ", ") }
+    /// Round C1 (Haylee's answer 2): the play guide is written for all 6 ranked roles, so any count from 1 to 6 has a
+    /// complete checklist with no new call. Every role gets its OWN step in every scene.
+    static let sceneRules = "Write exactly 6 scenes for the play guide (never fewer than 4), each scene and step with ONE picture. "
+        + "The game is written for up to 6 kids: the roles R1 to R6 are ranked, and with N kids only R1 to RN play. In "
+        + "EVERY scene write exactly 8 steps: ONE step for EACH role R1, R2, R3, R4, R5 and R6 (role = that id; its text "
+        + "starts by calling that role by its title and gives it its own fun job in this scene, e.g. \"Lookout, spot the "
+        + "island with your telescope!\"), plus 2 steps for everyone together (role all, e.g. \"Everyone, cheer for the "
+        + "ship!\"). Keep each step short (at most 9 words). A role's step may name only that role or roles ranked above "
+        + "it (a lower R number). The scene titles, every nutmegSays and the \"all\" steps name no role except R1. The app "
+        + "decides who holds the iPad, so scenes have no owner. Every scene's nutmegSays MUST start with \"Pretend that\" "
+        + "(e.g. \"Pretend that the first passengers just arrived!\"), with different words after it in each scene."
 
     static func contextJSON(_ ctx: AdventureContext) -> String {
         let enc = JSONEncoder(); enc.outputFormatting = [.sortedKeys]

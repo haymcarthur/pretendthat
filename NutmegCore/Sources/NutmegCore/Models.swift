@@ -3,15 +3,19 @@ import Foundation
 // Data shapes from spec §6. Field names match the JSON the model returns.
 
 /// A role slot (decision roles-not-names.md): we never ask for kids' names, so everything that used to belong
-/// to a player belongs to a ROLE. R1…R4 also pick the role's color. At most 4 distinct roles; more kids share roles.
+/// to a player belongs to a ROLE. Round C1 (generate for 6): every game has 6 RANKED roles, R1…R6 (R1 always plays,
+/// then R2, …); with N kids the first N play. The id also picks the role's color. One kid per role.
 public enum RoleID: String, Codable, Sendable, CaseIterable, Hashable {
-    case R1, R2, R3, R4
+    case R1, R2, R3, R4, R5, R6
     public var index: Int { RoleID.allCases.firstIndex(of: self)! }
+    /// 1-based rank (R1 = 1).
+    public var rank: Int { index + 1 }
 }
 
 public enum SceneOwner: String, Codable, Sendable, Hashable {
-    case R1, R2, R3, R4, all
+    case R1, R2, R3, R4, R5, R6, all
     public var role: RoleID? { RoleID(rawValue: rawValue) }
+    public init(_ role: RoleID) { self = SceneOwner(rawValue: role.rawValue)! }
 }
 
 public enum KitKind: String, Codable, Sendable { case card, sheet }
@@ -70,7 +74,7 @@ public struct GameIdeas: Codable, Equatable, Sendable {
 
 public struct Role: Codable, Equatable, Sendable, Identifiable {
     public var id: RoleID; public var roleName: String; public var emoji: String; public var symbol: String; public var job: String
-    /// How many kids play this role (more than 1 only when there are more kids than distinct roles: "2 Passengers").
+    /// How many kids play this role. Round C1: always 1 (one ranked role per kid); kept so older data still decodes.
     public var count: Int
     public init(id: RoleID, roleName: String, emoji: String, symbol: String, job: String, count: Int = 1) {
         self.id = id; self.roleName = roleName; self.emoji = emoji; self.symbol = symbol; self.job = job; self.count = count
@@ -142,12 +146,15 @@ public struct KitItem: Codable, Equatable, Sendable, Identifiable {
     }
 }
 /// One checklist step: short text plus exactly ONE picture (prop, action or kit item; checklist-pictures.md).
+/// Round C1 (Haylee): every step belongs to one role (R1…R6, called out by its title) or to everyone ("all").
 public struct Step: Codable, Equatable, Sendable {
     public var picture: Picture; public var text: String
-    public init(picture: Picture, text: String) { self.picture = picture; self.text = text }
+    public var role: SceneOwner
+    public init(picture: Picture, text: String, role: SceneOwner = .all) { self.picture = picture; self.text = text; self.role = role }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         picture = try c.decodeIfPresent(Picture.self, forKey: .picture) ?? .point; text = try c.decode(String.self, forKey: .text)
+        role = (try? c.decodeIfPresent(SceneOwner.self, forKey: .role)) ?? .all   // older JSON: everyone's step
     }
 }
 /// `Scene` clashes with SwiftUI.Scene in the app target; use `KitScene` there.
@@ -160,7 +167,8 @@ public struct Scene: Codable, Equatable, Sendable, Identifiable {
     }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        id = try c.decode(String.self, forKey: .id); owner = try c.decode(SceneOwner.self, forKey: .owner)
+        // Round C1: the app picks who holds the iPad (hand-offs rotate), so newer JSON has no owner.
+        id = try c.decode(String.self, forKey: .id); owner = (try? c.decodeIfPresent(SceneOwner.self, forKey: .owner)) ?? .all
         title = try c.decode(String.self, forKey: .title); picture = try c.decodeIfPresent(Picture.self, forKey: .picture) ?? .point
         nutmegSays = try c.decode(String.self, forKey: .nutmegSays); steps = try c.decode([Step].self, forKey: .steps)
     }
@@ -184,7 +192,7 @@ public struct NutmegTurn: Codable, Equatable, Sendable {
     public init(nutmegSays: String, choices: [Choice], understood: Bool) { self.nutmegSays = nutmegSays; self.choices = choices; self.understood = understood }
 }
 
-/// Most kids one game supports (round 23, Haylee: capped at 6; roles past 4 are shared).
+/// Most kids one game supports (round 23, Haylee: capped at 6). Round C1: one ranked role per kid, R1…R6.
 public enum Players {
     public static let max = 6
     /// What Nutmeg says when a kid says more than 6 ("eight friends"): cheerful, then asks if 6 is okay.

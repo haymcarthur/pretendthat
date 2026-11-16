@@ -24,9 +24,10 @@ public enum BrandPalette {
     public static let disabled: UInt32 = 0xE8E4EE
     public static let disabledInk: UInt32 = 0x585270
 
-    /// Player colors, always paired with a role symbol. White symbol on each ≥ 3:1.
-    public static let players: [UInt32] = [0x2F6FD6, 0xD9650B, 0x0E8A75, 0xB8338F]
-    public static let playerShades: [UInt32] = [0x1F52A8, 0xA84C05, 0x096656, 0x8A2269]
+    /// Player (role) colors, always paired with a role symbol. White symbol on each ≥ 3:1. Round C1: 6 ranked roles,
+    /// so R5 and R6 get two brand colors (Claude's call): the button coral and Nutmeg's warm brown.
+    public static let players: [UInt32] = [0x2F6FD6, 0xD9650B, 0x0E8A75, 0xB8338F, coralStrong, nutmeg]
+    public static let playerShades: [UInt32] = [0x1F52A8, 0xA84C05, 0x096656, 0x8A2269, coralShade, 0x7A4526]
 
     /// (foreground, background, minimum ratio) for every text pairing the app draws.
     /// 4.5 = WCAG AA body text; 3.0 = AA large text (≥ 24 px regular or ≥ 18.5 px bold; our buttons are 22–28 pt heavy).

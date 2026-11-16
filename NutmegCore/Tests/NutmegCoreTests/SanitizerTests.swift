@@ -18,26 +18,28 @@ import Testing
     #expect(p.props.count == 2)
 }
 
-@Test func planGivesExactlyOneRolePerKid() {
+@Test func planAlwaysGivesSixRankedRoles() {
+    // Round C1: 6 distinct ranked roles whatever the count; repeats are dropped and the gap is filled from the extras.
     let roles = ["A", "B", "C", "D"].enumerated().map { Role(id: RoleID.allCases[$0.offset], roleName: $0.element, emoji: "⭐️", symbol: "bogus", job: "j") }
     let plan = Sanitizer.clean(GamePlan(gameTitle: "Airplane", gameEmoji: "✈️", setting: "sky", roles: roles + roles, nutmegSays: "Hi"), playerCount: 3)
-    #expect(plan.roles.map(\.id) == [.R1, .R2, .R3])
-    #expect(plan.roles.map(\.roleName) == ["A", "B", "C"])
-    #expect(plan.kidCount == 3)
-    #expect(plan.roles.allSatisfy { $0.symbol == "star" })
+    #expect(plan.roles.map(\.id) == RoleID.allCases)
+    #expect(Array(plan.roles.map(\.roleName).prefix(4)) == ["A", "B", "C", "D"])
+    #expect(Set(plan.roles.map { $0.roleName.lowercased() }).count == 6)
+    #expect(plan.roles.allSatisfy { $0.count == 1 && $0.symbol == "star" })
+    #expect(RoleCast.playing(plan.roles, kids: 3).map(\.roleName) == ["A", "B", "C"])
 }
 
-@Test func sameTitlesMergeAndCountsAddUp() {
-    let titles = ["Captain", "Passenger", "passenger", "Pilot", "Cook", "Waiter"]
+@Test func rankDropsRepeatsKeepsOrderAndCapsAtSix() {
+    let titles = ["Captain", "Passenger", "passenger", "Pilot", "Cook", "Waiter", "Lookout", "Parrot Keeper"]
     let roles = titles.map { Role(id: .R1, roleName: $0, emoji: "", symbol: "star", job: "") }
-    let five = RoleCast.normalize(roles, kids: 5)
-    #expect(five.map(\.roleName) == ["Captain", "Passenger", "Pilot", "Cook"])
-    #expect(five.map(\.id) == RoleID.allCases)
-    #expect(five.map(\.count).reduce(0, +) == 5)
-    #expect(five[1].count == 2)
-    // Fewer roles than kids: the last role is shared.
-    let two = RoleCast.normalize(Array(roles.prefix(2)), kids: 3)
-    #expect(two.map(\.count) == [1, 2])
+    let six = RoleCast.rank(roles)
+    #expect(six.map(\.roleName) == ["Captain", "Passenger", "Pilot", "Cook", "Waiter", "Lookout"])
+    #expect(six.map(\.id) == RoleID.allCases)
+    // Too few titles (or a duplicate of an extra's name): generic extras fill it, never a repeat.
+    let two = RoleCast.rank([Role(id: .R1, roleName: "Helper", emoji: "", symbol: "star", job: ""), roles[0]])
+    #expect(two.count == 6 && Set(two.map(\.roleName)).count == 6)
+    #expect(Array(two.map(\.roleName).prefix(2)) == ["Helper", "Captain"])
+    for n in 0...8 { #expect(RoleCast.playing(six, kids: n).count == max(1, min(n, 6))) }
 }
 
 @Test func ideasCappedAtThree() {

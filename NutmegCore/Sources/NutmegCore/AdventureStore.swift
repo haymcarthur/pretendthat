@@ -58,13 +58,19 @@ public final class AdventureStore {
     /// The piece on the Draw it! card.
     public private(set) var drawIndex = 0
     /// What she reads for the current piece (and the pill's Repeat says again).
-    public var drawLine: String? { drawGuide.map { DrawIt.line($0, drawIndex) }.flatMap { $0.isEmpty ? nil : $0 } }
+    public var drawLine: String? { drawGuide.map { DrawIt.line($0, drawIndex, players: playerCount) }.flatMap { $0.isEmpty ? nil : $0 } }
     /// The Draw it! card is up (no printer, the kit is made, the Paper step).
     public var drawing: Bool { drawMode && phase == .kitReady && drawGuide != nil }
     public private(set) var ideas: GameIdeas?
     public private(set) var plan: GamePlan?
     public private(set) var props: Props?
-    public private(set) var kit: Kit?
+    /// Round C1: the kit as written, for all 6 ranked roles (every role has its own step in every scene).
+    public private(set) var fullKit: Kit?
+    /// The kit as the N playing kids see it: only their steps, hand-offs rotating through them, no line naming a role
+    /// that isn't playing. A pure function of `fullKit`, the roles and the count, so a count change never needs an AI call.
+    public var kit: Kit? { fullKit.map { PlayCast.kit($0, roles: plan?.roles ?? [], players: playerCount) } }
+    /// Round C1: the roles playing now (the first N of the 6 ranked roles).
+    public var playingRoles: [Role] { RoleCast.playing(plan?.roles ?? [], kids: playerCount) }
     /// What Nutmeg says next (for TTS and display).
     public private(set) var nutmegLine = ""
     /// Tap choices from the last free-speech turn.
@@ -262,7 +268,7 @@ public final class AdventureStore {
             let made: Kit
             if let pages { made = try await svc.kitScenes(ctx: context, items: KitDraft.finalItems(pages, props: props)) }
             else { made = try await svc.kit(ctx: context) }
-            if gen == kitGeneration { kit = made }
+            if gen == kitGeneration { fullKit = made }
         } fallback: { [self] in if gen == kitGeneration { useFallbackGame() } }
         guard gen == kitGeneration else { return }
         if kit != nil {
@@ -363,7 +369,7 @@ public final class AdventureStore {
         phase = .hello
         playerCount = 0; gameTitle = nil; printStyle = nil; hasPrinter = nil; planningStep = .game; themeIdeas = []
         drawGuide = nil; drawIndex = 0
-        ideas = nil; plan = nil; props = nil; kit = nil
+        ideas = nil; plan = nil; props = nil; fullKit = nil
         choices = []; lastError = nil; usingFallback = false
         foundProps = []; checkedSteps = []; doneSnapshot = nil; failures = [:]; retryAction = nil; holder = nil
         nutmegLine = ""; presenting = .none; reachedStep = nil; lastPlayPhase = nil; steerIdeas = SteerIdeas()
@@ -446,7 +452,7 @@ public final class AdventureStore {
 
     var wantedDrawDraft: KitInputs? {
         guard service != nil, !usingFallback, planningStep == .props, drawMode, let plan, !plan.roles.isEmpty else { return nil }
-        return KitInputs(title: currentTitle, playerCount: max(1, playerCount), roles: plan.roles.map { "\($0.roleName)×\($0.count)" })
+        return KitInputs(title: currentTitle, playerCount: RoleCast.count, roles: plan.roles.map(\.roleName))   // round C1: for 6
     }
 
     private func refreshDrawDraft() {
@@ -473,7 +479,7 @@ public final class AdventureStore {
     /// The hunt's draw guide when it was written for exactly this plan (waiting for it), else nil.
     private func drawDraftForKit() async -> DrawGuide? {
         guard let d = drawDraftInputs, let plan,
-              d == KitInputs(title: currentTitle, playerCount: max(1, playerCount), roles: plan.roles.map { "\($0.roleName)×\($0.count)" })
+              d == KitInputs(title: currentTitle, playerCount: RoleCast.count, roles: plan.roles.map(\.roleName))
         else { return nil }
         let gen = drawDraftGeneration
         let g = await drawDraftTask?.value
@@ -492,13 +498,13 @@ public final class AdventureStore {
             if let guide { g = guide } else { g = (try? await svc.drawGuide(ctx: ctx)) ?? DrawIt.fallback(playerCount: ctx.playerCount) }
             let made = try await svc.kitScenes(ctx: context, items: DrawIt.kitItems(g), drawn: true)
             guard gen == kitGeneration else { return }
-            drawGuide = g; drawIndex = 0; kit = made
+            drawGuide = g; drawIndex = 0; fullKit = made
         } fallback: { [self] in
             guard gen == kitGeneration else { return }
             let g = DrawIt.fallback(playerCount: max(1, playerCount))
             useFallbackGame()
             drawGuide = g; drawIndex = 0
-            if var k = kit { k.items = DrawIt.kitItems(g); kit = k }
+            if var k = fullKit { k.items = DrawIt.kitItems(g); fullKit = k }
         }
         guard gen == kitGeneration else { return }
         if kit != nil { phase = .kitReady }
@@ -600,11 +606,10 @@ public final class AdventureStore {
                 return Players.overCapOutput(said: count)
             }
             let n = max(1, min(count, Players.max))
-            switch phase {
-            case .makingKit, .kitReady, .handoff, .scene, .end:
-                return "The kit is already made for \(playerCount). Say in ONE short, kind line that this adventure is all set, "
-                    + "and they can tap New game to plan one for a different number of friends."
-            default: break
+            // Round C1: once the roles exist (6 ranked roles; the kit, if made, is for 6 too) a count change keeps
+            // everything and makes no AI call: the playing roles, badges and checklists follow the new count.
+            if let plan, !plan.roles.isEmpty, planningStep >= .props || fullKit != nil {
+                return changeCount(to: n)
             }
             let redo = planningStep >= .roles && (plan != nil || props != nil)
             playerCount = n
@@ -646,16 +651,16 @@ public final class AdventureStore {
             if planningStep == .color {
                 return "Not yet: ask the color question first. Say exactly: \"\(ColorChoice.question)\" and wait (their answer → set_print_style)."
             }
-            if playerCount == 0 { playerCount = max(1, min(drafts.count, Players.max)) }
-            let roles = drafts.enumerated().map { i, d in
-                Role(id: RoleID.allCases[min(i, RoleID.allCases.count - 1)], roleName: d.roleName, emoji: "", symbol: "star", job: d.job)
+            // Round C1: the model gives 6 ranked roles (any fewer, or repeats, are filled from generic extras); the
+            // first N play. A model that skipped the count and gave one role per kid sets it.
+            if playerCount == 0 { playerCount = drafts.count < RoleCast.count ? max(1, drafts.count) : 1 }
+            let roles = drafts.prefix(RoleCast.count + 2).map { d in
+                Role(id: .R1, roleName: d.roleName, emoji: "", symbol: "star", job: d.job)
             }
             let title = gameTitle ?? "Pretend"
             plan = Sanitizer.clean(GamePlan(gameTitle: title, gameEmoji: "", setting: title, roles: roles, nutmegSays: ""), playerCount: playerCount)
             phase = .players; presenting = .none; planningStep = .props
-            let cast = plan!.roles.map { $0.count > 1 ? "\($0.count) \($0.roleName)s" : $0.roleName }.joined(separator: ", ")
-            let short = drafts.count < playerCount ? " You gave \(drafts.count) roles for \(playerCount) kids, so the last role is shared." : ""
-            return "Roles set: \(cast).\(short) Step 4: announce the roles with excitement (there are no role cards; kids pick their own badge after printing). Now, WITHOUT speaking yet and without waiting for the kids, call show_next_prop for the FIRST prop. Then, in ONE turn, announce the roles and end with \"\(Self.huntTransition)\" (the card and your prop line follow). Never ask \"Sound good?\", \"Okay?\" or \"Ready?\": there is nothing to approve."
+            return Self.rolesSetOutput(plan!.roles, players: playerCount)
         case .showProps(let drafts):
             var used = Set<String>()
             let list: [Prop] = drafts.enumerated().compactMap { i, d in
@@ -741,7 +746,7 @@ public final class AdventureStore {
         case .finishPlanning:
             presenting = .none; planningStep = .finish
             if gameTitle == nil { gameTitle = "Airplane" }
-            if playerCount == 0 { playerCount = max(1, plan?.kidCount ?? 1) }
+            if playerCount == 0 { playerCount = 1 }
             Task { await self.makeKit() }
             return "Making the kit now. Say nothing."
         case .justTalk:
@@ -778,6 +783,46 @@ public final class AdventureStore {
             let moved = goTo(step)
             return BackNav.output(moved: moved, to: step, current: from, drawing: drawMode)
         }
+    }
+
+    // MARK: Ranked roles (round C1)
+
+    /// The set_roles result: all 6 ranked roles, and the N playing ones she announces (and ONLY those).
+    public nonisolated static func rolesSetOutput(_ roles: [Role], players: Int) -> String {
+        let playing = RoleCast.playing(roles, kids: players)
+        let ranked = roles.enumerated().map { "\($0.offset + 1). \($0.element.roleName)" }.joined(separator: ", ")
+        let who = playing.count == 1
+            ? "1 kid is playing: announce ONLY the \(playing[0].roleName) (\"You'll be the \(playing[0].roleName)! \(huntTransition)\")."
+            : "\(playing.count) kids are playing: announce ONLY \(playing.map(\.roleName).joined(separator: ", ")) (\"We need \(PlayCast.crewList(playing))! \(huntTransition)\"), never the others."
+        return "Roles set (ranked): \(ranked). \(who) Step 4: announce them with excitement (there are no role cards; kids pick their own badge after printing). Now, WITHOUT speaking yet and without waiting for the kids, call show_next_prop for the FIRST prop. Then, in ONE turn, announce the roles and end with \"\(huntTransition)\" (the card and your prop line follow). Never ask \"Sound good?\", \"Okay?\" or \"Ready?\": there is nothing to approve."
+    }
+
+    /// A count change once the roles exist: nothing is remade (no AI call). Play starts over from the first scene the
+    /// next time, so the hand-offs rotate through the new crew. During play she points to Pick on the step rail.
+    private func changeCount(to n: Int) -> String {
+        switch phase {
+        case .handoff, .scene, .end:
+            return "Nothing changed yet. Say in ONE short, kind line that they can tap Pick on the steps at the top to change how many friends are playing."
+        default: break
+        }
+        guard n != playerCount else { return "Already \(n). Carry on with the current step in ONE short line." }
+        playerCount = n
+        resetPlayProgress()
+        let line = PlayCast.countChangeLine(roles: plan?.roles ?? [], players: n)
+        return "Now \(n) playing. Nothing is remade: the roles, props and kit stay, and the badges and checklists follow the new count. Say exactly this and nothing else: \"\(line)\" Then carry on with the current step."
+    }
+
+    /// Round C1: the play progress is for the old crew (who holds the iPad, the checkmarks): Play starts over.
+    private func resetPlayProgress() {
+        holder = nil; lastPlayPhase = nil; checkedSteps = []; doneSnapshot = nil
+    }
+
+    /// The tap path: the count after the roles were made (no AI call; the roles and kit stay).
+    public func changePlayerCount(_ n: Int) {
+        let n = max(1, min(n, Players.max))
+        playerCount = n
+        resetPlayProgress()
+        say(PlayCast.countChangeLine(roles: plan?.roles ?? [], players: n))
     }
 
     // MARK: Props that make sense (round 24)
@@ -891,7 +936,7 @@ public final class AdventureStore {
         switch phase {
         case .makingKit, .kitReady:
             gameTitle = title
-            kit = nil; drawGuide = nil; drawIndex = 0; kitRemakes += 1; phase = .makingKit
+            fullKit = nil; drawGuide = nil; drawIndex = 0; kitRemakes += 1; phase = .makingKit
             presenting = .none; planningStep = .finish
             Task { await self.makeKit(remakeFor: title) }
             return "The \(what) is now \(title): the app is remaking the kit to match and says so. Say nothing."
@@ -907,7 +952,7 @@ public final class AdventureStore {
     /// Screenshots only: hold a phase (e.g. .makingKit for the coloring loader).
     public func debugSetPhase(_ p: Phase) { phase = p }
     /// Screenshots (round 14): replace one scene of the kit (e.g. a long Sunset-style checklist).
-    public func debugReplaceScene(_ i: Int, with scene: Scene) { if kit?.scenes.indices.contains(i) == true { kit?.scenes[i] = scene } }
+    public func debugReplaceScene(_ i: Int, with scene: Scene) { if fullKit?.scenes.indices.contains(i) == true { fullKit?.scenes[i] = scene } }
     #endif
 
     // MARK: Free speech
@@ -1005,7 +1050,7 @@ public final class AdventureStore {
             gameTitle = a.plan.gameTitle
             if plan == nil || plan?.gameTitle != a.plan.gameTitle { plan = a.plan }
             if phase == .props || phase == .makingKit { props = a.props }
-            if phase == .makingKit { kit = a.kit }
+            if phase == .makingKit { fullKit = a.kit }
         }
     }
 

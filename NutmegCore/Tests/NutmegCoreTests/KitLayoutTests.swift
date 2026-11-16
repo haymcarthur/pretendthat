@@ -1,10 +1,11 @@
 import Testing
 @testable import NutmegCore
 
+/// Round C1: every game has 6 ranked roles; `n` kids play the first n.
 func cast(_ n: Int) -> [Role] {
-    RoleCast.normalize(["Captain", "Flight Attendant", "Co-Pilot", "Passenger"].enumerated().map {
+    RoleCast.rank(["Captain", "Flight Attendant", "Co-Pilot", "Passenger"].enumerated().map {
         Role(id: RoleID.allCases[$0.offset], roleName: $0.element, emoji: "", symbol: "star", job: "")
-    }, kids: n)
+    })
 }
 
 func kitItem(_ id: String, size: KitSize, perPlayer: Bool = false, copies: Int = 1) -> KitItem {
@@ -31,7 +32,7 @@ func kitItem(_ id: String, size: KitSize, perPlayer: Bool = false, copies: Int =
             if r == .badges {
                 // Round 23: exactly one badge per kid (never spares).
                 #expect(pages.flatMap(\.slots).count == n, "badges with \(n) kids")
-                #expect(Set(pages.flatMap(\.slots).compactMap(\.roleID)) == Set(roles.map(\.id)))
+                #expect(pages.flatMap(\.slots).compactMap(\.roleID) == Array(RoleID.allCases.prefix(n)))
             } else {
                 #expect(pages.allSatisfy { $0.slots.count == cap }, "\(r) with \(n) kids")
             }
@@ -60,13 +61,16 @@ func kitItem(_ id: String, size: KitSize, perPlayer: Bool = false, copies: Int =
     #expect(Set(pages.map(\.item.id)) == ["a", "b", "c", "d"])
 }
 
-@Test func fiveOrMoreKidsShareRolesOnBadges() {
+@Test func badgesAreTheFirstNRankedRolesOneEach() {
+    // Round C1: 6 ranked roles; N kids print the first N badges, slot k = role Rk (its slice of the badge sheet).
     var badge = kitItem("badge", size: .badge, perPlayer: true); badge.recipe = .badges
     let roles = cast(6)
-    #expect(roles.map(\.roleName) == ["Captain", "Flight Attendant", "Co-Pilot", "Passenger"])
-    #expect(roles.map(\.count) == [1, 1, 1, 3])
-    let slots = KitLayout.pages(for: Kit(nutmegSays: "", items: [badge], scenes: []), roles: roles, playerCount: 6).flatMap(\.slots)
-    #expect(slots.prefix(6).compactMap(\.role) == ["Captain", "Flight Attendant", "Co-Pilot", "Passenger", "Passenger", "Passenger"])
+    #expect(roles.count == 6 && roles.allSatisfy { $0.count == 1 })
+    for n in 1...6 {
+        let slots = KitLayout.pages(for: Kit(nutmegSays: "", items: [badge], scenes: []), roles: roles, playerCount: n).flatMap(\.slots)
+        #expect(slots.compactMap(\.role) == roles.prefix(n).map(\.roleName))
+        #expect(slots.compactMap(\.roleID?.index) == Array(0..<n))
+    }
 }
 
 @Test func fullPageSheetIsOnePageEach() {
@@ -121,8 +125,8 @@ func kitItem(_ id: String, size: KitSize, perPlayer: Bool = false, copies: Int =
     for n in 1...4 {
         let roles = cast(n)
         let slots = KitLayout.pages(for: Kit(nutmegSays: "", items: [badge], scenes: []), roles: roles, playerCount: n).flatMap(\.slots)
-        // The first N badges are the N roles, each printed with its own title; spares repeat roles, never blank names.
-        #expect(slots.prefix(n).map(\.role) == roles.map { Optional($0.roleName) })
+        // The first N badges are the N playing roles, each printed with its own title; never blank names.
+        #expect(slots.prefix(n).map(\.role) == roles.prefix(n).map { Optional($0.roleName) })
         #expect(slots.allSatisfy { s in s.role == roles.first { $0.id == s.roleID }?.roleName })
     }
 }

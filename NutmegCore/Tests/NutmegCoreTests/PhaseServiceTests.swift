@@ -58,28 +58,25 @@ final class FakeLLM: LLM, @unchecked Sendable {
 @Test func fallbackDecodes() {
     let a = Fallback.airplane
     #expect(a.ideas.ideas.count == 3)
-    #expect(a.plan.roles.count == 4)
+    #expect(a.plan.roles.count == 6)   // round C1: 6 ranked roles
     #expect((3...5).contains(a.props.props.count))
     #expect(a.kit.items.map(\.recipe) == KitRecipe.allCases.map { Optional($0) })
-    #expect((4...6).contains(a.kit.scenes.count))
-    #expect(a.kit.scenes.allSatisfy { (3...5).contains($0.steps.count) })
-    #expect(Sanitizer.clean(a.kit, roleCount: 4) == a.kit)   // already within limits
+    #expect(a.kit.scenes.count == 6)
+    // Every scene: one step for each of the 6 roles, plus 2 for everyone.
+    #expect(Validate.scenes(a.kit.scenes, roles: 6) == nil)
+    #expect(a.kit.scenes.allSatisfy { $0.steps.count == 8 && $0.steps.filter { $0.role == .all }.count == 2 })
+    #expect(Sanitizer.clean(a.kit) == a.kit)   // already within limits
 }
 
-@Test func fallbackTrimsToPlayerCount() {
-    let a = Fallback.airplane(playerCount: 2)
-    #expect(a.plan.roles.map(\.id) == [.R1, .R2])
-    #expect(a.kit.scenes.allSatisfy { $0.owner != .R3 && $0.owner != .R4 })
-}
-
-@Test func fallbackForSixKidsAddsPassengers() {
-    let a = Fallback.airplane(playerCount: 6)
-    #expect(a.plan.roles.map(\.roleName) == ["Captain", "Flight Attendant", "Co-Pilot", "Passenger"])
-    #expect(a.plan.roles.map(\.count) == [1, 1, 1, 3])
-    // Scenes still belong to the same roles after Passenger moved last.
-    let owners = Set(a.kit.scenes.compactMap(\.owner.role).compactMap { a.plan.role(for: $0)?.roleName })
-    #expect(owners.isSubset(of: ["Captain", "Flight Attendant", "Co-Pilot", "Passenger"]) && !owners.isEmpty)
-    #expect(a.kit.scenes.first?.owner.role.flatMap { a.plan.role(for: $0)?.roleName } == "Captain")
+@Test func fallbackKeepsSixRolesForAnyCount() {
+    for n in 1...6 {
+        let a = Fallback.airplane(playerCount: n)
+        #expect(a.plan.roles.map(\.roleName) == ["Captain", "Flight Attendant", "Co-Pilot", "Passenger", "Snack Chef", "Weather Watcher"])
+        #expect(a.kit == Fallback.airplane(playerCount: 1).kit)   // the count never changes the game data
+        let view = PlayCast.kit(a.kit, roles: a.plan.roles, players: n)
+        #expect(view.scenes.allSatisfy { s in s.steps.compactMap(\.role.role).sorted { $0.rank < $1.rank } == Array(RoleID.allCases.prefix(n)) })
+        #expect(view.scenes.first?.owner == .R1)
+    }
 }
 
 @Test func shortKitAsksOnceMoreThenKeepsIt() async throws {

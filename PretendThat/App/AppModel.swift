@@ -385,7 +385,7 @@ final class AppModel {
         #endif
         // Round 20: the hunt's themed cut-outs were one sheet; the skipped props' cut-outs after them are drawn one each.
         let sheet = store.draftItems?.first { $0.recipe == .cutouts }.map { KitArtPrompt.cutoutLabels($0).count }
-        Task { await art.generate(kit: kit, gameTitle: title, style: store.currentPrintStyle, sheetCount: sheet) }
+        Task { await art.generate(kit: kit, gameTitle: title, style: store.currentPrintStyle, sheetCount: sheet, roles: store.plan?.roles ?? []) }
     }
 
     // MARK: Kit made during the hunt (round 20, Haylee)
@@ -406,7 +406,7 @@ final class AppModel {
         if let started = store.draftStartedAt, let ready = store.draftReadyAt {
             rtLog(String(format: "TIMING kit pages written during the hunt in %.1f s", ready.timeIntervalSince(started)))
         }
-        art.prepare(items: items, gameTitle: store.currentTitle, style: store.currentPrintStyle)
+        art.prepare(items: items, gameTitle: store.currentTitle, style: store.currentPrintStyle, roles: store.plan?.roles ?? [])
     }
 
     /// DEBUG timings for the live check (hunt start → Print, the wait at Print).
@@ -430,7 +430,9 @@ final class AppModel {
                 // the pages whose art is still being drawn.
                 // Round 20: the pages were written during the hunt, so only what's still in progress counts.
                 let pending = (store.kit?.items ?? store.draftItems ?? []).filter { item in
-                    item.recipe == .cutouts ? art.cutoutImages(item).contains { $0 == nil } : art.images[item.id] == nil
+                    item.recipe == .cutouts ? art.cutoutImages(item).contains { $0 == nil }
+                        : item.recipe == .badges ? art.badge(item.id, role: 0) == nil   // round C1: the sheet or the shared badge
+                        : art.images[item.id] == nil
                 }.compactMap(\.recipe)
                 // Round 24: no printer → no pages are drawn; only the play guide is being written.
                 let topics = store.drawMode ? (store.kit == nil ? [KitProgress.Topic.checklists] : [])
@@ -785,7 +787,8 @@ final class AppModel {
             printablesKit = kit
             // Coloring pages (Claude's call: no second question; they're for printing somewhere else, kids can color them).
             await art.generate(kit: kit, gameTitle: store.currentTitle, style: .colorIn,
-                               sheetCount: kit.items.first { $0.recipe == .cutouts }.map { KitArtPrompt.cutoutLabels($0).count })
+                               sheetCount: kit.items.first { $0.recipe == .cutouts }.map { KitArtPrompt.cutoutLabels($0).count },
+                               roles: store.plan?.roles ?? [])
             guard store.drawMode else { printablesState = .idle; return }
             let pages = KitLayout.pages(for: kit, roles: store.plan?.roles ?? [], playerCount: store.playerCount)
             let pdf = KitPrinter.pdf(pages: pages, art: art.images,
@@ -1230,7 +1233,8 @@ final class AppModel {
             return PTPictureTile(image: UIImage(named: ActionArt.asset(id)), placeholder: id.replacingOccurrences(of: "-", with: " "), size: size)
         case .kitItem(let itemID, _, let role):
             let title = store.kit?.items.first { $0.id == itemID }?.title ?? ""
-            return PTPictureTile(image: art.images[itemID], placeholder: title, roleTitle: role?.roleName,
+            // Round C1: a role's badge shows its own slice of the badge sheet.
+            return PTPictureTile(image: art.badge(itemID, role: role?.id.index), placeholder: title, roleTitle: role?.roleName,
                                  roleTint: Theme.playerColor(role?.id.index ?? 0), size: size)
         case .cutout(let itemID, let index, let label):
             return PTPictureTile(image: art.cutout(itemID, index), placeholder: label, size: size)

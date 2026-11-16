@@ -46,7 +46,7 @@ struct Round19ConfirmTests {
         let again = await store.apply(.confirmPlan)
         #expect(again.contains("Already confirmed") && store.planningStep == .color)
         let color = await store.apply(.setPrintStyle(.colorIn))
-        #expect(store.planningStep == .roles && color.contains("start_planning") && color.contains("exactly 2 roles"))
+        #expect(store.planningStep == .roles && color.contains("start_planning") && color.contains("exactly 6 ranked roles"))
         #expect(PlanningCall.decode(name: "confirm_plan", arguments: "{}") == .confirmPlan)
         #expect(ConfirmStep.yesTapNote(playerCount: 2).contains("don't call confirm_plan"))
         #expect(Realtime.kidTurnTools(step: .confirm, huntActive: false) == ["confirm_plan", "set_game", "set_theme", "set_player_count", "set_printer", "set_print_style", "just_talk"])
@@ -118,8 +118,10 @@ struct Round19ConfirmTests {
         #expect(store.phase == .kitReady && store.kit != nil)
         #expect(store.nutmegLine == AdventureStore.remakeLine("Candy Shop") && store.nutmegLine.contains("a candy shop"))
         #expect(llm.users.last?.contains("Candy Shop") == true)
+        // Round C1: the kit is written for 6, so a count change at Paper is applied with no AI call.
+        let calls = llm.calls
         let count = await store.apply(.setPlayerCount(3))
-        #expect(count.contains("New game") && store.playerCount == 1)
+        #expect(count.contains("Nothing is remade") && store.playerCount == 3 && llm.calls == calls && store.phase == .kitReady)
         store.beginPlay()
         let late = await store.apply(.setTheme("Pet Shop"))
         #expect(late.contains("New game") && store.gameTitle == "Candy Shop")

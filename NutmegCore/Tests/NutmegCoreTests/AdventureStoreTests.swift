@@ -33,16 +33,15 @@ func walk(_ store: AdventureStore) async -> [Phase] {
 @Test @MainActor func flowReachesKitReady() async {
     let store = await storeWithKit(owners: [.R1, .R2, .all, .R1], players: 3)
     #expect(store.phase == .kitReady)
-    #expect(store.plan?.roles.count == 3)
+    #expect(store.plan?.roles.count == 6 && store.playingRoles.count == 3)   // round C1: 6 ranked roles, 3 play
     #expect(store.usingFallback == false)
 }
 
-@Test @MainActor func fiveKidsGetFourRolesAndHandoffsByRole() async {
+@Test @MainActor func fiveKidsPlayTheFirstFiveRankedRoles() async {
     let store = await storeWithKit(owners: [.R1, .R2, .R3, .R4], players: 5)
     #expect(store.playerCount == 5)
-    #expect(store.plan?.roles.count == 4)
-    #expect(store.plan?.kidCount == 5)
-    #expect(store.plan?.roles.last?.count == 2)   // the extra kid shares the last role
+    #expect(store.plan?.roles.count == 6 && store.playingRoles.map(\.id) == Array(RoleID.allCases.prefix(5)))
+    #expect(store.plan?.roles.allSatisfy { $0.count == 1 } == true)
     store.beginPlay()
     #expect(store.phase == .handoff(sceneIndex: 0))
     #expect(store.nutmegLine == "Pass the iPad to the Captain, then tap I'm the Captain!")
@@ -50,18 +49,24 @@ func walk(_ store: AdventureStore) async -> [Phase] {
 
 @Test @MainActor func handoffLineUsesTheRoleNeverAName() async {
     let store = await storeWithKit(owners: [.R2, .R1, .all, .R1], players: 3)
-    store.beginPlay()
-    #expect(store.nutmegLine == "Pass the iPad to the Flight Attendant, then tap I'm the Flight Attendant!")
+    store.autoCheckStep = .zero; store.autoCheckHold = .zero
+    store.beginPlay(); store.badgeTapped(.R1)
+    await store.sceneDone()
+    #expect(store.nutmegLine.hasSuffix("Pass the iPad to the Flight Attendant, then tap I'm the Flight Attendant!"))
+}
+
+@Test @MainActor func handoffsRotateThroughThePlayingRoles() async {
+    // Round C1 (Haylee): every kid gets a turn holding the iPad. Claude's old owners are ignored.
+    let two = await storeWithKit(owners: [.R1, .R1, .R2, .all, .R2], players: 2)
+    #expect(await walk(two) == (0..<5).map { .handoff(sceneIndex: $0) })
+    #expect((0..<5).map { two.kit!.scenes[$0].owner } == [.R1, .R2, .R1, .R2, .R1])
+    let three = await storeWithKit(owners: Array(repeating: .all, count: 6), players: 3)
+    #expect(three.kit!.scenes.map(\.owner) == [.R1, .R2, .R3, .R1, .R2, .R3])
 }
 
 @Test @MainActor func singlePlayerSkipsHandoff() async {
     let store = await storeWithKit(owners: [.R1, .all, .R1, .R1], players: 1)
     #expect(await walk(store).allSatisfy { if case .scene = $0 { true } else { false } })
-}
-
-@Test @MainActor func handoffOnlyWhenOwnerChanges() async {
-    let store = await storeWithKit(owners: [.R1, .R1, .R2, .all, .R2], players: 2)
-    #expect(await walk(store) == [.handoff(sceneIndex: 0), .scene(1), .handoff(sceneIndex: 2), .scene(3), .scene(4)])
 }
 
 @Test @MainActor func wrongBadgeDoesNotAdvance() async {
@@ -120,10 +125,11 @@ func walk(_ store: AdventureStore) async -> [Phase] {
     #expect(store.nutmegLine == "Ready, Captain?")
 }
 
-@Test @MainActor func playerCountDecidesTheRoles() async {
-    for n in 1...4 {
+@Test @MainActor func playerCountDecidesThePlayingRoles() async {
+    for n in 1...6 {
         let store = await storeWithKit(owners: [.all, .all, .all, .all], players: n)
-        #expect(store.plan?.roles.count == n)
+        #expect(store.plan?.roles.count == 6)
+        #expect(store.playingRoles.count == n)
         #expect(store.plan?.roles.allSatisfy { $0.count == 1 } == true)
     }
 }
@@ -132,7 +138,7 @@ func walk(_ store: AdventureStore) async -> [Phase] {
     let store = await storeWithKit(owners: [.all, .all, .all, .all], players: 2)
     _ = await walk(store)
     store.playAgain()
-    #expect(store.phase == .scene(0))
+    #expect(store.phase == .handoff(sceneIndex: 0))   // round C1: back to the Captain's turn
     #expect(store.kit != nil)
 }
 

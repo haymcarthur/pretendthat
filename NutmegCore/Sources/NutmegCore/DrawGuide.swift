@@ -179,8 +179,11 @@ public enum DrawIt {
         ]), playerCount: playerCount)
     }
 
-    /// "Make 3, one for each friend." (the app's count, never Claude's).
-    public static func countLine(_ p: DrawPiece) -> String {
+    /// "Make 3, one for each friend." (the app's count, never Claude's). Round C1: `players` (the CURRENT count) wins
+    /// over the stored one for badges and tickets, so a count change never needs a new guide.
+    public static func countLine(_ p: DrawPiece, players: Int? = nil) -> String {
+        var p = p
+        if let players, p.kind == .badges || p.kind == .tickets { p.count = PlayCast.players(players) }
         switch p.kind {
         case .badges: return p.count == 1 ? "Make one for you." : "Make \(ConfirmStep.number(p.count)), one for each friend."
         case .tickets: return p.count == 1 ? "Make one." : "Make \(ConfirmStep.number(p.count)), one for each friend."
@@ -191,13 +194,13 @@ public enum DrawIt {
     }
 
     /// The card's text and what she reads for piece `i` (one line; the first one says how the step works).
-    public static func line(_ guide: DrawGuide, _ i: Int) -> String {
+    public static func line(_ guide: DrawGuide, _ i: Int, players: Int? = nil) -> String {
         guard guide.pieces.indices.contains(i) else { return "" }
         let p = guide.pieces[i], last = i == guide.pieces.count - 1
         let lead = i == 0 ? "Let's draw your kit! Grab paper and crayons. First, \(p.title.lowercased())!"
             : last ? "Last one, \(p.title.lowercased())!" : "Next, \(p.title.lowercased())!"
         let tail = last ? "Then tap \(playLabel)" : (i == 0 ? "Tap \(nextLabel) when it's done!" : "")
-        return [lead, p.instruction, countLine(p), tail].filter { !$0.isEmpty }
+        return [lead, p.instruction, countLine(p, players: players), tail].filter { !$0.isEmpty }
             .map { $0.hasSuffix("!") || $0.hasSuffix(".") || $0.hasSuffix("?") ? $0 : $0 + "!" }
             .joined(separator: " ")
     }

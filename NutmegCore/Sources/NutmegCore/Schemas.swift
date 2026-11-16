@@ -14,7 +14,7 @@ public enum Schemas {
     static func picture(_ of: String) -> [String: Any] {
         ["type": "object", "description": "The ONE picture for \(of). kind prop: id is a household-prop library id; "
             + "kind action: id is an action id; kind kit: id is a printed item of THIS kit (ticket, money, menu, sign, "
-            + "badge:R1..R4 for a role's badge, cutout:N for the Nth line of the cutouts item).",
+            + "badge:R1..R6 for a role's badge, cutout:N for the Nth line of the cutouts item).",
          "properties": ["kind": enumStr(PictureKind.allCases.map(\.rawValue)), "id": enumStr(PictureResolver.allIDs)],
          "required": ["id", "kind"], "additionalProperties": false]
     }
@@ -27,8 +27,8 @@ public enum Schemas {
     }
     public static func plan() -> [String: Any] {
         obj(["gameTitle": str, "setting": str, "nutmegSays": str,
-             "roles": nonEmpty(obj(["id": enumStr(roleIDs), "roleName": str, "symbol": str, "job": str,
-                                     "count": ["type": "integer", "description": "How many kids play this role (1 unless there are more kids than roles)."]]))])
+             // Round C1: exactly 6 ranked roles (R1 the lead … R6), one kid each; the first N play.
+             "roles": nonEmpty(obj(["id": enumStr(roleIDs), "roleName": str, "symbol": str, "job": str]))])
     }
     public static func props() -> [String: Any] {
         // Props always come from the library (id is the library id; the app shows its hand-drawn art).
@@ -47,9 +47,12 @@ public enum Schemas {
                                "size": enumStr(["ticket", "badge", "bill", "keycard", "fullPage"]),
                                "title": str, "symbol": str, "lines": arr(str), "bigNumber": ["type": ["string", "null"]],
                                "perPlayer": bool, "copies": int, "colorMe": bool])),
-             "scenes": nonEmpty(obj(["id": str, "owner": enumStr(roleIDs + ["all"]), "title": str,
+             // Round C1: no scene owner (the app rotates the hand-offs); every step belongs to a role or to everyone.
+             "scenes": nonEmpty(obj(["id": str, "title": str,
                                 "picture": picture("the scene title"), "nutmegSays": str,
-                                "steps": nonEmpty(obj(["picture": picture("the main object or action named in this step's text"), "text": str]))]))])
+                                "steps": nonEmpty(obj(["picture": picture("the main object or action named in this step's text"), "text": str,
+                                                       "role": ["type": "string", "enum": roleIDs + ["all"],
+                                                                "description": "The role this step is for (its text calls that role by its title), or all for everyone together."]]))]))])
     }
     /// Round 20: the kit in two parts, the pages (at the roles) and the play guide (when the hunt ends).
     public static func kitPages() -> [String: Any] {

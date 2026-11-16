@@ -37,7 +37,7 @@ final class RecordingTransport: HTTPTransport, @unchecked Sendable {
     store.setPlayerCount(3)
     #expect(!store.nutmegLine.lowercased().contains("name"))   // Nutmeg never asks for names
     await store.confirmPlayers()
-    #expect(store.plan?.roles.count == 3)
+    #expect(store.plan?.roles.count == 6 && store.playingRoles.count == 3)   // round C1: 6 ranked, 3 play
     await store.kidSaid("Can I be the captain?")
     await store.confirmRoles()
     await store.confirmProps()

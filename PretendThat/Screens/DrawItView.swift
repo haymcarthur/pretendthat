@@ -39,7 +39,7 @@ struct PTDrawItCard: View {
                     .accessibilityHidden(true)
                 VStack(spacing: Theme.Space.xs) {
                     Text(piece.title).font(Theme.headlineFont(Theme.TextSize.headline)).foregroundStyle(Theme.ink)
-                    Text(([piece.instruction, DrawIt.countLine(piece)].filter { !$0.isEmpty }).joined(separator: " "))
+                    Text(([piece.instruction, DrawIt.countLine(piece, players: store.playerCount)].filter { !$0.isEmpty }).joined(separator: " "))
                         .font(Theme.bodyFont(Theme.TextSize.body)).foregroundStyle(Theme.ink)
                         .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
                 }

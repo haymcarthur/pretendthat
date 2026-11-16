@@ -66,9 +66,9 @@ enum Theme {
 
     /// Always paired with a role symbol so color is never the only cue.
     static let playerColors: [Color] = BrandPalette.players.map { Color(hex: $0) }
-    static func playerColor(_ index: Int) -> Color { playerColors[((index % 4) + 4) % 4] }
+    static func playerColor(_ index: Int) -> Color { playerColors[((index % playerColors.count) + playerColors.count) % playerColors.count] }
     static let playerShades: [Color] = BrandPalette.playerShades.map { Color(hex: $0) }
-    static func playerShade(_ index: Int) -> Color { playerShades[((index % 4) + 4) % 4] }
+    static func playerShade(_ index: Int) -> Color { playerShades[((index % playerShades.count) + playerShades.count) % playerShades.count] }
 
     // Printables are black line art on white paper (colorable).
     static let printInk = Color.black

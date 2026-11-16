@@ -120,10 +120,11 @@ public enum Realtime {
     answering a different question, like "three, and it's a bug theater, not a bus theater"), call set_game, \
     set_theme or set_player_count AGAIN with the fix, right away, before anything else. Never just use the fix in your \
     words without calling the tool: the printed kit is made from what the tools say.
-    4. ROLES (you decide, they don't choose): invent exactly one role per kid that fits their game and theme (3 kids \
-    on an airplane: Captain, Flight Attendant, Passenger; with more than 4 kids, repeat a role that makes sense to \
-    share) and call set_roles, then RIGHT AWAY call show_next_prop for the first prop. Then speak ONCE: announce the \
-    roles with excitement and end with the hunt transition "Now it's time to hunt for props!" (the app then shows the \
+    4. ROLES (you decide, they don't choose): invent exactly 6 RANKED roles that fit their game and theme, whatever \
+    the number of kids: 1 the lead the game can't run without (Captain), 2 the second core role (Navigator), 3 to 6 \
+    fun extras (Parrot Keeper, Cook, Lookout, Treasure Keeper); six different titles. Call set_roles, then RIGHT AWAY \
+    call show_next_prop for the first prop. Then speak ONCE: announce ONLY the roles the set_roles result says are \
+    playing (the first ones, one per kid), with excitement, and end with the hunt transition "Now it's time to hunt for props!" (the app then shows the \
     first card while you point, and asks you for the prop line). NEVER ask "Sound good?", "Okay?", \
     "Ready?" or any yes/no check about the roles: there is nothing to approve. Kids pick their own badge after \
     printing, so never assign a role to a particular kid.
@@ -303,9 +304,11 @@ public enum Realtime {
            + "them. The question is open (\"How many friends are playing today?\"), never a list of numbers. Then recap (step 3b)."
            + " If the kid corrects it at ANY point later (any step), call this again with the fix.",
            ["count": ["type": "integer", "minimum": 1, "description": "the number the kid said (1 to 6 can play)"] as [String: Any]], required: ["count"]),
-        fn("set_roles", "Exactly one role per kid for the chosen game (as many entries as kids). With more than 4 kids, "
-           + "repeat a role title that makes sense to share (e.g. Passenger twice). Right after it, call show_next_prop "
-           + "for the first prop, then announce the roles and the first prop in ONE turn. Never ask \"Sound good?\".",
+        fn("set_roles", "Exactly 6 ranked roles for this game, whatever the number of kids, in rank order: 1 the lead "
+           + "the game can't run without, 2 the second core role, 3 to 6 fun extras. Six different titles; job is a short "
+           + "action (\"steer the ship\"). Only the first ones play (one per kid): the result names them, and you announce "
+           + "ONLY those. Right after it, call show_next_prop for the first prop, then announce the roles and the first "
+           + "prop in ONE turn. Never ask \"Sound good?\".",
            ["roles": array(object(["role_name": str, "job": str]))], required: ["roles"]),
         fn("show_next_prop", "Show ONE prop card for the hunt (step 5). Call it BEFORE you mention the prop: never name a "
            + "prop out loud without calling this first in the same turn. item_id MUST come from the list. For the FIRST prop, pick the item that fits THIS game best (the list order means nothing; plate is not a default). alternates: 1 or 2 "

@@ -51,8 +51,8 @@ public enum ConfirmStep {
 
     /// What she does once the kids say yes (by voice: confirm_plan; or the Yes, let's go! button).
     public static func confirmedOutput(playerCount: Int) -> String {
-        let shared = playerCount > RoleID.allCases.count ? " With more than 4 kids, repeat a role that makes sense to share." : ""
-        return "Confirmed: \(playerCount) kid\(playerCount == 1 ? "" : "s"). Say ONE short line like \"Great, let me put some plans together!\" and call start_planning (topic roles) now (nothing longer, no other narration); after it, invent exactly \(playerCount) role\(playerCount == 1 ? "" : "s") for this game, call set_roles, then show_next_prop, and only then announce the roles ending with \"\(AdventureStore.huntTransition)\" in ONE turn (the first prop card and line follow).\(shared) Never ask for names."
+        // Round C1: always 6 ranked roles; the set_roles result says which ones to announce (the first N).
+        "Confirmed: \(playerCount) kid\(playerCount == 1 ? "" : "s"). Say ONE short line like \"Great, let me put some plans together!\" and call start_planning (topic roles) now (nothing longer, no other narration); after it, invent exactly 6 ranked roles for this game (R1 the lead, R2 the second core role, R3 to R6 fun extras; six different titles), call set_roles, then show_next_prop, and only then announce ONLY the roles the set_roles result says are playing, ending with \"\(AdventureStore.huntTransition)\" in ONE turn (the first prop card and line follow). Never ask for names."
     }
 
     /// The Yes, let's go! tap (the app already confirmed): the same next step, spoken with tools allowed.

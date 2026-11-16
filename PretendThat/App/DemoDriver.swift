@@ -160,6 +160,18 @@ enum DemoDriver {
                 for (i, sc) in (model.store.kit?.scenes ?? []).enumerated() { rtLog("SCENE[\(i)] \(sc.nutmegSays)") }
                 continue
             }
+            // Round C1: "#checklist": every scene as the playing kids see it (who holds the iPad, each visible step's role).
+            if turn == "#checklist" {
+                let s = model.store
+                rtLog("CHECKLIST players=\(s.playerCount) playing=\(s.playingRoles.map(\.roleName)) all=\(s.plan?.roles.map(\.roleName) ?? [])")
+                for (i, sc) in (s.kit?.scenes ?? []).enumerated() {
+                    let who = sc.owner.role.flatMap { s.plan?.role(for: $0)?.roleName } ?? "-"
+                    rtLog("CHECKLIST[\(i)] holder=\(who) \(sc.title): " + sc.steps.map { "\($0.role.rawValue): \($0.text)" }.joined(separator: " | "))
+                }
+                let badges = model.kitPages.filter { $0.item.recipe == .badges }.flatMap(\.slots)
+                rtLog("CHECKLIST badges=\(badges.compactMap(\.role)) slices=\(s.kit?.items.first { $0.recipe == .badges }.map { model.art.cutoutImages($0).compactMap { $0 }.count } ?? 0)")
+                continue
+            }
             if turn == "#play" { model.realtime.beginTrace("play tap"); model.tapLetsPlay(); continue }
             if turn == "#handoff" {
                 if case .handoff(let i) = model.store.phase, let t = model.store.kit?.scenes[i].owner.role {

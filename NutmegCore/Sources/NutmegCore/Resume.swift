@@ -139,7 +139,7 @@ extension ResumeContext {
             return PropLine(id: p.id, item: p.householdItem, becomes: p.becomes, status: status)
         }
         self.init(step: store.planningStep, gameTitle: store.gameTitle, playerCount: store.playerCount,
-                  roles: store.plan?.roles.map { $0.count > 1 ? "\($0.count) \($0.roleName)s" : $0.roleName } ?? [],
+                  roles: store.playingRoles.map(\.roleName),   // round C1: only the roles playing now
                   props: props, kit: kit, recent: transcript.map { ($0.fromNutmeg, $0.text) })
     }
 }

@@ -30,7 +30,7 @@ struct PictureTests {
         #expect(PictureResolver.resolve(.prop("knife"), kit: kit, roles: roles) == .action("point"))
         #expect(PictureResolver.resolve(.action("juggle"), kit: kit, roles: roles) == .action("point"))
         #expect(PictureResolver.resolve(.kit("cutout:12"), kit: kit, roles: roles) == .action("point"))
-        #expect(PictureResolver.resolve(.kit("badge:R4"), kit: kit, roles: roles) == .action("point"))   // 3 kids: no R4
+        #expect(PictureResolver.resolve(.kit("badge:R4"), kit: kit, roles: Array(roles.prefix(3))) == .action("point"))   // no R4 in this cast
         #expect(PictureResolver.resolve(.kit("ticket"), kit: nil, roles: roles) == .action("point"))
         #expect(PictureResolver.resolve(nil, kit: kit, roles: roles) == .action("point"))
         #expect(PictureResolver.resolve(.prop("plate"), kit: nil, roles: []) == .prop("plate"))   // props need no kit

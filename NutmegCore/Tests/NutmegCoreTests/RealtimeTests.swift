@@ -86,7 +86,7 @@ import Testing
     #expect(store.playerCount == 2)
     _ = await store.apply(.setRoles([.init(roleName: "Zookeeper", job: "Feed the lion"),
                                      .init(roleName: "Lion", job: "Roar")]))
-    #expect(store.plan?.roles.map(\.roleName) == ["Zookeeper", "Lion"])
+    #expect(store.plan?.roles.count == 6 && store.playingRoles.map(\.roleName) == ["Zookeeper", "Lion"])
     #expect(store.plan?.role(for: .R2)?.roleName == "Lion")
     #expect(store.presenting == .none)   // no role cards (Haylee): roles are spoken, then printed on badges
     _ = await store.apply(.showProps([.init(itemID: "pillow", becomes: "Lion bed", forRole: "lion", alternates: ["cushion"]),
@@ -106,14 +106,15 @@ import Testing
     #expect(!llm.users.joined().contains("{P"))
 }
 
-@Test @MainActor func sevenKidsShareFourRoles() async {
+@Test @MainActor func sixKidsGetSixDistinctRankedRoles() async {
     let store = AdventureStore(service: nil)
     store.beginConversation()
     _ = await store.apply(.setPlayerCount(6)); _ = await store.confirmWithPrinter(); _ = await store.apply(.setPrintStyle(.colorIn))
     _ = await store.apply(.setRoles(["Captain", "Flight Attendant", "Co-Pilot", "Passenger", "Passenger", "Passenger"]
         .map { .init(roleName: $0, job: "") }))
-    #expect(store.plan?.roles.map(\.roleName) == ["Captain", "Flight Attendant", "Co-Pilot", "Passenger"])
-    #expect(store.plan?.roles.map(\.count) == [1, 1, 1, 3])
+    // Round C1: repeats are dropped and generic extras fill in: 6 different titles, one kid each.
+    #expect(store.plan?.roles.map(\.roleName) == ["Captain", "Flight Attendant", "Co-Pilot", "Passenger", "Helper", "Lookout"])
+    #expect(store.plan?.roles.allSatisfy { $0.count == 1 } == true && store.playingRoles.count == 6)
 }
 
 @Test func toolsNeverAskForNames() {
