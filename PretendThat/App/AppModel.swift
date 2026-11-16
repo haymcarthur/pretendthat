@@ -36,6 +36,10 @@ final class AppModel {
     /// The My games bookshelf screen is open (on the start screen; the phase stays Hello).
     var showingShelf = false
     /// Round D2: the Grown-ups sheet (gate, then Saved games + About saved games).
+    #if DEBUG
+    /// Round 25 (button audit): the driver's `#leavedialog` shows the X's leave dialog (RootView owns its state).
+    var debugLeaveDialog = false
+    #endif
     var showingGrownUps = false
     /// The saved game being replayed (its art, for Paper).
     @ObservationIgnored var replayGame: SavedGame?
@@ -966,7 +970,8 @@ final class AppModel {
     /// skip only the next prop is hers to pick (a cheap text-only pass, then her line).
     func huntReply(found: Bool) {
         realtime.beginTrace("tap")
-        guard realtime.isLive, let p = store.props?.props.first(where: { $0.id == store.currentPropID }) else { return }
+        // Round 25: only while the hunt is on (a stray tap after it ended re-ran finish_planning and remade the kit).
+        guard realtime.isLive, store.huntActive, let p = store.props?.props.first(where: { $0.id == store.currentPropID }) else { return }
         let name = p.householdItem.lowercased()
         let count = store.props?.props.count ?? 0
         let next = count >= 3 ? ["show_next_prop", "finish_planning"] : ["show_next_prop"]

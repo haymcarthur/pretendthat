@@ -194,6 +194,9 @@ struct RootView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in keyboardUp = true }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in keyboardUp = false }
         .animation(.easeOut(duration: 0.2), value: confirmLeave)
+        #if DEBUG
+        .onChange(of: model.debugLeaveDialog) { _, v in confirmLeave = v }
+        #endif
         .animation(.easeOut(duration: 0.25), value: model.wifiPause.isPaused)
         // Round 10: the panel/rail slide on the same spring as the camera move they cause (one shared animation).
         .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: chatOpen)

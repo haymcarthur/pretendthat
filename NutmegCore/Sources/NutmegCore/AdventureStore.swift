@@ -799,6 +799,11 @@ public final class AdventureStore {
             props = p; presenting = .props
             return "Marked as pretend. Don't speak yet: call show_next_prop (or finish_planning) FIRST, then say you'll pretend that one and ask about the new prop in the same turn."
         case .finishPlanning:
+            // Round 25: once the kit is being made (or made), a second finish_planning changes nothing (seen live: a
+            // late "found it" after the hunt remade the whole kit).
+            if planningStep == .finish, phase == .makingKit || phase == .kitReady || phase.step == .play {
+                return "The kit is already made. Answer in ONE short line (no narration)."
+            }
             presenting = .none; planningStep = .finish
             if gameTitle == nil { gameTitle = "Airplane" }
             if playerCount == 0 { playerCount = 1 }

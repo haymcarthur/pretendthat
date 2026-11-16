@@ -218,3 +218,19 @@ import Testing
         #expect(g.title == "Magic Bakery")
     }
 }
+
+@MainActor @Test func aSecondFinishPlanningDoesNotRemakeTheKit() async {
+    // A first play at the Print step (voice path: planning finished, the kit made).
+    let store = AdventureStore(service: nil)
+    store.beginConversation()
+    _ = await store.apply(.setGame("Bakery")); _ = await store.apply(.setTheme("Magic Bakery"))
+    _ = await store.apply(.setPlayerCount(2)); _ = await store.confirmYes(); _ = await store.apply(.setPrintStyle(.colorIn))
+    _ = await store.apply(.setRoles(Round25Tests.roles.map { .init(roleName: $0.roleName, job: $0.job) }))
+    _ = await store.apply(.finishPlanning)
+    for _ in 0..<50 where store.phase != .kitReady { try? await Task.sleep(for: .milliseconds(20)) }
+    #expect(store.phase == .kitReady)
+    let kit = store.fullKit
+    let out = await store.apply(.finishPlanning)
+    try? await Task.sleep(for: .milliseconds(100))
+    #expect(store.phase == .kitReady && store.fullKit == kit && out.contains("already"))
+}

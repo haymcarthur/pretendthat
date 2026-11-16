@@ -187,7 +187,12 @@ enum DemoDriver {
             // (the Nth card), "#count N" / "#letsgo" (Pick), "#nothave ID" / "#alt ID" / "#allset" (Props),
             // "#paper everything|badges|skip" (Print; skip = Let's play!), "#dismissprint", "#calls MOMENT" (AI calls since the replay
             // started), "#playthrough" (every hand-off and Done! to The End), "#again" (Play it again).
-            if turn.hasPrefix("#shot ") { rtLog("SHOT \(turn.dropFirst(6))"); try? await Task.sleep(for: .seconds(2.5)); continue }
+            if turn.hasPrefix("#shot ") {
+                rtLog("SHOT \(turn.dropFirst(6))")
+                try? await Task.sleep(for: .seconds(1.2))   // let the screen settle
+                saveShot(String(turn.dropFirst(6)))         // round 25: the app renders its own window (exact timing)
+                try? await Task.sleep(for: .seconds(1.3)); continue
+            }
             if turn == "#saveGame" {
                 model.tapSave()
                 for _ in 0..<100 where model.store.savedAs == nil { try? await Task.sleep(for: .milliseconds(100)) }
@@ -227,6 +232,9 @@ enum DemoDriver {
             }
             if turn == "#clips" { model.logReplayClips("driver"); continue }
             if turn == "#waitclip" { for _ in 0..<50 where !model.speaker.clipPlaying { try? await Task.sleep(for: .milliseconds(100)) }; continue }
+            // Round 25 (button audit): "#leavedialog" / "#stay" (the X's leave dialog on / off).
+            if turn == "#leavedialog" { model.debugLeaveDialog = true; try? await Task.sleep(for: .seconds(1)); continue }
+            if turn == "#stay" { model.debugLeaveDialog = false; try? await Task.sleep(for: .seconds(1)); continue }
             if turn == "#again" { model.tapPlayItAgain(); try? await Task.sleep(for: .seconds(3)); continue }
             if turn == "#props" {
                 rtLog("PROPS " + (model.store.props?.props.map { "\($0.id)=\($0.householdItem)\($0.isSkipped ? "(pretend)" : "")" }.joined(separator: ", ") ?? "-"))
@@ -268,6 +276,18 @@ enum DemoDriver {
         try? await Task.sleep(for: .seconds(2))
         for (i, line) in model.realtime.transcript.enumerated() { rtLog("CHAT[\(i)] \(line.fromNutmeg ? "Nutmeg" : "Kid"): \(line.text)") }
         rtLog("DRIVER-END")
+    }
+
+    /// Round 25 (button audit): renders the key window into tmp/shots/<name>.png (what the screen shows, at 2x).
+    @MainActor static func saveShot(_ name: String) {
+        guard let window = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene })
+                .flatMap(\.windows).first(where: \.isKeyWindow) else { return }
+        let image = UIGraphicsImageRenderer(bounds: window.bounds).image { _ in
+            window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+        }
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("shots", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try? image.pngData()?.write(to: dir.appendingPathComponent("\(name).png"))
     }
 
     @MainActor static func drive(_ store: AdventureStore, model: AppModel, to target: String) async {
