@@ -101,6 +101,9 @@ The map. Read this first, then open only what you need.
 - [Round D3a: the speaker refactor (`NutmegSpeaker` owned by AppModel: playback, Varispeed, lip sync, speaking state, barge-in clear, app lines, Repeat memory; `SpeakerTimeline` in NutmegCore; D3b clip seam declared), no behavior change, live regression vs a baseline build](decisions/2026-11-15-roundD3a-speaker-refactor.md): Haylee (refactor-only round), Claude's calls noted
 - [Round D3b: Nutmeg's real recorded voice on replays (app lines recorded with a transcript gate, AAC with the saved game, clip-first playback through the same speaker, live once then saved, offline = Wi-Fi note + pause, 9 bundled lines recorded from her real voice, hit-rate log; same-count replay 100% clips, 0 Realtime responses)](decisions/2026-11-15-roundD3b-voice-clips.md): Haylee (real voice, answer 1), Claude's calls noted
 
+- [Button audit: voice-first, icon-only, minimal buttons (11 decisions)](decisions/2026-11-16-button-audit.md): Haylee
+- [Round 26: the button audit built (voice-only confirm, NO color question (Haylee, mid-round), icon-only ✓ / ✗ / printer / ▶ / ⭐ / 🏠, checklist auto-advance after a 1.5 s grace + "we're done" by voice, replays reuse the first-play hunt and Print, New game / Saved games)](decisions/2026-11-16-round26-buttons.md): Haylee (Claude's calls noted)
+
 ## Work queue
 - [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–25 + C1 + D1 + D2 + D3a + D3b done; next: the button audit with Haylee, then D4 iCloud
 
