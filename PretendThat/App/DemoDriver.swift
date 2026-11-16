@@ -126,6 +126,12 @@ enum DemoDriver {
             // Round 19: "#back" (Back to the checklist), "#newgame" (the finale's New game: all the way home),
             // "#home" (the X close → Leave), "#sleep N" (a short pause in ms between fast taps).
             if turn == "#back" { model.tapBackToChecklist(); continue }
+            // Round 23: "#rail pick|props|paper|play" (a step-rail tap), "#chat" (dump the chat transcript to the log).
+            if turn.hasPrefix("#rail "), let step = BackNav.toolSteps[String(turn.dropFirst(6))] { model.tapStepRail(step); continue }
+            if turn == "#chat" {
+                for (i, line) in model.realtime.transcript.enumerated() { rtLog("CHAT[\(i)] \(line.fromNutmeg ? "Nutmeg" : "Kid"): \(line.text)") }
+                continue
+            }
             if turn == "#newgame" || turn == "#home" {
                 for (i, line) in model.realtime.transcript.enumerated() { rtLog("CHAT[\(i)] \(line.fromNutmeg ? "Nutmeg" : "Kid"): \(line.text)") }
                 if turn == "#newgame" { model.tapNewGame() } else { model.leave() }

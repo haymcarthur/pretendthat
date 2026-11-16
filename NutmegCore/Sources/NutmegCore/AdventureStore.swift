@@ -17,11 +17,12 @@ public enum Phase: Equatable, Sendable {
     }
 }
 
-/// The step rail (layout-toycad-style.md): Game → Props → Print → Play (round 23: "Get Ready" renamed "Props").
+/// The step rail (layout-toycad-style.md): Pick → Props → Paper → Play (round 23, Haylee: "Game" → "Pick",
+/// "Get Ready" → "Props", "Print" → "Paper"; the button that really prints still says Print).
 public enum JourneyStep: Int, CaseIterable, Sendable {
     case game, getReady, print, play
     public var label: String {
-        switch self { case .game: "Game"; case .getReady: "Props"; case .print: "Print"; case .play: "Play" }
+        switch self { case .game: "Pick"; case .getReady: "Props"; case .print: "Paper"; case .play: "Play" }
     }
 }
 
@@ -605,7 +606,17 @@ public final class AdventureStore {
             Task { await self.makeKit() }
             return "Making the kit now. Say nothing."
         case .justTalk:
-            return "Nothing changes. Reply kindly in ONE short line (no narration), then ask the current step's question again."
+            // Round 23: after the hunt just_talk is the plain-answer path of the tool-first turn.
+            switch phase {
+            case .kitReady:
+                return "Nothing changes. Answer in ONE short line (no narration). If it fits, remind them to tap Print or Let's play. No \"go play\" yet."
+            case .handoff:
+                return "Nothing changes. Answer in ONE short line and remind them to tap the I'm the ___! button."
+            case .scene, .end:
+                return "Nothing changes. Answer in ONE short, fun line that helps the current scene (no narration)."
+            default:
+                return "Nothing changes. Reply kindly in ONE short line (no narration), then ask the current step's question again."
+            }
         case .startPlay:
             guard phase == .kitReady else { return "Not yet: the kit isn't ready. Say only \"Almost ready!\"" }
             beginPlay()

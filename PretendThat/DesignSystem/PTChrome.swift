@@ -109,7 +109,7 @@ struct PTStepRail: View {
         .animation(Theme.springy, value: current)
     }
 
-    /// Round 23 (Haylee: clearer navigation back): every step shows its picture (game / props / printer / play).
+    /// Round 23 (Haylee: clearer navigation back): every step shows its picture (masks / box / paper + crayon / play).
     /// Finished steps (lime) and later steps already reached carry a small go-back (↺) or forward mark in a white
     /// badge and press down when tapped, so they read as buttons; the current step is the yellow one with the ring;
     /// steps not reached yet are faded and disabled. Targets stay 72 × 64 pt.
@@ -124,6 +124,12 @@ struct PTStepRail: View {
                     if isCurrent { Circle().strokeBorder(Theme.ink, lineWidth: 1.5).padding(-4) }
                     Image(systemName: BackNav.symbol(s))
                         .font(.system(size: 22, weight: isCurrent ? .bold : .semibold))
+                        .overlay {
+                            // Paper: a crayon on the sheet.
+                            if let o = BackNav.overlay(s) {
+                                Image(systemName: o).font(.system(size: 15, weight: .heavy)).offset(x: 7, y: 5)
+                            }
+                        }
                         .foregroundStyle(Theme.ink.opacity(isCurrent || reachable ? 1 : 0.35))
                     if tappable {
                         Image(systemName: BackNav.mark(s, current: current))

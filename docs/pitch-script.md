@@ -35,9 +35,9 @@ Parents pay for printable kits and kids’ voice apps, but I couldn’t find any
 ### Demo order
 
 1. Open the app and say hi to Nutmeg (hold the mic button to talk).
-2. **Game:** say a game and theme out loud (for example "a movie theater" or "a pancake restaurant on the moon"), then tell her how many kids are playing.
+2. **Pick:** say a game and theme out loud (for example "a movie theater" or "a pancake restaurant on the moon"), then tell her how many kids are playing.
 3. **Props:** show the prop hunt, find one prop, then tap "Don't have it" on another to hear "we'll just pretend that…".
-4. **Print:** show the kit being drawn page by page while Nutmeg writes on her clipboard, then the finished kit and the one-tap AirPrint button.
+4. **Paper:** show the kit being drawn page by page while Nutmeg writes on her clipboard, then the finished kit and the one-tap AirPrint button.
 5. **Play:** show the scene checklist: check a step, then tap the Repeat button in the bottom bar to hear the steps read aloud.
 6. Stop talking and let Nutmeg get sleepy and nap, to show she steps back.
 

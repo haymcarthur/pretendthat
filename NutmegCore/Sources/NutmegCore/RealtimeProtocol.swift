@@ -136,8 +136,9 @@ public enum Realtime {
     7. PRINT STEP (after the kit is ready, the kids can still talk to you): if they want to play ("let's play", \
     "we're ready", "we printed it"), call start_play; if they want to print ("print it"), call print_kit. Otherwise \
     answer in one short line. "Go play" wording is only for after start_play.
-    GOING BACK (after the hunt: print step, play step, The End): "print it again", "go back to the props", "back to \
-    the game" → call go_to_step (print, props, game or play) and say only the line its result gives you.
+    GOING BACK (after the hunt: paper step, play step, The End; the steps are Pick, Props, Paper, Play): "print it \
+    again", "go back to the props", "back to the game" → call go_to_step (pick, props, paper or play) and say only \
+    the line its result gives you.
     6. FINISH: call finish_planning and stop talking. The app says the one "making your kit" line and tells the kids \
     when the kit is ready. Never say the kit is done, ready or "go play" yourself.
     NEVER say "go play", "go have your adventure", "dive into your adventure", "hop into the story", "let's play" or \
@@ -327,10 +328,11 @@ public enum Realtime {
         fn("confirm_handoff", "PLAY STEP hand-off only: the kid holding the iPad says they're the role it was passed to "
            + "(\"I'm the Captain\", \"I've got it\"). Does exactly what tapping the I'm the Captain! button does. Say nothing.",
            [:], required: []),
-        fn("go_to_step", "After the hunt (print step, play step, The End): the kids want to go back to a step they already "
-           + "did (\"print it again\", \"go back to the props\", \"back to printing\", \"back to the game\"). Does exactly what "
-           + "tapping that step on the step rail does; the result says the one line to say. \"Print it again\" = print.",
-           ["step": ["type": "string", "enum": ["game", "props", "print", "play"]]], required: ["step"]),
+        fn("go_to_step", "After the hunt (paper step, play step, The End): the kids want to go back to a step they already "
+           + "did (\"print it again\", \"go back to the props\", \"back to paper\", \"back to the game\"). The steps are "
+           + "Pick, Props, Paper, Play. Does exactly what tapping that step on the step rail does; the result says the one "
+           + "line to say. \"Print it again\" = paper.",
+           ["step": ["type": "string", "enum": ["pick", "props", "paper", "play"]]], required: ["step"]),
         fn("start_planning", "Silent: you write the roles and the prop list on your clipboard for a moment (call it ONCE, "
            + "right before set_roles). When it returns, call set_roles, then show_next_prop, then announce both.",
            ["topic": ["type": "string", "enum": ["roles", "props"]]], required: ["topic"])
@@ -368,6 +370,16 @@ public enum Realtime {
         case .color: return ["set_print_style", "set_game", "set_theme", "set_player_count", "just_talk"]
         case .props: return huntActive ? huntTools : nil
         case .roles, .finish: return nil
+        }
+    }
+    /// Round 23: after the hunt a kid turn is tool-first too, so "print it again" always moves (round 22's play turns
+    /// were free replies, and live the model answered "Sure!" without moving, or narrated before the tool).
+    public static func afterHuntTools(_ phase: Phase) -> [String]? {
+        switch phase {
+        case .kitReady: return ["start_play", "print_kit", "go_to_step", "just_talk"]
+        case .handoff: return ["confirm_handoff", "go_to_step", "just_talk"]
+        case .scene, .end: return ["go_to_step", "just_talk"]
+        default: return nil
         }
     }
     /// A response that must call one of `names` first (no speech): `tool_choice: required` over just those tools.

@@ -89,11 +89,14 @@ struct Round23Tests {
     // MARK: B back-navigation
 
     @Test func railPicturesAndMarks() {
-        #expect(JourneyStep.allCases.map(\.label) == ["Game", "Props", "Print", "Play"])   // round 23: "Get Ready" → "Props"
-        #expect(JourneyStep.allCases.map(BackNav.symbol) == ["theatermasks.fill", "shippingbox.fill", "printer.fill", "play.fill"])
+        #expect(JourneyStep.allCases.map(\.label) == ["Pick", "Props", "Paper", "Play"])   // round 23 renames
+        #expect(JourneyStep.allCases.map(BackNav.symbol) == ["theatermasks.fill", "shippingbox.fill", "doc", "play.fill"])
+        #expect(BackNav.overlay(.print) == "pencil" && BackNav.overlay(.game) == nil)
         #expect(BackNav.mark(.game, current: .print) == "arrow.counterclockwise")
         #expect(BackNav.mark(.play, current: .print) == "arrow.clockwise")
-        #expect(BackNav.arrivalLine(.print) == "Back to printing! Tap Print to print it again.")
+        #expect(BackNav.arrivalLine(.print) == "Back to Paper! Tap Print to print it again.")
+        #expect(BackNav.arrivalLine(.game).hasPrefix("Back to Pick!"))
+        #expect(BackNav.output(moved: true, to: .print, current: .play).contains("Moved to the Paper step"))
     }
 
     @MainActor @Test func voiceGoesBackThroughTheSameNavigation() async {
@@ -102,6 +105,8 @@ struct Round23Tests {
         if case .handoff = store.phase { store.badgeTapped(.R1) }
         let playPhase = store.phase
         #expect(PlanningCall.decode(name: "go_to_step", arguments: #"{"step":"props"}"#) == .goToStep(.getReady))
+        #expect(PlanningCall.decode(name: "go_to_step", arguments: #"{"step":"paper"}"#) == .goToStep(.print))
+        #expect(PlanningCall.decode(name: "go_to_step", arguments: #"{"step":"pick"}"#) == .goToStep(.game))
         #expect(PlanningCall.decode(name: "go_to_step", arguments: #"{"step":"nowhere"}"#) == nil)
         let props = await store.apply(.goToStep(.getReady))
         #expect(store.phase == .props && props.contains(BackNav.arrivalLine(.getReady)))
@@ -119,6 +124,13 @@ struct Round23Tests {
         let ahead = await store.apply(.goToStep(.print))
         #expect(ahead.contains("Can't") && store.phase == .hello)
         #expect(Realtime.json(["t": Realtime.tools]).contains("go_to_step"))
+        #expect(BackNav.playNote.contains("go_to_step") && BackNav.playNote.contains("print it again"))
+        // Tool-first after the hunt, so a voice "print it again" always moves.
+        #expect(Realtime.afterHuntTools(.scene(0))?.contains("go_to_step") == true)
+        #expect(Realtime.afterHuntTools(.end) == ["go_to_step", "just_talk"])
+        #expect(Realtime.afterHuntTools(.kitReady)?.contains("start_play") == true)
+        #expect(Realtime.afterHuntTools(.props) == nil)
+        #expect(Realtime.outputSuffix(name: "go_to_step", output: print, spokeFirst: false) == "")
         #expect(SpeculativeTools.mayRunBeforeModeration(.goToStep(.print), step: .finish, huntActive: false))
     }
 
@@ -128,5 +140,15 @@ struct Round23Tests {
         #expect(!store.canGoTo(.print))   // current
         #expect(!store.canGoTo(.play))    // not reached
         #expect(store.goTo(.getReady) && !store.goTo(.getReady))
+    }
+}
+
+/// Round 23 (Haylee): she pointed at the empty card zone after a prop moved to the done stack.
+struct Round23PointTests {
+    @Test func noVisibleCardNoPoint() {
+        #expect(PoseRules.holdsPoint(huntActive: true, cardShown: true, cardDone: false))
+        #expect(!PoseRules.holdsPoint(huntActive: true, cardShown: false, cardDone: false))   // no visible card → no point
+        #expect(!PoseRules.holdsPoint(huntActive: true, cardShown: true, cardDone: true))     // found / pretend: moved aside
+        #expect(!PoseRules.holdsPoint(huntActive: false, cardShown: true, cardDone: false))   // the hunt ended
     }
 }

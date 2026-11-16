@@ -73,12 +73,8 @@ struct SceneView: View {
                     .frame(width: geo.size.width, height: geo.size.height)
                 }
                 .frame(height: paper.height + 20)
-                // Round 23 (Haylee): "Print again" beside Done! (same row, so the checklist keeps its room).
-                HStack(spacing: Theme.Space.s) {
-                    PTPrintAgainButton { model.tapPrintAgain() }
-                    PTSceneDoneButton(allChecked: store.checkedSteps.count == n, busy: store.autoChecking) { Task { await model.sceneDone() } }
-                }
-                .frame(width: width)
+                PTSceneDoneButton(allChecked: store.checkedSteps.count == n, busy: store.autoChecking) { Task { await model.sceneDone() } }
+                    .frame(width: width)
             }
             // Measure every tier's natural height at this width (hidden), then use the densest one that's needed.
             .background {
@@ -183,27 +179,11 @@ struct PTScenePinnedCard: View {
                 PTSceneDoneButton(allChecked: store.checkedSteps.count == scene.steps.count, busy: store.autoChecking) {
                     Task { await model.sceneDone() }
                 }
-                PTPrintAgainButton(fullWidth: true) { model.tapPrintAgain() }
             }
             .padding(.vertical, Theme.Space.xs)
             .ptPinnedCard()
             .accessibilityElement(children: .contain)
         }
-    }
-}
-
-/// Round 23 (Haylee): "Print again" on the checklist and The End: the cached kit straight to the print screen.
-struct PTPrintAgainButton: View {
-    var fullWidth = false
-    let action: () -> Void
-    var body: some View {
-        Button(action: action) {
-            Label("Print again", systemImage: "printer").frame(maxWidth: fullWidth ? .infinity : nil)
-        }
-        .buttonStyle(PTButtonStyle(kind: .secondary, size: 18))
-        .fixedSize(horizontal: !fullWidth, vertical: false)
-        .accessibilityLabel("Print again")
-        .accessibilityHint("Prints the pages again")
     }
 }
 
@@ -222,7 +202,6 @@ struct EndView: View {
             PTText("The End!", .hero)
             // Round 10: right after the last "Done!", the finale can still go back to that checklist.
             if model.store.canGoBackToChecklist { PTBackToChecklistButton { model.tapBackToChecklist() } }
-            PTPrintAgainButton { model.tapPrintAgain() }
             // Round 14: natural size in the shared card zone; the two buttons stack when the row doesn't fit.
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: Theme.Space.m) { playAgain; newGame }

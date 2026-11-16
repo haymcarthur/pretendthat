@@ -5,7 +5,7 @@ import Foundation
 /// Pure rules, unit-tested (Round19SpeechStopTests); `RealtimeSession` sends the events and stops the local player.
 public enum UserAction: String, CaseIterable, Sendable {
     case checkStep, done, backToChecklist, handoff, propFound, propMissing, print, letsPlay, repeatLine
-    case newGame, playAgain, close, goHome, stepRail, confirmYes, confirmChange, printAgain
+    case newGame, playAgain, close, goHome, stepRail, confirmYes, confirmChange
     /// Round 20 (Haylee: she typed during the greeting and the voice kept going): the kid starting their OWN turn,
     /// by sending typed text or pressing the mic, stops everything she's saying too.
     case typedTurn, micPressed, colorChoice

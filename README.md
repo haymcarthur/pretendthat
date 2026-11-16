@@ -10,9 +10,9 @@ Built by Haylee McArthur for Southern Utah Code Camp 2026. Demo site: https://pr
 
 ## How it works
 
-1. **Game:** kids pick a game and a theme just by talking ("a pancake restaurant on the moon") and say how many kids are playing.
+1. **Pick:** kids pick a game and a theme just by talking ("a pancake restaurant on the moon") and say how many kids are playing.
 2. **Props:** Nutmeg sends them on a prop hunt for things around the house, one prop at a time, with swaps and skips.
-3. **Print:** an AI-generated printable kit (role badges, a sign, play money, tickets, a menu and cutouts) to color and cut, printed with one tap through AirPrint.
+3. **Paper:** an AI-generated printable kit (role badges, a sign, play money, tickets, a menu and cutouts) to color and cut, printed with one tap through AirPrint.
 4. **Play:** Nutmeg guides the show scene by scene, then steps back and naps while the kids play.
 
 | | |

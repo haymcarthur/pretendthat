@@ -66,7 +66,8 @@ final class AppModel {
         store.outboundGate = { [weak self] in await self?.gate.cleared() ?? true }
         // Tool-first kid turns (round 7): no narration is ever heard; she speaks after the tool result.
         realtime.onKidTurnTools = { [weak self] in
-            guard let self, Self.isPlanning(self.store.phase) else { return nil }
+            guard let self else { return nil }
+            guard Self.isPlanning(self.store.phase) else { return Realtime.afterHuntTools(self.store.phase) }   // round 23
             return Realtime.kidTurnTools(step: self.store.planningStep, huntActive: self.store.huntActive)
         }
         realtime.onPostPlanningTurn = { [weak self] in
@@ -74,7 +75,8 @@ final class AppModel {
             switch self.store.phase {
             case .kitReady:
                 return "(Silent coaching, don't mention it.) The kit is ready on screen (print step). If they want to play, "
-                    + "call start_play; if they want to print, call print_kit. Otherwise answer in ONE short line. No \"go play\" yet."
+                    + "call start_play; if they want to print, call print_kit. " + BackNav.voiceHint
+                    + " Otherwise answer in ONE short line. No \"go play\" yet."
             case .handoff(let i):
                 // Round 9: "I'm the Captain" by voice confirms the hand-off, same as tapping the card's button.
                 let role = self.store.kit.flatMap { k in k.scenes.indices.contains(i) ? k.scenes[i].owner.role : nil }
@@ -83,8 +85,8 @@ final class AppModel {
                     + "the \(role) or that they've got the iPad, call confirm_handoff and say nothing. Otherwise answer in ONE "
                     + "short line (remind them to tap I'm the \(role)!)."
             case .scene, .end:
-                return "(Silent coaching, don't mention it.) They're playing now. Answer in ONE short, fun line that helps the "
-                    + "current scene. No tools."
+                // Round 23: the only tool while playing is going back ("print it again", "back to the props").
+                return BackNav.playNote
             default: return nil
             }
         }
@@ -237,13 +239,7 @@ final class AppModel {
     func tapPlayAgain() { userAction(.playAgain); store.playAgain() }
     func tapPrint() { userAction(.print); printKit() }
     func tapStepRail(_ step: JourneyStep) { userAction(.stepRail); navigate(to: step) }
-    /// Round 23 (Haylee): "Print again" on the checklist and The End. The kit is cached (no regeneration): when every
-    /// page is final it opens the print screen right away (one tap, like Print), otherwise it goes to the Print step.
-    func tapPrintAgain() {
-        userAction(.printAgain)
-        if store.kit != nil && art.finished { printKit() } else { navigate(to: .print) }
-    }
-    /// Round 23: a tap back to a step (rail, Print again): the same `store.goTo`, then her one arrival line, and a silent
+    /// Round 23: a tap back to a step on the rail: the same `store.goTo`, then her one arrival line, and a silent
     /// note so the conversation knows where the kids are. Voice uses go_to_step (the model says the line itself).
     func navigate(to step: JourneyStep) {
         guard store.goTo(step) else { return }
@@ -641,6 +637,7 @@ final class AppModel {
         if case .showNextProp = call { store.kitLeadIn = nil; if huntStartedAt == nil { huntStartedAt = Date(); rtLog("TIMING hunt started") } }
         let remakes = store.kitRemakes, restyles = store.kitRestyles
         let output = await store.apply(call)
+        releasePointIfNoCard()   // round 23: mark_found / skip_prop / finish_planning by voice
         if store.kitRemakes != remakes {
             // Round 19: a theme/game fix at the print step remakes the kit: the old pages' art and ready line go too.
             remakeKitArt()
@@ -847,6 +844,7 @@ final class AppModel {
         Task { @MainActor in
             if found {
                 _ = await store.apply(.markFound(p.id))
+                releasePointIfNoCard()
                 realtime.tapTurn(kidLine: "We found the \(name)!",
                                  note: "(Silent coaching, don't mention it.) The kids tapped Found it: the \(name) is ALREADY checked off "
                                     + "on screen (don't call mark_found). Say nothing yet: \(then) FIRST, then cheer in a few words and ask "
@@ -865,6 +863,7 @@ final class AppModel {
                 // loud ("That's okay, we'll just pretend that...") with the next prop, in ONE reply. If the hunt ends
                 // right here (finish_planning), the app's "making your kit" line starts with the reassurance instead.
                 _ = await store.apply(.skipProp(p.id))
+                releasePointIfNoCard()
                 store.kitLeadIn = (PropSkip.reassurance(item: p.householdItem, becomes: p.becomes, deck: &lineDeck, using: &rng), Date())
                 realtime.tapTurn(kidLine: "We don't have a \(name).",
                                  note: PropSkip.note(item: p.householdItem, becomes: p.becomes, then: then),
@@ -894,14 +893,31 @@ final class AppModel {
     /// Round 7 choreography: the card appears and she points; the point holds through her prop line (until it has
     /// finished playing) plus a few seconds, then she rests.
     @ObservationIgnored private var pointTask: Task<Void, Never>?
+    @ObservationIgnored private var pointingAtCard = false
+    /// Round 23: the current prop card is on stage and still open (not found, not pretend).
+    var activeCardOpen: Bool {
+        guard let props = store.props?.props, let id = store.currentPropID,
+              let i = props.firstIndex(where: { $0.id == id }) else { return false }
+        return PoseRules.holdsPoint(huntActive: store.huntActive, cardShown: i < visibleProps,
+                                    cardDone: store.foundProps.contains(id) || props[i].isSkipped)
+    }
+    /// Round 23: no open card → no point. Called whenever a hunt answer changes the cards (tap or voice).
+    func releasePointIfNoCard() {
+        guard pointingAtCard, !activeCardOpen else { return }
+        pointTask?.cancel(); pointTask = nil
+        pointingAtCard = false
+        gesture(.point, hold: 0)   // back to rest in the same move as the card leaving
+    }
     func pointAtCard() {
         gesture(.point, hold: 60)
+        pointingAtCard = true
         pointTask?.cancel()
         pointTask = Task { @MainActor in
             for _ in 0..<160 where !realtime.isSpeaking { try? await Task.sleep(for: .milliseconds(50)) }   // her line starts (≤ 8 s)
             while realtime.isSpeaking && !Task.isCancelled { try? await Task.sleep(for: .milliseconds(50)) }
             try? await Task.sleep(for: .seconds(3))
             guard !Task.isCancelled else { return }
+            pointingAtCard = false
             gesture(.point, hold: 0)   // release
         }
     }

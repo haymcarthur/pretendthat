@@ -43,6 +43,14 @@ public enum PoseRules {
         return max(0, minSwapInterval - now.timeIntervalSince(lastSwap))
     }
 
+    /// Round 23 (Haylee: she kept pointing at the empty right side after a card moved to the done stack): the hunt's
+    /// point is held only while the CURRENT prop card is on stage and still open. Found, pretend (skipped) or no card
+    /// (the hunt ended) → no point; she rests at once, in the same move as the card leaving, and points again when
+    /// the next card appears.
+    public static func holdsPoint(huntActive: Bool, cardShown: Bool, cardDone: Bool) -> Bool {
+        huntActive && cardShown && !cardDone
+    }
+
     /// Gestures only play over the idle rest pose (not while napping or coloring).
     public static func allowsGesture(over base: PoseName) -> Bool { base == .idle }
 }
