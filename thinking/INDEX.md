@@ -104,8 +104,10 @@ The map. Read this first, then open only what you need.
 - [Button audit: voice-first, icon-only, minimal buttons (11 decisions)](decisions/2026-11-16-button-audit.md): Haylee
 - [Round 26: the button audit built (voice-only confirm, NO color question (Haylee, mid-round), icon-only ✓ / ✗ / printer / ▶ / ⭐ / 🏠, checklist auto-advance after a 1.5 s grace + "we're done" by voice, replays reuse the first-play hunt and Print, New game / Saved games)](decisions/2026-11-16-round26-buttons.md): Haylee (Claude's calls noted)
 
+- [Round 27: every kit page in both styles (13 images/game, +$0.15, all drawn by Print, 0 × 429), both sets on Print (stacked, chosen one highlighted; tap or "color" / "we'll color them" via choose_print_set; the printer prints the chosen set), a text-free square cover per game on the shelf and in Grown-ups (fallback: the color sign)](decisions/2026-11-16-round27-both-styles-covers.md): Haylee (Claude's calls noted)
+
 ## Work queue
-- [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–25 + C1 + D1 + D2 + D3a + D3b done; next: the button audit with Haylee, then D4 iCloud
+- [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–27 + C1 + D1 + D2 + D3a + D3b done (round 27's mockups separate); next: D4 iCloud
 
 ## Research
 - [Cost per game (2026-11-15)](research/2026-11-15-cost-per-game.md): about $1.60/game, OpenAI voice is the biggest share; levers ranked

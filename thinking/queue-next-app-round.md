@@ -162,3 +162,10 @@ Next: the full button audit with Haylee.
 1. Players 1–6 with a cheerful cap line; badges = exactly the player count; one $1 bill page and $1–$5 menu prices. **DONE R23** ("More money" built, then removed by Haylee).
 2. Back-navigation: picture step rail with go-back marks, voice go_to_step (tool-first after the hunt). **DONE R23** (Print again buttons built, then removed by Haylee: the rail is enough).
 3. Mid-round (Haylee): steps renamed Pick · Props · Paper · Play (paper + crayon icon); no Skip on the props grid; no arrows on prop cards; she no longer points at an empty card zone. **DONE R23.** See [decision](decisions/2026-11-15-round23-icon-kit-fixes-backnav.md).
+
+## Round 27 (queued 2026-11-16, Haylee): kit in both styles + bookshelf covers
+1. **Generate every kit page in BOTH full color and outline** (two separate image calls per page, both during the prop hunt, parallel ≤3, with the existing safety suffix and moderation). Cost is about +$0.07 a game at low quality. **DONE R27** (measured +$0.15 a game: ~2.2¢ an image).
+2. **The Print screen shows both sets side by side** (the color fan and the outline fan). The kid/grown-up taps one to choose, then prints. Voice works too ("color" / "we'll color them"). Pages still drawing show as in progress. The replay Print screen offers the same choice. **DONE R27** (the sets are stacked in the card zone, Claude's call: see the decision).
+3. **A bookshelf cover image per game:** one extra full-color square image of the game's scene, with NO text in the image, generated during the hunt and kept only if the game is saved. All bookshelf cards use the cover (the same size for every game), with the name on the shelf-edge label. Fallback: the color sign page. **DONE R27.** See [decision](decisions/2026-11-16-round27-both-styles-covers.md).
+4. **Update the iPad and iPhone mockups** to show cover cards on the bookshelves.
+(Round 26 removed the color question; the kit defaults to outline until this round.)
