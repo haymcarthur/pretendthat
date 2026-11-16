@@ -19,7 +19,7 @@
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#ECEAE6;font-family:"SF Pro Rounded",ui-rounded,"Nunito",system-ui,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased}
-.canvas{width:2870px;padding:56px 64px 64px}
+.canvas{width:3800px;padding:56px 64px 64px}
 .head{display:flex;align-items:baseline;gap:20px;margin-bottom:40px}
 .head h1{font-size:40px;font-weight:900;letter-spacing:-.5px}
 .head p{font-size:20px;font-weight:700;color:var(--ink-muted)}
@@ -108,6 +108,15 @@ body{background:#ECEAE6;font-family:"SF Pro Rounded",ui-rounded,"Nunito",system-
 .callout:before{content:"";position:absolute;width:9px;height:9px;background:var(--purple);transform:rotate(45deg)}
 .callout.down:before{bottom:-4px;left:calc(50% - 4px)}
 .callout.up:before{top:-4px;left:calc(50% - 4px)}
+
+/* my games bookshelf (screen 7) */
+.btile{position:absolute;z-index:6;border-radius:9px;background:#fff;padding:3px;box-shadow:0 3px 0 rgba(120,60,30,.35)}
+.bpic{position:relative;width:100%;height:100%;border-radius:7px;overflow:hidden;background:var(--cream)}
+.blabel{position:absolute;z-index:6;border-radius:6px;background:var(--cream);color:var(--ink);font-size:9.5px;font-weight:900;letter-spacing:-.15px;line-height:1;display:flex;align-items:center;justify-content:center;white-space:nowrap;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(155,83,45,.35)}
+.dots7{position:absolute;left:0;right:0;display:flex;justify-content:center;gap:8px;z-index:30}
+.dots7 i{display:block;width:10px;height:10px;border-radius:50%;background:rgba(91,42,134,.25)}
+.dots7 i.on{background:var(--purple)}
+.next7{position:absolute;right:56px;width:48px;height:48px;border-radius:50%;background:var(--yellow);box-shadow:0 4px 0 var(--yellow-shade);display:grid;place-items:center;z-index:30}
 </style>
 </head>
 <body>
@@ -149,6 +158,8 @@ body{background:#ECEAE6;font-family:"SF Pro Rounded",ui-rounded,"Nunito",system-
     <symbol id="i-print" viewBox="0 0 24 24"><path d="M7 8 V3.5 H17 V8" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round"/><rect x="3" y="8" width="18" height="9" rx="2.5" fill="none" stroke="#fff" stroke-width="2"/><rect x="7" y="13.5" width="10" height="7" rx="1" fill="#111" stroke="#fff" stroke-width="2"/></symbol>
     <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12 H19 M13 6 L19 12 L13 18" stroke="#2A1846" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" fill="none" stroke="#fff" stroke-width="1.8"/><path d="M12 2.8 V5.5 M12 18.5 V21.2 M2.8 12 H5.5 M18.5 12 H21.2 M5.5 5.5 L7.4 7.4 M16.6 16.6 L18.5 18.5 M5.5 18.5 L7.4 16.6 M16.6 7.4 L18.5 5.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12 H5 M11 6 L5 12 L11 18" stroke="#2A1846" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-shelf" viewBox="0 0 44 44"><rect x="5" y="4" width="34" height="37" rx="4" fill="#C98B57"/><rect x="9" y="8" width="26" height="12" rx="1.5" fill="#F1D2AC"/><rect x="9" y="24" width="26" height="12" rx="1.5" fill="#F1D2AC"/><rect x="11" y="10" width="5" height="10" rx="1" fill="#FF6B5B"/><rect x="17" y="11.5" width="5" height="8.5" rx="1" fill="#5B2A86"/><rect x="23" y="9.5" width="4.5" height="10.5" rx="1" fill="#8BD346"/><rect x="11" y="27" width="9" height="9" rx="1.5" fill="#FFC93C"/><path d="M28.5 27.5 l1.5 3 3.2.4-2.4 2.2.6 3.2-2.9-1.6-2.9 1.6.6-3.2-2.4-2.2 3.2-.4z" fill="#FFC93C" stroke="#E0A100" stroke-width=".8"/></symbol>
   </defs>
 </svg>
 
@@ -206,6 +217,54 @@ body{background:#ECEAE6;font-family:"SF Pro Rounded",ui-rounded,"Nunito",system-
     <div class="cap">
       <h2>One tall stage, one big button</h2>
       <p>Same scene as the iPad: the logo card sits in front of the curtains, Nutmeg peeks out of the toy chest on the cream floor, and two toys stand at its corners (the phone is too narrow for all six). The Play button moves from beside the logo to the bottom, where a thumb rests.</p>
+    </div>
+  </div>
+
+  <!-- ============ 1b. START WITH SAVED GAMES ============ -->
+  <div class="col" id="s1saved">
+    <div class="device"><div class="screen">
+      <div class="island"></div>
+      <div class="status"><span>9:41</span><span class="bat">●●● <i></i></span></div>
+      <div class="stage full">
+        <!-- cream floor, sized like PTStage.floor (h = 20% of the stage) -->
+        <div class="floor" style="width:430px;height:150px;top:535px;background:#FFF1DE;box-shadow:none"></div>
+        <svg class="spark" style="left:58px;top:392px;width:22px;height:22px"><use href="#sparkle"/></svg>
+        <svg class="spark" style="right:58px;top:410px;width:26px;height:26px"><use href="#sparkle"/></svg>
+        <!-- chest with Nutmeg: PTStartScreen math (chestW 220; Nutmeg scale 0.6*chestW*0.945/730, waist on the front edge) -->
+        <div style="position:absolute;left:96.5px;top:416.5px;width:220px;height:210px;z-index:9">
+          <div style="position:absolute;left:-6px;right:-6px;top:196px;height:22px;border-radius:50%;background:rgba(160,98,58,.16)"></div>
+          <img src="img/chest-lid-open.svg" style="position:absolute;left:0;top:0;width:220px">
+          <img src="img/chest-body.svg" style="position:absolute;left:0;top:0;width:220px">
+          <div style="position:absolute;left:-40px;right:-40px;top:-200px;height:327.9px;overflow:hidden">
+            <img src="img/nutmeg-idle-happy-canvas.png" style="position:absolute;left:52.6px;top:151.9px;width:201.3px">
+          </div>
+        </div>
+        <!-- two toys at the app's toy size (0.27 x chestW), standing on the floor at the chest's front corners -->
+        <div style="position:absolute;left:44px;top:630px;width:52px;height:11px;border-radius:50%;background:rgba(160,98,58,.18);z-index:10"></div>
+        <img src="img/toy-block.svg" style="position:absolute;left:40px;top:578px;width:59px;height:59px;object-fit:contain;object-position:bottom;z-index:11">
+        <div style="position:absolute;left:297px;top:630px;width:52px;height:11px;border-radius:50%;background:rgba(160,98,58,.18);z-index:10"></div>
+        <img src="img/toy-drum.svg" style="position:absolute;left:293px;top:578px;width:59px;height:59px;object-fit:contain;object-position:bottom;z-index:11">
+        <svg class="valance" viewBox="0 0 393 84"><use href="#valance"/></svg>
+        <svg class="curtain l" style="height:852px" viewBox="0 0 64 852" preserveAspectRatio="none"><use href="#curtain"/></svg>
+        <svg class="curtain r" style="height:852px" viewBox="0 0 64 852" preserveAspectRatio="none"><use href="#curtain"/></svg>
+      </div>
+      <!-- logo card: in front of both curtains (outside the stage layer), centered -->
+      <div style="position:absolute;left:50%;transform:translateX(-50%);top:196px;width:290px;height:139px;background:#fff;border-radius:28px;box-shadow:0 8px 22px rgba(42,24,70,.14);display:grid;place-items:center;z-index:30">
+        <img src="img/logo-pretendthat.svg" style="width:250px" alt="PretendThat">
+      </div>
+      <!-- grown-ups -->
+      <div style="position:absolute;right:22px;top:98px;height:44px;border-radius:22px;background:var(--cta);color:#fff;display:flex;align-items:center;gap:8px;padding:0 16px 0 6px;font-size:15px;font-weight:800;z-index:30">
+        <span style="width:32px;height:32px;border-radius:50%;border:1.5px solid #555;display:grid;place-items:center"><svg width="18" height="18"><use href="#i-gear"/></svg></span>Grown-ups
+      </div>
+      <!-- play + my games (only once a game is saved) -->
+      <div style="position:absolute;left:56px;right:56px;bottom:136px;height:80px;border-radius:40px;background:var(--yellow);box-shadow:0 7px 0 var(--yellow-shade),0 14px 24px rgba(224,161,0,.3);display:flex;align-items:center;justify-content:center;gap:12px;font-size:30px;font-weight:900;color:var(--ink);z-index:30">Let's play <svg width="32" height="32"><use href="#i-arrow"/></svg></div>
+      <div style="position:absolute;left:86px;right:86px;bottom:50px;height:62px;border-radius:31px;background:#fff;border:2.5px solid var(--line);box-shadow:0 7px 0 #D8CFE4;display:flex;align-items:center;justify-content:center;gap:9px;font-size:22px;font-weight:900;color:var(--purple);z-index:30"><svg width="30" height="30"><use href="#i-shelf"/></svg>My games</div>
+      <div class="homebar"></div>
+    </div></div>
+    <div class="num">Screen 1b · Start, with saved games</div>
+    <div class="cap">
+      <h2>A second button once a game is saved</h2>
+      <p>Same stage and sizes as screen 1. The yellow Let's play moves up a little and a smaller white <b>My games</b> button with a little bookshelf icon sits under it (the phone is too narrow to put them side by side like the iPad). Yellow stays the main choice for a new game.</p>
     </div>
   </div>
 
@@ -449,6 +508,38 @@ body{background:#ECEAE6;font-family:"SF Pro Rounded",ui-rounded,"Nunito",system-
     <div class="cap">
       <h2>Chat becomes a bottom sheet</h2>
       <p>The side panel turns into a full-height sheet with Checklist | Chat tabs that covers the stage and the rail; drag the grabber or tap the chevron to close it. The control pill floats on top so the mic is always one tap away, and the list has enough bottom padding that the last row scrolls clear of the pill.</p>
+    </div>
+  </div>
+
+  <!-- ============ 7. MY GAMES BOOKSHELF ============ -->
+  <div class="col" id="s7">
+    <div class="device"><div class="screen">
+      <div class="island"></div>
+      <div class="status"><span>9:41</span><span class="bat">●●● <i></i></span></div>
+      <div class="stage full">
+        <div class="floor" style="width:520px;height:150px;top:686px"></div>
+        <svg class="spark" style="left:62px;top:118px;width:20px;height:20px"><use href="#sparkle"/></svg>
+        <svg class="spark" style="right:70px;top:128px;width:16px;height:16px"><use href="#sparkle"/></svg>
+        <div style="position:absolute;left:73.5px;top:742.2px;width:246.0px;height:20px;border-radius:50%;background:rgba(160,98,58,.18);z-index:4"></div>
+        <img src="img/bookshelf-iphone.svg" style="position:absolute;left:53.5px;top:156.0px;width:286.0px;height:600.2px;z-index:5" alt="">
+        <div class="btile" style="left:97.7px;top:253.2px;width:92.0px;height:64.9px"><div class="bpic"><img src="img/kit-sign-moon.png" style="position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;object-position:50% 10%;transform:scale(1.08)"></div></div><div class="blabel" style="left:93.7px;top:326.0px;width:100px;height:10.7px">Moon Crumbs Bakery</div><div class="btile" style="left:203.7px;top:253.2px;width:92.0px;height:64.9px"><div class="bpic"><img src="img/prop-star.svg" style="position:absolute;object-fit:contain;filter:drop-shadow(1.5px 0 0 #fff) drop-shadow(-1.5px 0 0 #fff) drop-shadow(0 1.5px 0 #fff) drop-shadow(0 -1.5px 0 #fff);left:2px;top:19px;width:29px;height:29px;transform:rotate(-8deg)"><img src="img/prop-spotlight.svg" style="position:absolute;object-fit:contain;filter:drop-shadow(1.5px 0 0 #fff) drop-shadow(-1.5px 0 0 #fff) drop-shadow(0 1.5px 0 #fff) drop-shadow(0 -1.5px 0 #fff);left:24px;top:4px;width:42px;height:42px"><img src="img/prop-ticket.svg" style="position:absolute;object-fit:contain;filter:drop-shadow(1.5px 0 0 #fff) drop-shadow(-1.5px 0 0 #fff) drop-shadow(0 1.5px 0 #fff) drop-shadow(0 -1.5px 0 #fff);left:58px;top:21px;width:27px;height:27px;transform:rotate(9deg)"></div></div><div class="blabel" style="left:199.7px;top:326.0px;width:100px;height:10.7px">Bug Theater</div><div class="btile" style="left:97.7px;top:343.6px;width:92.0px;height:73.5px"><div class="bpic"><img src="img/prop-backpack.svg" style="position:absolute;object-fit:contain;filter:drop-shadow(1.5px 0 0 #fff) drop-shadow(-1.5px 0 0 #fff) drop-shadow(0 1.5px 0 #fff) drop-shadow(0 -1.5px 0 #fff);left:2px;top:22px;width:32px;height:32px;transform:rotate(-8deg)"><img src="img/prop-chair.svg" style="position:absolute;object-fit:contain;filter:drop-shadow(1.5px 0 0 #fff) drop-shadow(-1.5px 0 0 #fff) drop-shadow(0 1.5px 0 #fff) drop-shadow(0 -1.5px 0 #fff);left:21px;top:4px;width:47px;height:47px"><img src="img/prop-ticket.svg" style="position:absolute;object-fit:contain;filter:drop-shadow(1.5px 0 0 #fff) drop-shadow(-1.5px 0 0 #fff) drop-shadow(0 1.5px 0 #fff) drop-shadow(0 -1.5px 0 #fff);left:54px;top:24px;width:31px;height:31px;transform:rotate(9deg)"></div></div><div class="blabel" style="left:93.7px;top:425.6px;width:100px;height:10.7px">Sky Airlines</div><div class="btile" style="left:203.7px;top:343.6px;width:92.0px;height:73.5px"><div class="bpic"><img src="img/kit-tickets.png" style="position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;object-position:40% 75%;transform:scale(1.2)"></div></div><div class="blabel" style="left:199.7px;top:425.6px;width:100px;height:10.7px">Rocket Diner</div><div class="btile" style="left:97.7px;top:443.3px;width:92.0px;height:75.6px"><div class="bpic"><img src="img/prop-hat.svg" style="position:absolute;object-fit:contain;filter:drop-shadow(1.5px 0 0 #fff) drop-shadow(-1.5px 0 0 #fff) drop-shadow(0 1.5px 0 #fff) drop-shadow(0 -1.5px 0 #fff);left:2px;top:23px;width:33px;height:33px;transform:rotate(-8deg)"><img src="img/prop-bucket.svg" style="position:absolute;object-fit:contain;filter:drop-shadow(1.5px 0 0 #fff) drop-shadow(-1.5px 0 0 #fff) drop-shadow(0 1.5px 0 #fff) drop-shadow(0 -1.5px 0 #fff);left:20px;top:5px;width:48px;height:48px"><img src="img/prop-flashlight.svg" style="position:absolute;object-fit:contain;filter:drop-shadow(1.5px 0 0 #fff) drop-shadow(-1.5px 0 0 #fff) drop-shadow(0 1.5px 0 #fff) drop-shadow(0 -1.5px 0 #fff);left:53px;top:24px;width:32px;height:32px;transform:rotate(9deg)"></div></div><div class="blabel" style="left:93.7px;top:527.3px;width:100px;height:11.1px">Pirates on the Moon</div><div class="btile" style="left:203.7px;top:443.3px;width:92.0px;height:75.6px"><div class="bpic"><img src="img/kit-money.png" style="position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;object-position:50% 60%;transform:scale(1.06)"></div></div><div class="blabel" style="left:199.7px;top:527.3px;width:100px;height:11.1px">Moon Coin Shop</div><div class="btile" style="left:97.7px;top:545.4px;width:92.0px;height:76.3px"><div class="bpic"><img src="img/prop-cup.svg" style="position:absolute;object-fit:contain;filter:drop-shadow(1.5px 0 0 #fff) drop-shadow(-1.5px 0 0 #fff) drop-shadow(0 1.5px 0 #fff) drop-shadow(0 -1.5px 0 #fff);left:2px;top:23px;width:34px;height:34px;transform:rotate(-8deg)"><img src="img/prop-teddy-bed.svg" style="position:absolute;object-fit:contain;filter:drop-shadow(1.5px 0 0 #fff) drop-shadow(-1.5px 0 0 #fff) drop-shadow(0 1.5px 0 #fff) drop-shadow(0 -1.5px 0 #fff);left:20px;top:5px;width:49px;height:49px"><img src="img/prop-blanket.svg" style="position:absolute;object-fit:contain;filter:drop-shadow(1.5px 0 0 #fff) drop-shadow(-1.5px 0 0 #fff) drop-shadow(0 1.5px 0 #fff) drop-shadow(0 -1.5px 0 #fff);left:52px;top:24px;width:32px;height:32px;transform:rotate(9deg)"></div></div><div class="blabel" style="left:93.7px;top:631.0px;width:100px;height:14.8px">Teddy Bear Hospital</div><div class="btile" style="left:203.7px;top:545.4px;width:92.0px;height:76.3px"><div class="bpic"><img src="img/kit-badges.png" style="position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;object-position:50% 46%;transform:scale(1.06)"></div></div><div class="blabel" style="left:199.7px;top:631.0px;width:100px;height:14.8px">Space Pup Crew</div>
+        <svg class="valance" viewBox="0 0 393 84"><use href="#valance"/></svg>
+        <svg class="curtain l" style="height:852px" viewBox="0 0 64 852" preserveAspectRatio="none"><use href="#curtain"/></svg>
+        <svg class="curtain r" style="height:852px" viewBox="0 0 64 852" preserveAspectRatio="none"><use href="#curtain"/></svg>
+      </div>
+      <div class="xbtn"><svg width="24" height="24"><use href="#i-back"/></svg></div>
+      <!-- Nutmeg peeks over the shelf's top right corner, holding her clipboard -->
+      <div style="position:absolute;left:250px;top:84px;width:92px;height:118px;overflow:hidden;z-index:9">
+        <img src="img/nutmeg-idle-happy-clip.png" style="position:absolute;left:0;top:4px;width:92px">
+      </div>
+      <div class="dots7" style="top:778px"><i class="on"></i><i class=""></i></div>
+      <div class="next7" style="top:762px"><svg width="26" height="26"><use href="#i-arrow"/></svg></div>
+      <div class="homebar"></div>
+    </div></div>
+    <div class="num">Screen 7 · My games (bookshelf)</div>
+    <div class="cap">
+      <h2>Bookshelf: 2 games per shelf</h2>
+      <p>Same stage, back arrow where the X goes. Games stand on the 4 shelves, newest first, names on the shelf edge. Nutmeg peeks over the top holding her clipboard. When all 8 spots are full, the yellow arrow (or a swipe) brings the next shelf. Tap to replay; delete is behind the Grown-ups gate.</p>
     </div>
   </div>
 

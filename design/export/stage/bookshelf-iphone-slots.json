@@ -1,0 +1,100 @@
+{
+  "art": "bookshelf-iphone.svg",
+  "artSize": {
+    "width": 689,
+    "height": 1446
+  },
+  "units": "fractions of the art's width/height (px = the SVG's own units)",
+  "howToUse": "Same as bookshelf-slots.json (iPad). Each slot is one compartment's opening, from the bottom of whatever is above it (arch trim or the board above) down to the front edge of its own board. Stand cards with their bottom between shelfBackY and shelfFrontY so they sit ON the board, and bottom-align every row to its board. 2 cards per shelf. The board's front face runs from shelfFrontY (plus the 6 px highlight) to boardFaceBottomY, which is where the shelf-edge name labels go.",
+  "measuredHeights": "Top 179 px, then 201, 206 and 210 px (top to front edge). As on the iPad shelf, the top compartment is the shortest, because the arch's scallops and trim fill the space above it.",
+  "slots": [
+    {
+      "name": "1 (top)",
+      "note": "under the arch: top edge is the lowest point of the wood trim scallops",
+      "inner": {
+        "x": 0.1335,
+        "y": 0.1535,
+        "width": 0.7344,
+        "height": 0.1238
+      },
+      "shelfBackY": 0.258,
+      "shelfFrontY": 0.2773,
+      "boardFaceBottomY": 0.3043,
+      "px": {
+        "x": 92,
+        "y": 222,
+        "width": 506,
+        "height": 179,
+        "shelfBackY": 373,
+        "shelfFrontY": 401,
+        "boardFaceBottomY": 440
+      }
+    },
+    {
+      "name": "2",
+      "note": "under shelf 1",
+      "inner": {
+        "x": 0.1335,
+        "y": 0.3043,
+        "width": 0.7344,
+        "height": 0.139
+      },
+      "shelfBackY": 0.4219,
+      "shelfFrontY": 0.4433,
+      "boardFaceBottomY": 0.4703,
+      "px": {
+        "x": 92,
+        "y": 440,
+        "width": 506,
+        "height": 201,
+        "shelfBackY": 610,
+        "shelfFrontY": 641,
+        "boardFaceBottomY": 680
+      }
+    },
+    {
+      "name": "3",
+      "note": "under shelf 2",
+      "inner": {
+        "x": 0.1335,
+        "y": 0.4703,
+        "width": 0.7344,
+        "height": 0.1425
+      },
+      "shelfBackY": 0.5913,
+      "shelfFrontY": 0.6127,
+      "boardFaceBottomY": 0.6404,
+      "px": {
+        "x": 92,
+        "y": 680,
+        "width": 506,
+        "height": 206,
+        "shelfBackY": 855,
+        "shelfFrontY": 886,
+        "boardFaceBottomY": 926
+      }
+    },
+    {
+      "name": "4 (bottom)",
+      "note": "under shelf 3; the coral star drawer below is not a slot",
+      "inner": {
+        "x": 0.1335,
+        "y": 0.6404,
+        "width": 0.7344,
+        "height": 0.1452
+      },
+      "shelfBackY": 0.76,
+      "shelfFrontY": 0.7856,
+      "boardFaceBottomY": 0.8195,
+      "px": {
+        "x": 92,
+        "y": 926,
+        "width": 506,
+        "height": 210,
+        "shelfBackY": 1099,
+        "shelfFrontY": 1136,
+        "boardFaceBottomY": 1185
+      }
+    }
+  ]
+}
