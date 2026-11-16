@@ -88,10 +88,12 @@ The map. Read this first, then open only what you need.
 - [Round 22: Repeat icon = speaker inside a replay arrow ring; sleeping Nutmeg's clipboard moved off her seat to the floor beside her feet; Zzz shows when asleep](decisions/2026-11-15-round22-repeat-icon-sleep-clipboard.md): Haylee (Claude's calls noted)
 - [Round 23: Haylee's own Repeat icon, players 1–6 with a cap line, exact badges, $1 money + $1–5 prices, picture step rail + voice go_to_step, steps renamed Pick · Props · Paper · Play, no Skip / arrows / More money / Print again, no pointing at an empty card zone](decisions/2026-11-15-round23-icon-kit-fixes-backnav.md): Haylee (Claude's calls noted)
 
+- [Round 24: props make sense (tags, a spoken reason, one retry then a curated pair), "Do you have a printer?", no-printer Draw it! path with Save printables for later](decisions/2026-11-15-round24-props-sense-printer-path.md): Haylee (Claude's calls noted)
+
 - [Paid-app direction: iPad only, iCloud saved games, real-voice replays, 6-player cap, exact badges, $1 money](decisions/2026-11-15-paid-app-direction.md): Haylee
 
 ## Work queue
-- [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–23 done (round 23 = icon, kit fixes, back-navigation, step renames); round 24 queued
+- [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–24 done (round 24 = props make sense, printer question, no-printer Draw it!)
 
 ## Research
 - [Cost per game (2026-11-15)](research/2026-11-15-cost-per-game.md): about $1.60/game, OpenAI voice is the biggest share; levers ranked
@@ -99,6 +101,7 @@ The map. Read this first, then open only what you need.
 - [Name check: Boxley](research/name-check-boxley.md): why Boxley is out
 
 ## Ideas
+- [iPhone version: mockups + Haylee's feedback (no point pose, stage fills empty space, full chat sheet, no mute)](ideas/2026-11-15-iphone-version.md): later
 - [Paid-app project checklist: kit fixes, back-navigation, generate-for-6, saved games + real-voice replays, StoreKit, Grown-ups corner](ideas/2026-11-15-paid-app-project.md): queued, design doc first
 - [Later and stretch ideas](ideas/later-ideas.md): photo scan, accounts, cloud voice, B2B, pricing
 - [Save the current game to disk](ideas/save-game-to-disk.md): stretch, only if time (Haylee)

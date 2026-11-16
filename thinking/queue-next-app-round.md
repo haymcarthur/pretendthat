@@ -131,12 +131,12 @@ Art ready in design/export/ to import:
 1. **The Repeat button's icon doesn't read as "repeat".** Use a clearer replay icon in the control pill (for example SF Symbol `arrow.counterclockwise` or `arrow.trianglehead.counterclockwise`; pick what reads as "again" for a 4-year-old) and keep the "Hear it again" accessibility label. **DONE R22** (speaker inside a counterclockwise replay ring).
 2. **Sleeping Nutmeg sits ON her clipboard.** In the sit/doze pose the clipboard layer lands under her seat. Reposition the sit-pose clipboard (layer transform or alignment only, no art redraw) so it rests beside her or leans on her lap, not under her. **DONE R22.** See [decision](decisions/2026-11-15-round22-repeat-icon-sleep-clipboard.md).
 
-## Round 24 (queued 2026-11-15, Haylee)
+## Round 24 (queued 2026-11-15, Haylee): DONE (see [decision](decisions/2026-11-15-round24-props-sense-printer-path.md))
 1. **Props must make sense (bug):** a bowl was suggested "as a pirate map". Add guardrails so each household item → pretend-use pairing is plausible by shape or function (a bowl can be a helmet, a steering wheel or a treasure bowl; a map should be paper, a towel or a pillowcase). Claude's proposal:
    (a) Extend PropLibrary with each household item's plausible pretend uses (shape/function tags: round, flat, long, soft, container, wearable, sheet-like…), and match each pretend need to items with compatible tags.
    (b) Claude's schema adds a short kid-friendly "why it works" reason ("A bowl is round like a captain's hat!"), and the validator rejects pairs whose tags don't fit, then retries once and falls back to a curated pair.
    (c) Nutmeg can say the reason when presenting the card.
-   Tests: a table of good and bad pairs.
+   Tests: a table of good and bad pairs. **DONE R24.**
 2. **Printer question + no-printer path (Haylee, 2026-11-15):**
    - **Ask early:** right after the confirm step, before the color question, Nutmeg asks "Do you have a printer?" (Yes / No buttons plus voice).
    - **Yes:** the color question and the normal kit (round 20 flow).
@@ -145,6 +145,7 @@ Art ready in design/export/ to import:
    - **"Save printables for later" button** on that step: generates the normal kit and opens the share sheet (Save to Files / send to a grown-up) to print elsewhere.
    - The App Store copy says "Works best with a printer; no printer needed."
    - Tests for the state machine and the simple-guide schema limits.
+   **DONE R24** (App Store copy line still to write when the store listing is made).
 
 ## Round 23 (2026-11-15, Haylee): DONE
 0. Repeat uses Haylee's own "Hear it again" icon (Figma cleanup, vector template asset). **DONE R23.**
