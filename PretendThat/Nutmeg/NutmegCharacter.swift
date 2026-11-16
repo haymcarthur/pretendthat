@@ -128,7 +128,7 @@ struct NutmegCharacter: View {
                 .scaleEffect(1 - 0.2 * air)
                 .position(x: pose.shadow.x * px, y: 1306 * px)
         }
-        // Round 14: seated, her clipboard lies on the floor right behind her hip (drawn behind her).
+        // Round 14/22: seated, her clipboard lies flat on the floor beside her feet on her right (drawn behind her).
         if pose == .sit {
             layer("nutmeg-sit-clipboard")
                 .frame(width: w, height: h)

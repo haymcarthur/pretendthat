@@ -126,3 +126,7 @@ Art ready in design/export/ to import:
 2. Corrections update everything (one title source, set_* re-callable at any step, kit remade at print) + recap/confirm step with Yes / Change buttons. **DONE R19.**
 3. Any tap that moves on stops her speech (every response cancelled by id, player cleared, chat line cut); New game goes home silently. **DONE R19.**
 4. Kid-safety guardrails: instructions, local filter + OpenAI moderation on kid and generated text, image safety suffix + moderation auto, relay /v1/moderations (needs redeploy). **DONE R19.** See [decision](decisions/2026-11-15-round19-crayon-corrections-bargein-guardrails.md).
+
+## Round 22 (queued 2026-11-15, Haylee)
+1. **The Repeat button's icon doesn't read as "repeat".** Use a clearer replay icon in the control pill (for example SF Symbol `arrow.counterclockwise` or `arrow.trianglehead.counterclockwise`; pick what reads as "again" for a 4-year-old) and keep the "Hear it again" accessibility label. **DONE R22** (speaker inside a counterclockwise replay ring).
+2. **Sleeping Nutmeg sits ON her clipboard.** In the sit/doze pose the clipboard layer lands under her seat. Reposition the sit-pose clipboard (layer transform or alignment only, no art redraw) so it rests beside her or leans on her lap, not under her. **DONE R22.** See [decision](decisions/2026-11-15-round22-repeat-icon-sleep-clipboard.md).

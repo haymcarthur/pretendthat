@@ -109,9 +109,11 @@ enum NutmegPose: String, CaseIterable, Identifiable {
     static let canvas = CGSize(width: 1178, height: 1335)
     /// Round 14: how far the sit pose moves down so her seat rests on the floor line (canvas px).
     static let sitDrop: CGFloat = 62
-    /// Round 14: the sit pose's clipboard (split out of the sit art, tools/split_sit_clipboard.py) lies on the floor
-    /// just behind her hip instead of far to her left: this far right of where the art drew it (canvas px).
-    static let sitClipboardShift: CGFloat = 125
+    /// Round 14: the sit pose's clipboard (split out of the sit art, tools/split_sit_clipboard.py) lies on the floor.
+    /// Round 22 (Haylee: she sat ON it): at +125 it spanned canvas x ~298–603, right under her seat (~383–875), so it
+    /// moves to lie flat on the floor beside her feet on her right (x ~850–1156, tucked just behind her toes; drawn
+    /// behind her). This far right of where the art drew it (canvas px). Transform only, no redraw.
+    static let sitClipboardShift: CGFloat = 678
     /// Her contact shadow per pose (canvas px): center x and width. The seated body is wider and sits right of the
     /// standing stance.
     var shadow: (x: CGFloat, width: CGFloat) { self == .sit ? (668, 560) : (603, 445) }

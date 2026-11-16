@@ -40,14 +40,29 @@ struct PTIconButton: View {
     var selected = false
     var fill: Color? = nil
     var size: CGFloat = 64
+    /// Round 22 (Haylee: Repeat should show a speaker AND a replay arrow): an optional SF Symbol drawn as a ring
+    /// around a smaller `symbol` (Repeat = `speaker.wave.2.fill` inside `arrow.counterclockwise`). SF Symbols has no
+    /// combined speaker/replay symbol on iPadOS 17 (the nearest, hifispeaker.arrow.forward, is iOS 18 and means "send").
+    var ring: String? = nil
     let action: () -> Void
 
     var body: some View {
+        let ink = fill == nil || fill == Theme.chipGray || fill == Theme.white ? Theme.ink : Theme.white
         Button(action: action) {
-            Image(systemName: symbol)
-                .font(.system(size: size * 0.36, weight: .regular))
-                .foregroundStyle(fill == nil || fill == Theme.chipGray || fill == Theme.white ? Theme.ink : Theme.white)
-                .contentTransition(.symbolEffect(.replace))
+            ZStack {
+                if let ring {
+                    Image(systemName: ring)
+                        .font(.system(size: size * 0.5, weight: .regular))
+                    Image(systemName: symbol)
+                        .font(.system(size: size * 0.19, weight: .semibold))
+                        .offset(x: size * 0.005, y: size * 0.012)
+                } else {
+                    Image(systemName: symbol)
+                        .font(.system(size: size * 0.36, weight: .regular))
+                        .contentTransition(.symbolEffect(.replace))
+                }
+            }
+                .foregroundStyle(ink)
                 .frame(width: size, height: size)
                 .background(Circle().fill(fill ?? Theme.chipGray))
                 .overlay(Circle().strokeBorder(selected ? Theme.ink : .clear, lineWidth: 1.5).padding(-4))
@@ -147,7 +162,9 @@ struct PTControlBar: View {
     var body: some View {
         // Tight (Haylee): ~10 pt between a side button and the mic's circular backing.
         HStack(spacing: Self.gap) {
-            PTIconButton(symbol: "speaker.wave.2.fill", label: "Hear it again", size: Self.side, action: onRepeat)
+            // Round 22 (Haylee): a speaker inside a replay arrow, so it reads as "hear it again".
+            PTIconButton(symbol: "speaker.wave.2.fill", label: "Hear it again", size: Self.side,
+                         ring: "arrow.counterclockwise", action: onRepeat)
                 .opacity(canRepeat ? 1 : 0.4)
                 .disabled(!canRepeat)
                 .accessibilityHint("Nutmeg says it again")
