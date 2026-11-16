@@ -77,3 +77,16 @@ private func clean(_ line: String) {
     #expect(HandOffLines.repeatText(title: "Wave", steps: ["Wave bye"], checked: [0]) == "Wave. Wave bye.")
     clean(HandOffLines.repeatText(title: "Get the plane ready", steps: steps, checked: []))
 }
+
+// Round 24 (Haylee): naming the "Let's play!" button is fine; telling the kids to go play at kit time is not.
+@Test func namingTheLetsPlayButtonIsNotGoPlay() {
+    for line in ["Tap Print, then tap Let's play when you're set!", "When you're ready, press Let's play!",
+                 "Hit \"Let's play!\" once you've printed it.", HandOffLines.printReady] {
+        #expect(!TurnCheck.mentionsGoPlay(line), "\(line)")
+    }
+    for line in ["Let's play pirates now!", "Your kit is ready, let's play!", "Tap Print, then go play!"] {
+        #expect(TurnCheck.mentionsGoPlay(line), "\(line)")
+    }
+    #expect(Realtime.instructions.contains("call the button exactly \"Let's play!\""))
+    #expect(Realtime.instructions.contains("Never call it Start"))
+}

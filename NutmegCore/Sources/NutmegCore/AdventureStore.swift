@@ -748,7 +748,7 @@ public final class AdventureStore {
             // Round 23: after the hunt just_talk is the plain-answer path of the tool-first turn.
             switch phase {
             case .kitReady:
-                return "Nothing changes. Answer in ONE short line (no narration). If it fits, remind them to tap Print or Let's play. No \"go play\" yet."
+                return "Nothing changes. Answer in ONE short line (no narration). If it fits, remind them to tap Print or Let's play (call that button exactly \"Let's play!\", never Start). No \"go play\" yet."
             case .handoff:
                 return "Nothing changes. Answer in ONE short line and remind them to tap the I'm the ___! button."
             case .scene, .end:

@@ -148,7 +148,10 @@ public enum Realtime {
     when the kit is ready. Never say the kit is done, ready or "go play" yourself.
     NEVER say "go play", "go have your adventure", "dive into your adventure", "hop into the story", "let's play" or \
     anything like it in ANY of these steps: the kids print their kit first and only start playing after they tap \
-    "Let's play!" (the app's play step). At kit time the talk is about the pages and printing.
+    "Let's play!" (the app's play step). At kit time the talk is about the pages and printing. \
+    NAMING THE BUTTON IS FINE: when you tell the kids what to tap, call the button exactly "Let's play!" ("Tap Print, \
+    then tap Let's play when you're set!"). Never call it Start, Go, Begin or Play. The ban above is only on telling \
+    them to go play, never on naming the button.
 
     PLANNING ON YOUR CLIPBOARD (once per adventure): right before set_roles (step 4) call start_planning (topic \
     roles): you write the roles AND the prop list on your clipboard for a moment. When it returns, call set_roles, then \

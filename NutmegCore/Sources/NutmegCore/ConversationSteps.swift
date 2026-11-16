@@ -145,8 +145,16 @@ public enum TurnCheck {
     /// "Go play"-type lines belong ONLY to the play step (after "Let's play!"), never in planning or at kit-ready (Haylee).
     static let goPlayPhrases = ["go play", "go have", "have your", "dive into", "hop into", "jump into the story", "start playing",
                                 "go have fun", "time to play", "let's play", "go on your", "off you go", "have fun playing"]
+    /// Naming the print step's "Let's play!" button ("tap Let's play") is fine, so those references are stripped first
+    /// (round 24, Haylee: banning the words made Nutmeg invent a "Start" button).
+    static let buttonVerbs = ["tap", "press", "hit", "push", "click", "touch"]
     public static func mentionsGoPlay(_ text: String) -> Bool {
-        let s = text.lowercased()
+        var s = text.lowercased().replacingOccurrences(of: "’", with: "'")
+        for verb in buttonVerbs {
+            for ref in ["\(verb) \"let's play", "\(verb) let's play", "\(verb) the let's play", "\(verb) the \"let's play"] {
+                s = s.replacingOccurrences(of: ref, with: "\(verb) the button")
+            }
+        }
         return goPlayPhrases.contains { s.contains($0) }
     }
 
