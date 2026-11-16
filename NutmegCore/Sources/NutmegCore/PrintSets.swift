@@ -2,7 +2,7 @@ import Foundation
 
 // Round 27 (Haylee): every kit page is drawn in BOTH styles during the prop hunt (two separate image calls per page:
 // full color and the outline coloring page). The Print screen shows both sets side by side; the kids tap (or say)
-// the one they want, and the printer prints that set. Each game also gets one text-free, full-color square COVER
+// the one they want, and the printer prints that set. Each game also gets one text-free, full-color wide COVER
 // picture of its scene for the bookshelf, kept only if the game is saved.
 
 extension PrintStyle {
@@ -79,17 +79,21 @@ extension SavedGame {
 // MARK: - The bookshelf cover
 
 public enum CoverArt {
-    /// One square image (the shelf cards are all the same size).
-    public static let size = "1024x1024"
+    /// One WIDE image (Haylee, "make the covers wide instead of square"): the shelf cards are landscape (~130 × 84 pt,
+    /// about 1.55:1), so the cover is drawn at the API's landscape size, 3:2, and fills the card with almost no crop.
+    public static let size = "1536x1024"
+    /// The saved cover.jpg in pixels (3:2, the same shape as `size`): the shelf card and the Grown-ups thumbnail.
+    public static let jpegWidth = 600, jpegHeight = 400
     /// The cover prompt: the game's scene, full color, and NO text of any kind (kids can't read it, and words drawn by
     /// the image model are often misspelled). The shelf-edge label carries the name.
     public static func prompt(title: String, setting: String?) -> String {
         let place = (setting ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        return "A square, full-color cover illustration for a kids' pretend-play game called \"\(title)\""
+        return "A wide, landscape, full-color cover illustration for a kids' pretend-play game called \"\(title)\""
             + (place.isEmpty || place.caseInsensitiveCompare(title) == .orderedSame ? "" : " (\(place))") + ". "
-            + "Show the game's scene and theme: the place and its fun props, bright and inviting, like a picture-book cover, "
+            + "Show the game's scene and theme as a wide panoramic scene: the place and its fun props spread across the width, "
+            + "bright and inviting, like a picture-book cover, "
             + "kid-friendly cartoon style with bright cheerful colors, flat fills and bold clean outlines, filling the whole "
-            + "square edge to edge. No words, no letters, no numbers, no title, no signs or labels with writing, no text of "
+            + "wide frame edge to edge. No words, no letters, no numbers, no title, no signs or labels with writing, no text of "
             + "any kind anywhere. No real brands, no logos, nothing scary." + ImageSafety.suffix
     }
 

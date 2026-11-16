@@ -91,3 +91,16 @@ separately). The implementation details are Claude's calls, noted here.
 - DEBUG: `-PTDemo shelf` seeds 5 games (env `PT_SEED_COUNT` for more, `PT_SEED_COVER` = a cover JPEG on every other
   one) and opens the bookshelf. Screenshots: `/tmp/pt-shelffix/` (before-shelf, after-shelf, after-shelf-full-page1
   with 10 games + paging, after-grownups-list). NutmegCore 382 green.
+
+## Follow-up: wide covers (Haylee, "make the covers wide instead of square", 2026-11-16)
+- The cover is now drawn LANDSCAPE: `CoverArt.size = "1536x1024"` (3:2, the API's only landscape size; the shelf card
+  is ~130 × 84 pt ≈ 1.55:1), saved as a 600 × 400 cover.jpg (was a 600 px square). The shelf card and the Grown-ups
+  thumbnail aspect-fill it, so the whole picture shows with only a sliver trimmed. The prompt asks for "a wide,
+  landscape" cover and "a wide panoramic scene ... filling the whole wide frame edge to edge"; the "no words, no
+  letters ... no text of any kind" line, the safety suffix and OpenAI moderation are unchanged. Fallback to the color
+  sign (then the outline sign) is unchanged. Old square test saves keep their cropped look (no migration; not live).
+- **Cost (measured, gpt-image-2.6-flare, quality low, same prompt):** 1024×1024 = 824 output tokens (≈ 2.5¢);
+  1536×1024 = 664 output tokens (≈ 2.0¢). **Wide is about 0.5¢ cheaper per cover**, not more. Live game total:
+  13 images, 3,186 in + 8,632 out tokens = $0.275 (was $0.28).
+- Live: PT-R15-iPad, new game "dinosaur museum" → saved → bookshelf shows the full wide cover:
+  `/tmp/pt-widecover/shelf.png`. NutmegCore 382 green (`coverPromptIsWideFullColorAndTextFree`).

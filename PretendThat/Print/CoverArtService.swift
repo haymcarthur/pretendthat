@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 import NutmegCore
 
-/// Round 27 (Haylee): the game's bookshelf cover. ONE full-color, square, text-free picture of the game's scene,
+/// Round 27 (Haylee): the game's bookshelf cover. ONE full-color, wide (3:2), text-free picture of the game's scene,
 /// drawn during the prop hunt (queued after both kit sets on the same limiter, so it never slows the pages) and kept
 /// only if the game is saved (`AppModel.tapSave`). Same safety suffix and moderation as every kit image.
 @Observable @MainActor
@@ -40,14 +40,15 @@ final class CoverArtService {
         }
     }
 
-    /// The finished cover as a 600 px square JPEG (the shelf card and the Grown-ups thumbnail).
+    /// The finished cover as a 600 × 400 JPEG, the same 3:2 shape as the drawn cover (the shelf card and the
+    /// Grown-ups thumbnail aspect-fill it). Any other shape is centre-cropped to 3:2.
     nonisolated static func jpeg(_ image: UIImage) -> Data? {
-        let side: CGFloat = 600
+        let out = CGSize(width: CoverArt.jpegWidth, height: CoverArt.jpegHeight)
         let format = UIGraphicsImageRendererFormat(); format.scale = 1
-        return UIGraphicsImageRenderer(size: CGSize(width: side, height: side), format: format).image { _ in
-            let s = image.size, k = max(side / max(s.width, 1), side / max(s.height, 1))
+        return UIGraphicsImageRenderer(size: out, format: format).image { _ in
+            let s = image.size, k = max(out.width / max(s.width, 1), out.height / max(s.height, 1))
             let w = s.width * k, h = s.height * k
-            image.draw(in: CGRect(x: (side - w) / 2, y: (side - h) / 2, width: w, height: h))
+            image.draw(in: CGRect(x: (out.width - w) / 2, y: (out.height - h) / 2, width: w, height: h))
         }.jpegData(compressionQuality: 0.82)
     }
 }

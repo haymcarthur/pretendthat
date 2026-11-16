@@ -104,9 +104,12 @@ struct Round27Tests {
 
     // MARK: The cover
 
-    @Test func coverPromptIsSquareFullColorAndTextFree() {
+    @Test func coverPromptIsWideFullColorAndTextFree() {
         let p = CoverArt.prompt(title: "Moon Bakery", setting: "a bakery on the moon")
-        #expect(CoverArt.size == "1024x1024")
+        // Wide, not square (Haylee): the API's 3:2 landscape size, and a 3:2 saved JPEG.
+        #expect(CoverArt.size == "1536x1024")
+        #expect(CoverArt.jpegWidth == 600 && CoverArt.jpegHeight == 400)
+        #expect(p.contains("wide, landscape") && p.contains("wide frame edge to edge") && !p.contains("square"))
         #expect(p.contains("\"Moon Bakery\"") && p.contains("a bakery on the moon") && p.contains("full-color"))
         #expect(p.contains("No words, no letters") && p.contains("no text of any kind"))
         #expect(!p.contains("Spell") && !p.contains("Title at the top") && p.hasSuffix(ImageSafety.suffix))

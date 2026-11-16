@@ -145,7 +145,7 @@ struct PTBookshelf: View {
 }
 
 /// One saved game standing on the shelf: a white-framed picture card filling its third of the compartment (round 27:
-/// its text-free square cover, centre-cropped to the card; else its color sign page; else its prop stickers on cream).
+/// its text-free wide 3:2 cover, aspect-filling the card with almost no crop; else its color sign page; else its prop stickers on cream).
 struct PTGameCard: View {
     let game: SavedGame
     let cover: UIImage?
