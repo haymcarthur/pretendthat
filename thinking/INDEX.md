@@ -95,9 +95,10 @@ The map. Read this first, then open only what you need.
 - [Round C1: generate for 6 (6 ranked roles, a step per playing role in every scene, rotating hand-offs, 6-up badge sheet, no AI call on a count change; Claude +3¢/game)](decisions/2026-11-15-roundC1-generate-for-6.md): Haylee (answer 2), Claude's calls noted
 - [Guide prefetch: play guide written during the hunt, props woven in per card, skips/swaps applied with no call, Paper never waits (20–24 s → ~1 s)](decisions/2026-11-15-guide-prefetch.md): Haylee (fix it first), Claude's calls noted
 - [Round D1: local saved games (Save it to play again ⭐, this iPad only, game content only + privacy test), My games button + bookshelf screen, replay flow Pick · Props · Paper · Play with no content AI calls (live voice), GameLedger no-op](decisions/2026-11-15-roundD1-local-saved-games.md): Haylee (design + §10/§11), Claude's calls noted
+- [Round D2: Grown-ups corner (pill top-right on the start screen, GrownUpGate hold 2 s + tap the spelled number, wrong = reset with a new number), Saved games delete + confirm (files removed, My games goes with the last), About saved games, E's sections behind a flag](decisions/2026-11-15-roundD2-grownups-delete.md): Haylee (delete in Grown-ups, gate style), Claude's calls noted
 
 ## Work queue
-- [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–24 + C1 + D1 done (D1 = local saved games + replays); next per the design: D2 Grown-ups corner + delete
+- [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–24 + C1 + D1 + D2 done (D2 = Grown-ups corner + delete); next per the design: D3a speaker refactor
 
 ## Research
 - [Cost per game (2026-11-15)](research/2026-11-15-cost-per-game.md): about $1.60/game, OpenAI voice is the biggest share; levers ranked
