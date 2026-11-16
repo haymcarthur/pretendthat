@@ -357,7 +357,7 @@ final class AppModel {
         guard store.goTo(step) else { return }
         if storeSays {
             rtLog("back-nav: \(step.label) (tap, replay hunt again)")
-            if realtime.isLive { realtime.addNote(Realtime.systemNote(BackNav.tapNote(step))) }
+            noteReplayStep()
             return
         }
         let line = toChecklist ? HandOffLines.backToChecklist : BackNav.arrivalLine(step)
@@ -788,7 +788,7 @@ final class AppModel {
         let output = await store.apply(call)
         // Round 26: a replay's count or hunt answer by voice: the app already said the next line.
         if output == ReplayLines.appSaysOutput {
-            if case .setPlayerCount = call { noteReplayStep() }
+            noteReplayStep()   // the count, or the next card
             return (output, false)
         }
         if !queued && store.playQueued { guideWaitStarted() }   // guide prefetch: start_play / go to Play while it's finishing
@@ -1521,13 +1521,16 @@ final class AppModel {
         guard store.replayHuntActive else { return }
         userAction(.replayProp)
         store.replayHunt(found: found)
-        if store.phase == .kitReady { noteReplayStep() }
+        noteReplayStep()
     }
     /// A silent note so the replay's session knows where the kids are.
+    /// Round 26: with the card that's up during Props (her app lines aren't in the conversation).
     private func noteReplayStep() {
         guard store.isReplay, realtime.isLive else { return }
-        realtime.addNote(Realtime.systemNote("(Silent note, don't mention it.) Replay: now on \(store.phase.step?.label ?? "Pick")"
-            + (store.playerCount > 0 ? ", \(store.playerCount) playing (\(store.playingRoles.map(\.roleName).joined(separator: ", ")))" : "") + "."))
+        let props = store.props?.props ?? [], card = store.replayCurrentProp
+        let n = card.flatMap { c in props.firstIndex { $0.id == c.id } }.map { $0 + 1 } ?? 0
+        realtime.addNote(Realtime.systemNote(ReplayLines.stepNote(step: store.phase.step, players: store.playerCount,
+            playing: store.playingRoles.map(\.roleName), card: card, cardNumber: n, cards: props.count)))
     }
 
     // MARK: Checklist and scene pictures (checklist-pictures.md)

@@ -256,6 +256,15 @@ enum DemoDriver {
                 rtLog("PLAYTHROUGH: phase=\(model.store.phase)")
                 continue
             }
+            // Round 26: "#ifhunt TEXT": a typed (voice) turn only while a prop card is up (first play or replay), so a
+            // script can say "found it" more times than there are props.
+            if turn.hasPrefix("#ifhunt ") {
+                guard model.store.huntActive || model.store.replayHuntActive else { rtLog("driver: (hunt over, skipped)"); continue }
+                let said = String(turn.dropFirst(8))
+                rtLog("driver: \(said)")
+                if AppModel.isPlanning(model.store.phase) && !model.store.isReplay { await model.typed(said) } else { model.realtime.sendText(said) }
+                continue
+            }
             // Round 26: "#checkall": tap every open step of the current checklist (it then moves on by itself).
             if turn == "#checkall", case .scene(let i) = model.store.phase {
                 for s in 0..<(model.store.kit?.scenes[i].steps.count ?? 0) where !model.store.checkedSteps.contains(s) {

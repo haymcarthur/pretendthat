@@ -81,7 +81,7 @@ public enum ClipMeta {
         if ChecklistCheers.praise.contains(where: { l.hasPrefix($0) }) { return .cheer }
         if l.hasPrefix("Let's draw") || l.contains("Make one") || l.contains(", one for each friend") || l.hasPrefix("Next, draw") { return .draw }
         if l.contains("How many friends") || l.hasPrefix("Do you still have") || l.hasPrefix("No problem, we'll pretend")
-            || l.hasPrefix("Next, do you still have") || l.hasPrefix("A ") && l.hasSuffix(" works too! Do you have one?") || l == ReplayLines.savedGame || l.contains(" friends! Our crew") || l.hasPrefix("Just you!") { return .replay }
+            || l.hasPrefix("Next, do you still have") || l.contains(" too! Do you have ") || l == ReplayLines.savedGame || l.contains(" friends! Our crew") || l.hasPrefix("Just you!") { return .replay }
         if KitProgress.lines.values.contains(where: { $0.contains(l) }) { return .kit }
         if l.hasPrefix("Back to ") { return .arrival }
         return .line

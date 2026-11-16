@@ -20,13 +20,16 @@ public enum ReplayLines {
     /// One saved prop's card on a replay. The first one explains the two buttons once (like the first play's first
     /// prop); later ones stay short.
     public static func propAsk(_ p: Prop, first: Bool) -> String {
-        let item = p.householdItem.lowercased()
+        let item = some(p.householdItem)
         return first
-            ? "Do you still have a \(item) for \(becomes(p))? Tap the green check if you do, or the X if you don't!"
-            : "Next, do you still have a \(item) for \(becomes(p))?"
+            ? "Do you still have \(item) for \(becomes(p))? Tap the green check if you do, or the X if you don't!"
+            : "Next, do you still have \(item) for \(becomes(p))?"
     }
     /// ✗ with a saved alternate: the card changes to it, same question.
-    public static func useInstead(_ item: String) -> String { "A \(item.lowercased()) works too! Do you have one?" }
+    public static func useInstead(_ item: String) -> String {
+        let s = some(item)
+        return s.prefix(1).uppercased() + s.dropFirst() + (s.hasPrefix("some ") ? " work too! Do you have some?" : " works too! Do you have one?")
+    }
     /// A missing prop (names what it becomes, so two in a row are two different lines).
     public static func pretend(_ becomes: String) -> String {
         let label = KitDraft.cutoutLabel(becomes: becomes)
@@ -38,6 +41,29 @@ public enum ReplayLines {
     public static let savedGameOutput = "This is a saved game: nothing about the game can change and nothing is remade. Say exactly this and nothing else: \"\(savedGame)\""
     /// A replay's Pick, Props and hunt answers: the app says the next line itself.
     public static let appSaysOutput = "Done: the app moved on and says the next line itself. Say nothing."
+
+    /// Round 26: the silent note after each replay move. Her app lines aren't in the conversation, so the session is
+    /// told which card is up (seen live: without it she answered the last "found it" with just_talk and the hunt stuck).
+    public static func stepNote(step: JourneyStep?, players: Int, playing: [String], card: Prop?, cardNumber: Int, cards: Int) -> String {
+        var s = "(Silent note, don't mention it.) Replay: now on \(step?.label ?? "Pick")"
+        if players > 0 { s += ", \(players) playing (\(playing.joined(separator: ", ")))" }
+        s += "."
+        if let card {
+            s += " The prop card on screen now is card \(cardNumber) of \(cards): the \(card.householdItem.lowercased()) for "
+                + "\(becomes(card)). When they say they have it (\"found it\", \"yes\", \"we have it\"), call mark_found; when they "
+                + "don't (\"no\", \"we don't have one\"), call skip_prop. The app says the next line."
+        } else if step == .print {
+            s += " Every prop is answered: they're on Print. \"print it\" → print_kit; \"let's play\" → start_play."
+        }
+        return s
+    }
+
+    /// "a bowl", "an apron", "some books" (the saved item's name in her line).
+    static func some(_ item: String) -> String {
+        let l = item.lowercased()
+        if l.count > 2, l.hasSuffix("s"), !l.hasSuffix("ss") { return "some \(l)" }
+        return ("aeiou".contains(l.first ?? "x") ? "an " : "a ") + l
+    }
 
     /// The one system note a replay's voice session gets (a system item, never a change to the session instructions,
     /// so the cached prefix stays the same).

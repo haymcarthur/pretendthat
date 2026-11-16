@@ -69,6 +69,18 @@ import Testing
 
     // MARK: Replays reuse the first-play flows (decisions 8, 9, 10)
 
+    @Test func replayCardNoteAndArticles() {
+        let books = Prop(id: "books", householdItem: "Books", becomes: "the display stand", forRole: .all, safetyOK: true, libraryID: "books")
+        #expect(ReplayLines.propAsk(books, first: false) == "Next, do you still have some books for the display stand?")
+        #expect(ReplayLines.useInstead("Books") == "Some books work too! Do you have some?")
+        #expect(ReplayLines.useInstead("Pot") == "A pot works too! Do you have one?")
+        #expect(ReplayLines.useInstead("Apron") == "An apron works too! Do you have one?")
+        // Seen live: her app lines aren't in the conversation, so each move tells the session which card is up.
+        let note = ReplayLines.stepNote(step: .getReady, players: 3, playing: ["Head Baker"], card: books, cardNumber: 4, cards: 4)
+        #expect(note.contains("card 4 of 4: the books") && note.contains("mark_found") && note.contains("skip_prop"))
+        #expect(ReplayLines.stepNote(step: .print, players: 3, playing: [], card: nil, cardNumber: 0, cards: 4).contains("print_kit"))
+    }
+
     @Test func replayHuntAnswersByVoiceAndTapsAreTheSameState() async {
         let store = AdventureStore(service: nil)
         let a = Fallback.airplane
