@@ -1,0 +1,316 @@
+import AVFoundation
+import Observation
+import QuartzCore
+import NutmegCore
+
+/// Round D3a (design 2026-11-15-saved-games-replay-design.md §D4.4): Nutmeg's speaker, split out of `RealtimeSession`
+/// with no behavior change. It owns PLAYING her voice; the session keeps the socket and the protocol and hands it audio.
+/// - Engine: one AVAudioEngine, player node → pitch unit (Varispeed 1.20 by default, TimePitch or none for comparison)
+///   → mixer, all at the 24 kHz mono play format (the Realtime output rate, so nothing is resampled before the mixer's
+///   one conversion to the hardware rate). The mic shares the engine (push-to-talk), so `start` lets the session
+///   install its tap on the input node.
+/// - Lip sync: each buffer is analyzed as it is scheduled (`LipSyncAnalyzer`, 10 ms windows) and every window is
+///   stamped with the moment it leaves the speaker (`SpeakerTimeline.place`); a 60 Hz main-actor clock feeds due
+///   windows to `MouthShaper` and publishes `mouth` and `level`.
+/// - Speaking state (`isSpeaking`, from `SpeakerTimeline`'s clock + tail) drives the poses, Doze, Repeat's busy state,
+///   the cheers' wait, and the session's silence timer (`onFinishedSpeaking`).
+/// - Barge-in: `cancel()` clears the player, the mouth and the clock at once (the session cancels the responses and
+///   truncates her item at `heardMs`).
+/// - App lines (`say`): her fixed lines go to the live voice (the session's `sayExactly`). D3b adds the clip-first path
+///   here (`clips` + `NutmegClipPlayback.playClip`), through the same `schedule` path, so a clip gets the same Varispeed,
+///   lip sync and barge-in.
+/// - Memory: the last app line she was given (Repeat's fallback, round 17).
+/// Nothing is recorded or stored: audio buffers are played and dropped.
+@Observable @MainActor
+final class NutmegSpeaker {
+    /// 0…1 loudness of her voice (the mouth envelope, coarsely updated).
+    private(set) var level: Float = 0
+    /// The mouth shape to show right now, in sync with what the speaker is playing.
+    private(set) var mouth: MouthShape = .closed
+    private(set) var isSpeaking = false
+    /// The last app line she was given to say (round 17's Repeat fallback when there's no chat line).
+    private var memory = LastLineMemory()
+    var lastAppLine: String? { memory.line }
+    func remember(_ line: String) { memory.remember(line) }
+
+    /// Her audio is playing or still queued for the mouth (a kid turn stops it: `SpeechStop.kidTurnStops`).
+    var hasAudioQueued: Bool { isSpeaking || !mouthQueue.isEmpty }
+    /// The engine is running (audio arriving without it is dropped).
+    var isRunning: Bool { engine != nil }
+    /// The input node of the shared engine (DEBUG log only).
+    var inputNode: AVAudioInputNode? { engine?.inputNode }
+
+    /// She started speaking (the first buffer of a line).
+    @ObservationIgnored var onStartedSpeaking: (@MainActor () -> Void)?
+    /// Her audio really ended (the tail passed with nothing new queued).
+    @ObservationIgnored var onFinishedSpeaking: (@MainActor () -> Void)?
+    /// A buffer was scheduled: the host time its first sample is heard (the latency trace).
+    @ObservationIgnored var onScheduled: (@MainActor (Double) -> Void)?
+
+    /// Where her live app lines go (the Realtime session's `sayExactly`).
+    @ObservationIgnored weak var live: (any NutmegLiveVoice)?
+    /// D3b seam (not used yet): the game's recorded clips. Nil in D3a, so every line is said live.
+    @ObservationIgnored var clips: (any NutmegClipSource)?
+
+    @ObservationIgnored private var engine: AVAudioEngine?
+    @ObservationIgnored private var player = AVAudioPlayerNode()
+    @ObservationIgnored private var pitchUnit: AVAudioUnit?
+    @ObservationIgnored private var shape = VoiceShape()
+    @ObservationIgnored private var timeline = SpeakerTimeline(sampleRate: Realtime.sampleRate)
+    @ObservationIgnored private var peak: Float = 0
+    @ObservationIgnored private var configObserver: NSObjectProtocol?
+    @ObservationIgnored private var tailTask: Task<Void, Never>?
+    @ObservationIgnored private var analyzer = LipSyncAnalyzer(sampleRate: Realtime.sampleRate)
+    @ObservationIgnored private var shaper = MouthShaper()
+    /// Analysis windows waiting for their moment (CACurrentMediaTime seconds), in order.
+    @ObservationIgnored private var mouthQueue: [(time: Double, features: MouthFeatures)] = []
+    @ObservationIgnored private var mouthClock: Task<Void, Never>?
+    @ObservationIgnored private let playFormat = AVAudioFormat(standardFormatWithSampleRate: Realtime.sampleRate, channels: 1)!
+
+    /// Playback rate of the queued audio (Varispeed plays it faster), for timing when she stops talking.
+    private var playbackRate: Double { shape.method == .varispeed ? shape.rate : 1 }
+
+    init() { timeline.playbackRate = playbackRate }
+
+    // MARK: App lines
+
+    /// One of her fixed app lines. D3a: always the live voice. D3b: a clip first when the game has one (§D4.4).
+    func say(_ line: String, thinking: Bool = false, echo: Bool = false) {
+        live?.say(line, thinking: thinking, echo: echo)
+    }
+
+    // MARK: Engine
+
+    /// The voice shape for the next `start` (pitch method, cents, Varispeed rate).
+    func configure(_ shape: VoiceShape) {
+        self.shape = shape
+        timeline.playbackRate = playbackRate
+    }
+
+    /// Starts the audio session and the engine. `installInput` is the mic's tap on the shared engine's input node.
+    func start(echoCancel: Bool, installInput: (AVAudioInputNode) -> Void) throws {
+        let session = AVAudioSession.sharedInstance()
+        try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothA2DP])
+        try session.setActive(true)
+
+        let engine = AVAudioEngine()
+        let input = engine.inputNode
+        // Echo cancellation is off (round 20: fixed default): voice processing also degrades the output path. The mic gate
+        // keeps Nutmeg from hearing herself either way.
+        if echoCancel { try? input.setVoiceProcessingEnabled(true) }
+        player = AVAudioPlayerNode()
+        pitchUnit = makePitchUnit()
+        engine.attach(player)
+        if let pitchUnit { engine.attach(pitchUnit) }
+        wireOutput(engine)
+        engine.mainMixerNode.outputVolume = 1   // unity gain: PCM16 → float is already within ±1, no clipping
+        installInput(input)
+        engine.prepare()
+        try engine.start()
+        player.play()
+        self.engine = engine
+        configObserver = NotificationCenter.default.addObserver(forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main) { [weak self] _ in
+            Task { @MainActor in
+                rtLog("engine configuration changed")
+                guard let self, let engine = self.engine else { return }
+                // Re-wire the output chain at our format; a reconfiguration can leave it disconnected.
+                self.wireOutput(engine)
+                self.ensureRunning()
+                self.player.play()
+            }
+        }
+    }
+
+    /// Stops the engine (and the mic tap on it) and silences her.
+    func stop() {
+        if let configObserver { NotificationCenter.default.removeObserver(configObserver) }
+        configObserver = nil
+        if let engine {
+            engine.inputNode.removeTap(onBus: 0)
+            player.stop()
+            engine.stop()
+        }
+        engine = nil
+        silence()
+    }
+
+    private func makePitchUnit() -> AVAudioUnit? {
+        switch shape.method {
+        case .off: return nil
+        case .varispeed: let u = AVAudioUnitVarispeed(); u.rate = Float(shape.rate); return u
+        case .timePitch: let u = AVAudioUnitTimePitch(); u.pitch = Float(shape.cents); u.rate = 1; return u
+        }
+    }
+
+    /// player → [pitch unit] → mixer, all at the 24 kHz mono play format.
+    private func wireOutput(_ engine: AVAudioEngine) {
+        if let pitchUnit {
+            engine.connect(player, to: pitchUnit, format: playFormat)
+            engine.connect(pitchUnit, to: engine.mainMixerNode, format: playFormat)
+        } else {
+            engine.connect(player, to: engine.mainMixerNode, format: playFormat)
+        }
+    }
+
+    /// Voice processing / route changes can stop the engine; restart it before scheduling audio.
+    private func ensureRunning() {
+        guard let engine, !engine.isRunning else { return }
+        do { try engine.start(); rtLog("engine restarted") } catch { rtLog("engine restart failed: \(error.localizedDescription)") }
+    }
+
+    // MARK: Playback
+
+    /// Live audio: one Realtime PCM16 24 kHz delta.
+    func play(_ pcm16: Data) {
+        ensureRunning()
+        guard let buffer = Self.floatBuffer(pcm16, format: playFormat) else { return }
+        schedule(buffer)
+    }
+
+    /// The one playback path (live deltas now, recorded clips in D3b): speaking state, lip sync, the end check.
+    private func schedule(_ buffer: AVAudioPCMBuffer) {
+        // Track when the queued audio will end from the clock, not completion callbacks (an engine
+        // reconfiguration can drop scheduled buffers without calling them back).
+        if timeline.willSchedule(frames: Int(buffer.frameLength), now: Date()) {
+            isSpeaking = true; peak = 0; onStartedSpeaking?(); rtLog("speaking")
+        }
+        queueMouth(buffer)
+        player.scheduleBuffer(buffer, completionHandler: nil)
+        if !player.isPlaying { player.play() }
+        scheduleEndCheck()
+    }
+
+    /// Barge-in: the player is cleared and she stops at once (mouth closed, clock reset).
+    func cancel() {
+        player.stop(); player.play()
+        silence()
+    }
+
+    /// Where a new conversation item's audio starts, in player samples.
+    func itemStart() -> Double { timeline.itemStart(playerSample: playerSample()) }
+
+    /// How much of the item starting at `itemStart` was actually heard, in ms (the truncate point).
+    func heardMs(itemStart: Double) -> Int { timeline.heardMs(itemStart: itemStart, playerSample: playerSample()) }
+
+    private func playerSample() -> Double? {
+        if let render = player.lastRenderTime, render.isHostTimeValid, let pt = player.playerTime(forNodeTime: render) {
+            return Double(pt.sampleTime)
+        }
+        return nil
+    }
+
+    private func silence() {
+        timeline.clear(); tailTask?.cancel()
+        isSpeaking = false; level = 0
+        resetMouth()
+    }
+
+    private func scheduleEndCheck() {
+        tailTask?.cancel()
+        let wait = timeline.endCheckDelay()   // short tail so room echo dies before the mic reopens
+        tailTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(wait))
+            guard let self, !Task.isCancelled, self.timeline.hasFinished() else { return }
+            self.timeline.finish()
+            self.isSpeaking = false
+            rtLog("done speaking, peak mouth level \(String(format: "%.2f", self.peak))")
+            self.level = 0
+            self.mouthQueue = []
+            self.onFinishedSpeaking?()
+        }
+    }
+
+    // MARK: Lip sync
+
+    /// Analyzes a buffer as it is scheduled and stamps each window with when it will be heard.
+    private func queueMouth(_ buffer: AVAudioPCMBuffer) {
+        guard let data = buffer.floatChannelData?[0] else { return }
+        let frames = Int(buffer.frameLength)
+        let audio = AVAudioSession.sharedInstance()
+        let latency = audio.outputLatency + audio.ioBufferDuration
+        // Where the player is now (source samples) and the host time of that sample.
+        var now: (sample: Double, hostTime: Double)?
+        if let render = player.lastRenderTime, render.isHostTimeValid, let pt = player.playerTime(forNodeTime: render) {
+            now = (Double(pt.sampleTime), AVAudioTime.seconds(forHostTime: render.hostTime))
+        }
+        let base = timeline.place(frames: frames, player: now, hostNow: CACurrentMediaTime(), latency: latency)
+        onScheduled?(base)   // when the first sample actually leaves the speaker
+        let rate = playbackRate
+        let features = analyzer.analyze(Array(UnsafeBufferPointer(start: data, count: frames)))
+        mouthQueue.append(contentsOf: features.map { (base + $0.offset / rate, $0) })
+        startMouthClock()
+    }
+
+    private func startMouthClock() {
+        guard mouthClock == nil else { return }
+        mouthClock = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(16))
+                guard let self, self.tickMouth() else { break }
+            }
+            self?.mouthClock = nil
+        }
+    }
+
+    /// Feeds due windows to the shaper; returns false once the voice has ended and the mouth is closed.
+    private func tickMouth() -> Bool {
+        let now = CACurrentMediaTime()
+        var fed = false
+        while let first = mouthQueue.first, first.time <= now {
+            mouthQueue.removeFirst()
+            shaper.step(first.features, at: first.time)
+            fed = true
+        }
+        if !fed && mouthQueue.isEmpty {
+            // Nothing playing: decay toward closed (silence windows).
+            shaper.step(MouthFeatures(offset: 0, rms: 0, bright: 0, low: 0), at: now)
+        }
+        if mouth != shaper.shape { mouth = shaper.shape }
+        let e = (shaper.envelope * 20).rounded() / 20
+        if abs(e - level) >= 0.05 || (e == 0 && level != 0) { level = e; peak = max(peak, e) }
+        return !(mouthQueue.isEmpty && shaper.shape == .closed && shaper.envelope < 0.01)
+    }
+
+    private func resetMouth() {
+        mouthClock?.cancel(); mouthClock = nil
+        mouthQueue = []
+        analyzer.reset(); shaper.reset()
+        mouth = .closed
+    }
+
+    nonisolated private static func floatBuffer(_ data: Data, format: AVAudioFormat) -> AVAudioPCMBuffer? {
+        let frames = data.count / 2
+        guard frames > 0, let buf = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(frames)),
+              let out = buf.floatChannelData?[0] else { return nil }
+        data.withUnsafeBytes { raw in
+            let src = raw.bindMemory(to: Int16.self)
+            for i in 0..<frames { out[i] = Float(Int16(littleEndian: src[i])) / 32768 }
+        }
+        buf.frameLength = AVAudioFrameCount(frames)
+        return buf
+    }
+}
+
+/// The live source of her app lines: the Realtime session's out-of-band `sayExactly` (round 13: one voice for every line).
+@MainActor protocol NutmegLiveVoice: AnyObject {
+    func say(_ line: String, thinking: Bool, echo: Bool)
+}
+
+/// D3b seam (not implemented in D3a): one recorded app line, float PCM 24 kHz mono, stored BEFORE Varispeed so it plays
+/// through the same pitch unit and sounds exactly like her live voice (§D4.2, §D4.4).
+struct NutmegClip: Sendable {
+    let key: String
+    let text: String
+    let samples: [Float]
+}
+
+/// D3b seam: the game's clips (`ClipStore`). `clip(for:)` is nil for a line she has never said.
+@MainActor protocol NutmegClipSource: AnyObject {
+    func clip(for line: String) -> NutmegClip?
+}
+
+/// D3b seam: playing a clip through the speaker's one `schedule` path (~100 ms chunks), as a pseudo-response the
+/// round 19 stop rules cancel like live audio. D3a declares it only; `NutmegSpeaker` adopts it in D3b.
+@MainActor protocol NutmegClipPlayback: AnyObject {
+    func playClip(_ clip: NutmegClip, echo: Bool)
+}

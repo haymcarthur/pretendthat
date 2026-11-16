@@ -18,8 +18,11 @@ final class AppModel {
     @ObservationIgnored private var safeSnap: AdventureStore.SafeSnapshot?
     /// Typed turns still being moderated: ticket id → (text, conversation item id), so a flag can take them back.
     @ObservationIgnored private var screenedTurns: [Int: (text: String, itemID: String)] = [:]
+    /// Round D3a: Nutmeg's speaker (her voice's playback, lip sync, speaking state, app lines, Repeat's last line).
+    /// Owned here so D3b's recorded clips can play without a live session; the session uses it for live audio.
+    let speaker: NutmegSpeaker
     /// Hands-free planning conversation (D1, D2).
-    let realtime = RealtimeSession()
+    let realtime: RealtimeSession
     /// The writing moment's quiet scribble loop (round 5).
     @ObservationIgnored let scribble = ScribbleSound()
     /// Realtime auth: a personal OPENAI_API_KEY (dev mode) or the shared relay's ephemeral secrets.
@@ -47,6 +50,9 @@ final class AppModel {
     var planningNow: Bool { Self.isPlanning(store.phase) && !store.isReplay }
 
     init(info: [String: Any] = Bundle.main.infoDictionary ?? [:]) {
+        let speaker = NutmegSpeaker()
+        self.speaker = speaker
+        realtime = RealtimeSession(speaker: speaker)
         let config = ClaudeConfig.from(info: info)
         // Round 19: kid text and generated text are checked locally and with OpenAI moderation (fails safe to local).
         let moderation = ModerationClient.from(info: info)
@@ -221,7 +227,7 @@ final class AppModel {
         let line = SafetySteer.line(for: verdict, ideas: steerIdeas)
         if realtime.isLive {
             realtime.stopSpeaking("safety")
-            realtime.say(line)
+            speaker.say(line)
         } else {
             store.steerLine(line)
         }
@@ -325,8 +331,8 @@ final class AppModel {
         rtLog("back-nav: \(step.label) (tap)")
         if realtime.isLive {
             realtime.addNote(Realtime.systemNote(BackNav.tapNote(step, drawing: store.drawMode)))
-            lastAppLine = line
-            realtime.say(line)
+            speaker.remember(line)
+            speaker.say(line)
         } else {
             speak(line)
         }
@@ -375,7 +381,7 @@ final class AppModel {
         // Not sent to the voice model: wait for moderation before anything uses it (Claude, the kit).
         guard await gate.cleared() else { return }
         // Kit being made (round 7): a tiny "Almost ready!" at most, never a new conversation turn.
-        if realtime.isLive && store.phase == .makingKit { if !realtime.isSpeaking { realtime.say("Almost ready!") }; return }
+        if realtime.isLive && store.phase == .makingKit { if !realtime.isSpeaking { speaker.say("Almost ready!") }; return }
         await handleSpeech(text)
     }
 
@@ -585,7 +591,8 @@ final class AppModel {
     // MARK: Repeat in the control pill (round 17, Haylee)
 
     /// The last line the app gave her to say (the fallback when there's no chat transcript, e.g. the device voice).
-    private(set) var lastAppLine: String?
+    /// Round D3a: the speaker's memory.
+    var lastAppLine: String? { speaker.lastAppLine }
     /// What the pill's Repeat ("Hear it again") does right now; `.none` dims it (nothing yet, or she's busy).
     var repeatTarget: RepeatTarget {
         let inChecklist: Bool = { if case .scene = store.phase, !store.huntActive { return true } else { return false } }()
@@ -609,7 +616,7 @@ final class AppModel {
             lastRepeatAt = Date()
             wakeUp()
             rtLog("repeat last line: \(line)")
-            if realtime.isLive { realtime.say(line, echo: true) }
+            if realtime.isLive { speaker.say(line, echo: true) }
             else if !(hasRealtime && gameVoice != nil && Self.wasLive(store.phase)) { Task { await voice.say(line) } }
         }
     }
@@ -1107,7 +1114,7 @@ final class AppModel {
     /// Nutmeg's voice for app-written lines. With a live Realtime session she keeps her conversation voice;
     /// during planning she speaks for herself, so app lines are skipped there.
     func speak(_ text: String, deferIfAway: Bool = false) {
-        if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { lastAppLine = text }
+        speaker.remember(text)   // whitespace-only lines aren't remembered
         // Round 9: away (background, or reconnecting): an important line (kit ready) waits for the session; others drop.
         // Round D1: a replay's first lines wait for its voice session (never the device voice while it connects).
         if replayConnecting { deferredLine = text; return }
@@ -1120,7 +1127,7 @@ final class AppModel {
             if !planningNow {
                 // Round 13: a scene / hand-off line follows a kid's tap: the thinking state shows until it plays.
                 let tapped: Bool = { switch store.phase { case .handoff, .scene, .end: true; default: false } }()
-                realtime.say(text, thinking: tapped)
+                speaker.say(text, thinking: tapped)
             }
             return
         }
@@ -1552,9 +1559,9 @@ final class AppModel {
         }
     }
 
-    var mouthLevel: Float { realtime.isLive ? realtime.level : voice.level }
+    var mouthLevel: Float { realtime.isLive ? speaker.level : voice.level }
     /// The live voice's lip-synced mouth (nil: fall back to the amplitude mouth from `mouthLevel`).
-    var mouthShape: NutmegMouth? { realtime.isLive ? NutmegMouth(rawValue: realtime.mouth.rawValue) : nil }
+    var mouthShape: NutmegMouth? { realtime.isLive ? NutmegMouth(rawValue: speaker.mouth.rawValue) : nil }
     var isSpeaking: Bool { realtime.isLive ? realtime.isSpeaking : voice.isSpeaking }
 
     // MARK: Push-to-talk (decisions/2026-11-13-push-to-talk.md)
