@@ -120,7 +120,7 @@ enum DemoDriver {
             }
             // "#kit": wait for the whole kit to land (print step), then keep going (e.g. "Let's play!").
             if turn == "#kit" {
-                for _ in 0..<1800 where !model.kitPapersOut { try? await Task.sleep(for: .milliseconds(100)) }
+                for _ in 0..<1800 { if model.kitPapersOut { break }; try? await Task.sleep(for: .milliseconds(100)) }
                 for _ in 0..<100 where !model.realtime.isSpeaking { try? await Task.sleep(for: .milliseconds(100)) }
                 for _ in 0..<200 where model.realtime.isSpeaking { try? await Task.sleep(for: .milliseconds(100)) }
                 try? await Task.sleep(for: .seconds(1))
@@ -161,7 +161,7 @@ enum DemoDriver {
             if turn == "#repeat" { model.repeatTapped(); continue }
             // Guide prefetch: "#guide": wait until the play guide is final (Paper may already be out without it).
             if turn == "#guide" {
-                for _ in 0..<1800 where model.store.guidePending || model.store.kit?.scenes.isEmpty != false { try? await Task.sleep(for: .milliseconds(100)) }
+                for _ in 0..<1800 { if !(model.store.guidePending || model.store.kit?.scenes.isEmpty != false) { break }; try? await Task.sleep(for: .milliseconds(100)) }
                 rtLog("guide: final (\(model.store.kit?.scenes.count ?? 0) scenes)")
                 continue
             }

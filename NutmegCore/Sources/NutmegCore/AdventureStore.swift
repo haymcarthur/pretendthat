@@ -64,7 +64,16 @@ public final class AdventureStore {
     }
     /// The kit as the N playing kids see it: only their steps, hand-offs rotating through them, no line naming a role
     /// that isn't playing. A pure function of `fullKit`, the roles and the count, so a count change never needs an AI call.
-    public var kit: Kit? { fullKit.map { PlayCast.kit($0, roles: plan?.roles ?? [], players: playerCount) } }
+    public var kit: Kit? {
+        guard let fullKit else { return nil }
+        // Round 25: memoized (PlayCast compiles regexes per step; SwiftUI and the driver read `kit` many times a frame).
+        let roles = plan?.roles ?? []
+        if let c = kitCache, c.players == playerCount, c.roles == roles, c.full == fullKit { return c.kit }
+        let k = PlayCast.kit(fullKit, roles: roles, players: playerCount)
+        kitCache = (fullKit, roles, playerCount, k)
+        return k
+    }
+    @ObservationIgnored private var kitCache: (full: Kit, roles: [Role], players: Int, kit: Kit)?
     /// Round C1: the roles playing now (the first N of the 6 ranked roles).
     public var playingRoles: [Role] { RoleCast.playing(plan?.roles ?? [], kids: playerCount) }
     /// What Nutmeg says next (for TTS and display).
