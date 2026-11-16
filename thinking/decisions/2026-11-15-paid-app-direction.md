@@ -8,3 +8,9 @@
 - **Players capped at 6** (replaces "any number, one holds the iPad"). The badges page has exactly one badge per player/role, not always 6. (Known bug to fix: 2–3 players still get 6 badges.)
 - **Money is a single $1 bill page.** Kids print more copies for more money. Menu prices should be small whole dollars to match.
 - **Open:** the replay flow and UI, changing the player count on replay, and clearer navigation back to earlier steps (for example reprinting). See the conversation recap in the next round brief.
+
+## Replay decisions (Haylee, 2026-11-15)
+- **Generate for 6 every time, with ranked roles:** roles 1–2 are the core and 3–6 are extras. Badges are drawn as one 6-up sheet and sliced; checklist steps for extra roles are optional and only show when that role is playing. A replay with a different count (1–6) needs no AI calls. The only exception is a voice line for a role that wasn't present the first time; it's said live once in the same voice and then saved.
+- **Save at The End instead of "Play again":** a "Save it to play again ⭐" button. Unsaved games are discarded when they leave.
+- **No shelf cap.**
+- **Grown-up delete:** a grown-up-gated delete on the saved-game shelf (for example a long press plus a confirm).
