@@ -35,9 +35,11 @@ public enum HandOffLines {
         String(s.lowercased().map { $0.isLetter || $0.isNumber ? $0 : " " }).split(separator: " ").joined(separator: " ")
     }
 
-    /// The End. Buttons: "Play again", "New game", and (right after the last Done!) "Back to the checklist".
-    public static func end(canGoBack: Bool) -> String {
-        "The end! What a show! Take a bow! Tap Play again to do it again, or New game for a new adventure!"
+    /// The End. Round D1 (Haylee): "Save it to play again" replaces "Play again" on a first play; a replay (already
+    /// saved) has "Play it again". Plus "New game", and (right after the last Done!) "Back to the checklist".
+    public static func end(canGoBack: Bool, replay: Bool = false) -> String {
+        (replay ? "The end! What a show! Take a bow! Tap Play it again to do it again, or New game for a new adventure!"
+            : "The end! What a show! Take a bow! Tap Save it to play again, or New game for a new adventure!")
             + (canGoBack ? " Tap Back to the checklist to see it again." : "")
     }
 

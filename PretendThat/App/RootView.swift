@@ -65,8 +65,15 @@ struct RootView: View {
                         // Start screen: full-bleed toy-chest scene, no step rail or control pill.
                         // Start screen → stage: the start screen's exit leaves Nutmeg exactly where the stage draws her
                         // (the arrival shot), so the swap is instant (no crossfade of two Nutmegs).
-                        HelloView(model: model, onExitBegan: { startExit() })
-                            .transition(reduceMotion ? .opacity : .identity)
+                        ZStack {
+                            HelloView(model: model, onExitBegan: { startExit() })
+                            // Round D1: the My games bookshelf screen, over the start screen (which keeps its state).
+                            if model.showingShelf {
+                                ShelfView(model: model).transition(.opacity)
+                            }
+                        }
+                        .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: model.showingShelf)
+                        .transition(reduceMotion ? .opacity : .identity)
                     } else {
                         // ONE stage for every phase (conversation, hunt, kit, play, hand-off): same Nutmeg, floor and
                         // stars, one camera; each phase only picks a frame.
@@ -239,6 +246,7 @@ struct RootView: View {
         .onChange(of: model.isSpeaking) { _, talking in if model.isWriting { model.scribble.setPlaying(true, ducked: talking) } }
         .onChange(of: presentedSubjects) { _, _ in requestStickers() }
         .task {
+            model.refreshShelf()   // round D1: the start screen shows My games once a game is saved
             #if DEBUG
             if DemoDriver.chatOpen { chatOpen = true }
             if let demo = DemoDriver.requestedPhase { await DemoDriver.drive(store, model: model, to: demo) }
@@ -445,7 +453,7 @@ struct RootView: View {
         // zone (`PTStageDirector.cardZoneWidth`); it only scales down on a stage too narrow for ~300 pt.
         let fit = min(1, r.width / Self.minContentWidth)
         let w = r.width / fit, h = r.height / fit
-        let kitWaiting = (store.phase == .makingKit || store.phase == .kitReady) && model.kitBeat != .papers
+        let kitWaiting = (store.phase == .makingKit || store.phase == .kitReady) && model.kitBeat != .papers && !store.isReplay
         VStack(spacing: Theme.Space.m) {
             ViewThatFits(in: .vertical) {
                 stage(clipboard: clipboard(L, in: r), width: w, height: h - 2 * Theme.Space.s).padding(.vertical, Theme.Space.s)
@@ -478,8 +486,10 @@ struct RootView: View {
         switch store.phase {
         case .hello: EmptyView()   // the start screen replaces the classic stage (see body)
         case .pickGame: EmptyView()   // games are talked about only: no idea cards, no caption (no-text-overlays.md)
-        case .players: PlayersView(model: model)
-        case .props: PropsView(model: model)
+        // Round D1: a replay's Pick, Props and Paper steps.
+        case .players: if store.isReplay { ReplayPickView(model: model) } else { PlayersView(model: model) }
+        case .props: if store.isReplay { ReplayPropsView(model: model) } else { PropsView(model: model) }
+        case .makingKit where store.isReplay, .kitReady where store.isReplay: ReplayPaperView(model: model)
         case .makingKit, .kitReady: KitView(model: model, clipboard: clipboard, chatOpen: chatOpen && chromeVisible, preview: $kitPreview,
                                             onCelebrate: { celebrate() })
         case .handoff(let i): if !(chatOpen && chromeVisible) { HandoffView(model: model, sceneIndex: i).frame(width: width) }   // chat open: pinned

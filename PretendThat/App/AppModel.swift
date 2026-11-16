@@ -1,7 +1,8 @@
 import SwiftUI
 import NutmegCore
 
-/// Wires the state machine to Nutmeg's voice, ears and kit art. One per app run; nothing is persisted.
+/// Wires the state machine to Nutmeg's voice, ears and kit art. One per app run. Round D1: only games the kids choose
+/// to save are kept, on this iPad (`SavedGameStore`), and only their game content; nothing about kids.
 @Observable @MainActor
 final class AppModel {
     let store: AdventureStore
@@ -25,6 +26,23 @@ final class AppModel {
     @ObservationIgnored private let realtimeAuth: RealtimeAuth?
     /// Only the IDs of last session's suggested games/themes (UserDefaults), so the next session differs. Nothing about kids.
     @ObservationIgnored private let suggestionMemory = SuggestionMemory()
+    /// Round D1: saved games, on this iPad only (Application Support/SavedGames; iCloud is round D4).
+    @ObservationIgnored let savedGames = SavedGameStore(root: SavedGameStore.defaultRoot())
+    /// The My games shelf (newest first). The start screen shows "My games" once it isn't empty.
+    var shelfGames: [SavedGame] = []
+    /// The My games bookshelf screen is open (on the start screen; the phase stays Hello).
+    var showingShelf = false
+    /// The saved game being replayed (its art, for Paper).
+    @ObservationIgnored var replayGame: SavedGame?
+    /// The replay's voice session is connecting: its lines wait for it (never the device voice).
+    @ObservationIgnored private var replayConnecting = false
+    /// AI calls (Claude, images, moderation) when the replay started: the live check logs the difference.
+    @ObservationIgnored private var replayStartCalls: [AICallLog.Kind: Int] = [:]
+    enum SaveState: Equatable { case idle, saving, failed }
+    private(set) var saveState: SaveState = .idle
+
+    /// The planning conversation is running (a replay has no planning: its Pick and Props steps are taps and app lines).
+    var planningNow: Bool { Self.isPlanning(store.phase) && !store.isReplay }
 
     init(info: [String: Any] = Bundle.main.infoDictionary ?? [:]) {
         let config = ClaudeConfig.from(info: info)
@@ -48,13 +66,13 @@ final class AppModel {
         // Round 20: the Grown-ups voice settings are gone; drop what older builds stored for them (device settings only).
         for k in ["voice", "method", "pitchCents", "rate", "speed", "echo"] { UserDefaults.standard.removeObject(forKey: "nutmeg.v4.\(k)") }
         realtime.onTurnDone = { [weak self] text in
-            guard let self, Self.isPlanning(self.store.phase), !self.realtime.propLinePending else { return nil }
+            guard let self, self.planningNow, !self.realtime.propLinePending else { return nil }
             // Round 7: roles set but no prop yet → she continues straight into the first prop (no "Sound good?" wait).
             return TurnCheck.review(text, step: self.store.planningStep, rolesSet: self.store.plan != nil,
                                     propsShown: self.store.props?.props.count ?? 0, currentPropDone: self.store.currentPropDone)
         }
         realtime.onSilence = { [weak self] in
-            guard let self, Self.isPlanning(self.store.phase), self.store.planningStep != .finish else { return nil }
+            guard let self, self.planningNow, self.store.planningStep != .finish else { return nil }
             return TurnCheck.silenceLine   // spoken only, never in the chat (round 7)
         }
         realtime.onPlanningBeat = { [weak self] topic in await self?.planningBeat(topic) }
@@ -67,7 +85,8 @@ final class AppModel {
         // Tool-first kid turns (round 7): no narration is ever heard; she speaks after the tool result.
         realtime.onKidTurnTools = { [weak self] in
             guard let self else { return nil }
-            guard Self.isPlanning(self.store.phase) else {
+            if self.store.isReplay { return ReplayLines.tools(self.store.phase, drawing: self.store.drawing) }   // round D1
+            guard self.planningNow else {
                 return Realtime.afterHuntTools(self.store.phase, drawing: self.store.drawing)   // round 23 (+ round 24's Draw it!)
             }
             return Realtime.kidTurnTools(step: self.store.planningStep, huntActive: self.store.huntActive)
@@ -147,9 +166,9 @@ final class AppModel {
 
     /// The planning phases run as a voice conversation while the Realtime session is up.
     var inConversation: Bool {
-        if forceConversation { return Self.isPlanning(store.phase) }
+        if forceConversation { return planningNow }
         guard realtime.status == .live || realtime.status == .connecting else { return false }
-        return Self.isPlanning(store.phase)
+        return planningNow
     }
 
     static func isPlanning(_ phase: Phase) -> Bool {
@@ -327,6 +346,7 @@ final class AppModel {
         stickers.reset()
         gate.reset(); safeSnap = nil; screenedTurns = [:]
         printablesKit = nil; printablesShare = nil; printablesState = .idle
+        replayGame = nil; replayConnecting = false; saveState = .idle
         if let f = printablesFile { try? FileManager.default.removeItem(at: f); printablesFile = nil }
         store.newGame()
     }
@@ -424,6 +444,8 @@ final class AppModel {
     /// and left the pages app-drawn.
     func kitChanged() {
         guard let kit = store.kit else { return }
+        // Round D1: a replay prints the saved art: never an image call.
+        if store.isReplay { return }
         // Round 24: no printer → the kit is drawn by hand: never an image call.
         if store.drawMode { rtLog("kit: no printer, Draw it! (\(store.drawGuide?.pieces.count ?? 0) pieces, no image calls)"); return }
         // Round 19: the CURRENT title (a corrected theme wins over the one the roles were planned with).
@@ -442,10 +464,11 @@ final class AppModel {
     /// The hunt's kit pages (re)started or landed, or the color changed: their art follows, in the background. A
     /// restart (a correction, new roles) drops the old art. Never any commentary here: that's only at Print.
     func draftChanged() {
+        if store.isReplay { return }   // round D1: nothing is drafted on a replay
         // The pages may land just after the hunt ended (the kit call waits for them): their art starts then too,
         // unless a late correction is remaking the kit for a new title.
         let making = store.phase == .makingKit && store.kitRemakes == 0 && store.kit == nil
-        guard Self.isPlanning(store.phase) || making else { return }
+        guard planningNow || making else { return }
         if store.draftGeneration != artDraftGeneration && !making {
             artDraftGeneration = store.draftGeneration
             art.reset()
@@ -606,7 +629,7 @@ final class AppModel {
 
     /// Kit step beats (no-text-overlays.md, fix round 2): she colors in the close-up until the WHOLE kit is final, then
     /// looks up (crayon down), the camera zooms out, and the papers fly off her clipboard.
-    private(set) var kitBeat: PTStageDirector.KitBeat = .coloring
+    var kitBeat: PTStageDirector.KitBeat = .coloring
     @ObservationIgnored private var kitBeatTask: Task<Void, Never>?
     /// The printable pages for the current kit.
     var kitPages: [KitPage] {
@@ -625,6 +648,8 @@ final class AppModel {
     /// Every page's art has landed or definitively fallen back.
     var kitFinal: Bool { store.phase == .kitReady && store.kit != nil && (store.drawMode ? store.drawGuide != nil : art.finished) }
     func kitFinalChanged(_ final: Bool) {
+        // Round D1: a replay's Paper step has its own choices (no writing beat, no ready line).
+        if store.isReplay { kitBeatTask?.cancel(); return }
         #if DEBUG
         // `-PTPDFOut`: write the print-path PDF (exactly what AirPrint gets) to tmp/kit.pdf once the kit is final.
         if final, ProcessInfo.processInfo.arguments.contains("-PTPDFOut") {
@@ -685,6 +710,10 @@ final class AppModel {
             return ("(Silent coaching, don't mention it.) That was undone. Say nothing more.", false)
         }
         realtime.markTrace("checked \(name)")
+        if case .printKit = call, store.isReplay, store.phase == .kitReady, store.replayPrintables != nil || !store.drawMode {
+            replayPaper(.everything)   // round D1: "print it" on a replay = Print everything
+            return ("The print screen is open. Say one short line like \"Here's the print screen!\"", true)
+        }
         if case .printKit = call, store.phase.step != .play, !store.drawMode {
             guard store.phase == .kitReady || kitFinal else { return ("Not yet: the kit isn't ready. Say only \"Almost ready!\"", true) }
             printKit()
@@ -756,7 +785,7 @@ final class AppModel {
 
     /// After a tool-first pass on the confirm step: the newest recap, word for word (only when it changed).
     func noteAfterSilentPass() -> String? {
-        guard Self.isPlanning(store.phase), store.planningStep == .confirm else { lastRecap = nil; return nil }
+        guard planningNow, store.planningStep == .confirm else { lastRecap = nil; return nil }
         let recap = store.recapLine
         guard recap != lastRecap else { return nil }
         lastRecap = recap
@@ -1078,12 +1107,15 @@ final class AppModel {
     func speak(_ text: String, deferIfAway: Bool = false) {
         if !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { lastAppLine = text }
         // Round 9: away (background, or reconnecting): an important line (kit ready) waits for the session; others drop.
+        // Round D1: a replay's first lines wait for its voice session (never the device voice while it connects).
+        if replayConnecting { deferredLine = text; return }
+        if store.isReplay && realtime.isLive { store.ledger.paidAICall(kind: .replayLine) }   // E hook: a live replay line
         if realtime.suspended || (realtime.status == .connecting && Self.wasLive(store.phase)) || resuming {
             if deferIfAway { deferredLine = text; rtLog("line deferred until the session is back") }
             return
         }
         if realtime.isLive {
-            if !Self.isPlanning(store.phase) {
+            if !planningNow {
                 // Round 13: a scene / hand-off line follows a kid's tap: the thinking state shows until it plays.
                 let tapped: Bool = { switch store.phase { case .handoff, .scene, .end: true; default: false } }()
                 realtime.say(text, thinking: tapped)
@@ -1129,7 +1161,7 @@ final class AppModel {
         // Away or reconnecting: hold her as she is (no stand-up flicker while the session comes back).
         if realtime.suspended || resuming || realtime.status == .connecting { return }
         if let at = realtime.reminderDoneAt, at != lastReminder { lastReminder = at; doze.reminderFinished(at: at) }
-        let eligible = realtime.isLive && !realtime.suspended && Self.isPlanning(store.phase)
+        let eligible = realtime.isLive && !realtime.suspended && planningNow
             && DozeClock.sleepyStep(store.planningStep) && !isWriting && beat == .none && !realtime.isSpeaking
             && !realtime.kidIsTalking && !realtime.isBusy && !realtime.propLinePending
         let stage = doze.stage(at: Date(), eligible: eligible)
@@ -1190,7 +1222,7 @@ final class AppModel {
 
     /// The screen stays awake during the conversation and kit making; auto-lock is allowed in the Print and Play steps.
     func updateIdleTimer() {
-        let awake = Self.isPlanning(store.phase) || store.phase == .makingKit || (store.phase == .kitReady && !kitPapersOut)
+        let awake = planningNow || store.phase == .makingKit || (store.phase == .kitReady && !kitPapersOut)
         if UIApplication.shared.isIdleTimerDisabled != awake {
             UIApplication.shared.isIdleTimerDisabled = awake
             rtLog("idle timer disabled: \(awake)")
@@ -1224,7 +1256,7 @@ final class AppModel {
         #endif
         let ok = await realtime.connect(auth: auth, config: config, echoCancel: Self.echoCancel,
                                         instructions: Realtime.instructions, keepChat: true)
-        if ok { realtime.addNote(Realtime.resumeNote(todayGames: todayGames, context: ctx)) }
+        if ok { realtime.addNote(store.isReplay ? Realtime.systemNote(replayNote) : Realtime.resumeNote(todayGames: todayGames, context: ctx)) }
         guard store.phase != .hello else { realtime.disconnect(); return }   // left meanwhile
         rtLog("reconnect: \(ok ? "live" : "failed")")
         guard ok else { return }
@@ -1267,6 +1299,210 @@ final class AppModel {
             rtLog("kit: retrying the kit request after background")
             Task { await store.retry() }
         }
+    }
+
+    // MARK: Saved games and replays (round D1, Haylee)
+
+    /// Reads the shelf from disk (newest first).
+    func refreshShelf() {
+        shelfGames = savedGames.list()
+        coverCache = [:]
+    }
+    @ObservationIgnored private var coverCache: [UUID: UIImage] = [:]
+    /// A game's shelf picture: its saved cover (the sign art), or nil (the card draws its prop stickers).
+    func cover(for g: SavedGame) -> UIImage? {
+        if let c = coverCache[g.id] { return c }
+        guard let data = savedGames.cover(for: g), let img = UIImage(data: data) else { return nil }
+        coverCache[g.id] = img
+        return img
+    }
+
+    func openShelf() {
+        refreshShelf()
+        guard !shelfGames.isEmpty else { return }
+        showingShelf = true
+        rtLog("my games: shelf opened (\(shelfGames.count) saved)")
+    }
+    func closeShelf() { showingShelf = false }
+
+    /// "Save it to play again": the game is written to this iPad at once (game content only), she says its title and
+    /// that it's on the shelf, and the button becomes "Play it again".
+    func tapSave() {
+        guard store.canSave, saveState != .saving else { return }
+        userAction(.saveGame)
+        saveState = .saving
+        let started = Date()
+        let id = store.gameID
+        let images = art.artByKey
+        // Printer games: the sign art (it carries the place's name) is the shelf card's picture.
+        let sign = store.kit?.items.first { $0.recipe == .sign }.flatMap { art.images[$0.id] }
+        let printables = store.drawMode ? printablesKit?.items : nil
+        Task { @MainActor in
+            let (files, cover) = await Task.detached(priority: .userInitiated) { () -> ([String: Data], Data?) in
+                var files: [String: Data] = [:]
+                for (key, img) in images { if let d = img.heicData() ?? img.jpegData(compressionQuality: 0.9) { files[key] = d } }
+                return (files, sign.flatMap { Self.coverData($0) })
+            }.value
+            guard store.canSave, let game = store.savedGame(id: id, art: files.keys.sorted(), cover: cover == nil ? nil : "cover.jpg",
+                                                            printables: printables) else { saveState = .failed; return }
+            do {
+                try savedGames.save(game, art: files, cover: cover)
+            } catch {
+                rtLog("save: failed (\(error.localizedDescription))")
+                saveState = .failed
+                return
+            }
+            store.markSaved(game.id)
+            saveState = .idle
+            refreshShelf()
+            rtLog(String(format: "SAVE game saved in %.2f s: %d art files, %d KB on disk, %d on the shelf", Date().timeIntervalSince(started),
+                         files.count, savedGames.size(of: game.id) / 1024, shelfGames.count))
+            gesture(.celebrate); celebrations += 1
+            // Design: "<Title>!" then the shelf line (one app line here; separate title clips come with round D3b).
+            speak("\(game.title)! It's on your shelf now. Play it again anytime!")
+        }
+    }
+
+    /// A 600 px wide JPEG of the sign art for the shelf card.
+    nonisolated static func coverData(_ image: UIImage) -> Data? {
+        let w: CGFloat = 600, scale = w / max(image.size.width, 1)
+        let size = CGSize(width: w, height: image.size.height * scale)
+        let format = UIGraphicsImageRendererFormat(); format.scale = 1
+        return UIGraphicsImageRenderer(size: size, format: format).image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
+            .jpegData(compressionQuality: 0.8)
+    }
+
+    /// The End's "Play it again": a replay of the game just saved, or of the game being replayed (back to Pick).
+    func tapPlayItAgain() {
+        let id = store.savedAs ?? store.replayGameID
+        guard let id, let g = savedGames.game(id) else { return }
+        userAction(.playAgain)
+        Task { await startReplay(g) }
+    }
+
+    /// A card on the shelf: the replay starts (Pick: how many are playing). No AI calls for content anywhere in it.
+    func tapSavedGame(_ g: SavedGame) {
+        userAction(.openSavedGame)
+        Task { await startReplay(g) }
+    }
+
+    /// Starts a replay: the saved art comes back from disk, the store loads the game (Pick), and the voice session
+    /// (pre-connected on the start screen) speaks every line live (recorded clips are round D3b).
+    func startReplay(_ g: SavedGame) async {
+        cheerTask?.cancel(); repeatTask?.cancel(); pointTask?.cancel(); kitBeatTask?.cancel(); kitWait?.cancel()
+        deferredLine = nil
+        let files = savedGames.art(for: g)
+        let decoded = await Task.detached(priority: .userInitiated) { () -> [String: UIImage] in
+            var out: [String: UIImage] = [:]
+            for (k, d) in files { if let img = UIImage(data: d)?.preparedForDisplay() { out[k] = img } }
+            return out
+        }.value
+        var images: [String: UIImage] = [:], cutouts: [String: [Int: UIImage]] = [:]
+        for (key, img) in decoded {
+            guard let p = ArtKey.parse(key) else { continue }
+            if let n = p.index { cutouts[p.itemID, default: [:]][n] = img } else { images[p.itemID] = img }
+        }
+        art.restore(images: images, cutouts: cutouts)
+        printablesKit = nil; printablesShare = nil; printablesState = .idle
+        replayGame = g
+        kitBeat = .papers; kitWriting = false; kitReadySaid = true; beat = .none; shownProps = 0
+        savedGames.touch(g.id)
+        replayStartCalls = AICallLog.snapshot
+        rtLog("REPLAY start \"\(g.title)\": \(decoded.count) art files restored, no generation; AI calls so far: \(AICallLog.summary())")
+        let live = realtime.isLive
+        replayConnecting = !live && realtimeAuth != nil
+        showingShelf = false
+        store.loadReplay(g)   // Pick; her greeting goes through speak (waits for the session if it's connecting)
+        if live {
+            realtime.addNote(Realtime.systemNote(replayNote))
+            return
+        }
+        guard let auth = realtimeAuth else { flushDeferredLine(); return }
+        let config = voiceConfig
+        gameVoice = config
+        let ok = await realtime.connect(auth: auth, config: config, echoCancel: Self.echoCancel, instructions: Realtime.instructions)
+        replayConnecting = false
+        guard store.isReplay, store.replayGameID == g.id else { return }   // left meanwhile
+        if ok {
+            realtime.addNote(Realtime.systemNote(replayNote))
+            realtime.micWanted = true
+            gesture(.wave)
+        }
+        rtLog("REPLAY voice session \(ok ? "live" : "failed: lines use the device voice")")
+        flushDeferredLine()
+    }
+
+    /// The one system note a replay's session gets (title, roles, props, the current step, the scene titles).
+    var replayNote: String {
+        ReplayLines.note(title: store.currentTitle, roles: store.plan?.roles ?? [], players: store.playerCount,
+                         props: store.props?.props ?? [], step: store.phase.step, scenes: store.fullKit?.scenes.map(\.title) ?? [])
+    }
+
+    /// DEBUG/live check: the AI calls made since the replay started (content = Claude + images).
+    func logReplayCalls(_ moment: String) {
+        guard store.isReplay else { return }
+        let now = AICallLog.snapshot
+        let d = AICallLog.Kind.allCases.map { "\($0.rawValue)=\((now[$0] ?? 0) - (replayStartCalls[$0] ?? 0))" }.joined(separator: " ")
+        let content = (now[.claude] ?? 0) - (replayStartCalls[.claude] ?? 0) + (now[.image] ?? 0) - (replayStartCalls[.image] ?? 0)
+        rtLog("REPLAY AI calls since start (\(moment)): \(d) → content calls: \(content)")
+    }
+
+    func replayPick(_ n: Int) {
+        userAction(.replayPick)
+        store.replayPick(n)
+        noteReplayStep()
+    }
+    func replayPickDone() {
+        userAction(.replayPick)
+        store.replayPickDone()
+        noteReplayStep()
+    }
+    func replayProp(_ id: String, have: Bool) {
+        userAction(.replayProp)
+        store.replayProp(id, have: have)
+    }
+    func replayUseAlternate(_ id: String) {
+        userAction(.replayProp)
+        store.replayUseAlternate(id)
+    }
+    func replayPropsDone() {
+        userAction(.replayProp)
+        store.replayPropsDone()
+        noteReplayStep()
+    }
+    func replayDrawInstead() {
+        userAction(.paperChoice)
+        store.replayDrawInstead()
+    }
+    /// The pages a replay prints: the kit for the current count (or a no-printer game's saved printables).
+    var replayPages: [KitPage] {
+        if let items = store.replayPrintables {
+            return KitLayout.pages(for: Kit(nutmegSays: "", items: items, scenes: []), roles: store.plan?.roles ?? [], playerCount: store.playerCount)
+        }
+        return kitPages
+    }
+    /// Paper on a replay: Print everything / Just the badges (the saved art, rebuilt as a PDF for this count) or Skip.
+    func replayPaper(_ choice: PaperChoice) {
+        userAction(.paperChoice)
+        let pages = ReplayProps.pages(replayPages, for: choice)
+        store.replayPaper(choice)
+        guard choice != .skip else { rtLog("REPLAY paper: skip → play"); return }
+        let items = store.replayPrintables ?? store.kit?.items ?? []
+        let pdf = KitPrinter.pdf(pages: pages, art: art.images,
+                                 cutouts: Dictionary(uniqueKeysWithValues: items.map { ($0.id, art.cutoutImages($0)) }))
+        rtLog("REPLAY paper: \(choice.rawValue): \(pages.count) page(s), \(pages.flatMap(\.slots).filter { $0.role != nil }.count) badge(s) for \(store.playerCount), PDF \(pdf.count / 1024) KB")
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-PTPDFOut") {
+            try? pdf.write(to: FileManager.default.temporaryDirectory.appendingPathComponent("replay-\(choice.rawValue).pdf"))
+        }
+        #endif
+        KitPrinter.print(pdf, jobName: "PretendThat \(store.currentTitle)")
+    }
+    /// A silent note so the replay's session knows where the kids are.
+    private func noteReplayStep() {
+        guard store.isReplay, realtime.isLive else { return }
+        realtime.addNote(Realtime.systemNote("(Silent note, don't mention it.) Replay: now on \(store.phase.step?.label ?? "Pick")"
+            + (store.playerCount > 0 ? ", \(store.playerCount) playing (\(store.playingRoles.map(\.roleName).joined(separator: ", ")))" : "") + "."))
     }
 
     // MARK: Checklist and scene pictures (checklist-pictures.md)

@@ -38,7 +38,8 @@ private func clean(_ line: String) {
 
 @Test func endLineSaysWhatEachButtonDoes() {
     let plain = HandOffLines.end(canGoBack: false)
-    #expect(plain.contains("Play again") && plain.contains("New game") && !plain.contains("Back"))
+    #expect(plain.contains("Save it to play again") && plain.contains("New game") && !plain.contains("Back"))   // round D1
+    #expect(HandOffLines.end(canGoBack: false, replay: true).contains("Play it again"))
     let back = HandOffLines.end(canGoBack: true)
     #expect(back.contains("Back to the checklist"))
     clean(back)

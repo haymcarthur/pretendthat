@@ -21,6 +21,7 @@ struct HelloView: View {
             PTToyChestScene(toys: toys, frozenAt: freeze, handoff: handoff(geo, .arrival), camera: handoff(geo, firstFrame),
                             stageStars: stageStars(geo),
                             onExitBegan: onExitBegan,
+                            onMyGames: model.shelfGames.isEmpty ? nil : { model.openShelf() },
                             onStart: { Task { await model.startConversation() } }) { look in
                 NutmegCharacter(state: .idle, showsGround: look.ground, showsTail: look.tail)
             }

@@ -393,6 +393,66 @@ struct PTStartButton: View {
     }
 }
 
+/// Round D1 (Haylee, section 11 + mockup state 2): the white "My games" pill beside Let's play!: a little bookshelf
+/// icon and a purple label, on the same chunky pressable edge (a soft lavender shade).
+struct PTMyGamesButton: View {
+    var width: CGFloat = 252
+    var height: CGFloat = 88
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: height * 0.16) {
+                PTShelfIcon().frame(width: height * 0.42, height: height * 0.46)
+                Text("My games").font(Theme.displayFont(height * 0.34)).foregroundStyle(Theme.purple)
+                    .lineLimit(1).minimumScaleFactor(0.7)
+            }
+            .frame(width: width, height: height)
+        }
+        .buttonStyle(MyGamesStyle())
+        .accessibilityLabel("My games")
+    }
+
+    private struct MyGamesStyle: ButtonStyle {
+        func makeBody(configuration: Configuration) -> some View {
+            let down = configuration.isPressed ? Theme.depth : 0
+            configuration.label
+                .background(Capsule().fill(Theme.white))
+                .overlay(Capsule().strokeBorder(Theme.line, lineWidth: 1.5))
+                .offset(y: down)
+                .background(Capsule().fill(Theme.lavenderShade).offset(y: Theme.depth))
+                .animation(Theme.press, value: configuration.isPressed)
+                .sensoryFeedback(.impact(flexibility: .soft), trigger: configuration.isPressed)
+        }
+    }
+}
+
+/// The small bookshelf icon on the My games button (a wooden case with two shelves of colored books and a star),
+/// drawn with shapes so it stays crisp at any size.
+struct PTShelfIcon: View {
+    var body: some View {
+        GeometryReader { g in
+            let w = g.size.width, h = g.size.height, wood = Color(red: 0.71, green: 0.40, blue: 0.22)
+            ZStack(alignment: .topLeading) {
+                RoundedRectangle(cornerRadius: w * 0.12).fill(wood)
+                RoundedRectangle(cornerRadius: w * 0.06).fill(Theme.cream)
+                    .frame(width: w * 0.76, height: h * 0.36).offset(x: w * 0.12, y: h * 0.1)
+                RoundedRectangle(cornerRadius: w * 0.06).fill(Theme.cream)
+                    .frame(width: w * 0.76, height: h * 0.34).offset(x: w * 0.12, y: h * 0.54)
+                HStack(alignment: .bottom, spacing: w * 0.05) {
+                    Rectangle().fill(Theme.coral).frame(width: w * 0.13, height: h * 0.28)
+                    Rectangle().fill(Theme.purple).frame(width: w * 0.13, height: h * 0.24)
+                    Rectangle().fill(Theme.lime).frame(width: w * 0.13, height: h * 0.28)
+                }
+                .offset(x: w * 0.18, y: h * 0.18)
+                Rectangle().fill(Theme.yellow).frame(width: w * 0.3, height: h * 0.2).offset(x: w * 0.18, y: h * 0.66)
+                Image(systemName: "star.fill").font(.system(size: w * 0.26)).foregroundStyle(Theme.yellow)
+                    .offset(x: w * 0.54, y: h * 0.6)
+            }
+        }
+        .accessibilityHidden(true)
+    }
+}
+
 // MARK: - The scene
 
 /// The start screen: the stage (`PTStageBackdrop` without curtains), sparkles, the toy chest with Nutmeg inside it,
@@ -414,6 +474,8 @@ struct PTToyChestScene<Nutmeg: View>: View {
     /// Fires on the tap, when the exit starts (RootView slides the rail and pill in on the same move).
     var onExitBegan: () -> Void = {}
     var onIntroFinished: () -> Void = {}
+    /// Round D1 (Haylee, section 11): once a game is saved, a white "My games" button sits beside Let's play!.
+    var onMyGames: (() -> Void)? = nil
     let onStart: () -> Void
     @ViewBuilder var nutmeg: (_ look: PTStartNutmeg) -> Nutmeg
 
@@ -480,8 +542,12 @@ struct PTToyChestScene<Nutmeg: View>: View {
         /// Title card top and logo width (the card never reaches her ears), and the start button frame.
         let cardTop, logoW: CGFloat
         let button: CGRect
+        /// Round D1: the "My games" button beside it (nil: no saved games, Let's play! stays centered).
+        let myGames: CGRect?
+        /// Both buttons together (toys keep clear of them).
+        var buttons: CGRect { myGames.map { button.union($0) } ?? button }
 
-        init(_ s: CGSize) {
+        init(_ s: CGSize, pair: Bool = false) {
             size = s
             curtain = PTCurtain.metrics(s)
             floor = PTStage.floor(s)
@@ -499,7 +565,16 @@ struct PTToyChestScene<Nutmeg: View>: View {
             toy = chestW * 0.27
             // Start button: centered under the chest, above the bottom edge.
             let bw = min(300, s.width * 0.3), bh: CGFloat = 88
-            button = CGRect(x: cx - bw / 2, y: s.height - 28 - bh, width: bw, height: bh)
+            if pair {
+                // Round D1 (approved mockup state 2): the pair is centered under the chest, My games a little narrower.
+                let gap = Theme.Space.m, mw = bw * 0.84
+                let left = cx - (bw + gap + mw) / 2
+                button = CGRect(x: left, y: s.height - 28 - bh, width: bw, height: bh)
+                myGames = CGRect(x: left + bw + gap, y: s.height - 28 - bh, width: mw, height: bh)
+            } else {
+                button = CGRect(x: cx - bw / 2, y: s.height - 28 - bh, width: bw, height: bh)
+                myGames = nil
+            }
             // Card: under the valance, its bottom (with the pop's overshoot) clear of her ears.
             cardTop = curtain.valance + Theme.Space.m
             let pad = 2 * Theme.Space.m
@@ -517,7 +592,7 @@ struct PTToyChestScene<Nutmeg: View>: View {
             var y = chestBottom + dy * chestW
             let x = cx + dx * chestW * k
             // Never over the button: toys in its column stay above it.
-            if abs(x - cx) < button.width / 2 + toy * 0.6 { y = min(y, button.minY - 10) }
+            if x > buttons.minX - toy * 0.6 && x < buttons.maxX + toy * 0.6 { y = min(y, button.minY - 10) }
             return CGPoint(x: x, y: y)
         }
     }
@@ -545,7 +620,7 @@ struct PTToyChestScene<Nutmeg: View>: View {
     // MARK: Drawing
 
     @ViewBuilder private func scene(t: Double, e: Double, size: CGSize, origin: CGPoint) -> some View {
-        let L = Layout(size)
+        let L = Layout(size, pair: onMyGames != nil)
         ZStack(alignment: .topLeading) {
             // Round 11: the floor is under the exit's camera (the same transform as Nutmeg), so it ends exactly where the
             // game stage draws it for its first framing.
@@ -562,6 +637,7 @@ struct PTToyChestScene<Nutmeg: View>: View {
             exitStars(e: e, origin: origin)
             titleCard(t: t, e: e, L)
             startButton(t: t, e: e, L)
+            myGamesButton(t: t, e: e, L)
             PTCurtain(progress: PTEase.progress(t, T.curtains))
         }
         .frame(width: size.width, height: size.height)
@@ -757,6 +833,20 @@ struct PTToyChestScene<Nutmeg: View>: View {
             .frame(width: L.size.width)
             .padding(.top, L.cardTop)
             .frame(width: L.size.width, height: L.size.height, alignment: .top)
+    }
+
+    /// Round D1: "My games" pops in with Let's play! and pops away on its exit.
+    @ViewBuilder private func myGamesButton(t: Double, e: Double, _ L: Layout) -> some View {
+        if let r = L.myGames, let onMyGames {
+            let k = T.pop(t, peak: Self.uiPeak)
+            let away = PTEase.progress(e, X.popAway)
+            let scale = (k > 0 ? 0.4 + 0.6 * k : 0.001) * (1 - 0.6 * away)
+            PTMyGamesButton(width: r.width, height: r.height, action: onMyGames)
+                .scaleEffect(max(scale, 0.001))
+                .opacity(min(k * 6, 1) * (1 - away))
+                .allowsHitTesting(t >= T.pop.upperBound && e < 0)
+                .position(x: r.midX, y: r.midY)
+        }
     }
 
     /// The "Let's play!" button pops in last, centered under the chest, and pops away when tapped.

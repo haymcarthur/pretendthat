@@ -54,7 +54,8 @@ struct PTDrawItCard: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.ptPrimary)
-                saveButton
+                // Round D1: hidden on a replay (it would be an image call; section E decides).
+                if !store.isReplay { saveButton }
             }
             .frame(maxWidth: 420)
             .ptCard(fill: Theme.white, edge: Theme.lime, padding: Theme.Space.m)

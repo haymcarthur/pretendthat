@@ -58,6 +58,7 @@ public final class ImageClient: @unchecked Sendable {
         let candidates = lock.withLock { working.map { [$0] } } ?? Self.models
         var lastError: Error = ClaudeError.transport
         for model in candidates {
+            AICallLog.record(.image)   // round D1: counted (numbers only)
             let (data, http) = try await transport.send(try request(prompt: prompt, size: size, model: model, quality: quality, background: background))
             let err = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["error"] as? [String: Any]
             let code = err?["code"] as? String ?? "", message = (err?["message"] as? String ?? "").lowercased()

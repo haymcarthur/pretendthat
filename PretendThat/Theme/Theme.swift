@@ -20,6 +20,8 @@ enum Theme {
     static let nutmeg = Color(hex: BrandPalette.nutmeg)
     static let cream = Color(hex: BrandPalette.cream)
     static let creamShade = Color(hex: BrandPalette.creamShade)
+    /// Round D1: the My games button's soft lavender bottom edge (mockup state 2).
+    static let lavenderShade = Color(hex: 0xDCD3EC)
     static let white = Color(hex: BrandPalette.white)
     static let limeTint = Color(hex: BrandPalette.limeTint)
 

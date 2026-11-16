@@ -189,9 +189,25 @@ struct PTScenePinnedCard: View {
 
 struct EndView: View {
     let model: AppModel
-    private var playAgain: some View {
-        Button { model.tapPlayAgain() } label: { Label("Play again", systemImage: "arrow.counterclockwise") }
+    /// Round D1 (Haylee): "Save it to play again" replaces "Play again" on a first play (an unsaved game is gone when
+    /// they leave); once saved, and on a replay, it's "Play it again" (a replay from Pick). The star is the brand-yellow
+    /// SF Symbol in the icon slot (no emoji).
+    @ViewBuilder private var playAgain: some View {
+        let store = model.store
+        if store.canSave {
+            Button { model.tapSave() } label: {
+                Label { Text(model.saveState == .failed ? "Try saving again" : "Save it to play again") } icon: {
+                    Image(systemName: "star.fill").foregroundStyle(Theme.yellow)
+                }
+            }
             .buttonStyle(.ptSecondary)
+            .disabled(model.saveState == .saving)
+        } else if store.savedAs != nil || store.isReplay {
+            Button { model.tapPlayItAgain() } label: {
+                Label { Text("Play it again") } icon: { Image(systemName: "star.fill").foregroundStyle(Theme.yellow) }
+            }
+            .buttonStyle(.ptSecondary)
+        }
     }
     private var newGame: some View {
         Button { model.tapNewGame() } label: { Label("New game", systemImage: "sparkles") }

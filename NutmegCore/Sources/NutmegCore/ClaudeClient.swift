@@ -93,6 +93,7 @@ public final class ClaudeClient: LLM {
 
     public func structured<T: Decodable & Sendable>(_ type: T.Type, system: String, user: String, schema: JSONSchema, effort: Effort) async throws -> T {
         let req = try makeRequest(system: system, user: user, schema: schema, effort: effort)
+        AICallLog.record(.claude)   // round D1: counted (numbers only) so a replay can be shown to make no content calls
         let data: Data, http: HTTPURLResponse
         do { (data, http) = try await transport.send(req) } catch let e as ClaudeError { throw e } catch { throw ClaudeError.transport }
         guard (200..<300).contains(http.statusCode) else { throw ClaudeError.http(http.statusCode) }

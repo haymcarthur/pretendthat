@@ -1,5 +1,6 @@
 #if DEBUG
 import Foundation
+import UIKit
 import NutmegCore
 
 /// DEBUG only: `-PTDemo <phase>` launches straight into a phase with the bundled airplane game
@@ -84,7 +85,8 @@ enum DemoDriver {
             model.preconnect()
             try? await Task.sleep(for: .seconds(secs))
         }
-        await model.startConversation()
+        // Round D1: "-PTStayHome": stay on the start screen (the socket pre-connects) for the My games / replay turns.
+        if args.contains("-PTStayHome") { model.preconnect() } else { await model.startConversation() }
         for raw in turns {
             // Round 15: a leading "!" sends the turn right away (a quick tap while she's still talking).
             let quick = raw.hasPrefix("!")
@@ -179,6 +181,61 @@ enum DemoDriver {
                 continue
             }
             if turn == "#play" { model.realtime.beginTrace("play tap"); model.tapLetsPlay(); continue }
+            // Round D1 (saved games + replays): "#shot NAME" (the host script screenshots on this log line), "#saveGame"
+            // (The End's Save it to play again), "#tohome" (Leave, and keep going), "#shelf" (My games), "#replay N"
+            // (the Nth card), "#count N" / "#letsgo" (Pick), "#nothave ID" / "#alt ID" / "#allset" (Props),
+            // "#paper everything|badges|skip" (Paper), "#dismissprint", "#calls MOMENT" (AI calls since the replay
+            // started), "#playthrough" (every hand-off and Done! to The End), "#again" (Play it again).
+            if turn.hasPrefix("#shot ") { rtLog("SHOT \(turn.dropFirst(6))"); try? await Task.sleep(for: .seconds(2.5)); continue }
+            if turn == "#saveGame" {
+                model.tapSave()
+                for _ in 0..<100 where model.store.savedAs == nil { try? await Task.sleep(for: .milliseconds(100)) }
+                rtLog("SAVE: \(model.store.savedAs.map { "saved \($0)" } ?? "NOT saved (\(model.saveState))") shelf=\(model.shelfGames.count)")
+                continue
+            }
+            if turn == "#tohome" {
+                for (i, line) in model.realtime.transcript.enumerated() { rtLog("CHAT[\(i)] \(line.fromNutmeg ? "Nutmeg" : "Kid"): \(line.text)") }
+                model.leave(); try? await Task.sleep(for: .seconds(2))
+                rtLog("HOME: phase=\(model.store.phase) shelf=\(model.shelfGames.count) myGamesButton=\(!model.shelfGames.isEmpty)")
+                continue
+            }
+            if turn == "#shelf" { model.openShelf(); try? await Task.sleep(for: .seconds(1)); continue }
+            if turn.hasPrefix("#replay "), let n = Int(turn.dropFirst(8)), model.shelfGames.indices.contains(n) {
+                model.tapSavedGame(model.shelfGames[n])
+                for _ in 0..<150 where !(model.store.isReplay && (model.realtime.isLive || !model.hasRealtime)) { try? await Task.sleep(for: .milliseconds(100)) }
+                rtLog("REPLAY: phase=\(model.store.phase) live=\(model.realtime.isLive)")
+                continue
+            }
+            if turn.hasPrefix("#count "), let n = Int(turn.dropFirst(7)) { model.replayPick(n); continue }
+            if turn == "#letsgo" { model.replayPickDone(); continue }
+            if turn.hasPrefix("#nothave ") { model.replayProp(String(turn.dropFirst(9)), have: false); continue }
+            if turn.hasPrefix("#alt ") { model.replayUseAlternate(String(turn.dropFirst(5))); continue }
+            if turn == "#allset" { model.replayPropsDone(); continue }
+            if turn.hasPrefix("#paper "), let c = PaperChoice(rawValue: String(turn.dropFirst(7))) { model.replayPaper(c); continue }
+            if turn == "#dismissprint" { UIPrintInteractionController.shared.dismiss(animated: true); try? await Task.sleep(for: .seconds(1)); continue }
+            if turn.hasPrefix("#calls ") { model.logReplayCalls(String(turn.dropFirst(7))); continue }
+            if turn == "#again" { model.tapPlayItAgain(); try? await Task.sleep(for: .seconds(3)); continue }
+            if turn == "#props" {
+                rtLog("PROPS " + (model.store.props?.props.map { "\($0.id)=\($0.householdItem)\($0.isSkipped ? "(pretend)" : "")" }.joined(separator: ", ") ?? "-"))
+                continue
+            }
+            if turn == "#playthrough" {
+                for _ in 0..<30 {
+                    for _ in 0..<80 where model.realtime.isSpeaking || model.realtime.isBusy { try? await Task.sleep(for: .milliseconds(100)) }
+                    try? await Task.sleep(for: .seconds(1))
+                    switch model.store.phase {
+                    case .handoff(let i):
+                        if let t = model.store.kit?.scenes[i].owner.role { rtLog("driver: handoff to \(t.rawValue)"); model.tapHandoff(t) }
+                    case .scene(let i):
+                        rtLog("driver: done scene \(i)"); await model.sceneDone()
+                    default: break
+                    }
+                    if model.store.phase == .end { break }
+                }
+                for _ in 0..<80 where model.realtime.isSpeaking || model.realtime.isBusy { try? await Task.sleep(for: .milliseconds(100)) }
+                rtLog("PLAYTHROUGH: phase=\(model.store.phase)")
+                continue
+            }
             if turn == "#handoff" {
                 if case .handoff(let i) = model.store.phase, let t = model.store.kit?.scenes[i].owner.role {
                     model.realtime.beginTrace("handoff tap"); model.tapHandoff(t)
@@ -194,6 +251,7 @@ enum DemoDriver {
         for _ in 0..<300 where model.realtime.isSpeaking { try? await Task.sleep(for: .milliseconds(100)) }
         try? await Task.sleep(for: .seconds(2))
         for (i, line) in model.realtime.transcript.enumerated() { rtLog("CHAT[\(i)] \(line.fromNutmeg ? "Nutmeg" : "Kid"): \(line.text)") }
+        rtLog("DRIVER-END")
     }
 
     @MainActor static func drive(_ store: AdventureStore, model: AppModel, to target: String) async {

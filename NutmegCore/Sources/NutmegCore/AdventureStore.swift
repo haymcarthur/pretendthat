@@ -60,7 +60,9 @@ public final class AdventureStore {
     /// What she reads for the current piece (and the pill's Repeat says again).
     public var drawLine: String? { drawGuide.map { DrawIt.line($0, drawIndex, players: playerCount) }.flatMap { $0.isEmpty ? nil : $0 } }
     /// The Draw it! card is up (no printer, the kit is made, the Paper step).
-    public var drawing: Bool { drawMode && phase == .kitReady && drawGuide != nil }
+    public var drawing: Bool {
+        drawMode && phase == .kitReady && drawGuide != nil && (replayGameID == nil || replayPrintables == nil || replayDrawChosen)
+    }
     public private(set) var ideas: GameIdeas?
     public private(set) var plan: GamePlan?
     public private(set) var props: Props?
@@ -209,6 +211,7 @@ public final class AdventureStore {
 
     public func confirmPlayers() async {
         let game = gameTitle ?? "Airplane"
+        countNewGame()   // round D1: the tap path's confirm (the roles are the first paid call)
         await run("plan", kidSaid: nil) { [self] svc in
             plan = try await svc.plan(game: game, ctx: context)
         } fallback: { [self] in useFallbackGame() }
@@ -385,6 +388,136 @@ public final class AdventureStore {
         cancelDraft()
         cancelDrawDraft()
         guidePending = false; playQueued = false; guideCalls = 0
+        // Round D1: a new adventure (or a replay that loads over this) starts clean.
+        gameID = UUID(); countedNewGame = false; savedAs = nil
+        replayGameID = nil; replaySaved = []; replayBase = []; replayPrintables = nil; replayPrinted = nil; replayDrawChosen = false
+    }
+
+    // MARK: Saved games and replays (round D1, Haylee)
+
+    /// This adventure's id (a saved game keeps it; a replay uses the saved game's).
+    public private(set) var gameID = UUID()
+    /// Round D1 hook for section E: new games vs replays (no-op for now).
+    @ObservationIgnored public var ledger: GameLedger = NoOpLedger()
+    @ObservationIgnored private var countedNewGame = false
+    private func countNewGame() {
+        guard !countedNewGame, !isReplay else { return }
+        countedNewGame = true
+        ledger.newGameStarted(id: gameID)
+    }
+    /// The first play was saved at The End (its id): The End offers "Play it again" (a replay of it).
+    public private(set) var savedAs: UUID?
+    /// A first play can be saved at The End (round D1: never mid-game; a replay is already saved).
+    public var canSave: Bool { phase == .end && !isReplay && savedAs == nil && fullKit?.scenes.isEmpty == false && plan != nil }
+    public func markSaved(_ id: UUID) { savedAs = id }
+
+    /// The saved game being replayed (nil on a first play).
+    public private(set) var replayGameID: UUID?
+    public var isReplay: Bool { replayGameID != nil }
+    /// The saved props and play guide (the replay's prop answers are applied to these, never to each other).
+    @ObservationIgnored private var replaySaved: [SavedProp] = []
+    @ObservationIgnored private var replayBase: [Scene] = []
+    /// A no-printer game that saved printables: Paper offers the print choices (and Draw it instead).
+    public private(set) var replayPrintables: [KitItem]?
+    /// The print choice made on this Paper visit (Let's play! shows after it).
+    public private(set) var replayPrinted: PaperChoice?
+    /// "Draw it instead" on a no-printer game with saved printables.
+    public private(set) var replayDrawChosen = false
+
+    /// Loads a saved game for a replay: Pick is current (only "how many are playing?"), nothing is generated.
+    public func loadReplay(_ g: SavedGame) {
+        newGame()
+        replayGameID = g.id; gameID = g.id
+        gameTitle = g.title
+        plan = GamePlan(gameTitle: g.title, setting: g.title, roles: g.roles, nutmegSays: "")
+        replaySaved = g.props
+        let list = g.props.map(\.replayProp)
+        props = Props(nutmegSays: "", props: list)
+        foundProps = Set(list.map(\.id))   // every card starts as Got it (Haylee)
+        hasPrinter = g.hasPrinter; printStyle = g.printStyle; drawGuide = g.drawGuide; drawIndex = 0
+        replayBase = g.kit.scenes
+        fullKit = Kit(nutmegSays: g.kit.nutmegSays, items: g.kit.items,
+                      scenes: ReplayProps.apply(g.kit.scenes, saved: g.props, current: list, items: g.kit.items))
+        replayPrintables = g.printablesMade ? g.printables : nil
+        planningStep = .finish
+        phase = .players
+        say(ReplayLines.greeting(title: g.title))
+        ledger.replayStarted(id: g.id)
+    }
+
+    /// Pick: how many are playing (1–6). The playing roles, badges and checklists follow, with no AI call.
+    public func replayPick(_ n: Int) {
+        guard isReplay else { return }
+        playerCount = max(1, min(n, Players.max))
+        resetPlayProgress()
+        say(PlayCast.countChangeLine(roles: plan?.roles ?? [], players: playerCount))
+    }
+
+    /// Pick → Props: the whole saved list at once.
+    public func replayPickDone() {
+        guard isReplay, playerCount > 0 else { return }
+        phase = .props
+        say(ReplayLines.stillHave(props?.props ?? []))
+    }
+
+    /// Props: Got it (have) or Don't have it (a pretend swap: its steps say "the pretend …").
+    public func replayProp(_ id: String, have: Bool) {
+        guard isReplay, var p = props, let i = p.props.firstIndex(where: { $0.id == id }) else { return }
+        guard p.props[i].isSkipped == have else { return }
+        p.props[i].skipped = !have
+        props = p
+        if have { foundProps.insert(id) } else { foundProps.remove(id) }
+        replayRefreshGuide()
+        if !have { say(ReplayLines.pretend(p.props[i].becomes)) }
+    }
+
+    /// The missing prop's saved alternate, in one tap ("Use a towel instead?").
+    public func replayAlternate(for id: String) -> String? {
+        guard isReplay, let p = props?.props.first(where: { $0.id == id }), p.isSkipped else { return nil }
+        return p.alternates?.first(where: PropLibrary.contains)
+    }
+    public func replayUseAlternate(_ id: String) {
+        guard let alt = replayAlternate(for: id), var p = props, let i = p.props.firstIndex(where: { $0.id == id }) else { return }
+        p.props[i].libraryID = alt
+        p.props[i].householdItem = PropLibrary.name(alt) ?? alt
+        p.props[i].reason = PropFit.reason(itemID: alt, becomes: p.props[i].becomes)
+        p.props[i].skipped = false; p.props[i].swapped = true
+        p.props[i].alternates = p.props[i].alternates?.filter { $0 != alt }
+        props = p
+        foundProps.insert(id)
+        replayRefreshGuide()
+        say(ReplayLines.useInstead(p.props[i].householdItem))
+    }
+
+    private func replayRefreshGuide() {
+        guard var k = fullKit else { return }
+        k.scenes = ReplayProps.apply(replayBase, saved: replaySaved, current: props?.props ?? [], items: k.items)
+        fullKit = k
+        resetPlayProgress()
+    }
+
+    /// Props → Paper: the print choices, or Draw it! again from the saved guide (no printer).
+    public func replayPropsDone() {
+        guard isReplay, phase == .props else { return }
+        replayPrinted = nil; replayDrawChosen = false; drawIndex = 0
+        phase = .kitReady
+        if drawing, let line = drawLine { say(line) } else { say(ReplayLines.paperQuestion) }
+    }
+
+    /// Paper: print everything or just the badges (the app opens the print screen; Let's play! shows next), or skip
+    /// straight to Play.
+    public func replayPaper(_ choice: PaperChoice) {
+        guard isReplay, phase == .kitReady else { return }
+        if choice == .skip { beginPlay(); return }
+        replayPrinted = choice
+        say(ReplayLines.printed)
+    }
+
+    /// No printer, but printables were saved: draw the kit instead.
+    public func replayDrawInstead() {
+        guard isReplay, phase == .kitReady, drawMode, drawGuide != nil else { return }
+        replayDrawChosen = true; drawIndex = 0
+        if let line = drawLine { say(line) }
     }
 
     // MARK: Kit made during the hunt (round 20, Haylee)
@@ -564,6 +697,7 @@ public final class AdventureStore {
         case .print:
             phase = .kitReady; presenting = .none
             drawIndex = 0   // round 24: Draw it! starts again from the first piece
+            replayPrinted = nil   // round D1: the replay's Paper choices again
         case .play:
             presenting = .none
             if let last = lastPlayPhase { phase = last } else { beginPlay() }
@@ -589,6 +723,17 @@ public final class AdventureStore {
     }
 
     private func applyCall(_ call: PlanningCall) async -> String {
+        // Round D1: a saved game never changes on a replay (no game, theme, roles, props, printer or color calls).
+        if isReplay {
+            switch call {
+            case .showGameIdeas, .setGame, .setTheme, .setRoles, .showProps, .showNextProp, .markFound, .swapProp, .skipProp,
+                 .finishPlanning, .confirmPlan, .setPrintStyle, .setPrinter:
+                return ReplayLines.savedGameOutput
+            case .startPlay where phase == .props:
+                return "Not yet: they're checking the props. Say ONE short line: tap All set when they're ready."
+            default: break
+            }
+        }
         switch call {
         case .showGameIdeas(let list):
             ideas = GameIdeas(nutmegSays: "", ideas: list)
@@ -634,6 +779,7 @@ public final class AdventureStore {
                 return planningStep < .confirm ? "Not yet: finish the current step first. Answer in ONE short line and ask its question."
                     : "Already confirmed. Carry on with the current step."
             }
+            countNewGame()   // round D1: a new game counts at the confirm-step yes (design §7)
             phase = .players; presenting = .none
             // Round 24: the printer question comes next, unless the kids already answered it.
             guard let printer = hasPrinter else { planningStep = .printer; return PrinterChoice.askOutput(playerCount: max(1, playerCount)) }
@@ -1232,7 +1378,7 @@ public final class AdventureStore {
     }
 
     private func goToScene(_ i: Int) {
-        guard let kit, i < kit.scenes.count else { phase = .end; sayInPlay(HandOffLines.end(canGoBack: canGoBackToChecklist)); return }
+        guard let kit, i < kit.scenes.count else { phase = .end; sayInPlay(HandOffLines.end(canGoBack: canGoBackToChecklist, replay: isReplay)); return }
         // Hand-offs are by role (round 8: "iPad", and she says which button to tap; the card's button reads "I'm the Captain!").
         let owner = kit.scenes[i].owner.role
         if playerCount > 1, let owner, owner != holder, let role = plan?.role(for: owner) {

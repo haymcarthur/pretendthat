@@ -48,6 +48,7 @@ public final class ModerationClient: Moderating, @unchecked Sendable {
         let input = texts.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
         guard !input.isEmpty else { return .clear }
         do {
+            AICallLog.record(.moderation)   // round D1: counted (numbers only)
             let (data, http) = try await transport.send(try request(Array(input.prefix(32))))
             return Self.decode(data: data, status: http.statusCode)
         } catch {

@@ -33,6 +33,20 @@ final class KitArtService {
     }
 
     func cutout(_ itemID: String, _ index: Int) -> UIImage? { cutouts[itemID]?[index] }
+
+    /// Round D1: a replay's saved page art, exactly as the first play drew it. No image calls: the kit is final at once.
+    func restore(images: [String: UIImage], cutouts: [String: [Int: UIImage]]) {
+        reset()
+        self.images = images; self.cutouts = cutouts
+        progress = 1; finished = true
+    }
+    /// Round D1: every page image and cut-out (badge slices included) by its stored art key, for Save.
+    var artByKey: [String: UIImage] {
+        var out: [String: UIImage] = [:]
+        for (id, img) in images { out[ArtKey.image(id)] = img }
+        for (id, m) in cutouts { for (n, img) in m { out[ArtKey.cutout(id, n)] = img } }
+        return out
+    }
     /// The cut-out images of an item in order (nil where not drawn yet).
     #if DEBUG
     /// `-PTFakeArt`: test images at the real AI sizes (an off-white sheet with a soft shadow, a red edge frame and a
