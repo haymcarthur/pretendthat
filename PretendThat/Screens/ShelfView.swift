@@ -129,17 +129,21 @@ struct PTBookshelf: View {
         let bottom = (slot.shelfBackY + slot.shelfFrontY) / 2 * size.height
         let top = (slot.y + 0.01) * size.height
         let h = bottom - top
-        let w = min(h * 1.5, innerW * 0.29)
+        // Round 27: every card is the game's square cover, all the same size (the shortest shelf's opening).
+        let shortest = slots.map { ($0.shelfBackY + $0.shelfFrontY) / 2 - ($0.y + 0.01) }.min() ?? 0.13
+        let side = min(shortest * size.height, innerW * 0.29)
+        let w = side
         let gap = (innerW - 3 * w) / 4
         let x = innerX + gap + CGFloat(col) * (w + gap)
-        let card = CGRect(x: x, y: bottom - h, width: w, height: h)
+        let card = CGRect(x: x, y: bottom - side, width: w, height: side)
         let lh = max(18, h * 0.2), lw = w + gap * 0.7
         let label = CGRect(x: card.midX - lw / 2, y: slot.shelfFrontY * size.height + size.height * 0.022 - lh / 2, width: lw, height: lh)
         return (card, label)
     }
 }
 
-/// One saved game standing on the shelf: a white-framed picture card (its sign art, or its prop stickers on cream).
+/// One saved game standing on the shelf: a white-framed square picture card (round 27: its text-free cover; else its
+/// color sign page; else its prop stickers on cream).
 struct PTGameCard: View {
     let game: SavedGame
     let cover: UIImage?

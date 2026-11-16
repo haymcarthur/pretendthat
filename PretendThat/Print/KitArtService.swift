@@ -3,9 +3,11 @@ import SwiftUI
 import UIKit
 import NutmegCore
 
-/// Generates one line-art image per kit item with OpenAI (in parallel). There are no names anywhere (the app prints
+/// Generates one image per kit item with OpenAI (in parallel). There are no names anywhere (the app prints
 /// blank name lines and role titles). The cut-outs page is generated as ONE IMAGE PER CUT-OUT (checklist-pictures.md),
 /// tiled onto the page by the app, so each item can also be a checklist picture. Without a key, pages are app-drawn.
+/// Round 27 (Haylee): one service PER STYLE (the full-color set and the outline set are both drawn during the hunt),
+/// sharing one limiter so the whole game stays at most 3 image calls at once.
 @Observable @MainActor
 final class KitArtService {
     private(set) var images: [String: UIImage] = [:]
@@ -17,8 +19,12 @@ final class KitArtService {
     /// Pages drawn so far / pages asked for, for the progress bar.
     private(set) var progress: Double = 0
     @ObservationIgnored private let client: ImageClient?
+    /// Round 27: the look this set is drawn in.
+    let style: PrintStyle
 
-    init(client: ImageClient?) { self.client = client }
+    init(client: ImageClient?, style: PrintStyle, limiter: AsyncLimiter) {
+        self.client = client; self.style = style; self.limiter = limiter
+    }
 
     var isAvailable: Bool { client != nil }
     /// Set after OpenAI says this account can't make images this run (no credits, unverified org, bad key).
@@ -29,7 +35,7 @@ final class KitArtService {
     func reset() {
         generation += 1; images = [:]; cutouts = [:]; isGenerating = false; progress = 0; finished = false
         drawnFor = nil; inFlight = []; failed = []; retriedAfterAway = []; finalItems = nil; landedAt = [:]
-        plan = nil; landedSheets = []
+        plan = nil; landedSheets = []; finishedAt = nil
     }
 
     func cutout(_ itemID: String, _ index: Int) -> UIImage? { cutouts[itemID]?[index] }
@@ -43,8 +49,8 @@ final class KitArtService {
     /// Round D1: every page image and cut-out (badge slices included) by its stored art key, for Save.
     var artByKey: [String: UIImage] {
         var out: [String: UIImage] = [:]
-        for (id, img) in images { out[ArtKey.image(id)] = img }
-        for (id, m) in cutouts { for (n, img) in m { out[ArtKey.cutout(id, n)] = img } }
+        for (id, img) in images { out[ArtKey.image(id, style: style)] = img }   // round 27: the outline set is o-prefixed
+        for (id, m) in cutouts { for (n, img) in m { out[ArtKey.cutout(id, n, style: style)] = img } }
         return out
     }
     /// The cut-out images of an item in order (nil where not drawn yet).
@@ -101,21 +107,22 @@ final class KitArtService {
     @ObservationIgnored private var retriedAfterAway: Set<String> = []
     /// The final kit's items (nil during the hunt): `finished` is about these.
     @ObservationIgnored private var finalItems: [KitItem]?
-    /// Round 20: at most 3 image calls at once (the relay's 40 images/min limit; no 429 bursts).
+    /// Round 20: at most 3 image calls at once (the relay's 40 images/min limit; no 429 bursts). Round 27: the limiter
+    /// is shared by both sets and the cover.
     static let concurrency = 3
-    @ObservationIgnored private let limiter = AsyncLimiter(limit: KitArtService.concurrency)
+    @ObservationIgnored private let limiter: AsyncLimiter
     /// DEBUG timing: when each job landed.
     @ObservationIgnored private(set) var landedAt: [String: Date] = [:]
 
     /// Round 20: the kit pages written during the hunt: their art starts now, in the background (no commentary).
-    func prepare(items: [KitItem], gameTitle: String, style: PrintStyle, roles: [Role] = []) {
+    func prepare(items: [KitItem], gameTitle: String, roles: [Role] = []) {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-PTFakeArt") { return }
         #endif
         guard let client else { return }
         startOver(ifNot: Self.drawKey(gameTitle, style, roles))
         self.roles = roles
-        NSLog("[RT] kit art: hunt prefetch, %d item(s)", items.count)
+        NSLog("[RT] kit art (%@): hunt prefetch, %d item(s)", style.toolValue, items.count)
         plan = (items, gameTitle, style, nil)
         launch(KitArtPlan.jobs(items: items, title: gameTitle, style: style, settled: settled, roles: roles), client: client, style: style)
     }
@@ -130,7 +137,7 @@ final class KitArtService {
 
     /// The final kit (hunt over): any art not drawn or drawing yet starts now (the skipped props' cut-outs, a page that
     /// was never prefetched); `finished` once every page has landed or definitively fallen back.
-    func generate(kit: Kit, gameTitle: String, style: PrintStyle, sheetCount: Int? = nil, roles: [Role] = []) async {
+    func generate(kit: Kit, gameTitle: String, sheetCount: Int? = nil, roles: [Role] = []) async {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-PTFakeArt") { self.roles = roles; fakeArt(kit); return }
         #endif
@@ -141,7 +148,7 @@ final class KitArtService {
         let gen = generation
         plan = (kit.items, gameTitle, style, sheetCount)
         let jobs = KitArtPlan.jobs(items: kit.items, title: gameTitle, style: style, settled: settled, sheetCount: sheetCount, roles: roles)
-        NSLog("[RT] kit art: final kit, %d new job(s), %d already drawing, %d landed", jobs.count, inFlight.count,
+        NSLog("[RT] kit art (\(style.toolValue)): final kit, %d new job(s), %d already drawing, %d landed", jobs.count, inFlight.count,
               images.count + cutouts.values.map(\.count).reduce(0, +))
         launch(jobs, client: client, style: style)
         updateFinished()
@@ -238,8 +245,12 @@ final class KitArtService {
         let need = KitArtPlan.keys(items: items, roles: roles, settled: failed)
         let s = settled.subtracting(inFlight)
         progress = need.isEmpty ? 1 : Double(need.intersection(s).count) / Double(need.count)
-        if need.isSubset(of: s) { finished = true }
+        if need.isSubset(of: s) && !finished { finished = true; finishedAt = Date() }
     }
+    /// Round 27 DEBUG timing: when this set became final.
+    @ObservationIgnored private(set) var finishedAt: Date?
+    /// Round 27: pages of the final kit still drawing (for the per-set progress on the Print screen).
+    var drawing: Bool { !finished }
 }
 
 /// Paper-white AI art (Haylee, page preview fix): the image model paints near-white, off-white or light-gray paper and

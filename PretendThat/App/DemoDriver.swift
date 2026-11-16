@@ -175,7 +175,7 @@ enum DemoDriver {
                     rtLog("CHECKLIST[\(i)] holder=\(who) \(sc.title): " + sc.steps.map { "\($0.role.rawValue): \($0.text)" }.joined(separator: " | "))
                 }
                 let badges = model.kitPages.filter { $0.item.recipe == .badges }.flatMap(\.slots)
-                rtLog("CHECKLIST badges=\(badges.compactMap(\.role)) slices=\(s.kit?.items.first { $0.recipe == .badges }.map { model.art.cutoutImages($0).compactMap { $0 }.count } ?? 0)")
+                rtLog("CHECKLIST badges=\(badges.compactMap(\.role)) slices=\(s.kit?.items.first { $0.recipe == .badges }.map { model.printArt.cutoutImages($0).compactMap { $0 }.count } ?? 0)")
                 continue
             }
             if turn == "#play" { model.realtime.beginTrace("play tap"); model.tapLetsPlay(); continue }

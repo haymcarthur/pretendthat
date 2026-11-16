@@ -101,12 +101,16 @@ struct PTPageFan {
     /// Vertical step between rows as a fraction of the page height (the next row overlaps the bottom of the first).
     static let rowStep: CGFloat = 0.86
 
-    init(count n: Int, in box: CGSize, aspect: CGFloat = 8.5 / 11) {
+    /// This fan's horizontal step (round 27: a set of the two-set Print screen is one tighter row, like a hand of cards).
+    let hStep: CGFloat
+
+    init(count n: Int, in box: CGSize, aspect: CGFloat = 8.5 / 11, oneRow: Bool = false, step: CGFloat = PTPageFan.step) {
         count = max(1, n)
-        rows = count > 4 ? 2 : 1
+        rows = oneRow || count <= 4 ? 1 : 2
         columns = Int(ceil(Double(count) / Double(rows)))
+        hStep = step
         let usableW = box.width * 0.92, usableH = box.height * 0.9          // room for tilt and arc
-        let byW = usableW / (1 + CGFloat(columns - 1) * Self.step)
+        let byW = usableW / (1 + CGFloat(columns - 1) * step)
         let byH = usableH / (1 + CGFloat(rows - 1) * Self.rowStep) * aspect
         let w = max(40, min(byW, byH, 240))
         paper = CGSize(width: w, height: w / aspect)
@@ -117,6 +121,6 @@ struct PTPageFan {
         let inRow = r == rows - 1 ? count - r * columns : columns
         let c = CGFloat(i % columns) - CGFloat(inRow - 1) / 2
         let y = (CGFloat(r) - CGFloat(rows - 1) / 2) * paper.height * Self.rowStep
-        return (CGPoint(x: c * paper.width * Self.step, y: y + abs(c) * paper.height * 0.03), Double(c) * 3)
+        return (CGPoint(x: c * paper.width * hStep, y: y + abs(c) * paper.height * 0.03), Double(c) * 3)
     }
 }

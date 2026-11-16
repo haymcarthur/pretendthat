@@ -321,7 +321,8 @@ struct RootView: View {
                 var tx = Transaction(); tx.disablesAnimations = true
                 withTransaction(tx) { kitPreview = PTPreviewTarget(index: i) }
             }, onPrint: { model.tapPrint() }, onPlay: { model.tapLetsPlay() }) { i in
-                KitPageView(page: pages[i], art: model.art.images[pages[i].item.id], cutouts: model.art.cutoutImages(pages[i].item))
+                // Round 27: the chat-open pinned card shows the chosen set (the stage shows both).
+                KitPageView(page: pages[i], art: model.printArt.images[pages[i].item.id], cutouts: model.printArt.cutoutImages(pages[i].item))
                     .scaleEffect(PTKitPinnedCard<EmptyView>.thumb.width / KitPageView.size.width)
                     .frame(width: PTKitPinnedCard<EmptyView>.thumb.width, height: PTKitPinnedCard<EmptyView>.thumb.height)
             })

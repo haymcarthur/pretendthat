@@ -8,7 +8,17 @@ final class AppModel {
     let store: AdventureStore
     let voice = NutmegVoice()
     let listener = Listener()
-    let art: KitArtService
+    /// Round 27 (Haylee): the kit is drawn in BOTH styles during the hunt: the full-color set and the outline set,
+    /// plus one text-free bookshelf cover, all on one limiter (≤3 image calls at once). The printer prints `printArt`.
+    let colorArt: KitArtService
+    let outlineArt: KitArtService
+    let coverArt: CoverArtService
+    func artSet(_ style: PrintStyle) -> KitArtService { style == .fullColor ? colorArt : outlineArt }
+    /// The set chosen on the Print screen (color by default).
+    var printArt: KitArtService { artSet(store.printSet) }
+    /// The sets the Print screen shows (a game saved before round 27 has one).
+    var printSets: [PrintStyle] { store.availableSets }
+    private func resetArt() { colorArt.reset(); outlineArt.reset(); coverArt.reset() }
     let stickers: ItemArtService
     /// Round 19: the kid-safety check (local filter, then moderation).
     @ObservationIgnored let safety: KidSafetyCheck
@@ -87,7 +97,10 @@ final class AppModel {
         // Demo screens skip paid image calls unless asked: -PTDemoArt 1
         if DemoDriver.requestedPhase != nil, !ProcessInfo.processInfo.arguments.contains("-PTDemoArt") { images = nil }
         #endif
-        art = KitArtService(client: images)
+        let limiter = AsyncLimiter(limit: KitArtService.concurrency)   // round 27: one limiter for both sets + the cover
+        colorArt = KitArtService(client: images, style: .fullColor, limiter: limiter)
+        outlineArt = KitArtService(client: images, style: .colorIn, limiter: limiter)
+        coverArt = CoverArtService(client: images, limiter: limiter)
         stickers = ItemArtService(client: images)
         realtimeAuth = RealtimeAuth.from(info: info)
         // Round 20: the Grown-ups voice settings are gone; drop what older builds stored for them (device settings only).
@@ -340,7 +353,7 @@ final class AppModel {
         }
     }
     func tapPlayAgain() { userAction(.playAgain); store.playAgain() }
-    func tapPrint() { userAction(.print); printKit() }
+    func tapPrint() { guard printArt.finished else { return }; userAction(.print); printKit() }   // round 27: the chosen set
     func tapStepRail(_ step: JourneyStep) {
         userAction(.stepRail)
         let queued = store.playQueued
@@ -388,7 +401,7 @@ final class AppModel {
         huntStartedAt = nil; printReachedAt = nil
         shownProps = 0; beat = .none; kitBeatTask?.cancel(); kitBeat = .coloring; kitWriting = false; kitWritingTask?.cancel(); kitWritingTask = nil
         voice.stop()
-        art.reset()
+        resetArt()
         stickers.reset()
         gate.reset(); safeSnap = nil; screenedTurns = [:]
         replayGame = nil; replayConnecting = false; saveState = .idle
@@ -456,7 +469,8 @@ final class AppModel {
             let pages = store.draftItems.map { KitArtPlan.keys(items: $0).count } ?? 0
             rtLog(String(format: "TIMING print reached %.1f s after the hunt started; pages written: %@; art landed: %d of %d",
                          huntStartedAt.map { Date().timeIntervalSince($0) } ?? -1, store.draftItems == nil ? "no" : "yes",
-                         art.images.count + art.cutouts.values.map(\.count).reduce(0, +), pages))
+                         colorArt.images.count + colorArt.cutouts.values.map(\.count).reduce(0, +), pages))
+            trackArtTimings()
         }
         // (A fast kit can skip straight to kitReady between two observations; it still gets its writing beat.)
         if (store.phase == .makingKit || store.phase == .kitReady) && kitBeat == .coloring && !kitWriting && kitWritingTask == nil {
@@ -497,7 +511,10 @@ final class AppModel {
         #endif
         // Round 20: the hunt's themed cut-outs were one sheet; the skipped props' cut-outs after them are drawn one each.
         let sheet = store.draftItems?.first { $0.recipe == .cutouts }.map { KitArtPrompt.cutoutLabels($0).count }
-        Task { await art.generate(kit: kit, gameTitle: title, style: store.currentPrintStyle, sheetCount: sheet, roles: store.plan?.roles ?? []) }
+        // Round 27: both sets (color first: it's the default, and the limiter is FIFO).
+        let roles = store.plan?.roles ?? []
+        Task { await colorArt.generate(kit: kit, gameTitle: title, sheetCount: sheet, roles: roles) }
+        Task { await outlineArt.generate(kit: kit, gameTitle: title, sheetCount: sheet, roles: roles) }
     }
 
     // MARK: Kit made during the hunt (round 20, Haylee)
@@ -513,13 +530,16 @@ final class AppModel {
         guard planningNow || making else { return }
         if store.draftGeneration != artDraftGeneration && !making {
             artDraftGeneration = store.draftGeneration
-            art.reset()
+            resetArt()
         }
         guard let items = store.draftItems else { return }
         if let started = store.draftStartedAt, let ready = store.draftReadyAt {
             rtLog(String(format: "TIMING kit pages written during the hunt in %.1f s", ready.timeIntervalSince(started)))
         }
-        art.prepare(items: items, gameTitle: store.currentTitle, style: store.currentPrintStyle, roles: store.plan?.roles ?? [])
+        // Round 27: both sets, then the cover (queued last on the shared limiter).
+        colorArt.prepare(items: items, gameTitle: store.currentTitle, roles: store.plan?.roles ?? [])
+        outlineArt.prepare(items: items, gameTitle: store.currentTitle, roles: store.plan?.roles ?? [])
+        coverArt.start(title: store.currentTitle, setting: store.plan?.setting)
     }
 
     /// DEBUG timings for the live check (hunt start → Print, the wait at Print).
@@ -544,6 +564,7 @@ final class AppModel {
                 // While the kit's content is being written, every page and the play guide are in progress; then only
                 // the pages whose art is still being drawn.
                 // Round 20: the pages were written during the hunt, so only what's still in progress counts.
+                let art = printArt   // round 27: the chosen set
                 let pending = (store.kit?.items ?? store.draftItems ?? []).filter { item in
                     item.recipe == .cutouts ? art.cutoutImages(item).contains { $0 == nil }
                         : item.recipe == .badges ? art.badge(item.id, role: 0) == nil   // round C1: the sheet or the shared badge
@@ -681,6 +702,8 @@ final class AppModel {
     }
     /// Print (single tap, decisions/2026-11-13-single-tap-print.md): the whole kit as one PDF to the iOS print screen.
     func printKit() {
+        let art = printArt   // round 27: the chosen set, for the current player count
+        rtLog("print: the \(store.printSet.toolValue) set, \(kitPages.count) page(s)")
         let pdf = KitPrinter.pdf(pages: kitPages, art: art.images,
                                  cutouts: Dictionary(uniqueKeysWithValues: (store.kit?.items ?? []).map { ($0.id, art.cutoutImages($0)) }))
         KitPrinter.print(pdf, jobName: "PretendThat \(store.currentTitle)")
@@ -689,13 +712,57 @@ final class AppModel {
     var kitPapersOut: Bool { kitFinal && kitBeat == .papers }
 
     /// Every page's art has landed or definitively fallen back.
-    var kitFinal: Bool { store.phase == .kitReady && store.kit != nil && art.finished }
+    /// Round 27: the papers come out once one set is final (color first, normally); a set still drawing shows its
+    /// progress on the Print screen and its printer waits for it.
+    var kitFinal: Bool { store.phase == .kitReady && store.kit != nil && (colorArt.finished || outlineArt.finished) }
+    /// Round 27: the chosen set is final, so the printer can print it.
+    var printReady: Bool { kitFinal && printArt.finished }
+    /// Round 27: a page of `set` whose art hasn't landed while the set is still drawing (shown in progress).
+    func pageDrawing(_ page: KitPage, in set: KitArtService) -> Bool {
+        guard !set.finished else { return false }
+        let item = page.item
+        if item.recipe == .cutouts { return set.cutoutImages(item).contains { $0 == nil } }
+        if item.recipe == .badges { return set.badge(item.id, role: 0) == nil }
+        return set.images[item.id] == nil
+    }
+    /// Round 27: a set tapped on the Print screen.
+    func tapPrintSet(_ style: PrintStyle) {
+        guard store.printSet != style, store.choosePrintSet(style) else { return }
+        userAction(.print)
+        rtLog("print set: \(style.toolValue) (tap)")
+        if realtime.isLive {
+            realtime.addNote(Realtime.systemNote("(Silent note, don't mention it.) The kids tapped \(style.setName) on the Print screen: that set is chosen."))
+        }
+    }
+    /// Round 27 DEBUG: when each set and the cover settled, against the hunt start and Print, and the image calls.
+    @ObservationIgnored private var artTimingTask: Task<Void, Never>?
+    private func trackArtTimings() {
+        artTimingTask?.cancel()
+        let hunt = huntStartedAt ?? Date(), print = printReachedAt ?? Date()
+        artTimingTask = Task { @MainActor in
+            var logged: Set<String> = []
+            for _ in 0..<1200 where !Task.isCancelled && logged.count < 3 {
+                let marks: [(String, Date?)] = [("color", colorArt.finishedAt), ("outline", outlineArt.finishedAt), ("cover", coverArt.settledAt)]
+                for (name, at) in marks where !logged.contains(name) {
+                    guard let at else { continue }
+                    logged.insert(name)
+                    rtLog(String(format: "TIMING r27 %@ ready %.1f s after the hunt started (%+.1f s vs Print)%@", name,
+                                  at.timeIntervalSince(hunt), at.timeIntervalSince(print), name == "cover" && coverArt.failed ? " FAILED" : ""))
+                }
+                try? await Task.sleep(for: .milliseconds(500))
+            }
+            let u = ImageUsageLog.snapshot(since: hunt.addingTimeInterval(-120))
+            rtLog(String(format: "TIMING r27 images: %d requests, peak %d/min, %d 429s, %d in + %d out tokens = $%.3f",
+                         u.requests, u.peakPerMinute, u.rateLimited, u.inputTokens, u.outputTokens, u.dollars))
+        }
+    }
     func kitFinalChanged(_ final: Bool) {
         // Round D1: a replay's Paper step has its own choices (no writing beat, no ready line).
         if store.isReplay { kitBeatTask?.cancel(); return }
         #if DEBUG
         // `-PTPDFOut`: write the print-path PDF (exactly what AirPrint gets) to tmp/kit.pdf once the kit is final.
         if final, ProcessInfo.processInfo.arguments.contains("-PTPDFOut") {
+            let art = printArt
             let pdf = KitPrinter.pdf(pages: kitPages, art: art.images,
                                      cutouts: Dictionary(uniqueKeysWithValues: (store.kit?.items ?? []).map { ($0.id, art.cutoutImages($0)) }))
             try? pdf.write(to: FileManager.default.temporaryDirectory.appendingPathComponent("kit.pdf"))
@@ -763,6 +830,10 @@ final class AppModel {
         // (Round 26: a replay's Print is the first play's, so "print it" prints every page for the current count.)
         if case .printKit = call, store.phase.step != .play {
             guard store.phase == .kitReady || kitFinal else { return ("Not yet: the kit isn't ready. Say only \"Almost ready!\"", true) }
+            // Round 27: the chosen set is still drawing: the printer waits for it.
+            if store.phase == .kitReady, !printArt.finished {
+                return ("Not yet: \(store.printSet.setName) are still being drawn. Say only \"Almost ready! Those pages are still drawing.\"", true)
+            }
             printKit()
         }
         if case .goToStep(let step) = call { rtLog("back-nav: \(step.label) (voice)") }
@@ -815,7 +886,7 @@ final class AppModel {
     /// Round 19: the kit is being remade for a corrected title: drop the old art and beats so the new kit runs fresh.
     private func remakeKitArt() {
         rtLog("kit: remade for a corrected title")
-        art.reset()
+        resetArt()
         kitReadySaid = false; deferredLine = nil
         kitBeatTask?.cancel(); kitBeat = .coloring
     }
@@ -1243,8 +1314,18 @@ final class AppModel {
     /// A game's shelf picture: its saved cover (the sign art), or nil (the card draws its prop stickers).
     func cover(for g: SavedGame) -> UIImage? {
         if let c = coverCache[g.id] { return c }
-        guard let data = savedGames.cover(for: g), let img = UIImage(data: data) else { return nil }
-        coverCache[g.id] = img
+        // Round 27: the saved cover (the generated text-free picture, or the sign page it fell back to at Save); a
+        // game with no cover.jpg falls back to its color sign page, then its outline one.
+        var img = savedGames.cover(for: g).flatMap(UIImage.init(data:))
+        if img == nil, let signID = g.kit.items.first(where: { $0.recipe == .sign })?.id {
+            let files = savedGames.art(for: g)
+            func sign(_ style: PrintStyle) -> UIImage? {
+                files.first { ArtKey.parse($0.key, plain: g.plainArtStyle).map { $0.itemID == signID && $0.index == nil && $0.style == style } ?? false }
+                    .flatMap { UIImage(data: $0.value) }
+            }
+            img = CoverArt.pick(cover: nil, colorSign: sign(.fullColor), outlineSign: sign(.colorIn))
+        }
+        if let img { coverCache[g.id] = img }
         return img
     }
 
@@ -1284,14 +1365,17 @@ final class AppModel {
         saveState = .saving
         let started = Date()
         let id = store.gameID
-        let images = art.artByKey
-        // Printer games: the sign art (it carries the place's name) is the shelf card's picture.
-        let sign = store.kit?.items.first { $0.recipe == .sign }.flatMap { art.images[$0.id] }
+        // Round 27: both sets (the outline set's keys are o-prefixed) and the generated cover.
+        let images = colorArt.artByKey.merging(outlineArt.artByKey) { a, _ in a }
+        // The shelf card: the text-free cover, else the color sign page, else the outline one.
+        let signID = store.kit?.items.first { $0.recipe == .sign }?.id
+        let generated = coverArt.image
+        let sign = CoverArt.pick(cover: nil, colorSign: signID.flatMap { colorArt.images[$0] }, outlineSign: signID.flatMap { outlineArt.images[$0] })
         Task { @MainActor in
             let (files, cover) = await Task.detached(priority: .userInitiated) { () -> ([String: Data], Data?) in
                 var files: [String: Data] = [:]
                 for (key, img) in images { if let d = img.heicData() ?? img.jpegData(compressionQuality: 0.9) { files[key] = d } }
-                return (files, sign.flatMap { Self.coverData($0) })
+                return (files, generated.flatMap { CoverArtService.jpeg($0) } ?? sign.flatMap { Self.coverData($0) })
             }.value
             guard store.canSave, var game = store.savedGame(id: id, art: files.keys.sorted(), cover: cover == nil ? nil : "cover.jpg") else { saveState = .failed; return }
             // Round D3b: her lines recorded on this play are saved with it.
@@ -1300,6 +1384,7 @@ final class AppModel {
             do {
                 try savedGames.save(game, art: files, cover: cover, clips: recorded.data)
                 clipStore.didSave(game.id)
+                rtLog("SAVE cover: \(generated != nil ? "the generated cover" : sign != nil ? "the sign page (no cover)" : "none")")
                 rtLog("SAVE clips: \(recorded.clips.count) recorded lines, \(recorded.data.values.reduce(0) { $0 + $1.count } / 1024) KB AAC")
             } catch {
                 rtLog("save: failed (\(error.localizedDescription))")
@@ -1352,12 +1437,14 @@ final class AppModel {
             for (k, d) in files { if let img = UIImage(data: d)?.preparedForDisplay() { out[k] = img } }
             return out
         }.value
-        var images: [String: UIImage] = [:], cutouts: [String: [Int: UIImage]] = [:]
+        // Round 27: each set's art back into its own service (a game saved before round 27 has one set).
+        var images: [PrintStyle: [String: UIImage]] = [:], cutouts: [PrintStyle: [String: [Int: UIImage]]] = [:]
         for (key, img) in decoded {
-            guard let p = ArtKey.parse(key) else { continue }
-            if let n = p.index { cutouts[p.itemID, default: [:]][n] = img } else { images[p.itemID] = img }
+            guard let p = ArtKey.parse(key, plain: g.plainArtStyle) else { continue }
+            if let n = p.index { cutouts[p.style, default: [:]][p.itemID, default: [:]][n] = img } else { images[p.style, default: [:]][p.itemID] = img }
         }
-        art.restore(images: images, cutouts: cutouts)
+        coverArt.reset()
+        for style in PrintStyle.sets { artSet(style).restore(images: images[style] ?? [:], cutouts: cutouts[style] ?? [:]) }
         replayGame = g
         kitBeat = .papers; kitWriting = false; kitReadySaid = true; beat = .none; shownProps = 0
         savedGames.touch(g.id)
@@ -1551,10 +1638,13 @@ final class AppModel {
         case .kitItem(let itemID, _, let role):
             let title = store.kit?.items.first { $0.id == itemID }?.title ?? ""
             // Round C1: a role's badge shows its own slice of the badge sheet.
-            return PTPictureTile(image: art.badge(itemID, role: role?.id.index), placeholder: title, roleTitle: role?.roleName,
+            // Round 27: the chosen set's picture (the other set's while it's still drawing).
+            let other = artSet(store.printSet == .fullColor ? .colorIn : .fullColor)
+            return PTPictureTile(image: printArt.badge(itemID, role: role?.id.index) ?? other.badge(itemID, role: role?.id.index), placeholder: title, roleTitle: role?.roleName,
                                  roleTint: Theme.playerColor(role?.id.index ?? 0), size: size)
         case .cutout(let itemID, let index, let label):
-            return PTPictureTile(image: art.cutout(itemID, index), placeholder: label, size: size)
+            let other = artSet(store.printSet == .fullColor ? .colorIn : .fullColor)
+            return PTPictureTile(image: printArt.cutout(itemID, index) ?? other.cutout(itemID, index), placeholder: label, size: size)
         }
     }
 
