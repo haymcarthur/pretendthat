@@ -19,7 +19,7 @@
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#ECEAE6;font-family:"SF Pro Rounded",ui-rounded,"Nunito",system-ui,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased}
-.canvas{width:3800px;padding:56px 64px 64px}
+.canvas{width:4730px;padding:56px 64px 64px}
 .head{display:flex;align-items:baseline;gap:20px;margin-bottom:40px}
 .head h1{font-size:40px;font-weight:900;letter-spacing:-.5px}
 .head p{font-size:20px;font-weight:700;color:var(--ink-muted)}
@@ -117,6 +117,15 @@ body{background:#ECEAE6;font-family:"SF Pro Rounded",ui-rounded,"Nunito",system-
 .dots7 i{display:block;width:10px;height:10px;border-radius:50%;background:rgba(91,42,134,.25)}
 .dots7 i.on{background:var(--purple)}
 .next7{position:absolute;right:56px;width:48px;height:48px;border-radius:50%;background:var(--yellow);box-shadow:0 4px 0 var(--yellow-shade);display:grid;place-items:center;z-index:30}
+
+/* button audit */
+.iconbtn{display:grid;place-items:center;border-radius:999px}
+.iconbtn.lime{background:var(--lime);box-shadow:0 5px 0 var(--lime-shade)}
+.iconbtn.white{background:#fff;border:2.5px solid var(--line);box-shadow:0 5px 0 #D8CFE4}
+.iconbtn.yellow{background:var(--yellow);box-shadow:0 5px 0 var(--yellow-shade)}
+.iconbtn.black{background:var(--cta);box-shadow:0 5px 0 #000}
+.bubble{position:absolute;z-index:32;background:#fff;border-radius:20px;padding:10px 16px;font-size:17px;font-weight:800;line-height:1.25;color:var(--ink);box-shadow:0 4px 14px rgba(42,24,70,.14);text-align:center}
+.bubble:after{content:"";position:absolute;left:calc(50% - 9px);bottom:-8px;width:18px;height:18px;background:#fff;transform:rotate(45deg);border-radius:3px}
 </style>
 </head>
 <body>
@@ -160,6 +169,12 @@ body{background:#ECEAE6;font-family:"SF Pro Rounded",ui-rounded,"Nunito",system-
     <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" fill="none" stroke="#fff" stroke-width="1.8"/><path d="M12 2.8 V5.5 M12 18.5 V21.2 M2.8 12 H5.5 M18.5 12 H21.2 M5.5 5.5 L7.4 7.4 M16.6 16.6 L18.5 18.5 M5.5 18.5 L7.4 16.6 M16.6 7.4 L18.5 5.5" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></symbol>
     <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12 H5 M11 6 L5 12 L11 18" stroke="#2A1846" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-shelf" viewBox="0 0 44 44"><rect x="5" y="4" width="34" height="37" rx="4" fill="#C98B57"/><rect x="9" y="8" width="26" height="12" rx="1.5" fill="#F1D2AC"/><rect x="9" y="24" width="26" height="12" rx="1.5" fill="#F1D2AC"/><rect x="11" y="10" width="5" height="10" rx="1" fill="#FF6B5B"/><rect x="17" y="11.5" width="5" height="8.5" rx="1" fill="#5B2A86"/><rect x="23" y="9.5" width="4.5" height="10.5" rx="1" fill="#8BD346"/><rect x="11" y="27" width="9" height="9" rx="1.5" fill="#FFC93C"/><path d="M28.5 27.5 l1.5 3 3.2.4-2.4 2.2.6 3.2-2.9-1.6-2.9 1.6.6-3.2-2.4-2.2 3.2-.4z" fill="#FFC93C" stroke="#E0A100" stroke-width=".8"/></symbol>
+    <symbol id="i-printer" viewBox="0 0 24 24"><path d="M7 8 V3.5 H17 V8" fill="none" stroke="#2A1846" stroke-width="2" stroke-linejoin="round"/><rect x="3" y="8" width="18" height="9" rx="2.5" fill="none" stroke="#2A1846" stroke-width="2"/><rect x="7" y="13.5" width="10" height="7" rx="1" fill="#fff" stroke="#2A1846" stroke-width="2"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 2.6 L14.8 8.5 L21.2 9.2 L16.4 13.6 L17.7 20 L12 16.8 L6.3 20 L7.6 13.6 L2.8 9.2 L9.2 8.5Z" fill="#FFC93C" stroke="#E0A100" stroke-width="1.4" stroke-linejoin="round"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3.5 11.2 L12 4 L20.5 11.2" fill="none" stroke="#2A1846" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 10 V20 H18 V10" fill="none" stroke="#2A1846" stroke-width="2.4" stroke-linejoin="round"/><rect x="10" y="14" width="4" height="6" rx="1" fill="#2A1846"/></symbol>
+    <symbol id="i-x-ink" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" stroke="#2A1846" stroke-width="3" stroke-linecap="round"/></symbol>
+    <symbol id="i-check-w" viewBox="0 0 24 24"><path d="M5 12.5 L10 17.5 L19.5 6.5" stroke="#fff" stroke-width="3.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-play-w" viewBox="0 0 24 24"><path d="M7.5 4.5 L19.5 12 L7.5 19.5Z" fill="#fff" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></symbol>
   </defs>
 </svg>
 
@@ -209,14 +224,14 @@ body{background:#ECEAE6;font-family:"SF Pro Rounded",ui-rounded,"Nunito",system-
       </div>
       <!-- play button -->
       <div style="position:absolute;left:56px;right:56px;bottom:62px;height:80px;border-radius:40px;background:var(--yellow);box-shadow:0 7px 0 var(--yellow-shade),0 14px 24px rgba(224,161,0,.3);display:flex;align-items:center;justify-content:center;gap:12px;font-size:30px;font-weight:900;color:var(--ink);z-index:30">
-        Let's play <svg width="32" height="32"><use href="#i-arrow"/></svg>
+        <svg width="30" height="30"><use href="#i-play"/></svg>New game
       </div>
       <div class="homebar"></div>
     </div></div>
     <div class="num">Screen 1 · Start</div>
     <div class="cap">
-      <h2>One tall stage, one big button</h2>
-      <p>Same scene as the iPad: the logo card sits in front of the curtains, Nutmeg peeks out of the toy chest on the cream floor, and two toys stand at its corners (the phone is too narrow for all six). The Play button moves from beside the logo to the bottom, where a thumb rests.</p>
+      <h2>One tall stage, one big button: New game</h2>
+      <p>Same scene as the iPad: the logo card sits in front of the curtains, Nutmeg peeks out of the toy chest on the cream floor, and two toys stand at its corners (the phone is too narrow for all six). The yellow <b>New game</b> button (with a ▶ play icon) moves from beside the logo to the bottom, where a thumb rests.</p>
     </div>
   </div>
 
@@ -257,14 +272,14 @@ body{background:#ECEAE6;font-family:"SF Pro Rounded",ui-rounded,"Nunito",system-
         <span style="width:32px;height:32px;border-radius:50%;border:1.5px solid #555;display:grid;place-items:center"><svg width="18" height="18"><use href="#i-gear"/></svg></span>Grown-ups
       </div>
       <!-- play + my games (only once a game is saved) -->
-      <div style="position:absolute;left:56px;right:56px;bottom:136px;height:80px;border-radius:40px;background:var(--yellow);box-shadow:0 7px 0 var(--yellow-shade),0 14px 24px rgba(224,161,0,.3);display:flex;align-items:center;justify-content:center;gap:12px;font-size:30px;font-weight:900;color:var(--ink);z-index:30">Let's play <svg width="32" height="32"><use href="#i-arrow"/></svg></div>
-      <div style="position:absolute;left:86px;right:86px;bottom:50px;height:62px;border-radius:31px;background:#fff;border:2.5px solid var(--line);box-shadow:0 7px 0 #D8CFE4;display:flex;align-items:center;justify-content:center;gap:9px;font-size:22px;font-weight:900;color:var(--purple);z-index:30"><svg width="30" height="30"><use href="#i-shelf"/></svg>My games</div>
+      <div style="position:absolute;left:56px;right:56px;bottom:136px;height:80px;border-radius:40px;background:var(--yellow);box-shadow:0 7px 0 var(--yellow-shade),0 14px 24px rgba(224,161,0,.3);display:flex;align-items:center;justify-content:center;gap:12px;font-size:30px;font-weight:900;color:var(--ink);z-index:30"><svg width="30" height="30"><use href="#i-play"/></svg>New game</div>
+      <div style="position:absolute;left:86px;right:86px;bottom:50px;height:62px;border-radius:31px;background:#fff;border:2.5px solid var(--line);box-shadow:0 7px 0 #D8CFE4;display:flex;align-items:center;justify-content:center;gap:9px;font-size:22px;font-weight:900;color:var(--purple);z-index:30"><svg width="28" height="28"><use href="#i-star"/></svg>Saved games</div>
       <div class="homebar"></div>
     </div></div>
     <div class="num">Screen 1b · Start, with saved games</div>
     <div class="cap">
       <h2>A second button once a game is saved</h2>
-      <p>Same stage and sizes as screen 1. The yellow Let's play moves up a little and a smaller white <b>My games</b> button with a little bookshelf icon sits under it (the phone is too narrow to put them side by side like the iPad). Yellow stays the main choice for a new game.</p>
+      <p>Same stage and sizes as screen 1. Yellow <b>New game</b> ▶ moves up a little, and a smaller white <b>Saved games</b> button with a ⭐ sits under it (the phone is too narrow for side by side). It only shows once a game is saved.</p>
     </div>
   </div>
 
@@ -288,7 +303,7 @@ body{background:#ECEAE6;font-family:"SF Pro Rounded",ui-rounded,"Nunito",system-
         <div class="link"></div>
         <div class="step now"><div class="dot"><svg><use href="#i-masks"/></svg></div><b>Pick</b></div>
         <div class="step todo"><div class="dot"><svg><use href="#i-box"/></svg></div><b>Props</b></div>
-        <div class="step todo"><div class="dot"><svg><use href="#i-paper"/></svg></div><b>Paper</b></div>
+        <div class="step todo"><div class="dot"><svg><use href="#i-printer"/></svg></div><b>Print</b></div>
         <div class="step todo"><div class="dot"><svg><use href="#i-play"/></svg></div><b>Play</b></div>
       </div>
       <div class="pill">
@@ -310,28 +325,24 @@ body{background:#ECEAE6;font-family:"SF Pro Rounded",ui-rounded,"Nunito",system-
     <div class="device"><div class="screen">
       <div class="island"></div>
       <div class="status"><span>9:41</span><span class="bat">●●● <i></i></span></div>
-      <div class="stage" style="height:552px">
-        <div class="floor" style="width:480px;height:130px;top:478px"></div>
+      <div class="stage full">
+        <div class="floor" style="width:600px;height:240px;top:640px"></div>
         <svg class="spark" style="left:62px;top:250px;width:22px;height:22px"><use href="#sparkle"/></svg>
         <svg class="spark" style="right:58px;top:190px;width:28px;height:28px"><use href="#sparkle"/></svg>
-        <img class="nutmeg" src="img/nutmeg-clipboardboth-focus.png" style="left:76.5px;top:184px;width:240px">
+        <img class="nutmeg" src="img/nutmeg-clipboardboth-focus.png" style="left:46.5px;top:262px;width:300px">
         <svg class="valance" viewBox="0 0 393 84"><use href="#valance"/></svg>
-        <svg class="curtain l" style="height:552px" viewBox="0 0 64 852" preserveAspectRatio="none"><use href="#curtain"/></svg>
-        <svg class="curtain r" style="height:552px" viewBox="0 0 64 852" preserveAspectRatio="none"><use href="#curtain"/></svg>
+        <svg class="curtain l" style="height:852px" viewBox="0 0 64 852" preserveAspectRatio="none"><use href="#curtain"/></svg>
+        <svg class="curtain r" style="height:852px" viewBox="0 0 64 852" preserveAspectRatio="none"><use href="#curtain"/></svg>
       </div>
-      <div class="lip" style="top:540px"></div>
       <div class="xbtn"><svg width="22" height="22"><use href="#i-x"/></svg></div>
       <div class="rail">
         <div class="link"></div>
         <div class="step now"><div class="dot"><svg><use href="#i-masks"/></svg></div><b>Pick</b></div>
         <div class="step todo"><div class="dot"><svg><use href="#i-box"/></svg></div><b>Props</b></div>
-        <div class="step todo"><div class="dot"><svg><use href="#i-paper"/></svg></div><b>Paper</b></div>
+        <div class="step todo"><div class="dot"><svg><use href="#i-printer"/></svg></div><b>Print</b></div>
         <div class="step todo"><div class="dot"><svg><use href="#i-play"/></svg></div><b>Play</b></div>
       </div>
-      <div class="lower" style="top:562px;bottom:auto;display:flex;flex-direction:column;gap:12px;padding:18px 24px 0">
-        <div class="btn lime" style="height:62px;font-size:21px"><svg><use href="#i-check"/></svg>Yes, let's go!</div>
-        <div class="btn" style="height:58px;font-size:19px"><svg width="20" height="20"><use href="#i-pencil"/></svg>Change something</div>
-      </div>
+      <div class="bubble" style="left:58px;right:58px;top:176px">Say yes, or tell me what to change!</div>
       <div class="pill">
         <div class="sm"><img src="img/icon-hear-again.svg" alt=""></div>
         <div class="mic"><svg><use href="#i-mic"/></svg></div>
@@ -341,8 +352,8 @@ body{background:#ECEAE6;font-family:"SF Pro Rounded",ui-rounded,"Nunito",system-
     </div></div>
     <div class="num">Screen 3 · Pick (confirm)</div>
     <div class="cap">
-      <h2>Rail goes across, choices drop below</h2>
-      <p>The left step rail becomes a slim bar under the valance next to the X. The choice row leaves the top of the stage: "Yes, let's go!" and "Change something" stack as two big buttons, centered in the space under Nutmeg. She holds her clipboard and looks down at them.</p>
+      <h2>No buttons: just say yes</h2>
+      <p>Confirming the game is voice only now (button audit): with nothing to tap, the stage fills the screen, like screen 2. A short speech bubble under the rail tells kids what to do: say yes, or say what to change. The rail goes across under the valance next to the X.</p>
     </div>
   </div>
 
@@ -366,7 +377,7 @@ body{background:#ECEAE6;font-family:"SF Pro Rounded",ui-rounded,"Nunito",system-
         <div class="link" style="background:linear-gradient(90deg,var(--lime) 0 34%,var(--disabled) 34%)"></div>
         <div class="step done"><div class="dot"><svg><use href="#i-masks"/></svg><span class="redo"><svg><use href="#i-redo"/></svg></span></div><b>Pick</b></div>
         <div class="step now"><div class="dot"><svg><use href="#i-box"/></svg></div><b>Props</b></div>
-        <div class="step todo"><div class="dot"><svg><use href="#i-paper"/></svg></div><b>Paper</b></div>
+        <div class="step todo"><div class="dot"><svg><use href="#i-printer"/></svg></div><b>Print</b></div>
         <div class="step todo"><div class="dot"><svg><use href="#i-play"/></svg></div><b>Play</b></div>
       </div>
       <div class="lower">
@@ -384,8 +395,8 @@ body{background:#ECEAE6;font-family:"SF Pro Rounded",ui-rounded,"Nunito",system-
             </div>
           </div>
           <div style="display:flex;gap:10px;margin-top:12px">
-            <div class="btn lime" style="flex:1.1;height:56px;font-size:18px"><svg><use href="#i-check"/></svg>Found it!</div>
-            <div class="btn" style="flex:1;height:56px;font-size:17px">Don't have it</div>
+            <div class="iconbtn lime" style="flex:1;height:58px"><svg width="34" height="34"><use href="#i-check-w"/></svg></div>
+            <div class="iconbtn white" style="flex:1;height:58px"><svg width="30" height="30"><use href="#i-x-ink"/></svg></div>
           </div>
         </div>
         <!-- pager -->
@@ -407,7 +418,7 @@ body{background:#ECEAE6;font-family:"SF Pro Rounded",ui-rounded,"Nunito",system-
     <div class="num">Screen 4 · Props</div>
     <div class="cap">
       <h2>One prop card at a time</h2>
-      <p>The 2×2 prop grid becomes a stack: one big card under Nutmeg, the next ones peeking behind, and a pager (2 of 4). Kids swipe or answer Found it / Don't have it to move on. Nutmeg holds her clipboard and looks down at it.</p>
+      <p>The 2×2 prop grid becomes a stack: one big card under Nutmeg, the next ones peeking behind, and a pager (2 of 4). Kids tap the big green ✓ (found it) or ✗ (don't have it), with no words on the buttons, or just say it. Nutmeg holds her clipboard and looks down at it.</p>
     </div>
   </div>
 
@@ -433,7 +444,7 @@ body{background:#ECEAE6;font-family:"SF Pro Rounded",ui-rounded,"Nunito",system-
         <div class="link" style="background:linear-gradient(90deg,var(--lime) 0 67%,var(--disabled) 67%)"></div>
         <div class="step done"><div class="dot"><svg><use href="#i-masks"/></svg><span class="redo"><svg><use href="#i-redo"/></svg></span></div><b>Pick</b></div>
         <div class="step done"><div class="dot"><svg><use href="#i-box"/></svg><span class="redo"><svg><use href="#i-redo"/></svg></span></div><b>Props</b></div>
-        <div class="step now"><div class="dot"><svg><use href="#i-paper"/></svg></div><b>Paper</b></div>
+        <div class="step now"><div class="dot"><svg><use href="#i-printer"/></svg></div><b>Print</b></div>
         <div class="step todo"><div class="dot"><svg><use href="#i-play"/></svg></div><b>Play</b></div>
       </div>
       <div class="lower" style="top:496px">
@@ -444,8 +455,8 @@ body{background:#ECEAE6;font-family:"SF Pro Rounded",ui-rounded,"Nunito",system-
           <div style="position:absolute;right:30px;top:2px;background:var(--purple);color:#fff;font-size:13px;font-weight:900;padding:4px 10px;border-radius:12px;transform:rotate(6deg)">6 pages</div>
         </div>
         <div style="position:absolute;left:16px;right:16px;top:158px;display:flex;gap:10px">
-          <div class="btn black" style="flex:1.25;height:58px"><svg><use href="#i-print"/></svg>Print</div>
-          <div class="btn" style="flex:1;height:58px;font-size:19px">Let's play!</div>
+          <div class="iconbtn black" style="flex:1;height:62px"><svg width="32" height="32"><use href="#i-print"/></svg></div>
+          <div class="iconbtn lime" style="flex:1;height:62px"><svg width="32" height="32"><use href="#i-play-w"/></svg></div>
         </div>
       </div>
       <div class="pill">
@@ -455,10 +466,10 @@ body{background:#ECEAE6;font-family:"SF Pro Rounded",ui-rounded,"Nunito",system-
       </div>
       <div class="homebar"></div>
     </div></div>
-    <div class="num">Screen 5 · Paper</div>
+    <div class="num">Screen 5 · Print</div>
     <div class="cap">
-      <h2>Kit fanned out, Print right under it</h2>
-      <p>The kit pages fan out like a hand of cards just below the stage (tap to flip through all 6), with Nutmeg looking down at them. Print and Let's play! sit side by side above the control pill, so the kit no longer hides inside the chat panel.</p>
+      <h2>Kit fanned out, printer and ▶ under it</h2>
+      <p>The kit pages fan out like a hand of cards under the stage (tap to flip through all 6). Just two icon buttons sit under them: a black printer button and a green ▶ to start playing. The duplicate Print / Let's play that used to sit behind the page preview is gone. The rail's step 3 is now Print, with a printer icon.</p>
     </div>
   </div>
 
@@ -473,7 +484,15 @@ body{background:#ECEAE6;font-family:"SF Pro Rounded",ui-rounded,"Nunito",system-
         <svg class="curtain r" style="height:468px" viewBox="0 0 64 852" preserveAspectRatio="none"><use href="#curtain"/></svg>
       </div>
       <!-- full-height sheet: covers the stage and the rail; padding-bottom keeps the last row clear of the floating pill -->
-      <div class="sheet" style="top:58px;padding-bottom:140px">
+      <div class="xbtn"><svg width="22" height="22"><use href="#i-x"/></svg></div>
+      <div class="rail">
+        <div class="link" style="background:var(--lime)"></div>
+        <div class="step done"><div class="dot"><svg><use href="#i-masks"/></svg><span class="redo"><svg><use href="#i-redo"/></svg></span></div><b>Pick</b></div>
+        <div class="step done"><div class="dot"><svg><use href="#i-box"/></svg><span class="redo"><svg><use href="#i-redo"/></svg></span></div><b>Props</b></div>
+        <div class="step done"><div class="dot"><svg><use href="#i-printer"/></svg><span class="redo"><svg><use href="#i-redo"/></svg></span></div><b>Print</b></div>
+        <div class="step now"><div class="dot"><svg><use href="#i-play"/></svg></div><b>Play</b></div>
+      </div>
+      <div class="sheet" style="top:164px;padding-bottom:140px">
         <div class="grab"></div>
         <div style="display:flex;gap:10px;align-items:center;margin-bottom:14px">
           <div class="tabs" style="flex:1;margin:0">
@@ -492,7 +511,6 @@ body{background:#ECEAE6;font-family:"SF Pro Rounded",ui-rounded,"Nunito",system-
         <div class="task ok" style="height:64px"><div class="thumb"><img src="img/kit-p3.png" alt=""></div><span>Hand out the tickets.</span><div class="tick"><svg width="22" height="22"><use href="#i-check"/></svg></div></div>
         <div class="task" style="height:64px"><img src="img/prop-chair.svg" alt=""><span>Line up the chairs for seats.</span><div class="tick"></div></div>
         <div class="task" style="height:64px"><img src="img/prop-plate.svg" alt=""><span>Grab the steering wheel.</span><div class="tick"></div></div>
-        <div class="btn black" style="height:58px;margin-top:6px">Done!</div>
         <div style="margin-top:14px;border:2px dashed var(--line);border-radius:20px;height:60px;display:flex;align-items:center;gap:12px;padding:0 16px;font-size:16px;font-weight:800;color:var(--ink-muted)">
           <span style="font-size:12px;font-weight:900;letter-spacing:1px;text-transform:uppercase">Up next</span>Scene 2 · Up, up and away
         </div>
@@ -506,8 +524,91 @@ body{background:#ECEAE6;font-family:"SF Pro Rounded",ui-rounded,"Nunito",system-
     </div></div>
     <div class="num">Screen 6 · Play (sheet open)</div>
     <div class="cap">
-      <h2>Chat becomes a bottom sheet</h2>
-      <p>The side panel turns into a full-height sheet with Checklist | Chat tabs that covers the stage and the rail; drag the grabber or tap the chevron to close it. The control pill floats on top so the mic is always one tap away, and the list has enough bottom padding that the last row scrolls clear of the pill.</p>
+      <h2>Checklist sheet, no Done button</h2>
+      <p>The checklist is a bottom sheet with Checklist | Chat tabs, opened under the rail so the steps stay visible (Print now has the printer icon). There's no Done button: when every step is ticked it moves on by itself, and saying "we're done" still works. The control pill floats on top.</p>
+    </div>
+  </div>
+
+  <!-- ==== Screen 6b · Hand-off ==== -->
+  <div class="col" id="s6hand">
+    <div class="device"><div class="screen">
+      <div class="island"></div>
+      <div class="status"><span>9:41</span><span class="bat">●●● <i></i></span></div>
+      <div class="stage full">
+        <div class="floor" style="width:600px;height:240px;top:640px"></div>
+        <svg class="spark" style="left:62px;top:250px;width:24px;height:24px"><use href="#sparkle"/></svg>
+        <svg class="spark" style="right:60px;top:300px;width:28px;height:28px"><use href="#sparkle"/></svg>
+        <img class="nutmeg" src="img/nutmeg-idle-happy-clip.png" style="left:96px;top:236px;width:200px">
+        <svg class="valance" viewBox="0 0 393 84"><use href="#valance"/></svg>
+        <svg class="curtain l" style="height:852px" viewBox="0 0 64 852" preserveAspectRatio="none"><use href="#curtain"/></svg>
+        <svg class="curtain r" style="height:852px" viewBox="0 0 64 852" preserveAspectRatio="none"><use href="#curtain"/></svg>
+      </div>
+      <div class="xbtn"><svg width="22" height="22"><use href="#i-x"/></svg></div>
+      <div class="rail">
+        <div class="link" style="background:var(--lime)"></div>
+        <div class="step done"><div class="dot"><svg><use href="#i-masks"/></svg><span class="redo"><svg><use href="#i-redo"/></svg></span></div><b>Pick</b></div>
+        <div class="step done"><div class="dot"><svg><use href="#i-box"/></svg><span class="redo"><svg><use href="#i-redo"/></svg></span></div><b>Props</b></div>
+        <div class="step done"><div class="dot"><svg><use href="#i-printer"/></svg><span class="redo"><svg><use href="#i-redo"/></svg></span></div><b>Print</b></div>
+        <div class="step now"><div class="dot"><svg><use href="#i-play"/></svg></div><b>Play</b></div>
+      </div>
+      <div class="card" style="position:absolute;left:24px;right:24px;top:516px;height:190px;z-index:31;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:0 18px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="font-size:24px;font-weight:900;line-height:1.15;text-align:center">Pass the phone to<br>the Head Baker!</div>
+        </div>
+        <div class="iconbtn lime" style="width:150px;height:62px"><svg width="36" height="36"><use href="#i-check-w"/></svg></div>
+      </div>
+      <div class="pill" style="z-index:45">
+        <div class="sm"><img src="img/icon-hear-again.svg" alt=""></div>
+        <div class="mic"><svg><use href="#i-mic"/></svg></div>
+        <div class="sm"><svg><use href="#i-chat"/></svg></div>
+      </div>
+      <div class="homebar"></div>
+    </div></div>
+    <div class="num">Screen 6b · Hand-off</div>
+    <div class="cap">
+      <h2>Pass it on, then one big ✓</h2>
+      <p>When the next role's turn comes, the card says who gets the phone and has just one green ✓ for the new player to tap (it replaces "I'm the Head Baker!"). "Back to the checklist" is gone.</p>
+    </div>
+  </div>
+
+  <!-- ==== Screen 6c · The End ==== -->
+  <div class="col" id="s6end">
+    <div class="device"><div class="screen">
+      <div class="island"></div>
+      <div class="status"><span>9:41</span><span class="bat">●●● <i></i></span></div>
+      <div class="stage full">
+        <div class="floor" style="width:600px;height:240px;top:640px"></div>
+        <svg class="spark" style="left:62px;top:250px;width:24px;height:24px"><use href="#sparkle"/></svg>
+        <svg class="spark" style="right:60px;top:300px;width:28px;height:28px"><use href="#sparkle"/></svg>
+        <img class="nutmeg" src="img/nutmeg-celebrate-yay.png" style="left:86px;top:290px;width:222px">
+        <svg class="valance" viewBox="0 0 393 84"><use href="#valance"/></svg>
+        <svg class="curtain l" style="height:852px" viewBox="0 0 64 852" preserveAspectRatio="none"><use href="#curtain"/></svg>
+        <svg class="curtain r" style="height:852px" viewBox="0 0 64 852" preserveAspectRatio="none"><use href="#curtain"/></svg>
+      </div>
+      <div class="xbtn"><svg width="22" height="22"><use href="#i-x"/></svg></div>
+      <div class="rail">
+        <div class="link" style="background:var(--lime)"></div>
+        <div class="step done"><div class="dot"><svg><use href="#i-masks"/></svg><span class="redo"><svg><use href="#i-redo"/></svg></span></div><b>Pick</b></div>
+        <div class="step done"><div class="dot"><svg><use href="#i-box"/></svg><span class="redo"><svg><use href="#i-redo"/></svg></span></div><b>Props</b></div>
+        <div class="step done"><div class="dot"><svg><use href="#i-printer"/></svg><span class="redo"><svg><use href="#i-redo"/></svg></span></div><b>Print</b></div>
+        <div class="step done"><div class="dot"><svg><use href="#i-play"/></svg><span class="redo"><svg><use href="#i-redo"/></svg></span></div><b>Play</b></div>
+      </div>
+      <div style="position:absolute;left:70px;right:70px;top:178px;height:74px;border-radius:24px;background:#fff;box-shadow:0 6px 18px rgba(42,24,70,.14);display:grid;place-items:center;font-size:40px;font-weight:900;color:var(--purple);z-index:31">The End!</div>
+      <div style="position:absolute;left:0;right:0;top:600px;display:flex;justify-content:center;gap:28px;z-index:31">
+        <div class="iconbtn yellow" style="width:112px;height:112px"><svg width="62" height="62"><use href="#i-star"/></svg></div>
+        <div class="iconbtn white" style="width:112px;height:112px"><svg width="54" height="54"><use href="#i-home"/></svg></div>
+      </div>
+      <div class="pill" style="z-index:45">
+        <div class="sm"><img src="img/icon-hear-again.svg" alt=""></div>
+        <div class="mic"><svg><use href="#i-mic"/></svg></div>
+        <div class="sm"><svg><use href="#i-chat"/></svg></div>
+      </div>
+      <div class="homebar"></div>
+    </div></div>
+    <div class="num">Screen 6c · The End</div>
+    <div class="cap">
+      <h2>Two icon buttons: ⭐ and 🏠</h2>
+      <p>⭐ saves the game and goes home; 🏠 goes home without saving. New game, Play it again and Save it are gone. On a replay (already saved) only 🏠 shows. The rail's Play ↺ still goes back to the checklist.</p>
     </div>
   </div>
 
@@ -534,7 +635,7 @@ body{background:#ECEAE6;font-family:"SF Pro Rounded",ui-rounded,"Nunito",system-
       <div class="next7" style="top:792px"><svg width="26" height="26"><use href="#i-arrow"/></svg></div>
       <div class="homebar"></div>
     </div></div>
-    <div class="num">Screen 7 · My games (bookshelf)</div>
+    <div class="num">Screen 7 · Saved games (bookshelf)</div>
     <div class="cap">
       <h2>Bookshelf: 2 games per shelf</h2>
       <p>Same stage, back arrow where the X goes. Games stand on the 4 shelves, newest first, names on the shelf edge. Nutmeg sits on top of the shelf, legs dangling and clipboard on her lap, looking down at the games. When all 8 spots are full, the yellow arrow (or a swipe) brings the next shelf. Tap to replay; delete is behind the Grown-ups gate.</p>
@@ -545,7 +646,7 @@ body{background:#ECEAE6;font-family:"SF Pro Rounded",ui-rounded,"Nunito",system-
 </div>
 <script>
 /* ?s=N renders one phone alone (used to export per-screen PNGs) */
-var m=location.search.match(/s=(\d)/);
+var m=location.search.match(/s=(\d+)/);
 if(m){document.querySelector('.head').style.display='none';
  document.querySelectorAll('.col').forEach(function(c,i){if(i!=m[1]-1)c.style.display='none';});
  document.querySelectorAll('.num,.cap').forEach(function(e){e.style.display='none'});
