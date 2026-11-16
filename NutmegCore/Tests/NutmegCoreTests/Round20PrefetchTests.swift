@@ -8,7 +8,7 @@ import Testing
     private func hunting(_ store: AdventureStore, style: PrintStyle? = .fullColor, kids: Int = 2) async {
         store.beginConversation()
         _ = await store.apply(.setGame("Bakery")); _ = await store.apply(.setTheme("Bakery on the Moon"))
-        _ = await store.apply(.setPlayerCount(kids)); _ = await store.confirmWithPrinter()
+        _ = await store.apply(.setPlayerCount(kids)); _ = await store.confirmYes()
         if let style { _ = await store.apply(.setPrintStyle(style)) }
         _ = await store.apply(.setRoles((0..<kids).map { .init(roleName: ["Baker", "Customer", "Cashier"][$0 % 3], job: "") }))
     }
@@ -48,7 +48,7 @@ import Testing
     @Test func noPagesBeforeTheColorOrWithoutClaude() async {
         let store = AdventureStore(service: PhaseService(llm: FakeLLM()))
         store.beginConversation()
-        _ = await store.apply(.setGame("Bakery")); _ = await store.apply(.setPlayerCount(2)); _ = await store.confirmWithPrinter()
+        _ = await store.apply(.setGame("Bakery")); _ = await store.apply(.setPlayerCount(2)); _ = await store.confirmYes()
         #expect(store.planningStep == .color && store.draftStartedAt == nil)
         let offline = AdventureStore(service: nil)
         await hunting(offline)

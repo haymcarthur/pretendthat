@@ -107,16 +107,16 @@ public enum Prompts {
     /// the props are known (found ones are real; skipped ones are pretend, with a printed cut-out).
     /// `huntPending` (guide prefetch): written while the kids are still hunting, so no household props yet (each prop
     /// is worked into a step or two later, `GuideWeave`).
-    public static func kitScenes(ctx: AdventureContext, items: [KitItem], drawn: Bool = false, huntPending: Bool = false) -> String {
+    public static func kitScenes(ctx: AdventureContext, items: [KitItem], huntPending: Bool = false) -> String {
         let enc = JSONEncoder(); enc.outputFormatting = [.sortedKeys]
         let pages = items.map { ["id": $0.id, "recipe": $0.recipe?.rawValue ?? "", "title": $0.title, "lines": $0.lines.joined(separator: " | ")] }
         let pagesJSON = (try? enc.encode(pages)).map { String(decoding: $0, as: UTF8.self) } ?? "[]"
         return """
-        Phase: the play guide. \(drawn ? "There is no printer: the kids DREW these kit pieces themselves with crayons (JSON; lines = how they drew it)" : "The printable pages are already made (JSON)"): \(pagesJSON)
+        Phase: the play guide. The printable pages are already made (JSON): \(pagesJSON)
         cutout:N is the Nth line of the cutouts item (0-based). Props the kids found are real household props (kind \
         prop); props marked skipped are pretend (the kids don't have them; if a cutouts line names one, use that cut-out).
         \(sceneRules) \
-        \(huntPending ? "The kids are still hunting for household props, so none are known yet: use NO household props (no prop pictures, no household things), only the printed pages, actions and pretend play; the app works their props into the steps later. Return the 6 scenes as scene1 to scene6 (each with its R1 to R6 steps and all1, all2), all of them in this one answer." : "Use the found props and the printed pages in the steps. Return KitScenes.")
+        \(huntPending ? "The kids are still hunting for household props, so none are known yet: use NO household props (no prop pictures, no household things), only the printed pages, actions and pretend play; the app works their props into the steps later. Return the 6 scenes as scene1 to scene6 (each with its R1 to R6 steps and all1, all2), all of them in this one answer." : "Use the found props and the printed pages in the steps: work EVERY household prop into at least one role's step, named by what it becomes. Every scene needs a real, specific title of 2 to 5 words about what happens in it (never a placeholder like x or Scene 1). Return KitScenes.")
         \(contextJSON(ctx))
         """
     }

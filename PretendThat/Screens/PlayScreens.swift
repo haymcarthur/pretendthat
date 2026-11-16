@@ -216,8 +216,7 @@ struct EndView: View {
     var body: some View {
         VStack(spacing: Theme.Space.l) {
             PTText("The End!", .hero)
-            // Round 10: right after the last "Done!", the finale can still go back to that checklist.
-            if model.store.canGoBackToChecklist { PTBackToChecklistButton { model.tapBackToChecklist() } }
+            // Round 25 (Haylee): no Back to the checklist button here; the step rail's Play step (finished, ↺) goes back.
             // Round 14: natural size in the shared card zone; the two buttons stack when the row doesn't fit.
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: Theme.Space.m) { playAgain; newGame }

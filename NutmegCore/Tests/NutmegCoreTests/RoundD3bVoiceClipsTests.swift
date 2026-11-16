@@ -25,7 +25,7 @@ struct RoundD3bVoiceClipsTests {
 
     func fixture() -> SavedGame {
         SavedGame(createdAt: Date(timeIntervalSince1970: 1_800_000_000), title: "Airplane to the Beach", roles: a.plan.roles,
-                  props: a.props.props.map(SavedProp.init), kit: a.kit, hasPrinter: true, printStyle: .colorIn, drawGuide: nil,
+                  props: a.props.props.map(SavedProp.init), kit: a.kit, printStyle: .colorIn,
                   art: [], voiceID: voice)
     }
 

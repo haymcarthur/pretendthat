@@ -41,7 +41,7 @@ struct Round19ConfirmTests {
         let game = await store.apply(.setGame("Pirate Ship"))
         #expect(game.contains("So it's a pirate ship for two friends!") && store.planningStep == .confirm)
         // Yes → the color question (round 20) → roles.
-        let yes = await store.confirmWithPrinter()
+        let yes = await store.confirmYes()
         #expect(store.planningStep == .color && yes.contains(ColorChoice.question))
         let again = await store.apply(.confirmPlan)
         #expect(again.contains("Already confirmed") && store.planningStep == .color)
@@ -49,7 +49,7 @@ struct Round19ConfirmTests {
         #expect(store.planningStep == .roles && color.contains("start_planning") && color.contains("exactly 6 ranked roles"))
         #expect(PlanningCall.decode(name: "confirm_plan", arguments: "{}") == .confirmPlan)
         #expect(ConfirmStep.yesTapNote(playerCount: 2).contains("don't call confirm_plan"))
-        #expect(Realtime.kidTurnTools(step: .confirm, huntActive: false) == ["confirm_plan", "set_game", "set_theme", "set_player_count", "set_printer", "set_print_style", "just_talk"])
+        #expect(Realtime.kidTurnTools(step: .confirm, huntActive: false) == ["confirm_plan", "set_game", "set_theme", "set_player_count", "set_print_style", "just_talk"])
     }
 
     /// The real test: the kid fixed the theme WHILE answering the player count. Every later request uses the fix.
@@ -64,7 +64,7 @@ struct Round19ConfirmTests {
         #expect(store.planningStep == .players && fix.contains("how many friends"))
         _ = await store.apply(.setPlayerCount(3))
         #expect(store.recapLine.contains("bug movie theater"))
-        _ = await store.confirmWithPrinter(); _ = await store.apply(.setPrintStyle(.colorIn))
+        _ = await store.confirmYes(); _ = await store.apply(.setPrintStyle(.colorIn))
         _ = await store.apply(.setRoles([.init(roleName: "Usher", job: ""), .init(roleName: "Projectionist", job: ""), .init(roleName: "Snack Seller", job: "")]))
         _ = await store.apply(.showNextProp(.init(itemID: "box", becomes: "the ticket booth", forRole: "all")))
         #expect(store.plan?.gameTitle == "Bug Movie Theater" && store.currentTitle == "Bug Movie Theater")
@@ -83,7 +83,7 @@ struct Round19ConfirmTests {
         let store = AdventureStore(service: nil)
         store.beginConversation()
         _ = await store.apply(.setGame("Train")); _ = await store.apply(.setTheme("Snowy Train"))
-        _ = await store.apply(.setPlayerCount(2)); _ = await store.confirmWithPrinter(); _ = await store.apply(.setPrintStyle(.colorIn))
+        _ = await store.apply(.setPlayerCount(2)); _ = await store.confirmYes(); _ = await store.apply(.setPrintStyle(.colorIn))
         _ = await store.apply(.setRoles([.init(roleName: "Conductor", job: ""), .init(roleName: "Passenger", job: "")]))
         _ = await store.apply(.showNextProp(.init(itemID: "hat", becomes: "conductor's cap", forRole: "Conductor")))
         #expect(store.huntActive)
@@ -93,7 +93,7 @@ struct Round19ConfirmTests {
         #expect(store.planningStep == .confirm && store.presenting == .none)
         #expect(out.contains("redo the roles and props") && out.contains("So it's a jungle train for two friends!"))
         // Even a plan made from a stale title stays in step with the current one.
-        _ = await store.confirmWithPrinter(); _ = await store.apply(.setPrintStyle(.colorIn))
+        _ = await store.confirmYes(); _ = await store.apply(.setPrintStyle(.colorIn))
         _ = await store.apply(.setRoles([.init(roleName: "Explorer", job: ""), .init(roleName: "Driver", job: "")]))
         #expect(store.context.plan?.gameTitle == "Jungle Train" && store.context.gameTitle == "Jungle Train")
     }
@@ -105,7 +105,7 @@ struct Round19ConfirmTests {
         let store = AdventureStore(service: PhaseService(llm: llm))
         store.beginConversation()
         _ = await store.apply(.setGame("Shop")); _ = await store.apply(.setTheme("Toy Shop"))
-        _ = await store.apply(.setPlayerCount(1)); _ = await store.confirmWithPrinter(); _ = await store.apply(.setPrintStyle(.colorIn))
+        _ = await store.apply(.setPlayerCount(1)); _ = await store.confirmYes(); _ = await store.apply(.setPrintStyle(.colorIn))
         _ = await store.apply(.setRoles([.init(roleName: "Shopkeeper", job: "")]))
         _ = await store.apply(.finishPlanning)
         for _ in 0..<100 where store.phase != .kitReady { try? await Task.sleep(for: .milliseconds(10)) }

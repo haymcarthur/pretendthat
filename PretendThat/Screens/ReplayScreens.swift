@@ -89,9 +89,12 @@ struct PTReplayPropCard: View {
                 .lineLimit(1).minimumScaleFactor(0.7)
             Text(prop.becomes).font(Theme.bodyFont(15)).foregroundStyle(Theme.inkMuted)
                 .lineLimit(2).multilineTextAlignment(.center).minimumScaleFactor(0.8)
-            VStack(spacing: 6) {
-                choice("Got it", "checkmark", on: !missing, tint: Theme.lime) { onHave(true) }
-                choice("Don't have it", "xmark", on: missing, tint: Theme.coral) { onHave(false) }
+            // Round 25 (Haylee: fewer buttons): ONE toggle instead of a Got it / Don't have it pair. Every card starts
+            // as Got it (the green card says so); the button offers the other answer.
+            if missing {
+                choice("Found it!", "checkmark", on: true, tint: Theme.lime) { onHave(true) }
+            } else {
+                choice("Don't have it", "xmark", on: false, tint: Theme.coral) { onHave(false) }
             }
             if missing, let alternate {
                 Button(action: onAlternate) {
@@ -124,38 +127,26 @@ struct PTReplayPropCard: View {
     }
 }
 
-/// Paper on a replay: Print everything / Just the badges / Skip, we have them (the saved art, rebuilt for this count),
-/// then Let's play!. No printer: Draw it! again from the saved guide (or, with saved printables, the choices + Draw it
-/// instead).
+/// Print on a replay: Print everything / Just the badges (the saved art, rebuilt for this count) and Let's play!.
+/// Round 25 (Haylee: fewer buttons): no Draw it (the no-printer path is gone), and "Skip, we have them" merged into
+/// Let's play! (both went straight to Play), which is always there.
 struct ReplayPaperView: View {
     let model: AppModel
     private var store: AdventureStore { model.store }
     var body: some View {
-        if store.drawing {
-            PTDrawItCard(model: model)
-        } else {
-            VStack(spacing: Theme.Space.m) {
-                PTText("Paper", .title)
-                ForEach(PaperChoice.allCases, id: \.self) { c in
-                    let picked = store.replayPrinted == c
-                    Button { model.replayPaper(c) } label: {
-                        Label(c.label, systemImage: picked ? "checkmark.circle.fill" : c.symbol).frame(maxWidth: .infinity)
-                    }
-                    // The one picked shows a check; Let's play! (below) is the green go button.
-                    .buttonStyle(picked || c == .skip ? .ptSecondary : .ptPrimary)
+        VStack(spacing: Theme.Space.m) {
+            PTText("Print", .title)
+            ForEach([PaperChoice.everything, .badges], id: \.self) { c in
+                let picked = store.replayPrinted == c
+                Button { model.replayPaper(c) } label: {
+                    Label(c.label, systemImage: picked ? "checkmark.circle.fill" : c.symbol).frame(maxWidth: .infinity)
                 }
-                if store.replayPrintables != nil, store.drawMode {
-                    Button { model.replayDrawInstead() } label: { Label("Draw it instead", systemImage: "pencil").frame(maxWidth: .infinity) }
-                        .buttonStyle(.ptQuiet)
-                }
-                if store.replayPrinted != nil {
-                    Button { model.tapLetsPlay() } label: { Label("Let's play!", systemImage: "play.fill").frame(maxWidth: .infinity) }
-                        .buttonStyle(.ptSuccess)
-                        .transition(.scale.combined(with: .opacity))
-                }
+                .buttonStyle(picked ? .ptSecondary : .ptPrimary)
             }
-            .frame(maxWidth: 420)
-            .animation(Theme.springy, value: store.replayPrinted)
+            Button { model.replayPaper(.skip) } label: { Label("Let's play!", systemImage: "play.fill").frame(maxWidth: .infinity) }
+                .buttonStyle(.ptSuccess)
         }
+        .frame(maxWidth: 420)
+        .animation(Theme.springy, value: store.replayPrinted)
     }
 }

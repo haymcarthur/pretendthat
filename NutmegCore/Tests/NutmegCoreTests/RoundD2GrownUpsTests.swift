@@ -104,8 +104,8 @@ struct RoundD2GrownUpsTests {
     func game(_ title: String, at t: TimeInterval) -> SavedGame {
         let a = Fallback.airplane
         return SavedGame(createdAt: Date(timeIntervalSince1970: t), title: title, roles: a.plan.roles,
-                         props: a.props.props.map(SavedProp.init), kit: a.kit, hasPrinter: true, printStyle: .colorIn,
-                         drawGuide: nil, art: [], voiceID: VoiceConfig.nutmeg.voiceID)
+                         props: a.props.props.map(SavedProp.init), kit: a.kit, printStyle: .colorIn,
+                         art: [], voiceID: VoiceConfig.nutmeg.voiceID)
     }
 
     @Test func deleteRemovesTheFilesAndMyGamesFollowsTheStore() throws {

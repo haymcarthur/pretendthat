@@ -17,12 +17,12 @@ public enum Phase: Equatable, Sendable {
     }
 }
 
-/// The step rail (layout-toycad-style.md): Pick → Props → Paper → Play (round 23, Haylee: "Game" → "Pick",
-/// "Get Ready" → "Props", "Print" → "Paper"; the button that really prints still says Print).
+/// The step rail (layout-toycad-style.md): Pick → Props → Print → Play (round 23, Haylee: "Game" → "Pick",
+/// "Get Ready" → "Props", "Print" → "Paper"; round 25, Haylee: drawing is gone, so "Paper" is "Print" again).
 public enum JourneyStep: Int, CaseIterable, Sendable {
     case game, getReady, print, play
     public var label: String {
-        switch self { case .game: "Pick"; case .getReady: "Props"; case .print: "Paper"; case .play: "Play" }
+        switch self { case .game: "Pick"; case .getReady: "Props"; case .print: "Print"; case .play: "Play" }
     }
 }
 
@@ -49,25 +49,19 @@ public final class AdventureStore {
     public private(set) var printStyle: PrintStyle?
     /// What the pages are drawn as (the coloring pages until the kids choose).
     public var currentPrintStyle: PrintStyle { printStyle ?? .colorIn }
-    /// Round 24 (Haylee): "Do you have a printer?", asked after the confirm step's yes; nil = not asked yet.
-    public private(set) var hasPrinter: Bool?
-    /// No printer: no kit images; the Paper step is "Draw it!" (a hand-drawn kit, one piece at a time).
-    public var drawMode: Bool { hasPrinter == false }
-    /// The draw-your-own guide (no printer), once the kit is made.
-    public private(set) var drawGuide: DrawGuide?
-    /// The piece on the Draw it! card.
-    public private(set) var drawIndex = 0
-    /// What she reads for the current piece (and the pill's Repeat says again).
-    public var drawLine: String? { drawGuide.map { DrawIt.line($0, drawIndex, players: playerCount) }.flatMap { $0.isEmpty ? nil : $0 } }
-    /// The Draw it! card is up (no printer, the kit is made, the Paper step).
-    public var drawing: Bool {
-        drawMode && phase == .kitReady && drawGuide != nil && (replayGameID == nil || replayPrintables == nil || replayDrawChosen)
-    }
     public private(set) var ideas: GameIdeas?
     public private(set) var plan: GamePlan?
     public private(set) var props: Props?
     /// Round C1: the kit as written, for all 6 ranked roles (every role has its own step in every scene).
-    public private(set) var fullKit: Kit?
+    /// Round 25: every guide that lands is checked by `GuideRepair` (real titles, enough scenes, the props in the
+    /// steps), with no AI call. Setting a property inside its own didSet doesn't call didSet again.
+    public private(set) var fullKit: Kit? {
+        didSet {
+            guard let k = fullKit, !k.scenes.isEmpty else { return }
+            let fixed = GuideRepair.repair(k.scenes, roles: plan?.roles ?? [], props: props?.props ?? [], title: currentTitle)
+            if fixed != k.scenes { fullKit?.scenes = fixed }
+        }
+    }
     /// The kit as the N playing kids see it: only their steps, hand-offs rotating through them, no line naming a role
     /// that isn't playing. A pure function of `fullKit`, the roles and the count, so a count change never needs an AI call.
     public var kit: Kit? { fullKit.map { PlayCast.kit($0, roles: plan?.roles ?? [], players: playerCount) } }
@@ -263,8 +257,6 @@ public final class AdventureStore {
             kitLeadIn = nil
             say(lead + "Ooh, let me make your kit! Wait for it...")
         }
-        // Round 24: no printer → the draw-your-own guide, and never any kit image.
-        if drawMode { await makeDrawKit(gen: gen, prefetch: title == nil); return }
         // Round 20: the pages were written during the hunt; only the play guide (and skipped props' cut-outs) is left.
         let pages = title == nil ? await draftForKit() : nil
         // Round 21: text still being moderated never reaches Claude (or the kit made from it).
@@ -361,6 +353,18 @@ public final class AdventureStore {
         say(HandOffLines.backToChecklist)   // round 16: the checklist is back, so she says what to do
     }
 
+    /// Round 25: at The End, the rail's Play step (or voice "go back to the checklist") reopens the last scene's
+    /// checklist: the checkmarks from before Done! when there are some, else every step checked (it was finished).
+    public var playFinished: Bool { phase == .end }
+    private func backToLastChecklist() {
+        if canGoBackToChecklist { backToChecklist(); return }
+        guard let last = kit?.scenes.indices.last, let scene = kit?.scenes[last] else { return }
+        doneSnapshot = nil
+        checkedSteps = Set(scene.steps.indices)
+        phase = .scene(last)
+        say(HandOffLines.backToChecklist)
+    }
+
     /// One quick idea for right now. Never throws; offline it uses a built-in idea.
     public func helpRequested() async -> String {
         guard case .scene(let i) = phase, let scene = kit?.scenes[i] else { return "" }
@@ -381,19 +385,17 @@ public final class AdventureStore {
 
     public func newGame() {
         phase = .hello
-        playerCount = 0; gameTitle = nil; printStyle = nil; hasPrinter = nil; planningStep = .game; themeIdeas = []
-        drawGuide = nil; drawIndex = 0
+        playerCount = 0; gameTitle = nil; printStyle = nil; planningStep = .game; themeIdeas = []
         ideas = nil; plan = nil; props = nil; fullKit = nil
         choices = []; lastError = nil; usingFallback = false
         foundProps = []; checkedSteps = []; doneSnapshot = nil; failures = [:]; retryAction = nil; holder = nil
         nutmegLine = ""; presenting = .none; reachedStep = nil; lastPlayPhase = nil; steerIdeas = SteerIdeas()
         kitRemakes = 0; kitRestyles = 0; propMisfits = 0
         cancelDraft()
-        cancelDrawDraft()
         guidePending = false; playQueued = false; guideCalls = 0
         // Round D1: a new adventure (or a replay that loads over this) starts clean.
         gameID = UUID(); countedNewGame = false; savedAs = nil
-        replayGameID = nil; replaySaved = []; replayBase = []; replayPrintables = nil; replayPrinted = nil; replayDrawChosen = false
+        replayGameID = nil; replaySaved = []; replayBase = []; replayPrinted = nil
     }
 
     // MARK: Saved games and replays (round D1, Haylee)
@@ -420,12 +422,8 @@ public final class AdventureStore {
     /// The saved props and play guide (the replay's prop answers are applied to these, never to each other).
     @ObservationIgnored private var replaySaved: [SavedProp] = []
     @ObservationIgnored private var replayBase: [Scene] = []
-    /// A no-printer game that saved printables: Paper offers the print choices (and Draw it instead).
-    public private(set) var replayPrintables: [KitItem]?
-    /// The print choice made on this Paper visit (Let's play! shows after it).
+    /// The print choice made on this Print visit.
     public private(set) var replayPrinted: PaperChoice?
-    /// "Draw it instead" on a no-printer game with saved printables.
-    public private(set) var replayDrawChosen = false
 
     /// Loads a saved game for a replay: Pick is current (only "how many are playing?"), nothing is generated.
     public func loadReplay(_ g: SavedGame) {
@@ -437,11 +435,13 @@ public final class AdventureStore {
         let list = g.props.map(\.replayProp)
         props = Props(nutmegSays: "", props: list)
         foundProps = Set(list.map(\.id))   // every card starts as Got it (Haylee)
-        hasPrinter = g.hasPrinter; printStyle = g.printStyle; drawGuide = g.drawGuide; drawIndex = 0
-        replayBase = g.kit.scenes
+        printStyle = g.printStyle
+        // Round 25: a saved guide with a placeholder title, too few scenes or no props in it (seen in a round 24
+        // Draw it! game: ONE scene titled "x") is repaired here, with no AI call (`GuideRepair`).
+        let items = g.kit.items
+        replayBase = GuideRepair.repair(g.kit.scenes, roles: g.roles, props: g.props.map(\.replayProp), title: g.title)
         fullKit = Kit(nutmegSays: g.kit.nutmegSays, items: g.kit.items,
-                      scenes: ReplayProps.apply(g.kit.scenes, saved: g.props, current: list, items: g.kit.items))
-        replayPrintables = g.printablesMade ? g.printables : nil
+                      scenes: ReplayProps.apply(replayBase, saved: g.props, current: list, items: items))
         planningStep = .finish
         phase = .players
         say(ReplayLines.greeting(title: g.title))
@@ -499,12 +499,12 @@ public final class AdventureStore {
         resetPlayProgress()
     }
 
-    /// Props → Paper: the print choices, or Draw it! again from the saved guide (no printer).
+    /// Props → Print: the print choices.
     public func replayPropsDone() {
         guard isReplay, phase == .props else { return }
-        replayPrinted = nil; replayDrawChosen = false; drawIndex = 0
+        replayPrinted = nil
         phase = .kitReady
-        if drawing, let line = drawLine { say(line) } else { say(ReplayLines.paperQuestion) }
+        say(ReplayLines.paperQuestion)
     }
 
     /// Paper: print everything or just the badges (the app opens the print screen; Let's play! shows next), or skip
@@ -514,13 +514,6 @@ public final class AdventureStore {
         if choice == .skip { beginPlay(); return }
         replayPrinted = choice
         say(ReplayLines.printed)
-    }
-
-    /// No printer, but printables were saved: draw the kit instead.
-    public func replayDrawInstead() {
-        guard isReplay, phase == .kitReady, drawMode, drawGuide != nil else { return }
-        replayDrawChosen = true; drawIndex = 0
-        if let line = drawLine { say(line) }
     }
 
     // MARK: Kit made during the hunt (round 20, Haylee)
@@ -541,7 +534,7 @@ public final class AdventureStore {
 
     /// What the pages should be written for right now (nil: not yet, or no Claude).
     var wantedDraft: KitInputs? {
-        guard service != nil, !usingFallback, planningStep == .props, hasPrinter != false else { return nil }
+        guard service != nil, !usingFallback, planningStep == .props else { return nil }
         return KitDraft.inputs(title: currentTitle, playerCount: playerCount, plan: plan, printStyle: printStyle, step: .props)
     }
 
@@ -549,7 +542,6 @@ public final class AdventureStore {
     /// being made from them) they're left alone.
     public func refreshDraft() {
         guard planningStep != .finish, phase != .makingKit, phase != .kitReady else { return }
-        refreshDrawDraft()
         let want = wantedDraft
         guard want != draftInputs else { return }
         cancelDraft()
@@ -589,97 +581,13 @@ public final class AdventureStore {
         return gen == draftGeneration ? items : nil
     }
 
-    // MARK: No printer: the draw-your-own guide (round 24, Haylee)
-
-    /// The draw guide written during the hunt (no printer). No images, ever.
-    @ObservationIgnored private var drawDraftInputs: KitInputs?
-    @ObservationIgnored private var drawDraftTask: Task<DrawGuide?, Never>?
-    @ObservationIgnored private var drawDraftGeneration = 0
-
-    var wantedDrawDraft: KitInputs? {
-        guard service != nil, !usingFallback, planningStep == .props, drawMode, let plan, !plan.roles.isEmpty else { return nil }
-        return KitInputs(title: currentTitle, playerCount: RoleCast.count, roles: plan.roles.map(\.roleName))   // round C1: for 6
-    }
-
-    private func refreshDrawDraft() {
-        let want = wantedDrawDraft
-        guard want != drawDraftInputs else { return }
-        cancelDrawDraft()
-        guard let want, let service else { return }
-        drawDraftGeneration += 1
-        let gen = drawDraftGeneration, ctx = context, gate = outboundGate
-        drawDraftInputs = want
-        drawDraftTask = Task { [weak self] in
-            if let gate, !(await gate()) { return nil }
-            guard !Task.isCancelled else { return nil }
-            let g = try? await RetryOnce.run { try await service.drawGuide(ctx: ctx) }
-            guard let self, gen == self.drawDraftGeneration, !Task.isCancelled else { return nil }
-            return g
-        }
-    }
-
-    private func cancelDrawDraft() {
-        drawDraftTask?.cancel(); drawDraftTask = nil; drawDraftInputs = nil; drawDraftGeneration += 1
-    }
-
-    /// The hunt's draw guide when it was written for exactly this plan (waiting for it), else nil.
-    private func drawDraftForKit() async -> DrawGuide? {
-        guard let d = drawDraftInputs, let plan,
-              d == KitInputs(title: currentTitle, playerCount: RoleCast.count, roles: plan.roles.map(\.roleName))
-        else { return nil }
-        let gen = drawDraftGeneration
-        let g = await drawDraftTask?.value
-        return gen == drawDraftGeneration ? g : nil
-    }
-
-    /// No printer: the guide (from the hunt, or written now), then the play guide for the drawn pieces. No images.
-    private func makeDrawKit(gen: Int, prefetch: Bool) async {
-        let early = prefetch ? await drawDraftForKit() : nil
-        if let outboundGate, !(await outboundGate()) { return }
-        guard gen == kitGeneration else { return }
-        let guide = early
-        await run("kit", kidSaid: nil) { [self] svc in
-            let ctx = context
-            let g: DrawGuide
-            if let guide { g = guide } else { g = (try? await svc.drawGuide(ctx: ctx)) ?? DrawIt.fallback(playerCount: ctx.playerCount) }
-            let made = try await svc.kitScenes(ctx: context, items: DrawIt.kitItems(g), drawn: true)
-            guard gen == kitGeneration else { return }
-            drawGuide = g; drawIndex = 0; fullKit = made
-        } fallback: { [self] in
-            guard gen == kitGeneration else { return }
-            let g = DrawIt.fallback(playerCount: max(1, playerCount))
-            useFallbackGame()
-            drawGuide = g; drawIndex = 0
-            if var k = fullKit { k.items = DrawIt.kitItems(g); fullKit = k }
-        }
-        guard gen == kitGeneration else { return }
-        if kit != nil { phase = .kitReady }
-    }
-
-    /// Next on the Draw it! card (or voice "next"): the next piece; after the last piece, on to Play.
-    /// Returns the line to say (nil: play started, the app says the play line).
-    @discardableResult
-    public func drawNext() -> String? {
-        guard drawing, let g = drawGuide else { return nil }
-        if drawIndex + 1 < g.pieces.count { drawIndex += 1; return drawLine }
-        beginPlay()
-        return nil
-    }
-
-    /// Round 24: "Save printables for later" (no printer): the normal kit pages (coloring pages), with the play guide
-    /// already written. Nil without Claude or when it fails (the button says so).
-    public func makePrintables() async -> Kit? {
-        guard let service, !usingFallback else { return nil }
-        if let outboundGate, !(await outboundGate()) { return nil }
-        guard let pages = try? await RetryOnce.run({ [ctx = context] in try await service.kitPages(ctx: ctx) }) else { return nil }
-        return Kit(nutmegSays: "", items: KitDraft.finalItems(pages, props: props), scenes: [])
-    }
-
     // MARK: Step rail
 
     /// Jump to a reached step without losing anything (see props again, reprint, back to the game).
     /// Round 23: true when `goTo` would move there (a reached step that isn't the current one, with its content ready).
     public func canGoTo(_ step: JourneyStep) -> Bool {
+        // Round 25 (Haylee): at The End, Play is a finished step: tapping it goes back to the last checklist.
+        if step == .play, phase == .end { return kit?.scenes.isEmpty == false }
         guard let reached = reachedStep, step.rawValue <= reached.rawValue, step != phase.step else { return false }
         switch step {
         case .game: return true
@@ -699,10 +607,10 @@ public final class AdventureStore {
             phase = .props; presenting = .props
         case .print:
             phase = .kitReady; presenting = .none
-            drawIndex = 0   // round 24: Draw it! starts again from the first piece
             replayPrinted = nil   // round D1: the replay's Paper choices again
         case .play:
             presenting = .none
+            if phase == .end { backToLastChecklist(); return true }
             if let last = lastPlayPhase { phase = last } else { beginPlay() }
         }
         return true
@@ -730,7 +638,7 @@ public final class AdventureStore {
         if isReplay {
             switch call {
             case .showGameIdeas, .setGame, .setTheme, .setRoles, .showProps, .showNextProp, .markFound, .swapProp, .skipProp,
-                 .finishPlanning, .confirmPlan, .setPrintStyle, .setPrinter:
+                 .finishPlanning, .confirmPlan, .setPrintStyle:
                 return ReplayLines.savedGameOutput
             case .startPlay where phase == .props:
                 return "Not yet: they're checking the props. Say ONE short line: tap All set when they're ready."
@@ -784,29 +692,16 @@ public final class AdventureStore {
             }
             countNewGame()   // round D1: a new game counts at the confirm-step yes (design §7)
             phase = .players; presenting = .none
-            // Round 24: the printer question comes next, unless the kids already answered it.
-            guard let printer = hasPrinter else { planningStep = .printer; return PrinterChoice.askOutput(playerCount: max(1, playerCount)) }
             // Round 20: the color question comes next, unless the kids already chose (a correction re-opened the recap).
-            if printer, printStyle == nil { planningStep = .color; return ColorChoice.askOutput(playerCount: max(1, playerCount)) }
+            // (Round 25: round 24's printer question is gone; every game makes the printable kit.)
+            if printStyle == nil { planningStep = .color; return ColorChoice.askOutput(playerCount: max(1, playerCount)) }
             planningStep = .roles
             return ConfirmStep.confirmedOutput(playerCount: max(1, playerCount))
         case .setPrintStyle(let style):
             return setPrintStyle(style)
-        case .setPrinter(let has):
-            return setPrinter(has)
-        case .drawStep(let next):
-            guard drawing else {
-                return "There's no drawing step right now. Answer in ONE short line."
-            }
-            if !next { return "Say exactly this and nothing else: \"\(drawLine ?? "")\"" }
-            if let line = drawNext() { return "Next piece on screen. Say exactly this and nothing else: \"\(line)\"" }
-            return "Play started. The app runs the scenes now. Say nothing."
         case .setRoles(let drafts):
             if planningStep == .confirm {
                 return "Not yet: the kids haven't said yes to your recap. Say exactly: \"\(recapLine)\" and wait (yes → confirm_plan)."
-            }
-            if planningStep == .printer {
-                return "Not yet: ask the printer question first. Say exactly: \"\(PrinterChoice.question)\" and wait (their answer → set_printer)."
             }
             if planningStep == .color {
                 return "Not yet: ask the color question first. Say exactly: \"\(ColorChoice.question)\" and wait (their answer → set_print_style)."
@@ -934,16 +829,16 @@ public final class AdventureStore {
             badgeTapped(owner)
             return "Hand-off confirmed: the scene starts and the app says its line. Say nothing."
         case .printKit:
-            if drawMode, phase == .kitReady {
-                return "There's no printer: they're drawing their kit. Say ONE short line, and that they can tap \(DrawIt.saveLabel) to print it somewhere else."
-            }
             // Round 23: "print it again" from the play step (or The End) goes back to the Print step.
-            if phase.step == .play, goTo(.print) { return BackNav.output(moved: true, to: .print, current: .print, drawing: drawMode) }
+            if phase.step == .play, goTo(.print) { return BackNav.output(moved: true, to: .print, current: .print) }
             return "The print screen is open. Say one short line like \"Here's the print screen!\""
         case .goToStep(let step):
             let from = phase.step
+            if step == .play, phase == .end, goTo(.play) {   // round 25: "go back to the checklist" at The End
+                return "Back to the last checklist. Say exactly this and nothing else: \"\(HandOffLines.backToChecklist)\""
+            }
             let moved = goTo(step)
-            return BackNav.output(moved: moved, to: step, current: from, drawing: drawMode)
+            return BackNav.output(moved: moved, to: step, current: from)
         }
     }
 
@@ -1033,39 +928,11 @@ public final class AdventureStore {
         case .color:
             planningStep = .roles
             return ColorChoice.chosenOutput(style, playerCount: max(1, playerCount))
-        case .game, .theme, .players, .confirm, .printer:
+        case .game, .theme, .players, .confirm:
             return "Noted: the printables will be \(style.spoken). Carry on with the current step (don't ask about color again)."
         case .roles, .props, .finish:
             return was == style ? "Already \(style.spoken). Carry on with the current step in ONE short line."
                 : "Got it: the printables will be \(style.spoken) (the app changes them). Say so in a few words, then carry on with the current step."
-        }
-    }
-
-    // MARK: Printer (round 24)
-
-    /// The kids said whether they have a printer (voice: set_printer; or a button). On the printer step: yes → the color
-    /// question (or the roles if the color is known), no → the roles (no color question, no images). Earlier it's
-    /// kept; during the hunt it switches which kit is written; after the hunt it stays (Save printables covers it).
-    private func setPrinter(_ has: Bool) -> String {
-        switch phase {
-        case .makingKit, .kitReady, .handoff, .scene, .end:
-            if has == hasPrinter { return "Already noted. Answer in ONE short line." }
-            return has ? "The kit is already planned for drawing. Say in ONE short line that they can tap \(DrawIt.saveLabel) to get the printable pages."
-                : "The kit is already made for printing. Say in ONE short, kind line that they can still play with it."
-        default: break
-        }
-        let was = hasPrinter
-        hasPrinter = has
-        switch planningStep {
-        case .printer, .color:
-            if has, printStyle == nil { planningStep = .color } else { planningStep = .roles }
-            return PrinterChoice.chosenOutput(has, colorKnown: printStyle != nil, playerCount: max(1, playerCount))
-        case .game, .theme, .players, .confirm:
-            return "Noted: \(has ? "they have a printer" : "no printer, they'll draw the kit"). Carry on with the current step (don't ask about the printer again)."
-        case .roles, .props, .finish:
-            if has, printStyle == nil { printStyle = .colorIn }
-            return was == has ? "Already noted. Carry on with the current step in ONE short line."
-                : "Got it: \(has ? "they'll print the kit" : "no printer, they'll draw the kit by hand") (the app changes it). Say so in a few words, then carry on with the current step."
         }
     }
 
@@ -1098,7 +965,7 @@ public final class AdventureStore {
         switch phase {
         case .makingKit, .kitReady:
             gameTitle = title
-            fullKit = nil; drawGuide = nil; drawIndex = 0; kitRemakes += 1; phase = .makingKit
+            fullKit = nil; kitRemakes += 1; phase = .makingKit
             presenting = .none; planningStep = .finish
             Task { await self.makeKit(remakeFor: title) }
             return "The \(what) is now \(title): the app is remaking the kit to match and says so. Say nothing."
@@ -1146,17 +1013,17 @@ public final class AdventureStore {
     /// flag puts it back, so flagged text never stays in the game (and never reaches the kit or images).
     public struct SafeSnapshot: Equatable {
         let phase: Phase, reachedStep: JourneyStep?, playerCount: Int, planningStep: PlanningStep
-        let gameTitle: String?, printStyle: PrintStyle?, hasPrinter: Bool?, plan: GamePlan?, props: Props?
+        let gameTitle: String?, printStyle: PrintStyle?, plan: GamePlan?, props: Props?
         let foundProps: Set<String>, currentPropID: String?, presenting: Presentation, themeIdeas: [Suggestion]
     }
     public func safeSnapshot() -> SafeSnapshot {
         SafeSnapshot(phase: phase, reachedStep: reachedStep, playerCount: playerCount, planningStep: planningStep,
-                     gameTitle: gameTitle, printStyle: printStyle, hasPrinter: hasPrinter, plan: plan, props: props, foundProps: foundProps,
+                     gameTitle: gameTitle, printStyle: printStyle, plan: plan, props: props, foundProps: foundProps,
                      currentPropID: currentPropID, presenting: presenting, themeIdeas: themeIdeas)
     }
     public func restore(_ s: SafeSnapshot) {
         phase = s.phase; reachedStep = s.reachedStep; playerCount = s.playerCount; planningStep = s.planningStep
-        gameTitle = s.gameTitle; printStyle = s.printStyle; hasPrinter = s.hasPrinter; plan = s.plan; props = s.props; foundProps = s.foundProps
+        gameTitle = s.gameTitle; printStyle = s.printStyle; plan = s.plan; props = s.props; foundProps = s.foundProps
         currentPropID = s.currentPropID; presenting = s.presenting; themeIdeas = s.themeIdeas
     }
 
@@ -1242,7 +1109,7 @@ public final class AdventureStore {
 
     /// The pages for this plan just landed: write the play guide for them now, while the kids hunt.
     private func startGuide(items: [KitItem], gen: Int) {
-        guard let service, !drawMode else { return }
+        guard let service else { return }
         cancelGuide()
         guideGeneration = gen; guideStartedAt = Date(); guideCalls += 1
         let ctx = context, gate = outboundGate

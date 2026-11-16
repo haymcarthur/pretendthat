@@ -2,9 +2,8 @@ import Foundation
 @testable import NutmegCore
 
 extension AdventureStore {
-    /// Round 24: the confirm step's yes, then "Do you have a printer?" → yes (the round 20 flow, as before).
-    @MainActor func confirmWithPrinter() async -> String {
-        _ = await apply(.confirmPlan)
-        return await apply(.setPrinter(true))
+    /// The confirm step's yes (round 25: no printer question any more; the color question follows, as in round 20).
+    @MainActor func confirmYes() async -> String {
+        await apply(.confirmPlan)
     }
 }

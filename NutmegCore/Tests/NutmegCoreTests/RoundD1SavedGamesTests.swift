@@ -8,15 +8,14 @@ struct RoundD1SavedGamesTests {
     let a = Fallback.airplane
 
     /// A saved airplane game (printer, 6 ranked roles, the bundled play guide), as if saved at The End.
-    func fixture(created: Date = Date(timeIntervalSince1970: 1_800_000_000), printer: Bool = true, pretend: Set<String> = []) -> SavedGame {
+    func fixture(created: Date = Date(timeIntervalSince1970: 1_800_000_000), pretend: Set<String> = []) -> SavedGame {
         let props = a.props.props.map { p -> SavedProp in
             var s = SavedProp(p); s.pretendOnFirstPlay = pretend.contains(p.id)
             if p.id == "plate" { s.alternates = ["bowl"] }
             return s
         }
         return SavedGame(createdAt: created, title: "Airplane to the Beach", roles: a.plan.roles, props: props, kit: a.kit,
-                         hasPrinter: printer, printStyle: printer ? .colorIn : nil,
-                         drawGuide: printer ? nil : DrawIt.fallback(playerCount: 1), art: [], voiceID: VoiceConfig.nutmeg.voiceID)
+                         printStyle: .colorIn, art: [], voiceID: VoiceConfig.nutmeg.voiceID)
     }
 
     func tempRoot() -> URL {
@@ -79,7 +78,7 @@ struct RoundD1SavedGamesTests {
         let store = AdventureStore(service: PhaseService(llm: llm))
         store.beginConversation()
         _ = await store.apply(.setGame("Airplane")); _ = await store.apply(.setTheme("Airplane to the Beach"))
-        _ = await store.apply(.setPlayerCount(4)); _ = await store.confirmWithPrinter(); _ = await store.apply(.setPrintStyle(.colorIn))
+        _ = await store.apply(.setPlayerCount(4)); _ = await store.confirmYes(); _ = await store.apply(.setPrintStyle(.colorIn))
         _ = await store.apply(.setRoles(a.plan.roles.map { .init(roleName: $0.roleName, job: $0.job) }))
         _ = await store.apply(.showNextProp(.init(itemID: "plate", becomes: "the steering wheel", forRole: "Captain", alternates: ["bowl"], reason: "A plate is round like a wheel!")))
         _ = await store.apply(.markFound("plate"))
@@ -105,7 +104,7 @@ struct RoundD1SavedGamesTests {
         // What IS kept: the game content.
         #expect(game.title == "Airplane to the Beach" && game.roles.count == 6 && game.props.map(\.id) == ["plate"])
         #expect(game.props[0].reason == "A plate is round like a wheel!" && game.props[0].alternates == ["bowl"])
-        #expect(game.kit == store.fullKit && game.hasPrinter && game.printStyle == .colorIn && game.clips.isEmpty)
+        #expect(game.kit == store.fullKit && game.printStyle == .colorIn && game.clips.isEmpty)
     }
 
     // MARK: Save at The End
@@ -182,7 +181,7 @@ struct RoundD1SavedGamesTests {
         #expect(store.fullKit?.scenes[0].steps[0].text == "Captain, hold the steering wheel" || store.fullKit?.scenes[0].steps[0].text == "Captain, hold the Steering wheel")
         // Paper: the choices; just the badges = only badge pages for the count.
         store.replayPropsDone()
-        #expect(store.phase == .kitReady && !store.drawing && store.nutmegLine == ReplayLines.paperQuestion)
+        #expect(store.phase == .kitReady && store.nutmegLine == ReplayLines.paperQuestion)
         store.replayPaper(.badges)
         #expect(store.replayPrinted == .badges && store.phase == .kitReady)
         let pages = KitLayout.pages(for: store.kit!, roles: store.plan!.roles, playerCount: store.playerCount)
@@ -217,23 +216,6 @@ struct RoundD1SavedGamesTests {
         store.replayPick(1); store.replayPickDone()
         store.replayProp("plate", have: false)
         #expect(store.fullKit?.scenes[0].steps[0].text.contains("pretend") == true)
-    }
-
-    @Test func noPrinterReplayDrawsItAgainFromTheSavedGuideForTheCount() {
-        let g = fixture(printer: false)
-        let store = AdventureStore(service: nil)
-        store.loadReplay(g)
-        store.replayPick(4); store.replayPickDone(); store.replayPropsDone()
-        #expect(store.drawing && store.drawIndex == 0)
-        #expect(store.nutmegLine == store.drawLine)
-        #expect(DrawIt.line(g.drawGuide!, 0, players: 4) == store.drawLine)
-        // A no-printer game that saved printables: the print choices first, Draw it instead on request.
-        var p = g; p.printablesMade = true; p.printables = a.kit.items
-        store.loadReplay(p)
-        store.replayPick(2); store.replayPickDone(); store.replayPropsDone()
-        #expect(!store.drawing && store.replayPrintables != nil && store.nutmegLine == ReplayLines.paperQuestion)
-        store.replayDrawInstead()
-        #expect(store.drawing && store.nutmegLine == store.drawLine)
     }
 
     @Test func replayNoteIsASystemNoteWithTheSavedGame() {
@@ -273,11 +255,11 @@ final class CountingLedger: GameLedger {
 }
 
 @Test func replayToolsAreTheExistingSessionToolsByStep() {
-    #expect(ReplayLines.tools(.players, drawing: false) == ["set_player_count", "go_to_step", "just_talk"])
-    #expect(ReplayLines.tools(.props, drawing: false) == ["go_to_step", "just_talk"])
-    #expect(ReplayLines.tools(.kitReady, drawing: true) == Realtime.afterHuntTools(.kitReady, drawing: true))
+    #expect(ReplayLines.tools(.players) == ["set_player_count", "go_to_step", "just_talk"])
+    #expect(ReplayLines.tools(.props) == ["go_to_step", "just_talk"])
+    #expect(ReplayLines.tools(.kitReady) == Realtime.afterHuntTools(.kitReady))
     let names = Set(Realtime.tools.compactMap { $0["name"] as? String })
     for phase in [Phase.players, .props, .kitReady, .handoff(sceneIndex: 0), .scene(0), .end] {
-        #expect(Set(ReplayLines.tools(phase, drawing: false) ?? []).isSubset(of: names))
+        #expect(Set(ReplayLines.tools(phase) ?? []).isSubset(of: names))
     }
 }

@@ -89,14 +89,14 @@ struct Round23Tests {
     // MARK: B back-navigation
 
     @Test func railPicturesAndMarks() {
-        #expect(JourneyStep.allCases.map(\.label) == ["Pick", "Props", "Paper", "Play"])   // round 23 renames
-        #expect(JourneyStep.allCases.map(BackNav.symbol) == ["theatermasks.fill", "shippingbox.fill", "doc", "play.fill"])
-        #expect(BackNav.overlay(.print) == "pencil" && BackNav.overlay(.game) == nil)
+        #expect(JourneyStep.allCases.map(\.label) == ["Pick", "Props", "Print", "Play"])   // round 25: Paper → Print
+        #expect(JourneyStep.allCases.map(BackNav.symbol) == ["theatermasks.fill", "shippingbox.fill", "printer.fill", "play.fill"])
+        #expect(JourneyStep.allCases.allSatisfy({ BackNav.overlay($0) == nil }))   // round 25: no crayon
         #expect(BackNav.mark(.game, current: .print) == "arrow.counterclockwise")
         #expect(BackNav.mark(.play, current: .print) == "arrow.clockwise")
-        #expect(BackNav.arrivalLine(.print) == "Back to Paper! Tap Print to print it again.")
+        #expect(BackNav.arrivalLine(.print) == "Back to Print! Tap Print to print it again.")
         #expect(BackNav.arrivalLine(.game).hasPrefix("Back to Pick!"))
-        #expect(BackNav.output(moved: true, to: .print, current: .play).contains("Moved to the Paper step"))
+        #expect(BackNav.output(moved: true, to: .print, current: .play).contains("Moved to the Print step"))
     }
 
     @MainActor @Test func voiceGoesBackThroughTheSameNavigation() async {

@@ -115,22 +115,15 @@ final class AppModel {
         // Tool-first kid turns (round 7): no narration is ever heard; she speaks after the tool result.
         realtime.onKidTurnTools = { [weak self] in
             guard let self else { return nil }
-            if self.store.isReplay { return ReplayLines.tools(self.store.phase, drawing: self.store.drawing) }   // round D1
+            if self.store.isReplay { return ReplayLines.tools(self.store.phase) }   // round D1
             guard self.planningNow else {
-                return Realtime.afterHuntTools(self.store.phase, drawing: self.store.drawing)   // round 23 (+ round 24's Draw it!)
+                return Realtime.afterHuntTools(self.store.phase)   // round 23
             }
             return Realtime.kidTurnTools(step: self.store.planningStep, huntActive: self.store.huntActive)
         }
         realtime.onPostPlanningTurn = { [weak self] in
             guard let self else { return nil }
             switch self.store.phase {
-            case .kitReady where self.store.drawing:
-                // Round 24: no printer, the Draw it! step: one piece at a time.
-                let g = self.store.drawGuide
-                return "(Silent coaching, don't mention it.) No printer: the kids are drawing their kit (the \(DrawIt.title) step), "
-                    + "piece \(self.store.drawIndex + 1) of \(g?.pieces.count ?? 1): \"\(self.store.drawLine ?? "")\" If they finished it "
-                    + "(\"next\", \"done\", \"I drew it\"), call draw_step with next; to hear it again, draw_step with again; to "
-                    + "start playing, start_play. " + BackNav.voiceHint + " Otherwise answer in ONE short line."
             case .kitReady:
                 return "(Silent coaching, don't mention it.) The kit is ready on screen (print step). If they want to play, "
                     + "call start_play; if they want to print, call print_kit. " + BackNav.voiceHint
@@ -349,11 +342,13 @@ final class AppModel {
     /// Round 23: a tap back to a step on the rail: the same `store.goTo`, then her one arrival line, and a silent
     /// note so the conversation knows where the kids are. Voice uses go_to_step (the model says the line itself).
     func navigate(to step: JourneyStep) {
+        // Round 25 (Haylee): at The End, Play (finished, ↺) goes back to the last checklist with its own line.
+        let toChecklist = step == .play && store.phase == .end
         guard store.goTo(step) else { return }
-        let line = BackNav.arrivalLine(step, drawing: store.drawMode)
+        let line = toChecklist ? HandOffLines.backToChecklist : BackNav.arrivalLine(step)
         rtLog("back-nav: \(step.label) (tap)")
         if realtime.isLive {
-            realtime.addNote(Realtime.systemNote(BackNav.tapNote(step, drawing: store.drawMode)))
+            realtime.addNote(Realtime.systemNote(BackNav.tapNote(step)))
             speaker.remember(line)
             speaker.say(line)
         } else {
@@ -381,9 +376,7 @@ final class AppModel {
         art.reset()
         stickers.reset()
         gate.reset(); safeSnap = nil; screenedTurns = [:]
-        printablesKit = nil; printablesShare = nil; printablesState = .idle
         replayGame = nil; replayConnecting = false; saveState = .idle
-        if let f = printablesFile { try? FileManager.default.removeItem(at: f); printablesFile = nil }
         store.newGame()
     }
 
@@ -482,8 +475,6 @@ final class AppModel {
         guard let kit = store.kit else { return }
         // Round D1: a replay prints the saved art: never an image call.
         if store.isReplay { return }
-        // Round 24: no printer → the kit is drawn by hand: never an image call.
-        if store.drawMode { rtLog("kit: no printer, Draw it! (\(store.drawGuide?.pieces.count ?? 0) pieces, no image calls)"); return }
         // Round 19: the CURRENT title (a corrected theme wins over the one the roles were planned with).
         let title = store.currentTitle
         #if DEBUG
@@ -543,9 +534,7 @@ final class AppModel {
                         : item.recipe == .badges ? art.badge(item.id, role: 0) == nil   // round C1: the sheet or the shared badge
                         : art.images[item.id] == nil
                 }.compactMap(\.recipe)
-                // Round 24: no printer → no pages are drawn; only the play guide is being written.
                 let topics = guideWait && kitFinal ? [KitProgress.Topic.checklists]
-                    : store.drawMode ? (store.kit == nil ? [KitProgress.Topic.checklists] : [])
                     : KitProgress.inProgress(pagesWritten: store.kit != nil || store.draftItems != nil,
                                              scenesWritten: store.kit != nil && !store.guidePending, pendingPages: pending)
                 guard said < KitProgress.maxLines else { return }
@@ -628,8 +617,6 @@ final class AppModel {
         let inChecklist: Bool = { if case .scene = store.phase, !store.huntActive { return true } else { return false } }()
         let busy = isSpeaking || micState == .listening || store.autoChecking || repeatTask != nil
             || (realtime.isLive && (realtime.isBusy || realtime.thinkingGap))
-        // Round 24: on the Draw it! card, Repeat reads the current piece.
-        if store.drawing, !busy, let line = store.drawLine { return .lastLine(line) }
         let last = realtime.transcript.last(where: \.fromNutmeg)?.text
         return RepeatTarget.choose(inChecklist: inChecklist, busy: busy, transcriptLast: last, appLast: lastAppLine)
     }
@@ -687,7 +674,7 @@ final class AppModel {
     var kitPapersOut: Bool { kitFinal && kitBeat == .papers }
 
     /// Every page's art has landed or definitively fallen back.
-    var kitFinal: Bool { store.phase == .kitReady && store.kit != nil && (store.drawMode ? store.drawGuide != nil : art.finished) }
+    var kitFinal: Bool { store.phase == .kitReady && store.kit != nil && art.finished }
     func kitFinalChanged(_ final: Bool) {
         // Round D1: a replay's Paper step has its own choices (no writing beat, no ready line).
         if store.isReplay { kitBeatTask?.cancel(); return }
@@ -729,8 +716,7 @@ final class AppModel {
             // Round 19: the kid already moved on (Let's play, step rail): the ready line is stale, never said late.
             guard !Task.isCancelled, !kitReadySaid, store.phase == .kitReady else { return }
             kitReadySaid = true
-            // Round 24: no printer → the first Draw it! piece (it names the Next button).
-            let ready = store.drawing ? (store.drawLine ?? AdventureStore.kitReadyLine) : AdventureStore.kitReadyLine
+            let ready = AdventureStore.kitReadyLine
             rtLog("print ready line: \(ready)")
             speak(ready, deferIfAway: true)
         }
@@ -751,11 +737,11 @@ final class AppModel {
             return ("(Silent coaching, don't mention it.) That was undone. Say nothing more.", false)
         }
         realtime.markTrace("checked \(name)")
-        if case .printKit = call, store.isReplay, store.phase == .kitReady, store.replayPrintables != nil || !store.drawMode {
+        if case .printKit = call, store.isReplay, store.phase == .kitReady {
             replayPaper(.everything)   // round D1: "print it" on a replay = Print everything
             return ("The print screen is open. Say one short line like \"Here's the print screen!\"", true)
         }
-        if case .printKit = call, store.phase.step != .play, !store.drawMode {
+        if case .printKit = call, store.phase.step != .play {
             guard store.phase == .kitReady || kitFinal else { return ("Not yet: the kit isn't ready. Say only \"Almost ready!\"", true) }
             printKit()
         }
@@ -842,9 +828,7 @@ final class AppModel {
         Task { @MainActor in
             _ = await store.apply(.confirmPlan)
             lastRecap = nil
-            if store.planningStep == .printer {
-                realtime.tapTurn(kidLine: ConfirmStep.yesLabel, note: PrinterChoice.yesTapNote(), requiring: nil)
-            } else if store.planningStep == .color {
+            if store.planningStep == .color {
                 realtime.tapTurn(kidLine: ConfirmStep.yesLabel, note: ColorChoice.yesTapNote(), requiring: nil)
             } else {
                 realtime.tapTurn(kidLine: ConfirmStep.yesLabel, note: ConfirmStep.yesTapNote(playerCount: max(1, store.playerCount)),
@@ -852,81 +836,6 @@ final class AppModel {
             }
         }
     }
-
-    // MARK: Printer question and Draw it! (round 24, Haylee)
-
-    /// The Yes / No printer buttons: on the printer step, once her question has started.
-    var showsPrinterChoice: Bool {
-        inConversation && store.planningStep == .printer && !realtime.thinkingGap
-    }
-
-    /// A printer button: set at once; her one reply is the color question (yes) or the planning line + roles (no).
-    func choosePrinter(_ has: Bool) {
-        guard realtime.isLive, store.planningStep == .printer else { return }
-        realtime.beginTrace("tap")
-        wakeUp()
-        userAction(.printerChoice)
-        Task { @MainActor in
-            _ = await store.apply(.setPrinter(has))
-            rtLog("printer: \(has ? "yes" : "no") (tap)")
-            let note = PrinterChoice.tapNote(has, colorKnown: store.printStyle != nil, playerCount: max(1, store.playerCount))
-            realtime.tapTurn(kidLine: has ? PrinterChoice.yesLabel : PrinterChoice.noLabel, note: note,
-                             requiring: nil, speakWithTools: store.planningStep == .roles)
-        }
-    }
-
-    /// Draw it!'s Next: the next piece and its line (one reply), or after the last piece, on to Play (its own line).
-    func tapDrawNext() {
-        guard store.drawing else { return }
-        userAction(.drawNext)
-        wakeUp()
-        guard let line = store.drawNext() else { rtLog("draw it: done → play"); return }
-        rtLog("draw it: piece \(store.drawIndex + 1): \(line)")
-        if realtime.isLive {
-            realtime.addNote(Realtime.systemNote("(Silent note, don't mention it.) The kids tapped Next on the Draw it! card; "
-                + "you're saying piece \(store.drawIndex + 1): \"\(line)\""))
-        }
-        speak(line)
-    }
-
-    /// Save printables for later (no printer): the normal kit as coloring pages, then the share sheet (Save to Files,
-    /// AirDrop, send to a grown-up). Nothing is stored by the app: the PDF is a temporary file for the share sheet.
-    enum PrintablesState: Equatable { case idle, making, failed }
-    private(set) var printablesState: PrintablesState = .idle
-    /// The share sheet's file (non-nil = presented).
-    var printablesShare: URL?
-    @ObservationIgnored private var printablesKit: Kit?
-    func tapSavePrintables() {
-        guard store.drawMode, printablesState != .making else { return }
-        userAction(.savePrintables)
-        if let url = printablesFile { printablesShare = url; return }
-        printablesState = .making
-        speak("Ooh, I'll make your printable pages to save for later! Wait for it...")
-        Task { @MainActor in
-            let started = Date()
-            var made = printablesKit
-            if made == nil { made = await store.makePrintables() }
-            guard let kit = made else { printablesState = .failed; speak("Oops, I couldn't make the pages. Tap to try again!"); return }
-            printablesKit = kit
-            // Coloring pages (Claude's call: no second question; they're for printing somewhere else, kids can color them).
-            await art.generate(kit: kit, gameTitle: store.currentTitle, style: .colorIn,
-                               sheetCount: kit.items.first { $0.recipe == .cutouts }.map { KitArtPrompt.cutoutLabels($0).count },
-                               roles: store.plan?.roles ?? [])
-            guard store.drawMode else { printablesState = .idle; return }
-            let pages = KitLayout.pages(for: kit, roles: store.plan?.roles ?? [], playerCount: store.playerCount)
-            let pdf = KitPrinter.pdf(pages: pages, art: art.images,
-                                     cutouts: Dictionary(uniqueKeysWithValues: kit.items.map { ($0.id, art.cutoutImages($0)) }))
-            let name = "PretendThat \(store.currentTitle)".replacingOccurrences(of: "/", with: "-")
-            let url = FileManager.default.temporaryDirectory.appendingPathComponent("\(name).pdf")
-            do { try pdf.write(to: url, options: .atomic) } catch { printablesState = .failed; return }
-            rtLog(String(format: "printables: %d pages ready in %.1f s → share sheet", pages.count, Date().timeIntervalSince(started)))
-            printablesFile = url
-            printablesState = .idle
-            printablesShare = url
-        }
-    }
-    @ObservationIgnored private var printablesFile: URL?
-    func printablesShareClosed() { printablesShare = nil }
 
     // MARK: Color choice (round 20, Haylee)
 
@@ -1410,15 +1319,13 @@ final class AppModel {
         let images = art.artByKey
         // Printer games: the sign art (it carries the place's name) is the shelf card's picture.
         let sign = store.kit?.items.first { $0.recipe == .sign }.flatMap { art.images[$0.id] }
-        let printables = store.drawMode ? printablesKit?.items : nil
         Task { @MainActor in
             let (files, cover) = await Task.detached(priority: .userInitiated) { () -> ([String: Data], Data?) in
                 var files: [String: Data] = [:]
                 for (key, img) in images { if let d = img.heicData() ?? img.jpegData(compressionQuality: 0.9) { files[key] = d } }
                 return (files, sign.flatMap { Self.coverData($0) })
             }.value
-            guard store.canSave, var game = store.savedGame(id: id, art: files.keys.sorted(), cover: cover == nil ? nil : "cover.jpg",
-                                                            printables: printables) else { saveState = .failed; return }
+            guard store.canSave, var game = store.savedGame(id: id, art: files.keys.sorted(), cover: cover == nil ? nil : "cover.jpg") else { saveState = .failed; return }
             // Round D3b: her lines recorded on this play are saved with it.
             let recorded = clipStore.pendingForSave()
             game.clips = recorded.clips
@@ -1482,7 +1389,6 @@ final class AppModel {
             if let n = p.index { cutouts[p.itemID, default: [:]][n] = img } else { images[p.itemID] = img }
         }
         art.restore(images: images, cutouts: cutouts)
-        printablesKit = nil; printablesShare = nil; printablesState = .idle
         replayGame = g
         kitBeat = .papers; kitWriting = false; kitReadySaid = true; beat = .none; shownProps = 0
         savedGames.touch(g.id)
@@ -1657,24 +1563,15 @@ final class AppModel {
         store.replayPropsDone()
         noteReplayStep()
     }
-    func replayDrawInstead() {
-        userAction(.paperChoice)
-        store.replayDrawInstead()
-    }
-    /// The pages a replay prints: the kit for the current count (or a no-printer game's saved printables).
-    var replayPages: [KitPage] {
-        if let items = store.replayPrintables {
-            return KitLayout.pages(for: Kit(nutmegSays: "", items: items, scenes: []), roles: store.plan?.roles ?? [], playerCount: store.playerCount)
-        }
-        return kitPages
-    }
+    /// The pages a replay prints: the kit for the current count.
+    var replayPages: [KitPage] { kitPages }
     /// Paper on a replay: Print everything / Just the badges (the saved art, rebuilt as a PDF for this count) or Skip.
     func replayPaper(_ choice: PaperChoice) {
         userAction(.paperChoice)
         let pages = ReplayProps.pages(replayPages, for: choice)
         store.replayPaper(choice)
         guard choice != .skip else { rtLog("REPLAY paper: skip → play"); return }
-        let items = store.replayPrintables ?? store.kit?.items ?? []
+        let items = store.kit?.items ?? []
         let pdf = KitPrinter.pdf(pages: pages, art: art.images,
                                  cutouts: Dictionary(uniqueKeysWithValues: items.map { ($0.id, art.cutoutImages($0)) }))
         rtLog("REPLAY paper: \(choice.rawValue): \(pages.count) page(s), \(pages.flatMap(\.slots).filter { $0.role != nil }.count) badge(s) for \(store.playerCount), PDF \(pdf.count / 1024) KB")

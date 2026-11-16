@@ -40,8 +40,11 @@ public enum HandOffLines {
     public static func end(canGoBack: Bool, replay: Bool = false) -> String {
         (replay ? "The end! What a show! Take a bow! Tap Play it again to do it again, or New game for a new adventure!"
             : "The end! What a show! Take a bow! Tap Save it to play again, or New game for a new adventure!")
-            + (canGoBack ? " Tap Back to the checklist to see it again." : "")
+            + (canGoBack ? " " + endBackHint : "")
     }
+
+    /// Round 25 (Haylee): The End has no Back to the checklist button; the Play step on the step rail goes back.
+    public static let endBackHint = "Tap Play at the top to see your checklist again."
 
     /// Back to the checklist from the hand-off card or The End (the checkmarks are restored).
     public static let backToChecklist = "Here's your checklist again! Tap Done when you're finished."

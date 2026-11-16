@@ -55,16 +55,9 @@ public struct SavedGame: Codable, Equatable, Sendable, Identifiable {
     public var props: [SavedProp]
     /// The kit as written for all 6 roles: the 6 recipe pages + the play guide (role-tagged steps).
     public var kit: Kit
-    public var hasPrinter: Bool
     public var printStyle: PrintStyle?
-    /// The Draw it! guide (no-printer games); counts are computed from the replay's count.
-    public var drawGuide: DrawGuide?
     /// The stored page art keys (`ArtKey`), files under art/ as HEIC. The PDF is always rebuilt, never stored.
     public var art: [String]
-    /// A no-printer game made "Save printables for later": its pages are stored too and Paper can print them.
-    public var printablesMade: Bool
-    /// The printables' pages (no-printer games with `printablesMade`).
-    public var printables: [KitItem]?
     /// cover.jpg (a 600 px card picture for the shelf), when the game had sign art.
     public var cover: String?
     /// Nutmeg's recorded lines (round D3b). Empty in D1: every replay line is said live.
@@ -73,18 +66,16 @@ public struct SavedGame: Codable, Equatable, Sendable, Identifiable {
     public var voiceID: String
 
     public init(id: UUID = UUID(), createdAt: Date, title: String, roles: [Role], props: [SavedProp], kit: Kit,
-                hasPrinter: Bool, printStyle: PrintStyle?, drawGuide: DrawGuide?, art: [String], printablesMade: Bool = false,
-                printables: [KitItem]? = nil, cover: String? = nil, clips: [SavedClip] = [], voiceID: String) {
+                printStyle: PrintStyle?, art: [String], cover: String? = nil, clips: [SavedClip] = [], voiceID: String) {
         self.id = id; self.schemaVersion = Self.currentSchema; self.createdAt = createdAt; self.lastPlayedAt = createdAt
-        self.title = title; self.roles = roles; self.props = props; self.kit = kit; self.hasPrinter = hasPrinter
-        self.printStyle = printStyle; self.drawGuide = drawGuide; self.art = art; self.printablesMade = printablesMade
-        self.printables = printables; self.cover = cover; self.clips = clips; self.voiceID = voiceID
+        self.title = title; self.roles = roles; self.props = props; self.kit = kit
+        self.printStyle = printStyle; self.art = art
+        self.cover = cover; self.clips = clips; self.voiceID = voiceID
     }
 
     /// The exact JSON keys a saved game may have (the privacy test compares against this; a new field is a decision).
     public static let allowedKeys: Set<String> = ["id", "schemaVersion", "createdAt", "lastPlayedAt", "title", "roles", "props",
-                                                  "kit", "hasPrinter", "printStyle", "drawGuide", "art", "printablesMade",
-                                                  "printables", "cover", "clips", "voiceID"]
+                                                  "kit", "printStyle", "art", "cover", "clips", "voiceID"]
 
     public static func encoder() -> JSONEncoder {
         let e = JSONEncoder(); e.dateEncodingStrategy = .iso8601; e.outputFormatting = [.sortedKeys]; return e
@@ -123,15 +114,14 @@ public enum ArtKey {
 
 extension AdventureStore {
     /// The game as it can be saved (The End of a first play), or nil. Built ONLY from game content: the current title,
-    /// the 6 ranked roles, the props, the kit for 6, the printer/color choices and the Draw it! guide. Never the count,
+    /// the 6 ranked roles, the props, the kit for 6, and the color choice. Never the count,
     /// the chat, kid text or anything else the store holds in memory.
-    public func savedGame(id: UUID = UUID(), now: Date = Date(), art: [String], cover: String?, printables: [KitItem]? = nil,
+    public func savedGame(id: UUID = UUID(), now: Date = Date(), art: [String], cover: String?,
                           voiceID: String = VoiceConfig.nutmeg.voiceID) -> SavedGame? {
         guard let full = fullKit, let roles = plan?.roles, !roles.isEmpty, !full.scenes.isEmpty else { return nil }
         return SavedGame(id: id, createdAt: now, title: currentTitle, roles: roles,
                          props: (props?.props ?? []).map(SavedProp.init), kit: full,
-                         hasPrinter: hasPrinter ?? true, printStyle: printStyle, drawGuide: drawGuide, art: art,
-                         printablesMade: printables != nil, printables: printables, cover: cover, voiceID: voiceID)
+                         printStyle: printStyle, art: art, cover: cover, voiceID: voiceID)
     }
 }
 

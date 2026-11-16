@@ -3,7 +3,7 @@ import CryptoKit
 
 // Round D3b (design 2026-11-15-saved-games-replay-design.md §D4, Haylee): replays use Nutmeg's REAL recorded voice.
 // On a play, the app records the realtime output audio of its OWN scripted lines (the ones it sends with `sayExactly`:
-// scene intros, checklist lines, cheers, hand-offs, read-outs, Paper / Draw it! lines, rail arrivals, the save and
+// scene intros, checklist lines, cheers, hand-offs, read-outs, Print lines, rail arrivals, the save and
 // replay lines, The End). Never the kid's audio, never her conversational replies, never a transcript of anyone.
 // A clip is kept only when her output transcript matches the script (the transcript gate). It is stored with the
 // saved game (unsaved games discard theirs). On a replay the speaker plays the clip through the same pipeline

@@ -94,12 +94,15 @@ struct SeededRNG: RandomNumberGenerator {
 struct PTStepRail: View {
     var current: JourneyStep?
     var reached: JourneyStep?
+    /// Round 25 (Haylee): at The End every step is finished, Play included: it shows lime with the ↺ mark and tapping it
+    /// goes back to the last checklist (The End's "Back to the checklist" button is gone).
+    var allDone: Bool = false
     var onTap: (JourneyStep) -> Void
 
     var body: some View {
         VStack(spacing: 0) {
             ForEach(JourneyStep.allCases, id: \.self) { step in
-                if step != .game { connector(filled: (current?.rawValue ?? -1) >= step.rawValue) }
+                if step != .game { connector(filled: allDone || (current?.rawValue ?? -1) >= step.rawValue) }
                 stepButton(step)
             }
         }
@@ -109,13 +112,14 @@ struct PTStepRail: View {
         .animation(Theme.springy, value: current)
     }
 
-    /// Round 23 (Haylee: clearer navigation back): every step shows its picture (masks / box / paper + crayon / play).
+    /// Round 23 (Haylee: clearer navigation back): every step shows its picture (masks / box / printer / play; round 25:
+    /// Print's printer replaced the paper + crayon).
     /// Finished steps (lime) and later steps already reached carry a small go-back (↺) or forward mark in a white
     /// badge and press down when tapped, so they read as buttons; the current step is the yellow one with the ring;
     /// steps not reached yet are faded and disabled. Targets stay 72 × 64 pt.
     private func stepButton(_ s: JourneyStep) -> some View {
-        let cur = current?.rawValue ?? -1, max = reached?.rawValue ?? -1
-        let done = s.rawValue < cur, isCurrent = s == current, reachable = s.rawValue <= max
+        let cur = allDone ? JourneyStep.allCases.count : (current?.rawValue ?? -1), max = reached?.rawValue ?? -1
+        let done = s.rawValue < cur, isCurrent = !allDone && s == current, reachable = s.rawValue <= max
         let tappable = reachable && !isCurrent
         return Button { if !isCurrent { onTap(s) } } label: {
             VStack(spacing: 4) {
@@ -124,15 +128,9 @@ struct PTStepRail: View {
                     if isCurrent { Circle().strokeBorder(Theme.ink, lineWidth: 1.5).padding(-4) }
                     Image(systemName: BackNav.symbol(s))
                         .font(.system(size: 22, weight: isCurrent ? .bold : .semibold))
-                        .overlay {
-                            // Paper: a crayon on the sheet.
-                            if let o = BackNav.overlay(s) {
-                                Image(systemName: o).font(.system(size: 15, weight: .heavy)).offset(x: 7, y: 5)
-                            }
-                        }
                         .foregroundStyle(Theme.ink.opacity(isCurrent || reachable ? 1 : 0.35))
                     if tappable {
-                        Image(systemName: BackNav.mark(s, current: current))
+                        Image(systemName: allDone ? "arrow.counterclockwise" : BackNav.mark(s, current: current))
                             .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(Theme.ink)
                             .frame(width: 22, height: 22)
@@ -153,7 +151,7 @@ struct PTStepRail: View {
         .disabled(!reachable && !isCurrent)
         .accessibilityAddTraits(isCurrent ? .isSelected : [])
         .accessibilityLabel("\(s.label)\(done ? ", done" : isCurrent ? ", now" : "")")
-        .accessibilityHint(tappable ? "Goes back to \(s.label)" : "")
+        .accessibilityHint(tappable ? (allDone && s == .play ? "Goes back to the checklist" : "Goes back to \(s.label)") : "")
     }
 
     private func connector(filled: Bool) -> some View {

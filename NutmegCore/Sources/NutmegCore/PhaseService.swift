@@ -68,21 +68,19 @@ public final class PhaseService: Sendable {
     /// The play guide's effort: it's what the kids wait for at Print. Round 20 live: medium 19.1 s, low 9.8 s (same shape).
     public static let scenesEffort: Effort = .low
 
-    /// Round 24: the no-printer draw-your-own guide (at most 5 very simple pieces; the app owns every count).
-    public func drawGuide(ctx: AdventureContext) async throws -> DrawGuide {
-        let made = try await safe({ try await self.ask(DrawGuide.self, $0, DrawIt.schema(), .low, clean: { $0 },
-                                                       problem: DrawIt.problem) }, DrawIt.prompt(ctx: ctx))
-        let guide = DrawIt.clean(made, playerCount: ctx.playerCount)
-        return guide.pieces.isEmpty ? DrawIt.fallback(playerCount: ctx.playerCount) : guide
-    }
-
-    public func kitScenes(ctx: AdventureContext, items: [KitItem], drawn: Bool = false, effort: Effort = PhaseService.scenesEffort,
+    public func kitScenes(ctx: AdventureContext, items: [KitItem], effort: Effort = PhaseService.scenesEffort,
                           huntPending: Bool = false) async throws -> Kit {
         let roles = ctx.plan?.roles.count ?? 0
-        let made = try await safe({ try await self.ask(KitScenes.self, $0, Schemas.kitScenes(), effort,
+        let call = {
+            try await self.safe({ try await self.ask(KitScenes.self, $0, Schemas.kitScenes(), effort,
                                    clean: { s in KitScenes(nutmegSays: s.nutmegSays, scenes: Sanitizer.clean(Kit(nutmegSays: "", items: [], scenes: s.scenes)).scenes) },
                                    problem: { Validate.scenes($0.scenes, roles: roles) }) },
-                                  Prompts.kitScenes(ctx: ctx, items: items, drawn: drawn, huntPending: huntPending))
+                                  Prompts.kitScenes(ctx: ctx, items: items, huntPending: huntPending))
+        }
+        var made = try await call()
+        // Round 25: a guide still short after its one fix (the round 24 bakery kept ONE scene) is written once more;
+        // whatever comes back, `GuideRepair` makes sure there are enough scenes, real titles and the props.
+        if made.scenes.count < GuideRepair.minScenes, let again = try? await call(), again.scenes.count > made.scenes.count { made = again }
         return Kit(nutmegSays: made.nutmegSays, items: items, scenes: made.scenes)
     }
 
@@ -176,7 +174,7 @@ public enum Validate {
     /// `roles`: how many ranked roles the game has (round C1: each needs its own step in every scene; 0 = no check).
     public static func scenes(_ scenes: [Scene], roles: Int = 0) -> Problem? {
         if scenes.count < 4 { return short("scenes", scenes.count, want: "4 to 6 scenes", fatal: scenes.isEmpty) }
-        if let s = scenes.first(where: { $0.title.trimmingCharacters(in: .whitespaces).count < 3 }) {
+        if let s = scenes.first(where: { GuideRepair.isPlaceholderTitle($0.title) }) {
             return Problem(message: "scene \"\(s.id)\" had no real title", fatal: false)
         }
         if let s = scenes.first(where: { $0.steps.count < 3 }) {

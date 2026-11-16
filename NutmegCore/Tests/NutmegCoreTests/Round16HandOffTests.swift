@@ -41,7 +41,7 @@ private func clean(_ line: String) {
     #expect(plain.contains("Save it to play again") && plain.contains("New game") && !plain.contains("Back"))   // round D1
     #expect(HandOffLines.end(canGoBack: false, replay: true).contains("Play it again"))
     let back = HandOffLines.end(canGoBack: true)
-    #expect(back.contains("Back to the checklist"))
+    #expect(back.contains(HandOffLines.endBackHint) && !back.contains("Back to the checklist"))   // round 25
     clean(back)
 }
 
@@ -52,9 +52,11 @@ private func clean(_ line: String) {
     #expect(store.nutmegLine == "Pass the iPad to the Captain, then tap I'm the Captain!")
     store.badgeTapped(.R1)
     #expect(store.nutmegLine.hasSuffix("then tap Done!"))
-    await store.sceneDone()
-    store.badgeTapped(.R2)
-    await store.sceneDone()
+    // Round 25: GuideRepair pads a short guide to 4 scenes; play through all of them.
+    for _ in 0..<8 where store.phase != .end {
+        if case .handoff(let i) = store.phase, let o = store.kit?.scenes[i].owner.role { store.badgeTapped(o) }
+        await store.sceneDone()
+    }
     #expect(store.phase == .end)
     #expect(store.nutmegLine == HandOffLines.end(canGoBack: true))
     store.backToChecklist()
