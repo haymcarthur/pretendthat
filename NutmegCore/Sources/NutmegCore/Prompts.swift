@@ -67,7 +67,7 @@ public enum Prompts {
     }
 
     public static func props(ctx: AdventureContext) -> String {
-        "Phase: props hunt. Pick 3 to 5 different household items from the prop list (id) that become props for this game. householdItem is the item's name; becomes is 2 to 4 words (\"Cozy café seats\"). Return Props.\n\(contextJSON(ctx))"
+        "Phase: props hunt. Pick 3 to 5 different household items from the prop list (id) that become props for this game. householdItem is the item's name; becomes is 2 to 4 words (\"Cozy café seats\"). Every pairing must make sense by shape or use (a map is flat: towel, sheet, books; a hat is round or wearable: bowl, pot, hat; a cape is floppy: towel, blanket; seats are for sitting: chair, cushion; never a bowl as a map). reason is ONE short kid-friendly sentence why it works (\"A bowl is round like a captain's hat!\"). Return Props.\n\(contextJSON(ctx))"
     }
 
     public static func kit(ctx: AdventureContext) -> String {
@@ -102,12 +102,12 @@ public enum Prompts {
 
     /// Round 20: the play guide, written when the hunt ends: the pages already exist (their ids and lines below), and
     /// the props are known (found ones are real; skipped ones are pretend, with a printed cut-out).
-    public static func kitScenes(ctx: AdventureContext, items: [KitItem]) -> String {
+    public static func kitScenes(ctx: AdventureContext, items: [KitItem], drawn: Bool = false) -> String {
         let enc = JSONEncoder(); enc.outputFormatting = [.sortedKeys]
         let pages = items.map { ["id": $0.id, "recipe": $0.recipe?.rawValue ?? "", "title": $0.title, "lines": $0.lines.joined(separator: " | ")] }
         let pagesJSON = (try? enc.encode(pages)).map { String(decoding: $0, as: UTF8.self) } ?? "[]"
         return """
-        Phase: the play guide. The printable pages are already made (JSON): \(pagesJSON)
+        Phase: the play guide. \(drawn ? "There is no printer: the kids DREW these kit pieces themselves with crayons (JSON; lines = how they drew it)" : "The printable pages are already made (JSON)"): \(pagesJSON)
         cutout:N is the Nth line of the cutouts item (0-based). Props the kids found are real household props (kind \
         prop); props marked skipped are pretend (the kids don't have them; if a cutouts line names one, use that cut-out).
         Write 4 to 6 scenes for the play guide (never fewer than 4), each with 3 to 5 steps, each step and scene with ONE picture. Each scene belongs to the role id that leads it (owner) or "all"; call kids by their role ("Captain, check the plane!"). \

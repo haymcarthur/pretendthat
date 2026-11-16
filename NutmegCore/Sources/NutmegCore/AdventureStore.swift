@@ -49,6 +49,18 @@ public final class AdventureStore {
     public private(set) var printStyle: PrintStyle?
     /// What the pages are drawn as (the coloring pages until the kids choose).
     public var currentPrintStyle: PrintStyle { printStyle ?? .colorIn }
+    /// Round 24 (Haylee): "Do you have a printer?", asked after the confirm step's yes; nil = not asked yet.
+    public private(set) var hasPrinter: Bool?
+    /// No printer: no kit images; the Paper step is "Draw it!" (a hand-drawn kit, one piece at a time).
+    public var drawMode: Bool { hasPrinter == false }
+    /// The draw-your-own guide (no printer), once the kit is made.
+    public private(set) var drawGuide: DrawGuide?
+    /// The piece on the Draw it! card.
+    public private(set) var drawIndex = 0
+    /// What she reads for the current piece (and the pill's Repeat says again).
+    public var drawLine: String? { drawGuide.map { DrawIt.line($0, drawIndex) }.flatMap { $0.isEmpty ? nil : $0 } }
+    /// The Draw it! card is up (no printer, the kit is made, the Paper step).
+    public var drawing: Bool { drawMode && phase == .kitReady && drawGuide != nil }
     public private(set) var ideas: GameIdeas?
     public private(set) var plan: GamePlan?
     public private(set) var props: Props?
@@ -96,23 +108,26 @@ public final class AdventureStore {
 
     /// The FIRST prop line (round 7 choreography): asked for separately, after the roles finished playing and the card
     /// appeared with her point.
-    public nonisolated static func firstPropLine(item: String, becomes: String) -> String {
+    public nonisolated static func firstPropLine(item: String, becomes: String, reason: String? = nil) -> String {
         "(Silent coaching, don't mention it.) The \(item.lowercased()) card is on screen now and you're pointing at it. You already said "
-            + "\"\(huntTransition)\": start RIGHT AWAY with the first prop line (no second lead-in like \"let's start the hunt\"), like \"First, can you find a \(item.lowercased())? It'll be \(becomes)!\", then explain "
+            + "\"\(huntTransition)\": start RIGHT AWAY with the first prop line (no second lead-in like \"let's start the hunt\"), like \"First, can you find a \(item.lowercased())? It'll be \(becomes)!\""
+            + (reason.map { " plus why it works, in a few words (\"\($0)\")," } ?? ",") + " then explain "
             + "ONCE: say 'found it' when you have it, or tell me if you don't. Don't repeat the roles, no check-in, no narration. "
             + "If you already named this prop, say only the 'found it' explanation."
     }
 
     /// What she says for a new prop card (prop-gathering-flow.md, fix round 2): only the FIRST prop explains how to
     /// answer; later props stay short ("Next, can you find a spoon? It'll be the big stirrer!").
-    public nonisolated static func nextPropOutput(id: String, item: String, becomes: String, n: Int) -> String {
+    public nonisolated static func nextPropOutput(id: String, item: String, becomes: String, n: Int, reason: String? = nil) -> String {
         let how = n == 1
             ? "This is the FIRST prop. Its card stays hidden for now. Speak ONLY the roles now, as a set of parts the kids share, then the hunt transition, word for word: \"\(Self.huntTransition)\" (\"We need a Captain, a Navigator, and an Island Explorer! \(Self.huntTransition)\"; for one kid: \"You'll be the Captain! \(Self.huntTransition)\"). Never \"You're the X, the Y, and the Z\" (that sounds like one kid gets every role), never \"Pick who's who\", no \"All set!\". Don't name this prop or describe the card yet, and don't ask anything: when your roles line finishes, the card appears, you point at it, and you'll be asked for the prop line."
             : n % 3 == 0
             // Round 13: "Pretend that" on about 1 prop in 3 (props 3 and 6), decided by the app so it really happens.
             ? "This is prop \(n): keep it SHORT and use the words \"pretend that\" this time, like \"Can you find a \(item.lowercased())? Let's pretend that it's \(becomes)!\" Do NOT repeat 'say found it' or 'tell me if you don't have it' (they already know)."
             : "This is prop \(n): keep it SHORT, like \"Next, can you find a \(item.lowercased())? It'll be \(becomes)!\" Do NOT repeat 'say found it' or 'tell me if you don't have it' (they already know). Don't say \"pretend that\" for this one."
-        return "Card \(id) is ready (prop \(n)). \(how) Then wait. Found: mark_found then show_next_prop. Missing: "
+        // Round 24: she says why the item works, briefly, inside the same line (never a second sentence about it).
+        let why = reason.map { " Inside that same line, say briefly why it works: \"\($0)\"" } ?? ""
+        return "Card \(id) is ready (prop \(n)). \(how)\(n == 1 ? "" : why) Then wait. Found: mark_found then show_next_prop. Missing: "
             + "swap_prop (one alternate) or skip_prop, then show_next_prop. After 3 to 5 props, finish_planning."
             + (n >= 3 ? " (You have \(n); finishing after this one is fine.)" : "")
     }
@@ -235,6 +250,8 @@ public final class AdventureStore {
             kitLeadIn = nil
             say(lead + "Ooh, let me make your kit! Wait for it...")
         }
+        // Round 24: no printer → the draw-your-own guide, and never any kit image.
+        if drawMode { await makeDrawKit(gen: gen, prefetch: title == nil); return }
         // Round 20: the pages were written during the hunt; only the play guide (and skipped props' cut-outs) is left.
         let pages = title == nil ? await draftForKit() : nil
         // Round 21: text still being moderated never reaches Claude (or the kit made from it).
@@ -344,13 +361,15 @@ public final class AdventureStore {
 
     public func newGame() {
         phase = .hello
-        playerCount = 0; gameTitle = nil; printStyle = nil; planningStep = .game; themeIdeas = []
+        playerCount = 0; gameTitle = nil; printStyle = nil; hasPrinter = nil; planningStep = .game; themeIdeas = []
+        drawGuide = nil; drawIndex = 0
         ideas = nil; plan = nil; props = nil; kit = nil
         choices = []; lastError = nil; usingFallback = false
         foundProps = []; checkedSteps = []; doneSnapshot = nil; failures = [:]; retryAction = nil; holder = nil
         nutmegLine = ""; presenting = .none; reachedStep = nil; lastPlayPhase = nil; steerIdeas = SteerIdeas()
-        kitRemakes = 0; kitRestyles = 0
+        kitRemakes = 0; kitRestyles = 0; propMisfits = 0
         cancelDraft()
+        cancelDrawDraft()
     }
 
     // MARK: Kit made during the hunt (round 20, Haylee)
@@ -371,7 +390,7 @@ public final class AdventureStore {
 
     /// What the pages should be written for right now (nil: not yet, or no Claude).
     var wantedDraft: KitInputs? {
-        guard service != nil, !usingFallback, planningStep == .props else { return nil }
+        guard service != nil, !usingFallback, planningStep == .props, hasPrinter != false else { return nil }
         return KitDraft.inputs(title: currentTitle, playerCount: playerCount, plan: plan, printStyle: printStyle, step: .props)
     }
 
@@ -379,6 +398,7 @@ public final class AdventureStore {
     /// being made from them) they're left alone.
     public func refreshDraft() {
         guard planningStep != .finish, phase != .makingKit, phase != .kitReady else { return }
+        refreshDrawDraft()
         let want = wantedDraft
         guard want != draftInputs else { return }
         cancelDraft()
@@ -417,6 +437,92 @@ public final class AdventureStore {
         return gen == draftGeneration ? items : nil
     }
 
+    // MARK: No printer: the draw-your-own guide (round 24, Haylee)
+
+    /// The draw guide written during the hunt (no printer). No images, ever.
+    @ObservationIgnored private var drawDraftInputs: KitInputs?
+    @ObservationIgnored private var drawDraftTask: Task<DrawGuide?, Never>?
+    @ObservationIgnored private var drawDraftGeneration = 0
+
+    var wantedDrawDraft: KitInputs? {
+        guard service != nil, !usingFallback, planningStep == .props, drawMode, let plan, !plan.roles.isEmpty else { return nil }
+        return KitInputs(title: currentTitle, playerCount: max(1, playerCount), roles: plan.roles.map { "\($0.roleName)×\($0.count)" })
+    }
+
+    private func refreshDrawDraft() {
+        let want = wantedDrawDraft
+        guard want != drawDraftInputs else { return }
+        cancelDrawDraft()
+        guard let want, let service else { return }
+        drawDraftGeneration += 1
+        let gen = drawDraftGeneration, ctx = context, gate = outboundGate
+        drawDraftInputs = want
+        drawDraftTask = Task { [weak self] in
+            if let gate, !(await gate()) { return nil }
+            guard !Task.isCancelled else { return nil }
+            let g = try? await RetryOnce.run { try await service.drawGuide(ctx: ctx) }
+            guard let self, gen == self.drawDraftGeneration, !Task.isCancelled else { return nil }
+            return g
+        }
+    }
+
+    private func cancelDrawDraft() {
+        drawDraftTask?.cancel(); drawDraftTask = nil; drawDraftInputs = nil; drawDraftGeneration += 1
+    }
+
+    /// The hunt's draw guide when it was written for exactly this plan (waiting for it), else nil.
+    private func drawDraftForKit() async -> DrawGuide? {
+        guard let d = drawDraftInputs, let plan,
+              d == KitInputs(title: currentTitle, playerCount: max(1, playerCount), roles: plan.roles.map { "\($0.roleName)×\($0.count)" })
+        else { return nil }
+        let gen = drawDraftGeneration
+        let g = await drawDraftTask?.value
+        return gen == drawDraftGeneration ? g : nil
+    }
+
+    /// No printer: the guide (from the hunt, or written now), then the play guide for the drawn pieces. No images.
+    private func makeDrawKit(gen: Int, prefetch: Bool) async {
+        let early = prefetch ? await drawDraftForKit() : nil
+        if let outboundGate, !(await outboundGate()) { return }
+        guard gen == kitGeneration else { return }
+        let guide = early
+        await run("kit", kidSaid: nil) { [self] svc in
+            let ctx = context
+            let g: DrawGuide
+            if let guide { g = guide } else { g = (try? await svc.drawGuide(ctx: ctx)) ?? DrawIt.fallback(playerCount: ctx.playerCount) }
+            let made = try await svc.kitScenes(ctx: context, items: DrawIt.kitItems(g), drawn: true)
+            guard gen == kitGeneration else { return }
+            drawGuide = g; drawIndex = 0; kit = made
+        } fallback: { [self] in
+            guard gen == kitGeneration else { return }
+            let g = DrawIt.fallback(playerCount: max(1, playerCount))
+            useFallbackGame()
+            drawGuide = g; drawIndex = 0
+            if var k = kit { k.items = DrawIt.kitItems(g); kit = k }
+        }
+        guard gen == kitGeneration else { return }
+        if kit != nil { phase = .kitReady }
+    }
+
+    /// Next on the Draw it! card (or voice "next"): the next piece; after the last piece, on to Play.
+    /// Returns the line to say (nil: play started, the app says the play line).
+    @discardableResult
+    public func drawNext() -> String? {
+        guard drawing, let g = drawGuide else { return nil }
+        if drawIndex + 1 < g.pieces.count { drawIndex += 1; return drawLine }
+        beginPlay()
+        return nil
+    }
+
+    /// Round 24: "Save printables for later" (no printer): the normal kit pages (coloring pages), with the play guide
+    /// already written. Nil without Claude or when it fails (the button says so).
+    public func makePrintables() async -> Kit? {
+        guard let service, !usingFallback else { return nil }
+        if let outboundGate, !(await outboundGate()) { return nil }
+        guard let pages = try? await RetryOnce.run({ [ctx = context] in try await service.kitPages(ctx: ctx) }) else { return nil }
+        return Kit(nutmegSays: "", items: KitDraft.finalItems(pages, props: props), scenes: [])
+    }
+
     // MARK: Step rail
 
     /// Jump to a reached step without losing anything (see props again, reprint, back to the game).
@@ -441,6 +547,7 @@ public final class AdventureStore {
             phase = .props; presenting = .props
         case .print:
             phase = .kitReady; presenting = .none
+            drawIndex = 0   // round 24: Draw it! starts again from the first piece
         case .play:
             presenting = .none
             if let last = lastPlayPhase { phase = last } else { beginPlay() }
@@ -512,15 +619,29 @@ public final class AdventureStore {
                     : "Already confirmed. Carry on with the current step."
             }
             phase = .players; presenting = .none
+            // Round 24: the printer question comes next, unless the kids already answered it.
+            guard let printer = hasPrinter else { planningStep = .printer; return PrinterChoice.askOutput(playerCount: max(1, playerCount)) }
             // Round 20: the color question comes next, unless the kids already chose (a correction re-opened the recap).
-            guard printStyle != nil else { planningStep = .color; return ColorChoice.askOutput(playerCount: max(1, playerCount)) }
+            if printer, printStyle == nil { planningStep = .color; return ColorChoice.askOutput(playerCount: max(1, playerCount)) }
             planningStep = .roles
             return ConfirmStep.confirmedOutput(playerCount: max(1, playerCount))
         case .setPrintStyle(let style):
             return setPrintStyle(style)
+        case .setPrinter(let has):
+            return setPrinter(has)
+        case .drawStep(let next):
+            guard drawing else {
+                return "There's no drawing step right now. Answer in ONE short line."
+            }
+            if !next { return "Say exactly this and nothing else: \"\(drawLine ?? "")\"" }
+            if let line = drawNext() { return "Next piece on screen. Say exactly this and nothing else: \"\(line)\"" }
+            return "Play started. The app runs the scenes now. Say nothing."
         case .setRoles(let drafts):
             if planningStep == .confirm {
                 return "Not yet: the kids haven't said yes to your recap. Say exactly: \"\(recapLine)\" and wait (yes → confirm_plan)."
+            }
+            if planningStep == .printer {
+                return "Not yet: ask the printer question first. Say exactly: \"\(PrinterChoice.question)\" and wait (their answer → set_printer)."
             }
             if planningStep == .color {
                 return "Not yet: ask the color question first. Say exactly: \"\(ColorChoice.question)\" and wait (their answer → set_print_style)."
@@ -554,23 +675,31 @@ public final class AdventureStore {
             let ids = props!.props.map(\.id).joined(separator: ", ")
             planningStep = .props
             return "Props are on screen (ids: \(ids)). Step 5: tell them exactly what to go find and to tell you when they've found them or if they don't have something. If they lack one, use swap_prop or skip_prop. When they're ready, step 6: finish_planning."
-        case .showNextProp(let d):
-            guard d.inLibrary else { return "\(d.itemID) isn't on the item list. Pick a list item." }
+        case .showNextProp(let raw):
+            guard raw.inLibrary else { return "\(raw.itemID) isn't on the item list. Pick a list item." }
             var p = props ?? Props(nutmegSays: "", props: [])
             if p.props.count >= Sanitizer.Limits.propsMax {
                 return "That's enough props (\(p.props.count)). Call finish_planning now."
             }
+            // Round 24: the item must make sense as what it becomes (one retry, then a curated sensible pair).
+            let used = Set(p.props.compactMap(\.libraryID))
+            guard let fit = fittingDraft(raw, used: used) else {
+                return PropFit.retryOutput(itemID: raw.itemID, becomes: raw.becomes, preferring: raw.alternates)
+            }
+            let d = fit.0, fellBack = fit.1
             if props == nil { foundProps = [] }
             let owner = plan?.roles.first { $0.roleName.localizedCaseInsensitiveCompare(d.forRole) == .orderedSame }
                 .map { SceneOwner(rawValue: $0.id.rawValue) ?? .all } ?? .all
             var id = d.itemID
             if p.props.contains(where: { $0.id == id }) { id += "-\(p.props.count)" }
             p.props.append(Prop(id: id, householdItem: PropLibrary.name(d.itemID) ?? d.itemID, becomes: d.becomes,
-                                forRole: owner, safetyOK: true, libraryID: d.itemID, alternates: d.alternates, skipped: false))
+                                forRole: owner, safetyOK: true, libraryID: d.itemID, alternates: d.alternates, skipped: false,
+                                reason: d.reason))
             props = p; currentPropID = id
             phase = .props; presenting = .props; planningStep = .props
             let n = p.props.count
-            return Self.nextPropOutput(id: id, item: PropLibrary.name(d.itemID) ?? d.itemID, becomes: d.becomes, n: n)
+            let swapNote = fellBack ? "(That pairing didn't fit, so the app picked a \((PropLibrary.name(d.itemID) ?? d.itemID).lowercased()) as \(d.becomes) instead: use THIS item and use.) " : ""
+            return swapNote + Self.nextPropOutput(id: id, item: PropLibrary.name(d.itemID) ?? d.itemID, becomes: d.becomes, n: n, reason: d.reason)
         case .markFound(let id):
             guard let p = props, let prop = p.props.first(where: { $0.id == id || $0.libraryID == id }) ?? p.props.first(where: { $0.id == currentPropID }) else {
                 return "No prop with id \(id)."
@@ -584,6 +713,16 @@ public final class AdventureStore {
                 return "No prop with id \(oldID). Ids: \(props?.props.map(\.id).joined(separator: ", ") ?? "none")."
             }
             guard PropLibrary.contains(newID) else { return "\(newID) isn't on the list. Pick another list item or skip_prop." }
+            // Round 24: the new item must make sense as the use too (one retry, then the best fitting item).
+            let use = becomes.isEmpty ? p.props[i].becomes : becomes
+            var newID = newID
+            if !PropFit.fits(itemID: newID, becomes: use) {
+                if propMisfits == 0 { propMisfits = 1; return PropFit.retryOutput(itemID: newID, becomes: use) }
+                let used = Set(p.props.compactMap(\.libraryID))
+                newID = PropFit.fallback(becomes: use, preferring: p.props[i].alternates ?? [], avoiding: used).itemID
+            }
+            propMisfits = 0
+            p.props[i].reason = PropFit.reason(itemID: newID, becomes: use)
             p.props[i].libraryID = newID
             p.props[i].householdItem = PropLibrary.name(newID) ?? newID
             if !becomes.isEmpty { p.props[i].becomes = becomes }
@@ -591,7 +730,7 @@ public final class AdventureStore {
             p.props[i].swapped = true
             p.props[i].alternates = p.props[i].alternates?.filter { $0 != newID }
             props = p; presenting = .props
-            return "Swapped (the card still uses id \(p.props[i].id)). Say what the new item becomes and ask if they can find it."
+            return "Swapped (the card still uses id \(p.props[i].id)) to a \(p.props[i].householdItem.lowercased()). Say what the new item becomes and why it works, briefly (\"\(p.props[i].reason ?? "")\"), and ask if they can find it."
         case .skipProp(let id):
             guard var p = props, let i = p.props.firstIndex(where: { $0.id == id || $0.libraryID == id }) else {
                 return "No prop with id \(id)."
@@ -628,14 +767,40 @@ public final class AdventureStore {
             badgeTapped(owner)
             return "Hand-off confirmed: the scene starts and the app says its line. Say nothing."
         case .printKit:
+            if drawMode, phase == .kitReady {
+                return "There's no printer: they're drawing their kit. Say ONE short line, and that they can tap \(DrawIt.saveLabel) to print it somewhere else."
+            }
             // Round 23: "print it again" from the play step (or The End) goes back to the Print step.
-            if phase.step == .play, goTo(.print) { return BackNav.output(moved: true, to: .print, current: .print) }
+            if phase.step == .play, goTo(.print) { return BackNav.output(moved: true, to: .print, current: .print, drawing: drawMode) }
             return "The print screen is open. Say one short line like \"Here's the print screen!\""
         case .goToStep(let step):
             let from = phase.step
             let moved = goTo(step)
-            return BackNav.output(moved: moved, to: step, current: from)
+            return BackNav.output(moved: moved, to: step, current: from, drawing: drawMode)
         }
+    }
+
+    // MARK: Props that make sense (round 24)
+
+    /// Misfit pairings in a row (show_next_prop / swap_prop): the first gets a retry, the second the app's fallback.
+    @ObservationIgnored private var propMisfits = 0
+
+    /// The draft to show: as given when the item fits the use (its reason kept if kid-friendly), nil on a first misfit
+    /// (the model retries), or a curated sensible pair on a second misfit. Alternates are kept only when they fit too.
+    private func fittingDraft(_ raw: PlanningCall.PropDraft, used: Set<String>) -> (PlanningCall.PropDraft, Bool)? {
+        var d = raw, fellBack = false
+        if PropFit.fits(itemID: d.itemID, becomes: d.becomes) {
+            d.reason = PropFit.keptReason(d.reason, itemID: d.itemID, becomes: d.becomes)
+        } else {
+            guard propMisfits > 0 else { propMisfits += 1; return nil }
+            let f = PropFit.fallback(becomes: d.becomes, preferring: d.alternates, avoiding: used)
+            d.itemID = f.itemID; d.becomes = f.becomes; d.reason = f.reason; fellBack = true
+        }
+        propMisfits = 0
+        var alts = d.alternates.filter { $0 != d.itemID && PropFit.fits(itemID: $0, becomes: d.becomes) }
+        if alts.isEmpty { alts = Array(PropFit.candidates(for: d.becomes, avoiding: used.union([d.itemID])).prefix(1)) }
+        d.alternates = Array(alts.prefix(2))
+        return (d, fellBack)
     }
 
     // MARK: Color choice (round 20)
@@ -661,11 +826,39 @@ public final class AdventureStore {
         case .color:
             planningStep = .roles
             return ColorChoice.chosenOutput(style, playerCount: max(1, playerCount))
-        case .game, .theme, .players, .confirm:
+        case .game, .theme, .players, .confirm, .printer:
             return "Noted: the printables will be \(style.spoken). Carry on with the current step (don't ask about color again)."
         case .roles, .props, .finish:
             return was == style ? "Already \(style.spoken). Carry on with the current step in ONE short line."
                 : "Got it: the printables will be \(style.spoken) (the app changes them). Say so in a few words, then carry on with the current step."
+        }
+    }
+
+    // MARK: Printer (round 24)
+
+    /// The kids said whether they have a printer (voice: set_printer; or a button). On the printer step: yes → the color
+    /// question (or the roles if the color is known), no → the roles (no color question, no images). Earlier it's
+    /// kept; during the hunt it switches which kit is written; after the hunt it stays (Save printables covers it).
+    private func setPrinter(_ has: Bool) -> String {
+        switch phase {
+        case .makingKit, .kitReady, .handoff, .scene, .end:
+            if has == hasPrinter { return "Already noted. Answer in ONE short line." }
+            return has ? "The kit is already planned for drawing. Say in ONE short line that they can tap \(DrawIt.saveLabel) to get the printable pages."
+                : "The kit is already made for printing. Say in ONE short, kind line that they can still play with it."
+        default: break
+        }
+        let was = hasPrinter
+        hasPrinter = has
+        switch planningStep {
+        case .printer, .color:
+            if has, printStyle == nil { planningStep = .color } else { planningStep = .roles }
+            return PrinterChoice.chosenOutput(has, colorKnown: printStyle != nil, playerCount: max(1, playerCount))
+        case .game, .theme, .players, .confirm:
+            return "Noted: \(has ? "they have a printer" : "no printer, they'll draw the kit"). Carry on with the current step (don't ask about the printer again)."
+        case .roles, .props, .finish:
+            if has, printStyle == nil { printStyle = .colorIn }
+            return was == has ? "Already noted. Carry on with the current step in ONE short line."
+                : "Got it: \(has ? "they'll print the kit" : "no printer, they'll draw the kit by hand") (the app changes it). Say so in a few words, then carry on with the current step."
         }
     }
 
@@ -698,7 +891,7 @@ public final class AdventureStore {
         switch phase {
         case .makingKit, .kitReady:
             gameTitle = title
-            kit = nil; kitRemakes += 1; phase = .makingKit
+            kit = nil; drawGuide = nil; drawIndex = 0; kitRemakes += 1; phase = .makingKit
             presenting = .none; planningStep = .finish
             Task { await self.makeKit(remakeFor: title) }
             return "The \(what) is now \(title): the app is remaking the kit to match and says so. Say nothing."
@@ -746,17 +939,17 @@ public final class AdventureStore {
     /// flag puts it back, so flagged text never stays in the game (and never reaches the kit or images).
     public struct SafeSnapshot: Equatable {
         let phase: Phase, reachedStep: JourneyStep?, playerCount: Int, planningStep: PlanningStep
-        let gameTitle: String?, printStyle: PrintStyle?, plan: GamePlan?, props: Props?
+        let gameTitle: String?, printStyle: PrintStyle?, hasPrinter: Bool?, plan: GamePlan?, props: Props?
         let foundProps: Set<String>, currentPropID: String?, presenting: Presentation, themeIdeas: [Suggestion]
     }
     public func safeSnapshot() -> SafeSnapshot {
         SafeSnapshot(phase: phase, reachedStep: reachedStep, playerCount: playerCount, planningStep: planningStep,
-                     gameTitle: gameTitle, printStyle: printStyle, plan: plan, props: props, foundProps: foundProps,
+                     gameTitle: gameTitle, printStyle: printStyle, hasPrinter: hasPrinter, plan: plan, props: props, foundProps: foundProps,
                      currentPropID: currentPropID, presenting: presenting, themeIdeas: themeIdeas)
     }
     public func restore(_ s: SafeSnapshot) {
         phase = s.phase; reachedStep = s.reachedStep; playerCount = s.playerCount; planningStep = s.planningStep
-        gameTitle = s.gameTitle; printStyle = s.printStyle; plan = s.plan; props = s.props; foundProps = s.foundProps
+        gameTitle = s.gameTitle; printStyle = s.printStyle; hasPrinter = s.hasPrinter; plan = s.plan; props = s.props; foundProps = s.foundProps
         currentPropID = s.currentPropID; presenting = s.presenting; themeIdeas = s.themeIdeas
     }
 

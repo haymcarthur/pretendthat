@@ -9,6 +9,8 @@ public enum UserAction: String, CaseIterable, Sendable {
     /// Round 20 (Haylee: she typed during the greeting and the voice kept going): the kid starting their OWN turn,
     /// by sending typed text or pressing the mic, stops everything she's saying too.
     case typedTurn, micPressed, colorChoice
+    /// Round 24: the printer Yes / No buttons, Draw it!'s Next, and Save printables for later.
+    case printerChoice, drawNext, savePrintables
     /// Not screen changes: switching the chat panel's tabs, opening or closing the chat.
     case chatTab, toggleChat
 

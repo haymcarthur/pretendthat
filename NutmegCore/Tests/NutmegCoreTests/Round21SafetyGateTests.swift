@@ -90,7 +90,7 @@ struct Round21SafetyGateTests {
         store.outboundGate = { asked += 1; return false }
         store.beginConversation()
         _ = await store.apply(.setGame("Bakery")); _ = await store.apply(.setTheme("Bakery on the Moon"))
-        _ = await store.apply(.setPlayerCount(2)); _ = await store.apply(.confirmPlan)
+        _ = await store.apply(.setPlayerCount(2)); _ = await store.confirmWithPrinter()
         _ = await store.apply(.setPrintStyle(.fullColor))
         _ = await store.apply(.setRoles([.init(roleName: "Baker", job: ""), .init(roleName: "Customer", job: "")]))
         for _ in 0..<50 where asked == 0 { try? await Task.sleep(for: .milliseconds(10)) }

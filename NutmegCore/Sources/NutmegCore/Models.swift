@@ -111,10 +111,12 @@ public struct Prop: Codable, Equatable, Sendable, Identifiable {
     public var alternates: [String]?
     public var skipped: Bool?
     public var swapped: Bool?
+    /// Round 24: the short kid-friendly "why it works" ("A bowl is round like a captain's hat!").
+    public var reason: String?
     public init(id: String, householdItem: String, becomes: String, emoji: String? = nil, forRole: SceneOwner, safetyOK: Bool,
-                libraryID: String? = nil, alternates: [String]? = nil, skipped: Bool? = nil) {
+                libraryID: String? = nil, alternates: [String]? = nil, skipped: Bool? = nil, reason: String? = nil) {
         self.id = id; self.householdItem = householdItem; self.becomes = becomes; self.emoji = emoji; self.forRole = forRole; self.safetyOK = safetyOK
-        self.libraryID = libraryID; self.alternates = alternates; self.skipped = skipped
+        self.libraryID = libraryID; self.alternates = alternates; self.skipped = skipped; self.reason = reason
     }
     public var isSkipped: Bool { skipped ?? false }
 }

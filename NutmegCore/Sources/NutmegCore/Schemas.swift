@@ -33,7 +33,9 @@ public enum Schemas {
     public static func props() -> [String: Any] {
         // Props always come from the library (id is the library id; the app shows its hand-drawn art).
         obj(["nutmegSays": str, "props": nonEmpty(obj(["id": enumStr(PropLibrary.ids), "householdItem": str, "becomes": str,
-                                                   "forRole": enumStr(roleIDs + ["all"]), "safetyOK": bool]))])
+                                                   "forRole": enumStr(roleIDs + ["all"]), "safetyOK": bool,
+                                                   // Round 24: a short kid-friendly "why it works".
+                                                   "reason": str]))])
     }
     public static func kit() -> [String: Any] {
         obj(["nutmegSays": str,

@@ -25,12 +25,13 @@ public enum BackNav {
     }
 
     /// What she says on arrival (one short line).
-    public static func arrivalLine(_ step: JourneyStep) -> String {
+    public static func arrivalLine(_ step: JourneyStep, drawing: Bool = false) -> String {
+        if step == .print && drawing { return "Back to Paper! Let's draw the kit again, one piece at a time." }
         switch step {
-        case .game: "Back to Pick! This is the game we picked."
-        case .getReady: "Back to Props! Here's everything for our game."
-        case .print: "Back to Paper! Tap Print to print it again."
-        case .play: "Back to Play! Let's pick up where we left off."
+        case .game: return "Back to Pick! This is the game we picked."
+        case .getReady: return "Back to Props! Here's everything for our game."
+        case .print: return "Back to Paper! Tap Print to print it again."
+        case .play: return "Back to Play! Let's pick up where we left off."
         }
     }
 
@@ -39,8 +40,8 @@ public enum BackNav {
                                                          "paper": .print, "print": .print, "play": .play]
 
     /// The go_to_step result: where she is now and the one line to say; or why not.
-    public static func output(moved: Bool, to step: JourneyStep, current: JourneyStep?) -> String {
-        if moved { return "Moved to the \(step.label) step. Say exactly this and nothing else: \"\(arrivalLine(step))\"" }
+    public static func output(moved: Bool, to step: JourneyStep, current: JourneyStep?, drawing: Bool = false) -> String {
+        if moved { return "Moved to the \(step.label) step. Say exactly this and nothing else: \"\(arrivalLine(step, drawing: drawing))\"" }
         if step == current { return "Already on the \(step.label) step. Answer in ONE short line." }
         return "Can't go to the \(step.label) step yet (not reached). Answer in ONE short, kind line and carry on with the current step."
     }
@@ -53,8 +54,8 @@ public enum BackNav {
         + " Otherwise answer in ONE short, fun line that helps the current scene, with no tools."
 
     /// The silent note after a TAP on the rail, so the conversation knows where the kids are.
-    public static func tapNote(_ step: JourneyStep) -> String {
-        "(Silent note, don't mention it.) The kids tapped back to the \(step.label) step and you said: \"\(arrivalLine(step))\". "
+    public static func tapNote(_ step: JourneyStep, drawing: Bool = false) -> String {
+        "(Silent note, don't mention it.) The kids tapped back to the \(step.label) step and you said: \"\(arrivalLine(step, drawing: drawing))\". "
             + "Help them from there."
     }
 }

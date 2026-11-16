@@ -15,7 +15,7 @@ import Testing
         let store = AdventureStore(service: nil)
         await confirmed(store)
         #expect(store.printStyle == nil && store.currentPrintStyle == .colorIn)
-        let yes = await store.apply(.confirmPlan)
+        let yes = await store.confirmWithPrinter()
         #expect(store.planningStep == .color)
         #expect(yes.contains("say exactly this and nothing else") && yes.contains(ColorChoice.question))
         #expect(!yes.contains("start_planning"))                       // one reply: just the question
@@ -34,7 +34,7 @@ import Testing
     @Test func aCorrectionKeepsTheColorAndSkipsTheQuestionAfterTheNewYes() async {
         let store = AdventureStore(service: nil)
         await confirmed(store)
-        _ = await store.apply(.confirmPlan); _ = await store.apply(.setPrintStyle(.colorIn))
+        _ = await store.confirmWithPrinter(); _ = await store.apply(.setPrintStyle(.colorIn))
         _ = await store.apply(.setRoles([.init(roleName: "Baker", job: ""), .init(roleName: "Customer", job: "")]))
         _ = await store.apply(.setTheme("Bakery Under the Sea"))         // back to the recap
         #expect(store.planningStep == .confirm && store.printStyle == .colorIn)
@@ -47,7 +47,7 @@ import Testing
         await confirmed(store)
         let early = await store.apply(.setPrintStyle(.fullColor))       // "yes, and in full color!"
         #expect(early.contains("don't ask about color again") && store.planningStep == .confirm)
-        _ = await store.apply(.confirmPlan)
+        _ = await store.confirmWithPrinter()
         #expect(store.planningStep == .roles)                            // the question is skipped
         _ = await store.apply(.setRoles([.init(roleName: "Baker", job: ""), .init(roleName: "Customer", job: "")]))
         let change = await store.apply(.setPrintStyle(.colorIn))         // mid-hunt change of mind
@@ -57,7 +57,7 @@ import Testing
     @Test func aColorChangeAtThePrintStepRedrawsThePagesAndPlayKeepsThem() async {
         let store = AdventureStore(service: nil)
         await confirmed(store, count: 1)
-        _ = await store.apply(.confirmPlan); _ = await store.apply(.setPrintStyle(.colorIn))
+        _ = await store.confirmWithPrinter(); _ = await store.apply(.setPrintStyle(.colorIn))
         _ = await store.apply(.setRoles([.init(roleName: "Baker", job: "")]))
         await store.makeKit()
         #expect(store.phase == .kitReady)
@@ -79,7 +79,7 @@ import Testing
         #expect(tool != nil && Realtime.json(tool!).contains("color_myself"))
         #expect(Realtime.kidTurnTools(step: .color, huntActive: false)?.first == "set_print_style")
         #expect(Realtime.huntTools.contains("set_print_style"))
-        #expect(Realtime.instructions.contains(ColorChoice.question) && Realtime.instructions.contains("3c. COLOR"))
+        #expect(Realtime.instructions.contains(ColorChoice.question) && Realtime.instructions.contains("3d. COLOR"))
         #expect(Realtime.outputSuffix(name: "set_print_style", output: "x", spokeFirst: false) == "")
         #expect(PlanningStep.color > .confirm && PlanningStep.color < .roles)
         #expect(TurnCheck.nudge(for: ColorChoice.question, step: .color) == nil)

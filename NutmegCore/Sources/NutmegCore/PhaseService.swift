@@ -43,9 +43,10 @@ public final class PhaseService: Sendable {
                       clean: { Sanitizer.clean($0, playerCount: ctx.playerCount) }, problem: { Validate.plan($0, count: min(4, max(1, ctx.playerCount))) }) },
                        Prompts.plan(game: game, ctx: ctx))
     }
+    /// Round 24: misfit pairings get one retry (`Validate.props`), then the app's curated sensible pairs.
     public func props(ctx: AdventureContext) async throws -> Props {
-        try await safe({ try await self.ask(Props.self, $0, Schemas.props(), .medium, clean: Sanitizer.clean, problem: Validate.props) },
-                       Prompts.props(ctx: ctx))
+        PropFit.repair(try await safe({ try await self.ask(Props.self, $0, Schemas.props(), .medium, clean: Sanitizer.clean, problem: Validate.props) },
+                                      Prompts.props(ctx: ctx)))
     }
     public func kit(ctx: AdventureContext) async throws -> Kit {
         try await safe({ try await self.ask(Kit.self, $0, Schemas.kit(), .medium,
@@ -64,12 +65,20 @@ public final class PhaseService: Sendable {
     /// The play guide's effort: it's what the kids wait for at Print. Round 20 live: medium 19.1 s, low 9.8 s (same shape).
     public static let scenesEffort: Effort = .low
 
-    public func kitScenes(ctx: AdventureContext, items: [KitItem], effort: Effort = PhaseService.scenesEffort) async throws -> Kit {
+    /// Round 24: the no-printer draw-your-own guide (at most 5 very simple pieces; the app owns every count).
+    public func drawGuide(ctx: AdventureContext) async throws -> DrawGuide {
+        let made = try await safe({ try await self.ask(DrawGuide.self, $0, DrawIt.schema(), .low, clean: { $0 },
+                                                       problem: DrawIt.problem) }, DrawIt.prompt(ctx: ctx))
+        let guide = DrawIt.clean(made, playerCount: ctx.playerCount)
+        return guide.pieces.isEmpty ? DrawIt.fallback(playerCount: ctx.playerCount) : guide
+    }
+
+    public func kitScenes(ctx: AdventureContext, items: [KitItem], drawn: Bool = false, effort: Effort = PhaseService.scenesEffort) async throws -> Kit {
         let roles = ctx.plan?.roles.count ?? 4
         let made = try await safe({ try await self.ask(KitScenes.self, $0, Schemas.kitScenes(), effort,
                                    clean: { s in KitScenes(nutmegSays: s.nutmegSays, scenes: Sanitizer.clean(Kit(nutmegSays: "", items: [], scenes: s.scenes), roleCount: roles).scenes) },
                                    problem: { Validate.scenes($0.scenes) }) },
-                                  Prompts.kitScenes(ctx: ctx, items: items))
+                                  Prompts.kitScenes(ctx: ctx, items: items, drawn: drawn))
         return Kit(nutmegSays: made.nutmegSays, items: items, scenes: made.scenes)
     }
 
@@ -110,7 +119,10 @@ public enum Validate {
         p.roles.count < count ? short("roles", p.roles.count, want: "\(count) different roles", fatal: p.roles.isEmpty) : nil
     }
     public static func props(_ p: Props) -> Problem? {
-        p.props.count < 3 ? short("safe props", p.props.count, want: "3 to 5 safe props", fatal: p.props.isEmpty) : nil
+        if p.props.count < 3 { return short("safe props", p.props.count, want: "3 to 5 safe props", fatal: p.props.isEmpty) }
+        let bad = p.props.filter { !PropFit.fits(itemID: $0.libraryID ?? $0.id, becomes: $0.becomes) }
+        return bad.isEmpty ? nil : Problem(message: "these items can't really become that by shape or use: "
+            + bad.map { "\($0.householdItem) as \($0.becomes)" }.joined(separator: "; ") + "; pick items whose shape fits", fatal: false)
     }
     public static func pages(_ p: KitPages) -> Problem? {
         if p.items.isEmpty { return short("kit items", 0, want: "the 6 kit items", fatal: true) }

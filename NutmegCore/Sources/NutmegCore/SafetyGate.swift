@@ -76,7 +76,7 @@ public enum SpeculativeTools {
         switch call {
         case .setGame, .setTheme: return step < .players
         case .showNextProp: return huntActive || step == .roles || step == .props
-        case .setPlayerCount, .confirmPlan, .setPrintStyle, .markFound, .skipProp, .goToStep: return true   // no free text
+        case .setPlayerCount, .confirmPlan, .setPrintStyle, .setPrinter, .drawStep, .markFound, .skipProp, .goToStep: return true   // no free text
         default: return false
         }
     }
@@ -85,7 +85,7 @@ public enum SpeculativeTools {
         switch call {
         case .setGame(let t), .setTheme(let t): return [t]
         case .setRoles(let roles): return roles.flatMap { [$0.roleName, $0.job] }
-        case .showNextProp(let d): return [d.becomes]
+        case .showNextProp(let d): return [d.becomes, d.reason].filter { !$0.isEmpty }
         case .showProps(let ds): return ds.map(\.becomes)
         case .swapProp(_, _, let becomes): return [becomes]
         case .showGameIdeas(let ideas): return ideas.flatMap { [$0.title, $0.pitch] }
