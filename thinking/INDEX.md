@@ -91,6 +91,7 @@ The map. Read this first, then open only what you need.
 - [Round 24: props make sense (tags, a spoken reason, one retry then a curated pair), "Do you have a printer?", no-printer Draw it! path with Save printables for later](decisions/2026-11-15-round24-props-sense-printer-path.md): Haylee (Claude's calls noted)
 
 - [Paid-app direction: iPad only, iCloud saved games, real-voice replays, 6-player cap, exact badges, $1 money](decisions/2026-11-15-paid-app-direction.md): Haylee
+- [Saved-game delete lives in the Grown-ups corner (no delete on the kids' shelf)](decisions/2026-11-15-saved-games-delete-in-grownups.md): Haylee
 
 ## Work queue
 - [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–24 done (round 24 = props make sense, printer question, no-printer Draw it!)
@@ -111,4 +112,5 @@ The map. Read this first, then open only what you need.
 
 ## Docs
 - [Design spec](../docs/superpowers/specs/2026-11-13-pretendthat-design.md)
+- [Design: generate for 6 + saved games and real-voice replays (C + D), for Haylee's review](../docs/superpowers/specs/2026-11-15-saved-games-replay-design.md)
 - [Build plan](../docs/superpowers/plans/2026-11-13-pretendthat-plan.md)

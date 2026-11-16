@@ -19,3 +19,8 @@
 - **Pro:** $9.99/mo or $79.99/yr, **10 new games a month**, unlimited replays.
 - **Unlimited:** $14.99/mo or $119.99/yr, with a large fair-use cap on new games (Claude suggests 30/mo, about one a day; to be confirmed after re-measuring the cost per game).
 - Margins depend on getting the cost per new game to about $0.40 (see the conversation and research/2026-11-15-cost-per-game.md). No-printer games skip images, so they cost less.
+
+## Design answers (Haylee, 2026-11-15)
+- Offline replay needing an unrecorded line: ask to go online and pause; never silent text, never a different voice.
+- Every playing role gets its own called-out checklist steps in every scene, and hand-offs rotate (changed from "extras optional").
+- Parental gate: hold 2 s plus tap the spelled-out number.
