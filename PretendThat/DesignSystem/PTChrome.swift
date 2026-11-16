@@ -88,7 +88,7 @@ struct SeededRNG: RandomNumberGenerator {
 
 /// Vertical white rounded panel with the 4 journey steps as round buttons and tiny labels. Done = lime with a check,
 /// current = saturated brand yellow (the stage-star fill, FFC93C) with a thin dark ring and bold ink number/label,
-/// upcoming = light gray. The current step is never `.disabled` (that dims it and made it read as inactive);
+/// upcoming = light gray (round 23: pictures instead of numbers; see `stepButton`). The current step is never `.disabled` (that dims it and made it read as inactive);
 /// taps on it are ignored instead. A connector fills (lime) between steps as progress.
 /// Reached steps are tappable (jump back).
 struct PTStepRail: View {
@@ -109,18 +109,30 @@ struct PTStepRail: View {
         .animation(Theme.springy, value: current)
     }
 
+    /// Round 23 (Haylee: clearer navigation back): every step shows its picture (game / props / printer / play).
+    /// Finished steps (lime) and later steps already reached carry a small go-back (↺) or forward mark in a white
+    /// badge and press down when tapped, so they read as buttons; the current step is the yellow one with the ring;
+    /// steps not reached yet are faded and disabled. Targets stay 72 × 64 pt.
     private func stepButton(_ s: JourneyStep) -> some View {
         let cur = current?.rawValue ?? -1, max = reached?.rawValue ?? -1
         let done = s.rawValue < cur, isCurrent = s == current, reachable = s.rawValue <= max
+        let tappable = reachable && !isCurrent
         return Button { if !isCurrent { onTap(s) } } label: {
             VStack(spacing: 4) {
                 ZStack {
                     Circle().fill(done ? Theme.lime : (isCurrent ? Theme.yellow : Theme.chipGray))
                     if isCurrent { Circle().strokeBorder(Theme.ink, lineWidth: 1.5).padding(-4) }
-                    if done {
-                        Image(systemName: "checkmark").font(.system(size: 20, weight: .semibold)).foregroundStyle(Theme.ink)
-                    } else {
-                        Text("\(s.rawValue + 1)").font(Theme.uiFont(20, isCurrent ? .heavy : .semibold)).foregroundStyle(Theme.ink.opacity(isCurrent || reachable ? 1 : 0.4))
+                    Image(systemName: BackNav.symbol(s))
+                        .font(.system(size: 22, weight: isCurrent ? .bold : .semibold))
+                        .foregroundStyle(Theme.ink.opacity(isCurrent || reachable ? 1 : 0.35))
+                    if tappable {
+                        Image(systemName: BackNav.mark(s, current: current))
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(Theme.ink)
+                            .frame(width: 22, height: 22)
+                            .background(Circle().fill(Theme.white))
+                            .overlay(Circle().strokeBorder(Theme.ink, lineWidth: 1.25))
+                            .offset(x: 20, y: 20)
                     }
                 }
                 .frame(width: 56, height: 56)
@@ -129,17 +141,32 @@ struct PTStepRail: View {
                     .lineLimit(1).fixedSize()
             }
             .frame(minWidth: 72, minHeight: 64)
+            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PTRailButtonStyle(enabled: tappable))
         .disabled(!reachable && !isCurrent)
         .accessibilityAddTraits(isCurrent ? .isSelected : [])
         .accessibilityLabel("\(s.label)\(done ? ", done" : isCurrent ? ", now" : "")")
+        .accessibilityHint(tappable ? "Goes back to \(s.label)" : "")
     }
 
     private func connector(filled: Bool) -> some View {
         Capsule().fill(filled ? Theme.lime : Theme.chipGray)
             .frame(width: 4, height: 18)
             .padding(.vertical, 4)
+    }
+}
+
+/// Round 23: the rail step's pressed state (shrinks and dims a little), only on steps you can go to.
+struct PTRailButtonStyle: ButtonStyle {
+    var enabled: Bool
+    func makeBody(configuration: Configuration) -> some View {
+        let pressed = configuration.isPressed && enabled
+        configuration.label
+            .scaleEffect(pressed ? 0.9 : 1)
+            .brightness(pressed ? -0.06 : 0)
+            .animation(Theme.press, value: pressed)
+            .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.6), trigger: pressed) { _, new in new }
     }
 }
 

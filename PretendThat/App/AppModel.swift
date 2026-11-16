@@ -236,7 +236,27 @@ final class AppModel {
     func tapLetsPlay() { userAction(.letsPlay); store.beginPlay() }
     func tapPlayAgain() { userAction(.playAgain); store.playAgain() }
     func tapPrint() { userAction(.print); printKit() }
-    func tapStepRail(_ step: JourneyStep) { userAction(.stepRail); store.goTo(step) }
+    func tapStepRail(_ step: JourneyStep) { userAction(.stepRail); navigate(to: step) }
+    /// Round 23 (Haylee): "Print again" on the checklist and The End. The kit is cached (no regeneration): when every
+    /// page is final it opens the print screen right away (one tap, like Print), otherwise it goes to the Print step.
+    func tapPrintAgain() {
+        userAction(.printAgain)
+        if store.kit != nil && art.finished { printKit() } else { navigate(to: .print) }
+    }
+    /// Round 23: a tap back to a step (rail, Print again): the same `store.goTo`, then her one arrival line, and a silent
+    /// note so the conversation knows where the kids are. Voice uses go_to_step (the model says the line itself).
+    func navigate(to step: JourneyStep) {
+        guard store.goTo(step) else { return }
+        let line = BackNav.arrivalLine(step)
+        rtLog("back-nav: \(step.label) (tap)")
+        if realtime.isLive {
+            realtime.addNote(Realtime.systemNote(BackNav.tapNote(step)))
+            lastAppLine = line
+            realtime.say(line)
+        } else {
+            speak(line)
+        }
+    }
     /// New game goes all the way home: the session hangs up, so nothing keeps talking on the start screen.
     func tapNewGame() { userAction(.newGame); leave() }
 
@@ -597,10 +617,11 @@ final class AppModel {
             return ("(Silent coaching, don't mention it.) That was undone. Say nothing more.", false)
         }
         realtime.markTrace("checked \(name)")
-        if case .printKit = call {
+        if case .printKit = call, store.phase.step != .play {
             guard store.phase == .kitReady || kitFinal else { return ("Not yet: the kit isn't ready. Say only \"Almost ready!\"", true) }
             printKit()
         }
+        if case .goToStep(let step) = call { rtLog("back-nav: \(step.label) (voice)") }
         if case .setGame = call {
             // Theme ideas for this game (round 7): 3 twists, never last time's; delivered in the set_game result.
             store.themeIdeas = suggestionMemory.pickTwists()

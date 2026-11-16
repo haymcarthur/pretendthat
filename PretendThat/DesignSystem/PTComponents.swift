@@ -125,7 +125,7 @@ struct PTChecklistRow<Picture: View>: View {
     }
 }
 
-/// A prop to hunt for: household item → what it becomes, with a found check.
+/// A prop to hunt for: the household item (big) and what it becomes (smaller line below), with a found check.
 struct PTPropCard: View {
     let prop: Prop
     @Binding var found: Bool
@@ -140,9 +140,9 @@ struct PTPropCard: View {
                 }
                 PTText(prop.householdItem, .headline).lineLimit(2).minimumScaleFactor(0.7)
                     .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
-                Label { Text(prop.becomes) } icon: { Image(systemName: "arrow.right") }
+                // Round 23 (Haylee): no arrow; the pretend use is a smaller second line under the item's name.
+                Text(prop.becomes)
                     .font(Theme.bodyFont(Theme.TextSize.body)).foregroundStyle(Theme.inkMuted)
-                    .labelStyle(.titleAndIcon)
                     .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity)
@@ -458,7 +458,8 @@ struct PTCountPicker: View {
     var body: some View {
         HStack(spacing: Theme.Space.m) {
             ForEach(1...6, id: \.self) { n in
-                PTChoiceTile(label: n == 6 ? "6+" : "\(n)",
+                // Round 23 (Haylee): 1 to 6 players (was "6+").
+                PTChoiceTile(label: "\(n)",
                              isSelected: selected == n, size: Theme.Size.countTile) { onPick(n) }
             }
         }

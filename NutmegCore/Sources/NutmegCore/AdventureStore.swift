@@ -17,11 +17,11 @@ public enum Phase: Equatable, Sendable {
     }
 }
 
-/// The step rail (layout-toycad-style.md): Game → Get Ready → Print → Play.
+/// The step rail (layout-toycad-style.md): Game → Props → Print → Play (round 23: "Get Ready" renamed "Props").
 public enum JourneyStep: Int, CaseIterable, Sendable {
     case game, getReady, print, play
     public var label: String {
-        switch self { case .game: "Game"; case .getReady: "Get Ready"; case .print: "Print"; case .play: "Play" }
+        switch self { case .game: "Game"; case .getReady: "Props"; case .print: "Print"; case .play: "Play" }
     }
 }
 
@@ -419,23 +419,32 @@ public final class AdventureStore {
     // MARK: Step rail
 
     /// Jump to a reached step without losing anything (see props again, reprint, back to the game).
-    public func goTo(_ step: JourneyStep) {
-        guard let reached = reachedStep, step.rawValue <= reached.rawValue, step != phase.step else { return }
+    /// Round 23: true when `goTo` would move there (a reached step that isn't the current one, with its content ready).
+    public func canGoTo(_ step: JourneyStep) -> Bool {
+        guard let reached = reachedStep, step.rawValue <= reached.rawValue, step != phase.step else { return false }
+        switch step {
+        case .game: return true
+        case .getReady: return props != nil
+        case .print, .play: return kit != nil
+        }
+    }
+
+    @discardableResult
+    public func goTo(_ step: JourneyStep) -> Bool {
+        guard canGoTo(step) else { return false }
         switch step {
         case .game:
             phase = plan != nil || playerCount > 0 ? .players : .pickGame
             presenting = .none
         case .getReady:
-            guard props != nil else { return }
             phase = .props; presenting = .props
         case .print:
-            guard kit != nil else { return }
             phase = .kitReady; presenting = .none
         case .play:
-            guard kit != nil else { return }
             presenting = .none
             if let last = lastPlayPhase { phase = last } else { beginPlay() }
         }
+        return true
     }
 
     // MARK: Voice conversation (D1, D2): the Realtime model's function calls drive the same state machine.
@@ -478,6 +487,10 @@ public final class AdventureStore {
             phase = .players; presenting = .none; planningStep = .players
             return "Theme set: \(title). Step 3: react in one short sentence, then ask an OPEN question like \"How many friends are playing today?\" (never a list of numbers like 'just you, or two, or three?': any number works). Never ask for names."
         case .setPlayerCount(let count):
+            // Round 23 (Haylee): at most 6. More → she says so and asks again; nothing changes.
+            if count > Players.max, phase.step == nil || phase.step == .game || phase.step == .getReady {
+                return Players.overCapOutput(said: count)
+            }
             let n = max(1, min(count, Players.max))
             switch phase {
             case .makingKit, .kitReady, .handoff, .scene, .end:
@@ -604,7 +617,13 @@ public final class AdventureStore {
             badgeTapped(owner)
             return "Hand-off confirmed: the scene starts and the app says its line. Say nothing."
         case .printKit:
+            // Round 23: "print it again" from the play step (or The End) goes back to the Print step.
+            if phase.step == .play, goTo(.print) { return BackNav.output(moved: true, to: .print, current: .print) }
             return "The print screen is open. Say one short line like \"Here's the print screen!\""
+        case .goToStep(let step):
+            let from = phase.step
+            let moved = goTo(step)
+            return BackNav.output(moved: moved, to: step, current: from)
         }
     }
 

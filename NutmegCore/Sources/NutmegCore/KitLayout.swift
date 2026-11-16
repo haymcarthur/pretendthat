@@ -57,7 +57,7 @@ public enum KitLayout {
         return slots + (slots.count..<target).map(extra)
     }
 
-    /// Badges: one per kid, grouped by role (a role played by 2 kids prints 2 badges), each with its role title.
+    /// Badges: exactly one per kid, grouped by role (a role played by 2 kids prints 2 badges), each with its role title.
     /// Tickets: one per kid with a blank name line. Kids pick their badge after printing.
     public static func pages(for kit: Kit, roles: [Role], playerCount: Int) -> [KitPage] {
         let kids = max(1, max(playerCount, roles.map(\.count).reduce(0, +)))
@@ -72,8 +72,10 @@ public enum KitLayout {
                 } else {
                     base = (0..<kids).map { KitSlot(index: $0) }
                 }
-                // Spares fill the page: badges cycle the roles again; tickets keep counting seats.
-                return filled(base, capacity: grid(for: item.size).capacity) { k in isBadge && !roles.isEmpty ? base[k % base.count] : KitSlot(index: k) }
+                // Round 23 (Haylee): exactly one badge per kid (2 kids → 2 badges), no spare badges. Tickets still fill
+                // their page (spares keep counting seats).
+                if isBadge { return base }
+                return filled(base, capacity: grid(for: item.size).capacity) { k in KitSlot(index: k) }
             }
             let base = (0..<item.copies).map { KitSlot(index: $0) }
             return filled(base, capacity: grid(for: item.size).capacity) { k in KitSlot(index: k) }
@@ -141,6 +143,7 @@ public enum KitArtPrompt {
             + " Fill the whole image edge to edge with the card design and a thick rounded border."
         if item.recipe == .money || (item.recipe == nil && item.size == .bill) {
             p += " This is play money: no name field, no \"Name:\" label, no blank lines or banners to write on."
+            if item.recipe == .money { p += " It is a ONE-dollar bill: the only amount anywhere on it is \"\(Money.bill)\"." }
         } else if item.size != .fullPage {
             p += " Leave a BLANK white rounded banner across the top quarter of the card with no text in it (a blank name line is printed there later)."
         }

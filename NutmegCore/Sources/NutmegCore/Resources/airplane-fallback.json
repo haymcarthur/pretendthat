@@ -135,7 +135,7 @@
         "lines": [
           "Good for one snack"
         ],
-        "bigNumber": "5",
+        "bigNumber": "$1",
         "perPlayer": false,
         "copies": 8,
         "colorMe": true,

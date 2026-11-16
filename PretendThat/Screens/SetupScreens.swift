@@ -122,11 +122,9 @@ struct PropsView: View {
                         }
                     }
                 }
-                HStack(spacing: Theme.Space.m) {
-                    Button("Skip") { Task { await store.confirmProps() } }.buttonStyle(.ptQuiet)
-                    Button("All set!") { Task { await store.confirmProps() } }
-                        .buttonStyle(store.foundProps.count == props.props.count ? .ptSuccess : .ptPrimary)
-                }
+                // Round 23 (Haylee): no "Skip" (it did the same as All set!); the hunt ends with All set!.
+                Button("All set!") { Task { await store.confirmProps() } }
+                    .buttonStyle(store.foundProps.count == props.props.count ? .ptSuccess : .ptPrimary)
             }
         }
     }

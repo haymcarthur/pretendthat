@@ -101,7 +101,8 @@ public enum Realtime {
     set_game result gives you (say them so they fit THEIR game). When they pick, call set_theme with the full title \
     ("Pancake Restaurant on the Moon").
     3. PLAYERS: ask an OPEN question: "How many friends are playing today?" NEVER offer a list of numbers ("just you, \
-    or two, or three?"): that sounds like the most they can have. Any number works. Call set_player_count. NEVER ask \
+    or two, or three?"). 1 to 6 kids can play. Call set_player_count with the number they say, even if it's more than \
+    6 (the result tells you what to say: up to six friends can play). NEVER ask \
     for names; if a kid says a name, don't repeat it: call everyone by their role.
     3b. CONFIRM (right after set_player_count, before any roles): recap the plan out loud in ONE short sentence, \
     exactly as the set_player_count result tells you ("So it's a bug movie theater for three friends! Ready, or want to \
@@ -135,6 +136,8 @@ public enum Realtime {
     7. PRINT STEP (after the kit is ready, the kids can still talk to you): if they want to play ("let's play", \
     "we're ready", "we printed it"), call start_play; if they want to print ("print it"), call print_kit. Otherwise \
     answer in one short line. "Go play" wording is only for after start_play.
+    GOING BACK (after the hunt: print step, play step, The End): "print it again", "go back to the props", "back to \
+    the game" → call go_to_step (print, props, game or play) and say only the line its result gives you.
     6. FINISH: call finish_planning and stop talking. The app says the one "making your kit" line and tells the kids \
     when the kit is ready. Never say the kit is done, ready or "go play" yourself.
     NEVER say "go play", "go have your adventure", "dive into your adventure", "hop into the story", "let's play" or \
@@ -286,10 +289,11 @@ public enum Realtime {
            ["title": str], required: ["title"]),
         fn("set_theme", "The kids picked the theme or twist (step 2). title = the full game title with the theme, "
            + "e.g. \"Pancake Restaurant on the Moon\". If the kid corrects it at ANY point later (any step), call this again with the fix.", ["title": str], required: ["title"]),
-        fn("set_player_count", "How many kids are playing (a number only; we never ask for names). Any number works; "
-           + "the question is open (\"How many friends are playing today?\"), never a list of numbers. Then recap (step 3b)."
+        fn("set_player_count", "How many kids are playing (a number only; we never ask for names). 1 to 6 kids can play "
+           + "(max 6). If a kid says more than 6, still call this with the number they said: the result says what to tell "
+           + "them. The question is open (\"How many friends are playing today?\"), never a list of numbers. Then recap (step 3b)."
            + " If the kid corrects it at ANY point later (any step), call this again with the fix.",
-           ["count": ["type": "integer"]], required: ["count"]),
+           ["count": ["type": "integer", "minimum": 1, "description": "the number the kid said (1 to 6 can play)"] as [String: Any]], required: ["count"]),
         fn("set_roles", "Exactly one role per kid for the chosen game (as many entries as kids). With more than 4 kids, "
            + "repeat a role title that makes sense to share (e.g. Passenger twice). Right after it, call show_next_prop "
            + "for the first prop, then announce the roles and the first prop in ONE turn. Never ask \"Sound good?\".",
@@ -323,6 +327,10 @@ public enum Realtime {
         fn("confirm_handoff", "PLAY STEP hand-off only: the kid holding the iPad says they're the role it was passed to "
            + "(\"I'm the Captain\", \"I've got it\"). Does exactly what tapping the I'm the Captain! button does. Say nothing.",
            [:], required: []),
+        fn("go_to_step", "After the hunt (print step, play step, The End): the kids want to go back to a step they already "
+           + "did (\"print it again\", \"go back to the props\", \"back to printing\", \"back to the game\"). Does exactly what "
+           + "tapping that step on the step rail does; the result says the one line to say. \"Print it again\" = print.",
+           ["step": ["type": "string", "enum": ["game", "props", "print", "play"]]], required: ["step"]),
         fn("start_planning", "Silent: you write the roles and the prop list on your clipboard for a moment (call it ONCE, "
            + "right before set_roles). When it returns, call set_roles, then show_next_prop, then announce both.",
            ["topic": ["type": "string", "enum": ["roles", "props"]]], required: ["topic"])
@@ -546,6 +554,8 @@ public enum PlanningCall: Equatable, Sendable {
     case justTalk, startPlay, printKit
     /// Round 9: "I'm the Captain" by voice on the hand-off card, same as tapping the button.
     case confirmHandoff
+    /// Round 23: "print it again", "go back to the props": the same navigation as tapping a step on the rail.
+    case goToStep(JourneyStep)
 
     public static func decode(name: String, arguments: String) -> PlanningCall? {
         let a = (try? JSONSerialization.jsonObject(with: Data(arguments.utf8)) as? [String: Any]) ?? [:]
@@ -563,7 +573,8 @@ public enum PlanningCall: Equatable, Sendable {
             let t = s(a, "title"); return t.isEmpty ? nil : .setTheme(t)
         case "set_player_count":
             guard let count = (a["count"] as? Int) ?? (a["count"] as? Double).map(Int.init) else { return nil }
-            return .setPlayerCount(max(1, min(count, Players.max)))
+            // Round 23: a number over the cap is kept (up to 99) so the store can say "up to six friends can play".
+            return .setPlayerCount(max(1, min(count, 99)))
         case "set_roles":
             let roles = list("roles").map { RoleDraft(roleName: s($0, "role_name"), job: s($0, "job")) }
                 .filter { !$0.roleName.isEmpty }
@@ -594,6 +605,7 @@ public enum PlanningCall: Equatable, Sendable {
         case "start_play": return .startPlay
         case "print_kit": return .printKit
         case "confirm_handoff": return .confirmHandoff
+        case "go_to_step": return BackNav.toolSteps[s(a, "step").lowercased()].map { .goToStep($0) }
         default: return nil
         }
     }

@@ -36,9 +36,9 @@ public enum KitRecipe: String, Codable, Sendable, CaseIterable {
         switch self {
         case .badges: "role badges, one per kid (the app prints each role title and a blank Name line the kids write on)"
         case .sign: "a sign to hang up with the place's name, e.g. \"Cozy Café\" or \"Sky Airlines Gate 3\""
-        case .money: "play money: one design of bills themed to the game, with a bigNumber value"
+        case .money: "play money: one design of $1 bills themed to the game; every bill is worth one dollar, so bigNumber is always \"$1\" and no other amounts appear"
         case .tickets: "tickets or passes that fit the game (boarding passes, appointment cards, room keycards, order tickets, admission tickets)"
-        case .menu: "a menu for food games, otherwise a price list or services sheet (lines = items with prices)"
+        case .menu: "a menu for food games, otherwise a price list or services sheet (lines = items with small whole-dollar prices from $1 to $5, e.g. \"Pancakes $3\"; no cents, nothing over $5, so kids can pay with $1 bills)"
         case .cutouts: "a page of 6 to 8 themed prop cut-outs (food for food games; tools for doctor/vet/engineer; luggage and snacks for airplane); lines = the items"
         }
     }
@@ -182,5 +182,15 @@ public struct NutmegTurn: Codable, Equatable, Sendable {
     public init(nutmegSays: String, choices: [Choice], understood: Bool) { self.nutmegSays = nutmegSays; self.choices = choices; self.understood = understood }
 }
 
-/// Most kids one game supports (more share roles).
-public enum Players { public static let max = 8 }
+/// Most kids one game supports (round 23, Haylee: capped at 6; roles past 4 are shared).
+public enum Players {
+    public static let max = 6
+    /// What Nutmeg says when a kid says more than 6 ("eight friends"): cheerful, then asks if 6 is okay.
+    public static let overCapLine = "Wow, what a big crew! Up to six friends can play. Should we make it six?"
+    /// The set_player_count result for a number over the cap: nothing changes; she says the line and waits.
+    public static func overCapOutput(said n: Int) -> String {
+        "Too many: \(n) is more than \(max). Nothing changed. Say exactly this and nothing else: \"\(overCapLine)\" "
+            + "Then wait: if they agree (\"yes\", \"okay\", \"six\"), call set_player_count with 6; if they say another "
+            + "number from 1 to 6, call set_player_count with it."
+    }
+}

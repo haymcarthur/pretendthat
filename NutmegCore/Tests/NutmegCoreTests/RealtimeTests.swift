@@ -13,7 +13,7 @@ import Testing
     let input = try #require(audio["input"] as? [String: Any])
     #expect(input["turn_detection"] is NSNull)   // push-to-talk: no server VAD
     let names = (session["tools"] as? [[String: Any]])?.compactMap { $0["name"] as? String }
-    #expect(names == ["show_game_ideas", "set_game", "set_theme", "set_player_count", "set_roles", "show_next_prop", "mark_found", "swap_prop", "skip_prop", "confirm_plan", "set_print_style", "finish_planning", "just_talk", "start_play", "print_kit", "confirm_handoff", "start_planning"])
+    #expect(names == ["show_game_ideas", "set_game", "set_theme", "set_player_count", "set_roles", "show_next_prop", "mark_found", "swap_prop", "skip_prop", "confirm_plan", "set_print_style", "finish_planning", "just_talk", "start_play", "print_kit", "confirm_handoff", "go_to_step", "start_planning"])
     #expect(Realtime.json(s).contains("\"laundry-basket\""))   // the prop library is an enum in the schema
     // Serializes cleanly: turn detection is an explicit JSON null, never server VAD.
     #expect(Realtime.json(s).contains("\"turn_detection\":null"))
@@ -58,7 +58,7 @@ import Testing
     #expect(PlanningCall.decode(name: "set_game", arguments: #"{"title":" Zoo "}"#) == .setGame("Zoo"))
     #expect(PlanningCall.decode(name: "set_game", arguments: #"{"title":""}"#) == nil)
     #expect(PlanningCall.decode(name: "set_player_count", arguments: #"{"count":3}"#) == .setPlayerCount(3))
-    #expect(PlanningCall.decode(name: "set_player_count", arguments: #"{"count":20}"#) == .setPlayerCount(Players.max))
+    #expect(PlanningCall.decode(name: "set_player_count", arguments: #"{"count":20}"#) == .setPlayerCount(20))   // round 23: the store answers the cap
     #expect(PlanningCall.decode(name: "set_players", arguments: #"{"names":["Mia"],"count":1}"#) == nil)   // no name capture anymore
     if case .showGameIdeas(let ideas)? = PlanningCall.decode(name: "show_game_ideas", arguments:
         #"{"ideas":[{"title":"A","pitch":""},{"title":"B","pitch":""},{"title":"C","pitch":""},{"title":"D","pitch":""}]}"#) {
@@ -109,11 +109,11 @@ import Testing
 @Test @MainActor func sevenKidsShareFourRoles() async {
     let store = AdventureStore(service: nil)
     store.beginConversation()
-    _ = await store.apply(.setPlayerCount(7)); _ = await store.apply(.confirmPlan); _ = await store.apply(.setPrintStyle(.colorIn))
-    _ = await store.apply(.setRoles(["Captain", "Flight Attendant", "Co-Pilot", "Passenger", "Passenger", "Passenger", "Passenger"]
+    _ = await store.apply(.setPlayerCount(6)); _ = await store.apply(.confirmPlan); _ = await store.apply(.setPrintStyle(.colorIn))
+    _ = await store.apply(.setRoles(["Captain", "Flight Attendant", "Co-Pilot", "Passenger", "Passenger", "Passenger"]
         .map { .init(roleName: $0, job: "") }))
     #expect(store.plan?.roles.map(\.roleName) == ["Captain", "Flight Attendant", "Co-Pilot", "Passenger"])
-    #expect(store.plan?.roles.map(\.count) == [1, 1, 1, 4])
+    #expect(store.plan?.roles.map(\.count) == [1, 1, 1, 3])
 }
 
 @Test func toolsNeverAskForNames() {

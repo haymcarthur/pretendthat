@@ -20,7 +20,7 @@ func kitItem(_ id: String, size: KitSize, perPlayer: Bool = false, copies: Int =
     #expect(pages[0].slots.map(\.index) == Array(0..<8))
 }
 
-@Test func smallItemsFillEveryPage() {
+@Test func smallItemsFillEveryPageExceptBadges() {
     for r in KitRecipe.allCases {
         var item = kitItem(r.rawValue, size: r.size, perPlayer: r.perPlayer, copies: r == .money ? 8 : 1)
         item.recipe = r
@@ -28,8 +28,13 @@ func kitItem(_ id: String, size: KitSize, perPlayer: Bool = false, copies: Int =
             let roles = cast(n)
             let pages = KitLayout.pages(for: Kit(nutmegSays: "", items: [item], scenes: []), roles: roles, playerCount: n)
             let cap = KitLayout.grid(for: r.size).capacity
-            #expect(pages.allSatisfy { $0.slots.count == cap }, "\(r) with \(n) kids")
-            if r == .badges { #expect(Set(pages.flatMap(\.slots).compactMap(\.roleID)) == Set(roles.map(\.id))) }
+            if r == .badges {
+                // Round 23: exactly one badge per kid (never spares).
+                #expect(pages.flatMap(\.slots).count == n, "badges with \(n) kids")
+                #expect(Set(pages.flatMap(\.slots).compactMap(\.roleID)) == Set(roles.map(\.id)))
+            } else {
+                #expect(pages.allSatisfy { $0.slots.count == cap }, "\(r) with \(n) kids")
+            }
         }
     }
 }

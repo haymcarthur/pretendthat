@@ -1,3 +1,4 @@
+import Foundation
 /// Clamps decoded AI output to the spec's limits (§5) instead of crashing on odd JSON.
 public enum Sanitizer {
     public enum Limits {
@@ -43,6 +44,9 @@ public enum Sanitizer {
             item.perPlayer = r.perPlayer
             item.copies = r == .money ? 8 : (r.perPlayer ? 1 : 1)
             if r == .badges { item.bigNumber = nil }
+            // Round 23 (Haylee): one $1 bill design; menu prices are small whole dollars ($1 to $5).
+            if r == .money { item.bigNumber = Money.bill; item.lines = item.lines.map(Money.oneDollar) }
+            if r == .menu { item.lines = item.lines.map(Money.smallPrices) }
             out.append(item)
         }
         return out
@@ -130,5 +134,49 @@ public enum PretendLine {
         if has(t) { return t }
         let opener = openers[((index % openers.count) + openers.count) % openers.count]
         return t.isEmpty ? opener : opener + " " + t
+    }
+}
+
+/// Round 23 (Haylee): play money is a single $1 bill page (print more copies for more money), and menu prices are
+/// small whole dollars, so counting out $1 bills makes sense.
+public enum Money {
+    public static let bill = "$1"
+    public static let priceRange = 1...5
+    static let amount = try! NSRegularExpression(pattern: #"\$\s?(\d+)(?:[.,](\d{1,2}))?"#)
+    static let words = try! NSRegularExpression(pattern: #"\b(\d+)\s+dollars?\b"#, options: [.caseInsensitive])
+
+    /// Any amount on a bill reads $1 ("$5" → "$1", "10 dollars" → "1 dollar").
+    public static func oneDollar(_ line: String) -> String {
+        var s = replace(amount, in: line) { _ in bill }
+        s = replace(words, in: s) { _ in "1 dollar" }
+        return s
+    }
+
+    /// Prices become whole dollars from $1 to $5: cents round to the nearest dollar (at least $1), bigger prices cap at $5.
+    public static func smallPrices(_ line: String) -> String {
+        replace(amount, in: line) { groups in
+            let whole = Int(groups[1] ?? "") ?? 1
+            let cents = Int((groups[2] ?? "0").padding(toLength: 2, withPad: "0", startingAt: 0)) ?? 0
+            let rounded = whole + (cents >= 50 ? 1 : 0)
+            return "$\(min(max(rounded, priceRange.lowerBound), priceRange.upperBound))"
+        }
+    }
+
+    /// The dollar amounts in a line (for tests and checks).
+    public static func amounts(_ line: String) -> [String] {
+        let ns = line as NSString
+        return amount.matches(in: line, range: NSRange(location: 0, length: ns.length)).map { ns.substring(with: $0.range) }
+    }
+
+    private static func replace(_ re: NSRegularExpression, in text: String, with make: ([String?]) -> String) -> String {
+        let ns = text as NSString
+        var out = text
+        for m in re.matches(in: text, range: NSRange(location: 0, length: ns.length)).reversed() {
+            let groups = (0..<m.numberOfRanges).map { i -> String? in
+                let r = m.range(at: i); return r.location == NSNotFound ? nil : ns.substring(with: r)
+            }
+            out = (out as NSString).replacingCharacters(in: m.range, with: make(groups))
+        }
+        return out
     }
 }
