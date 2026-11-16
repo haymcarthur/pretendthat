@@ -16,7 +16,9 @@ import Testing
         for _ in 0..<300 where !cond() { try? await Task.sleep(for: .milliseconds(10)) }
     }
 
-    @Test func pagesStartAtTheRolesAndTheGuideWaitsForTheHuntsEnd() async {
+    // Guide prefetch (2026-11-15): the play guide no longer waits for the hunt's end; it's written as soon as the pages
+    // land (with no props), and the props are worked in as their cards come up (GuidePrefetchTests).
+    @Test func pagesStartAtTheRolesAndTheGuideFollowsThem() async {
         let llm = FakeLLM()
         let store = AdventureStore(service: PhaseService(llm: llm))
         await hunting(store)
@@ -24,19 +26,19 @@ import Testing
         await waitFor { store.draftItems != nil }
         #expect(store.draftItems?.count == 6 && store.phase == .players)          // still hunting: nothing else changed
         #expect(llm.users.filter { $0.contains("Phase: printable kit pages") }.count == 1)
-        #expect(!llm.users.contains { $0.contains("Phase: the play guide") })
-        // The hunt: one found, one skipped (no Claude calls for those).
+        await waitFor { llm.users.contains { $0.contains("Phase: the play guide") } }
+        #expect(llm.users.filter { $0.contains("Phase: the play guide") }.count == 1)
+        #expect(llm.users.first { $0.contains("Phase: the play guide") }?.contains("still hunting") == true)
+        // The hunt: one found, one skipped (each card's prop is woven into the guide; the skip itself makes no call).
         _ = await store.apply(.showNextProp(.init(itemID: "bowl", becomes: "the mixing bowl", forRole: "all")))
         _ = await store.apply(.markFound("bowl"))
         _ = await store.apply(.showNextProp(.init(itemID: "pot", becomes: "the big oven", forRole: "all")))
         _ = await store.apply(.skipProp("pot"))
-        let calls = llm.calls
         #expect(store.draftItems != nil)                                         // the hunt never restarts the pages
         _ = await store.apply(.finishPlanning)
-        await waitFor { store.phase == .kitReady }
-        #expect(llm.calls == calls + 1)                                          // only the play guide
-        let guide = llm.users.last ?? ""
-        #expect(guide.contains("Phase: the play guide") && guide.contains("big oven") && guide.contains("skipped"))
+        await waitFor { store.phase == .kitReady && !store.guidePending }
+        #expect(!llm.users.contains { $0.contains("Phase: printable kit and scenes") })
+        #expect(llm.users.filter { $0.contains("Phase: the play guide") }.count == 1)
         let cut = store.kit?.items.first { $0.recipe == .cutouts }
         #expect(cut?.lines.count == 7 && cut?.lines.last == "big oven")            // the skipped prop's cut-out, appended
         #expect(store.kit?.items.map(\.id) == store.draftItems?.map(\.id))        // same pages: their art carries over

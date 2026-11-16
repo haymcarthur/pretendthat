@@ -76,13 +76,42 @@ public final class PhaseService: Sendable {
         return guide.pieces.isEmpty ? DrawIt.fallback(playerCount: ctx.playerCount) : guide
     }
 
-    public func kitScenes(ctx: AdventureContext, items: [KitItem], drawn: Bool = false, effort: Effort = PhaseService.scenesEffort) async throws -> Kit {
+    public func kitScenes(ctx: AdventureContext, items: [KitItem], drawn: Bool = false, effort: Effort = PhaseService.scenesEffort,
+                          huntPending: Bool = false) async throws -> Kit {
         let roles = ctx.plan?.roles.count ?? 0
         let made = try await safe({ try await self.ask(KitScenes.self, $0, Schemas.kitScenes(), effort,
                                    clean: { s in KitScenes(nutmegSays: s.nutmegSays, scenes: Sanitizer.clean(Kit(nutmegSays: "", items: [], scenes: s.scenes)).scenes) },
                                    problem: { Validate.scenes($0.scenes, roles: roles) }) },
-                                  Prompts.kitScenes(ctx: ctx, items: items, drawn: drawn))
+                                  Prompts.kitScenes(ctx: ctx, items: items, drawn: drawn, huntPending: huntPending))
         return Kit(nutmegSays: made.nutmegSays, items: items, scenes: made.scenes)
+    }
+
+    /// Guide prefetch (2026-11-15): the play guide written while the kids are still hunting (no props in it yet).
+    public func earlyGuide(ctx: AdventureContext, items: [KitItem]) async throws -> Kit {
+        var c = ctx; c.props = nil
+        let roles = ctx.plan?.roles.count ?? 0
+        let made = try await safe({ try await self.ask(KitScenesSix.self, $0, KitScenesSix.schema(), Self.scenesEffort,
+                                   clean: { s in KitScenesSix(nutmegSays: s.nutmegSays, scenes: Sanitizer.clean(Kit(nutmegSays: "", items: [], scenes: s.scenes)).scenes) },
+                                   problem: { Validate.scenes($0.scenes, roles: roles) }) },
+                                  Prompts.kitScenes(ctx: c, items: items, huntPending: true))
+        // There's time during the hunt: a guide still short after its one fix is written again (RetryOnce).
+        if made.scenes.count < 4 { throw ClaudeError.decoding("the play guide had \(made.scenes.count) scenes") }
+        return Kit(nutmegSays: made.nutmegSays, items: items, scenes: made.scenes)
+    }
+
+    /// Guide prefetch: the props worked into 1 or 2 existing steps each (small and fast: low effort, short answer).
+    /// The rewritten steps pass the kid-safety check (regenerated once, then this throws and the guide stays as it was).
+    public func weaveProps(scenes: [Scene], props: [Prop], taken: [PropUse], ctx: AdventureContext) async throws -> PropWeave {
+        let roles = ctx.plan?.roles ?? []
+        return try await safe({ try await self.ask(PropWeave.self, $0, GuideWeave.schema(propIDs: props.map(\.id)), .low,
+                                                   clean: { $0 }, problem: { _ in nil }) },
+                              GuideWeave.prompt(scenes: scenes, props: props, taken: taken, roles: roles, players: ctx.playerCount))
+    }
+
+    /// Guide prefetch: the final guide's text (after the hunt's skips and swaps were applied) passes the kid-safety
+    /// check before it's shown.
+    public func guideIsSafe(_ scenes: [Scene]) async -> Bool {
+        await safety.check(scenes.flatMap { [$0.title, $0.nutmegSays] + $0.steps.map(\.text) }, pretend: true) == nil
     }
 
     /// One call, sanitized. If the answer is under the spec's minimums (e.g. 1 scene), ask once more with a

@@ -247,6 +247,7 @@ public final class AdventureStore {
     public func makeKit(remakeFor title: String? = nil) async {
         phase = .makingKit
         kitGeneration += 1
+        guidePending = false; playQueued = false
         let gen = kitGeneration
         if let title {
             kitLeadIn = nil
@@ -263,6 +264,11 @@ public final class AdventureStore {
         // Round 21: text still being moderated never reaches Claude (or the kit made from it).
         if let outboundGate, !(await outboundGate()) { return }
         guard gen == kitGeneration else { return }
+        // Guide prefetch: the play guide was written during the hunt too; the Paper step never waits for it.
+        if let pages, guideGeneration == draftGeneration, guideTask != nil || guideKit != nil {
+            await finishWithPrefetchedGuide(pages: pages, gen: gen)
+            return
+        }
         await run("kit", kidSaid: nil) { [self] svc in
             // The context is read now (the current title, count, roles and props), and a newer remake wins.
             let made: Kit
@@ -281,6 +287,8 @@ public final class AdventureStore {
     // MARK: Play flow
 
     public func beginPlay() {
+        // Guide prefetch: the pages are out but the play guide is still on its way: Play starts the moment it lands.
+        if guidePending { playQueued = true; return }
         holder = nil
         goToScene(0)
     }
@@ -376,6 +384,7 @@ public final class AdventureStore {
         kitRemakes = 0; kitRestyles = 0; propMisfits = 0
         cancelDraft()
         cancelDrawDraft()
+        guidePending = false; playQueued = false; guideCalls = 0
     }
 
     // MARK: Kit made during the hunt (round 20, Haylee)
@@ -420,12 +429,13 @@ public final class AdventureStore {
             guard !Task.isCancelled else { return nil }
             let items = try? await RetryOnce.run { try await service.kitPages(ctx: ctx) }
             guard let self, gen == self.draftGeneration, !Task.isCancelled else { return nil }
-            if let items { self.draftItems = items; self.draftReadyAt = Date() }
+            if let items { self.draftItems = items; self.draftReadyAt = Date(); self.startGuide(items: items, gen: gen) }
             return items
         }
     }
 
     private func cancelDraft() {
+        cancelGuide()
         draftTask?.cancel(); draftTask = nil
         if draftInputs != nil || draftItems != nil { draftGeneration += 1 }
         draftInputs = nil; draftItems = nil; draftStartedAt = nil; draftReadyAt = nil
@@ -574,6 +584,7 @@ public final class AdventureStore {
     public func apply(_ call: PlanningCall) async -> String {
         let output = await applyCall(call)
         refreshDraft()   // round 20: the kit pages follow the current color, roles, title and count
+        refreshWeave()   // guide prefetch: each new prop is worked into the play guide as its card comes up
         return output
     }
 
@@ -764,6 +775,8 @@ public final class AdventureStore {
         case .startPlay:
             guard phase == .kitReady else { return "Not yet: the kit isn't ready. Say only \"Almost ready!\"" }
             beginPlay()
+            // Guide prefetch: the checklists are still being finished; play starts by itself the moment they land.
+            if playQueued { return Self.playQueuedOutput }
             return "Play started. The app runs the scenes now. Say nothing."
         case .confirmHandoff:
             guard case .handoff(let i) = phase, let owner = kit?.scenes[i].owner.role else {
@@ -1052,6 +1065,131 @@ public final class AdventureStore {
             if phase == .props || phase == .makingKit { props = a.props }
             if phase == .makingKit { fullKit = a.kit }
         }
+    }
+
+    // MARK: Play guide written during the hunt (guide prefetch, 2026-11-15, Haylee: "fix it first")
+
+    /// The start_play result while the guide is still being finished (the app starts play when it lands).
+    public nonisolated static let playQueuedOutput = "Play starts by itself in a moment (the app is finishing the scene checklists and says a line). Say nothing."
+    /// The pages are out (Paper) but the play guide is still being finished: Play waits for it (`playQueued`).
+    public private(set) var guidePending = false
+    /// Let's play! was tapped (or said) while `guidePending`: play starts as soon as the guide lands.
+    public private(set) var playQueued = false
+    /// Live timing (DEBUG logs only): the guide's start, when it was written, when the final guide was in the kit.
+    public private(set) var guideStartedAt: Date?
+    public private(set) var guideWrittenAt: Date?
+    public private(set) var guideFinalAt: Date?
+    /// Guide calls made this adventure (tests: no regeneration on a skip).
+    public private(set) var guideCalls = 0
+    @ObservationIgnored private var guideGeneration = -1
+    @ObservationIgnored private var guideTask: Task<Kit?, Never>?
+    /// The guide as written (no props), then with the props woven in as their cards came up.
+    @ObservationIgnored private(set) var guideKit: Kit?
+    @ObservationIgnored private(set) var guideUses: [PropUse] = []
+    /// The guide exactly as written (it passed the safety check): used if the props' final wording ever fails it.
+    @ObservationIgnored private var guideBase: [Scene] = []
+    @ObservationIgnored private var weaveAttempted: Set<String> = []
+    @ObservationIgnored private var weaveTask: Task<Void, Never>?
+
+    /// The pages for this plan just landed: write the play guide for them now, while the kids hunt.
+    private func startGuide(items: [KitItem], gen: Int) {
+        guard let service, !drawMode else { return }
+        cancelGuide()
+        guideGeneration = gen; guideStartedAt = Date(); guideCalls += 1
+        let ctx = context, gate = outboundGate
+        guideTask = Task { [weak self] in
+            if let gate, !(await gate()) { return nil }
+            guard !Task.isCancelled else { return nil }
+            let kit = try? await RetryOnce.run { try await service.earlyGuide(ctx: ctx, items: items) }
+            guard let self, gen == self.guideGeneration, !Task.isCancelled else { return nil }
+            if let kit { self.guideKit = kit; self.guideBase = kit.scenes; self.guideWrittenAt = Date(); self.refreshWeave() }
+            return kit
+        }
+    }
+
+    private func cancelGuide() {
+        guideTask?.cancel(); guideTask = nil; weaveTask?.cancel(); weaveTask = nil
+        guideGeneration = -1; guideKit = nil; guideBase = []; guideUses = []; weaveAttempted = []
+        guideStartedAt = nil; guideWrittenAt = nil; guideFinalAt = nil
+    }
+
+    /// Props on the cards that aren't in the guide yet are woven in, one small call at a time (a skip or swap later
+    /// is applied at the hunt's end with no call).
+    func refreshWeave() {
+        guard let service, weaveTask == nil, let guide = guideKit, guideGeneration == draftGeneration else { return }
+        let todo = GuideWeave.pending(props, attempted: weaveAttempted)
+        guard !todo.isEmpty else { return }
+        weaveAttempted.formUnion(todo.map(\.id))
+        let gen = guideGeneration, taken = guideUses, ctx = context, gate = outboundGate
+        weaveTask = Task { [weak self] in
+            var answer: PropWeave?
+            var allowed = true
+            if let gate { allowed = await gate() }
+            if allowed {
+                answer = try? await service.weaveProps(scenes: guide.scenes, props: todo, taken: taken, ctx: ctx)
+            }
+            guard let self, gen == self.guideGeneration, !Task.isCancelled else { return }
+            if let answer, var k = self.guideKit {
+                let woven = GuideWeave.apply(answer, to: k.scenes, props: todo, taken: self.guideUses)
+                k.scenes = woven.scenes; self.guideKit = k; self.guideUses += woven.uses
+            }
+            self.weaveTask = nil
+            self.refreshWeave()
+        }
+    }
+
+    /// The hunt is over and the guide was started during it: the pages go out now (Paper never waits for the guide);
+    /// the guide is finished (any last prop woven in, skips and swaps applied, the safety check run) and Play starts
+    /// as soon as it's in, if the kids already tapped Let's play!.
+    private func finishWithPrefetchedGuide(pages: [KitItem], gen: Int) async {
+        let items = KitDraft.finalItems(pages, props: props)
+        if let scenes = await finalGuideIfReady(items: items), gen == kitGeneration {
+            fullKit = Kit(nutmegSays: guideKit?.nutmegSays ?? "", items: items, scenes: scenes)
+            guideFinalAt = Date(); phase = .kitReady
+            return
+        }
+        guard gen == kitGeneration else { return }
+        fullKit = Kit(nutmegSays: "", items: items, scenes: [])
+        guidePending = true
+        phase = .kitReady
+        // Wait for the guide (and any weave still running), one more weave for a prop that came up at the very end.
+        var scenes: [Scene]?
+        if guideKit == nil { _ = await guideTask?.value }
+        if gen == kitGeneration, guideKit != nil {
+            for _ in 0..<3 {
+                if let w = weaveTask { await w.value }
+                refreshWeave()
+                if weaveTask == nil { break }
+            }
+            scenes = await finalGuideIfReady(items: items, waitForWeave: false)
+        }
+        guard gen == kitGeneration else { return }
+        if scenes == nil, let service, !usingFallback {
+            // The early guide failed: write it now with the props, as before the prefetch.
+            guideCalls += 1
+            scenes = (try? await RetryOnce.run { [ctx = context] in try await service.kitScenes(ctx: ctx, items: items) })?.scenes
+            guard gen == kitGeneration else { return }
+        }
+        let final = scenes ?? Fallback.airplane(playerCount: max(1, playerCount)).kit.scenes
+        fullKit = Kit(nutmegSays: guideKit?.nutmegSays ?? "", items: items, scenes: final)
+        guideFinalAt = Date()
+        guidePending = false
+        if playQueued, phase == .kitReady { playQueued = false; beginPlay() }
+    }
+
+    /// The finished guide (no call: skips and swaps applied, the safety check run), or nil while it isn't written yet or
+    /// a weave is still running. A final text that fails the safety check falls back to the guide as written (no props).
+    private func finalGuideIfReady(items: [KitItem], waitForWeave: Bool = true) async -> [Scene]? {
+        guard let guide = guideKit, guideGeneration == draftGeneration else { return nil }
+        if waitForWeave, weaveTask != nil || !GuideWeave.pending(props, attempted: weaveAttempted).isEmpty { return nil }
+        let scenes = GuideWeave.finalize(guide.scenes, uses: guideUses, props: props, items: items)
+        if let service, !(await service.guideIsSafe(scenes)) {
+            #if DEBUG
+            NSLog("[CLAUDE] final play guide failed the kid-safety check: props left out")
+            #endif
+            return guideBase
+        }
+        return scenes
     }
 
     /// Runs one phase call. First failure: apologize and offer retry. Second failure in that phase: fallback.

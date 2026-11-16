@@ -24,7 +24,8 @@ final class FakeLLM: LLM, @unchecked Sendable {
         if let v = lock.withLock({ responses[String(describing: T.self)] }) as? T { return v }
         let a = Fallback.airplane
         let all: [Any] = [a.ideas, a.plan, a.props, a.kit, NutmegTurn(nutmegSays: "Ready, Captain?", choices: [], understood: true),
-                          KitPages(nutmegSays: a.kit.nutmegSays, items: a.kit.items), KitScenes(nutmegSays: a.kit.nutmegSays, scenes: a.kit.scenes)]
+                          KitPages(nutmegSays: a.kit.nutmegSays, items: a.kit.items), KitScenes(nutmegSays: a.kit.nutmegSays, scenes: a.kit.scenes),
+                          KitScenesSix(nutmegSays: a.kit.nutmegSays, scenes: a.kit.scenes)]
         guard let v = all.compactMap({ $0 as? T }).first else { throw ClaudeError.decoding("no fake for \(T.self)") }
         return v
     }

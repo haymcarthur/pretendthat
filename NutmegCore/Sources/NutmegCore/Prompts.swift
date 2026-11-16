@@ -105,7 +105,9 @@ public enum Prompts {
 
     /// Round 20: the play guide, written when the hunt ends: the pages already exist (their ids and lines below), and
     /// the props are known (found ones are real; skipped ones are pretend, with a printed cut-out).
-    public static func kitScenes(ctx: AdventureContext, items: [KitItem], drawn: Bool = false) -> String {
+    /// `huntPending` (guide prefetch): written while the kids are still hunting, so no household props yet (each prop
+    /// is worked into a step or two later, `GuideWeave`).
+    public static func kitScenes(ctx: AdventureContext, items: [KitItem], drawn: Bool = false, huntPending: Bool = false) -> String {
         let enc = JSONEncoder(); enc.outputFormatting = [.sortedKeys]
         let pages = items.map { ["id": $0.id, "recipe": $0.recipe?.rawValue ?? "", "title": $0.title, "lines": $0.lines.joined(separator: " | ")] }
         let pagesJSON = (try? enc.encode(pages)).map { String(decoding: $0, as: UTF8.self) } ?? "[]"
@@ -114,7 +116,7 @@ public enum Prompts {
         cutout:N is the Nth line of the cutouts item (0-based). Props the kids found are real household props (kind \
         prop); props marked skipped are pretend (the kids don't have them; if a cutouts line names one, use that cut-out).
         \(sceneRules) \
-        Use the found props and the printed pages in the steps. Return KitScenes.
+        \(huntPending ? "The kids are still hunting for household props, so none are known yet: use NO household props (no prop pictures, no household things), only the printed pages, actions and pretend play; the app works their props into the steps later. Return the 6 scenes as scene1 to scene6 (each with its R1 to R6 steps and all1, all2), all of them in this one answer." : "Use the found props and the printed pages in the steps. Return KitScenes.")
         \(contextJSON(ctx))
         """
     }

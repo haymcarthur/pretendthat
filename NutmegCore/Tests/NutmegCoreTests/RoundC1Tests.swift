@@ -178,7 +178,7 @@ struct RoundC1Tests {
         #expect(store.playerCount == 5 && store.plan?.roles.count == 6 && store.planningStep == .props)
         #expect(store.draftGeneration == gen && llm.calls == calls)
         _ = await store.apply(.finishPlanning)
-        for _ in 0..<300 where store.phase != .kitReady { try? await Task.sleep(for: .milliseconds(10)) }
+        for _ in 0..<300 where store.phase != .kitReady || store.guidePending { try? await Task.sleep(for: .milliseconds(10)) }
         let afterKit = llm.calls
         let full = store.fullKit
         // At Paper: any count, still no call; the checklists and badges follow.

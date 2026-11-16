@@ -156,6 +156,12 @@ enum DemoDriver {
             if turn.hasPrefix("#check "), let n = Int(turn.dropFirst(7)) { model.checkStep(n); continue }
             // Round 16/17: "#repeat": the pill's Repeat (the checklist read-aloud in play, else her last line again).
             if turn == "#repeat" { model.repeatTapped(); continue }
+            // Guide prefetch: "#guide": wait until the play guide is final (Paper may already be out without it).
+            if turn == "#guide" {
+                for _ in 0..<1800 where model.store.guidePending || model.store.kit?.scenes.isEmpty != false { try? await Task.sleep(for: .milliseconds(100)) }
+                rtLog("guide: final (\(model.store.kit?.scenes.count ?? 0) scenes)")
+                continue
+            }
             if turn == "#scenes" {   // the kit's scene intro lines (round 13: each says "Pretend that")
                 for (i, sc) in (model.store.kit?.scenes ?? []).enumerated() { rtLog("SCENE[\(i)] \(sc.nutmegSays)") }
                 continue

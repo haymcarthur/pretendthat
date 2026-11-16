@@ -244,10 +244,58 @@ final class AppModel {
 
     func tapHandoff(_ role: RoleID) { userAction(.handoff); store.badgeTapped(role) }
     func tapBackToChecklist() { userAction(.backToChecklist); store.backToChecklist() }
-    func tapLetsPlay() { userAction(.letsPlay); store.beginPlay() }
+    func tapLetsPlay() {
+        userAction(.letsPlay)
+        store.beginPlay()
+        if store.playQueued { guideWaitStarted() }
+    }
+
+    /// Guide prefetch (2026-11-15): Let's play! while the play guide is still being finished. Play starts by itself the
+    /// moment it lands; meanwhile she says one true "checklists" line, and the usual kit commentary keeps going.
+    @ObservationIgnored var playWaitStartedAt: Date?
+    func guideWaitStarted() {
+        playWaitStartedAt = Date()
+        rtLog("TIMING Let's play! while the play guide is still being finished: Play waits for it")
+        if let line = lineDeck.draw("kit." + KitProgress.Topic.checklists.rawValue, from: KitProgress.lines[.checklists] ?? []) {
+            speak(line)
+        }
+        startKitProgress()
+    }
+
+    /// Guide prefetch: DEBUG timings for the live check (the guide's start, written, final; the wait at Play).
+    func guideTimingChanged() {
+        let hunt = huntStartedAt
+        func since(_ d: Date?) -> Double { d.flatMap { a in hunt.map { a.timeIntervalSince($0) } } ?? -1 }
+        if store.guideWrittenAt != nil && !loggedGuideWritten {
+            loggedGuideWritten = true
+            rtLog(String(format: "TIMING play guide (no props) written %.1f s after the hunt started (call %.1f s)",
+                         since(store.guideWrittenAt), store.guideWrittenAt!.timeIntervalSince(store.guideStartedAt ?? store.guideWrittenAt!)))
+        }
+        if let fin = store.guideFinalAt, !loggedGuideFinal {
+            loggedGuideFinal = true
+            rtLog(String(format: "TIMING play guide final %.1f s after the hunt started, %.1f s after Print was reached",
+                         since(fin), printReachedAt.map { fin.timeIntervalSince($0) } ?? -1))
+        }
+        if store.guideStartedAt == nil { loggedGuideWritten = false; loggedGuideFinal = false }
+    }
+    @ObservationIgnored private var loggedGuideWritten = false
+    @ObservationIgnored private var loggedGuideFinal = false
+    func guidePendingChanged(_ pending: Bool) {
+        if pending { rtLog("TIMING Paper went ahead while the play guide is still being finished") }
+        if !pending && kitFinal { endKitBackgroundTask() }
+        if !pending, let at = playWaitStartedAt {
+            rtLog(String(format: "TIMING Play waited %.1f s for the play guide", Date().timeIntervalSince(at)))
+            playWaitStartedAt = nil
+        }
+    }
     func tapPlayAgain() { userAction(.playAgain); store.playAgain() }
     func tapPrint() { userAction(.print); printKit() }
-    func tapStepRail(_ step: JourneyStep) { userAction(.stepRail); navigate(to: step) }
+    func tapStepRail(_ step: JourneyStep) {
+        userAction(.stepRail)
+        let queued = store.playQueued
+        navigate(to: step)
+        if !queued && store.playQueued { guideWaitStarted() }
+    }
     /// Round 23: a tap back to a step on the rail: the same `store.goTo`, then her one arrival line, and a silent
     /// note so the conversation knows where the kids are. Voice uses go_to_step (the model says the line itself).
     func navigate(to step: JourneyStep) {
@@ -424,7 +472,9 @@ final class AppModel {
             var lastTopic: KitProgress.Topic?
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(KitProgress.interval))
-                guard !Task.isCancelled, store.phase == .makingKit || store.phase == .kitReady, !kitFinal else { return }
+                // Guide prefetch: Let's play! is waiting for the play guide: the checklists are really being written.
+                let guideWait = store.playQueued && store.guidePending
+                guard !Task.isCancelled, store.phase == .makingKit || store.phase == .kitReady, !kitFinal || guideWait else { return }
                 if isSpeaking || (realtime.isLive && realtime.voiceBusy) { continue }
                 // While the kit's content is being written, every page and the play guide are in progress; then only
                 // the pages whose art is still being drawn.
@@ -435,9 +485,10 @@ final class AppModel {
                         : art.images[item.id] == nil
                 }.compactMap(\.recipe)
                 // Round 24: no printer → no pages are drawn; only the play guide is being written.
-                let topics = store.drawMode ? (store.kit == nil ? [KitProgress.Topic.checklists] : [])
+                let topics = guideWait && kitFinal ? [KitProgress.Topic.checklists]
+                    : store.drawMode ? (store.kit == nil ? [KitProgress.Topic.checklists] : [])
                     : KitProgress.inProgress(pagesWritten: store.kit != nil || store.draftItems != nil,
-                                             scenesWritten: store.kit != nil, pendingPages: pending)
+                                             scenesWritten: store.kit != nil && !store.guidePending, pendingPages: pending)
                 guard said < KitProgress.maxLines else { return }
                 guard let pick = KitProgress.next(inProgress: topics, saidThisKit: said, lastTopic: lastTopic,
                                                   deck: &lineDeck, using: &rng) else { continue }   // keep waiting
@@ -475,7 +526,7 @@ final class AppModel {
             if store.checkedSteps.count == steps.count { congratulatedScene = i }
             cheerTask = nil
             rtLog("checklist cheer: \(line)")
-            if realtime.isLive { realtime.say(line) } else { speak(line) }
+            speak(line)
         }
     }
     @ObservationIgnored private var cheerTask: Task<Void, Never>?
@@ -500,7 +551,7 @@ final class AppModel {
             let line = HandOffLines.repeatText(title: scene.title, steps: scene.steps.map(\.text), checked: store.checkedSteps)
             lastRepeatAt = Date()
             rtLog("checklist repeat: \(line)")
-            if realtime.isLive { realtime.say(line) } else { speak(line) }
+            speak(line)
         }
     }
     @ObservationIgnored private var repeatTask: Task<Void, Never>?
@@ -583,7 +634,7 @@ final class AppModel {
         }
         #endif
         kitBeatTask?.cancel()
-        if final { endKitBackgroundTask() }
+        if final && !store.guidePending { endKitBackgroundTask() }
         if final, let at = printReachedAt {
             rtLog(String(format: "TIMING kit final %.1f s after Print was reached", Date().timeIntervalSince(at)))
         }
@@ -657,7 +708,9 @@ final class AppModel {
         // (finish_planning) uses it as the kit line's lead-in (live run: it was said twice).
         if case .showNextProp = call { store.kitLeadIn = nil; if huntStartedAt == nil { huntStartedAt = Date(); rtLog("TIMING hunt started") } }
         let remakes = store.kitRemakes, restyles = store.kitRestyles
+        let queued = store.playQueued
         let output = await store.apply(call)
+        if !queued && store.playQueued { guideWaitStarted() }   // guide prefetch: start_play / go to Play while it's finishing
         releasePointIfNoCard()   // round 23: mark_found / skip_prop / finish_planning by voice
         if store.kitRemakes != remakes {
             // Round 19: a theme/game fix at the print step remakes the kit: the old pages' art and ready line go too.
@@ -1123,7 +1176,7 @@ final class AppModel {
             scribble.setPlaying(false, ducked: false)
             if listener.isListening { Task { _ = await listener.stopListening() } }
             // In-flight kit requests (Claude kit, page art) get time to finish; failures are retried on return.
-            if store.phase == .makingKit || (store.phase == .kitReady && !kitFinal) { beginKitBackgroundTask() }
+            if store.phase == .makingKit || (store.phase == .kitReady && (!kitFinal || store.guidePending)) { beginKitBackgroundTask() }
         case .active:
             rtLog("scene: active (phase \(store.phase), step \(store.planningStep))")
             updateIdleTimer()
