@@ -138,6 +138,10 @@ final class NutmegSpeaker {
         wireOutput(engine)
         engine.mainMixerNode.outputVolume = 1   // unity gain: PCM16 → float is already within ±1, no clipping
         installInput(input)
+        #if DEBUG
+        rtLog("AUDIOFMT session \(session.sampleRate) Hz; output hw \(engine.outputNode.outputFormat(forBus: 0).sampleRate), output in \(engine.outputNode.inputFormat(forBus: 0).sampleRate), mixer out \(engine.mainMixerNode.outputFormat(forBus: 0).sampleRate), input hw \(input.inputFormat(forBus: 0).sampleRate) / \(input.outputFormat(forBus: 0).sampleRate)")
+        Self.installOutputTaps(engine, player: player, playFormat: playFormat)
+        #endif
         engine.prepare()
         try engine.start()
         player.play()
@@ -174,22 +178,30 @@ final class NutmegSpeaker {
         silence()
     }
 
+    #if DEBUG
+    /// Round 25 (voice check): `-PTTapOut` writes what goes INTO the pitch unit (tmp/voice-in.caf, 24 kHz) and what the
+    /// mixer sends to the speaker (tmp/voice-out.caf, hardware rate), to measure the effective rate and pitch.
+    nonisolated static func installOutputTaps(_ engine: AVAudioEngine, player: AVAudioPlayerNode, playFormat: AVAudioFormat) {
+        guard ProcessInfo.processInfo.arguments.contains("-PTTapOut") else { return }
+        let dir = FileManager.default.temporaryDirectory
+        let outFmt = engine.mainMixerNode.outputFormat(forBus: 0)
+        let inFile = try? AVAudioFile(forWriting: dir.appendingPathComponent("voice-in.caf"), settings: playFormat.settings)
+        let outFile = try? AVAudioFile(forWriting: dir.appendingPathComponent("voice-out.caf"), settings: outFmt.settings)
+        player.installTap(onBus: 0, bufferSize: 4096, format: playFormat) { b, _ in try? inFile?.write(from: b) }
+        engine.mainMixerNode.installTap(onBus: 0, bufferSize: 4096, format: outFmt) { b, _ in try? outFile?.write(from: b) }
+        rtLog("TAPOUT in=\(playFormat.sampleRate) out=\(outFmt.sampleRate) → \(dir.path)")
+    }
+    #endif
+
+    /// Round 25: the pitch unit and the wiring live in `SpeakerGraph` (NutmegCore), locked by `SpeakerGraphTests`.
     private func makePitchUnit() -> AVAudioUnit? {
-        switch shape.method {
-        case .off: return nil
-        case .varispeed: let u = AVAudioUnitVarispeed(); u.rate = Float(shape.rate); return u
-        case .timePitch: let u = AVAudioUnitTimePitch(); u.pitch = Float(shape.cents); u.rate = 1; return u
-        }
+        SpeakerGraph.makePitchUnit(VoiceConfig(method: shape.method, rate: shape.rate, cents: shape.cents))
     }
 
-    /// player → [pitch unit] → mixer, all at the 24 kHz mono play format.
+    /// player → [pitch unit] → mixer at 24 kHz; mixer → output at the HARDWARE rate (round 25: the implicit link was
+    /// 44.1 kHz on a 48 kHz session, so she was heard at ≈1.10 instead of 1.20).
     private func wireOutput(_ engine: AVAudioEngine) {
-        if let pitchUnit {
-            engine.connect(player, to: pitchUnit, format: playFormat)
-            engine.connect(pitchUnit, to: engine.mainMixerNode, format: playFormat)
-        } else {
-            engine.connect(player, to: engine.mainMixerNode, format: playFormat)
-        }
+        SpeakerGraph.wire(engine, player: player, pitchUnit: pitchUnit)
     }
 
     /// Voice processing / route changes can stop the engine; restart it before scheduling audio.
@@ -203,7 +215,7 @@ final class NutmegSpeaker {
     /// Live audio: one Realtime PCM16 24 kHz delta.
     func play(_ pcm16: Data) {
         ensureRunning()
-        guard let buffer = Self.floatBuffer(pcm16, format: playFormat) else { return }
+        guard let buffer = SpeakerGraph.pcm16Buffer(pcm16) else { return }
         schedule(buffer)
     }
 
@@ -244,13 +256,7 @@ final class NutmegSpeaker {
         live?.clipStarted(clip.text, echo: echo)
         clipPlaying = true
         rtLog(String(format: "CLIP play %@ (%.1f s%@)", String(clip.key.prefix(8)), Double(clip.samples.count) / Realtime.sampleRate, echo ? ", repeat" : ""))
-        for r in ClipAudio.chunks(count: clip.samples.count) {
-            guard let buf = AVAudioPCMBuffer(pcmFormat: playFormat, frameCapacity: AVAudioFrameCount(r.count)),
-                  let out = buf.floatChannelData?[0] else { continue }
-            clip.samples.withUnsafeBufferPointer { src in out.update(from: src.baseAddress! + r.lowerBound, count: r.count) }
-            buf.frameLength = AVAudioFrameCount(r.count)
-            schedule(buf)
-        }
+        for buf in SpeakerGraph.clipBuffers(clip.samples) { schedule(buf) }
         clipEnd?.cancel()
         clipEnd = Task { [weak self] in
             while let self, self.isSpeaking, !Task.isCancelled { try? await Task.sleep(for: .milliseconds(50)) }
@@ -349,18 +355,6 @@ final class NutmegSpeaker {
         mouthQueue = []
         analyzer.reset(); shaper.reset()
         mouth = .closed
-    }
-
-    nonisolated private static func floatBuffer(_ data: Data, format: AVAudioFormat) -> AVAudioPCMBuffer? {
-        let frames = data.count / 2
-        guard frames > 0, let buf = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(frames)),
-              let out = buf.floatChannelData?[0] else { return nil }
-        data.withUnsafeBytes { raw in
-            let src = raw.bindMemory(to: Int16.self)
-            for i in 0..<frames { out[i] = Float(Int16(littleEndian: src[i])) / 32768 }
-        }
-        buf.frameLength = AVAudioFrameCount(frames)
-        return buf
     }
 }
 
