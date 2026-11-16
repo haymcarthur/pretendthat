@@ -123,6 +123,15 @@ enum DemoDriver {
             // Round 20: the color question's buttons.
             if turn == "#fullcolor" { model.chooseColor(.fullColor); continue }
             if turn == "#colorin" { model.chooseColor(.colorIn); continue }
+            // Round 24: the printer question's buttons, Draw it!'s Next, Save printables for later (waits for the sheet).
+            if turn == "#printer" || turn == "#noprinter" { model.choosePrinter(turn == "#printer"); continue }
+            if turn == "#next" { model.tapDrawNext(); continue }
+            if turn == "#save" {
+                model.tapSavePrintables()
+                for _ in 0..<1800 where model.printablesShare == nil && model.printablesState == .making { try? await Task.sleep(for: .milliseconds(100)) }
+                rtLog("printables: share sheet \(model.printablesShare != nil ? "open" : "NOT open (\(model.printablesState))")")
+                continue
+            }
             // Round 19: "#back" (Back to the checklist), "#newgame" (the finale's New game: all the way home),
             // "#home" (the X close → Leave), "#sleep N" (a short pause in ms between fast taps).
             if turn == "#back" { model.tapBackToChecklist(); continue }

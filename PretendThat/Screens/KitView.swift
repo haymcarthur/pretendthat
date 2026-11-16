@@ -25,6 +25,24 @@ struct KitView: View {
     private static let buttonRow: CGFloat = 56, buttonGap: CGFloat = 24
 
     var body: some View {
+        // Round 24: no printer → the Paper step is "Draw it!" (no pages, no images).
+        if store.drawMode { drawBody } else { printBody }
+    }
+
+    private var drawBody: some View {
+        PTDrawItCard(model: model)
+            .opacity(revealed && !chatOpen ? 1 : 0)
+            .scaleEffect(revealed && !chatOpen ? 1 : 0.8)
+            .allowsHitTesting(revealed && !chatOpen)
+            .animation(Theme.stageMove, value: revealed)
+            .animation(Theme.stageMove, value: chatOpen)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onChange(of: revealed) { _, r in
+                if r { model.gesture(.celebrate); if store.phase == .kitReady { onCelebrate() } }
+            }
+    }
+
+    private var printBody: some View {
         VStack(spacing: Theme.Space.l) {
             // Pages in a slightly overlapped fan (Haylee fix round 1): every title visible, nothing clipped, sized to fit.
             // Buttons ABOVE the fan (Haylee): a row centered over the pages, 24 pt above the fan's top, so they stay off

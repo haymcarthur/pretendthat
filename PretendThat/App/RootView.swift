@@ -86,6 +86,14 @@ struct RootView: View {
                             .padding(.top, choiceRowTop)
                             .transition(.move(edge: .top).combined(with: .opacity))
                     }
+                    // Round 24: the printer question's two big buttons, in the same place.
+                    if model.showsPrinterChoice && chromeVisible {
+                        PTPrinterChoiceButtons(onChoose: { model.choosePrinter($0) })
+                            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { choiceRowHeight = $0 }
+                            .padding(.horizontal, Theme.Space.xl)
+                            .padding(.top, choiceRowTop)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
                     // Round 20: the color question's two big buttons, in the same place.
                     if model.showsColorChoice && chromeVisible {
                         PTColorChoiceButtons(onChoose: { model.chooseColor($0) })
@@ -97,6 +105,7 @@ struct RootView: View {
                 }
                 .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: model.showsConfirm)
                 .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: model.showsColorChoice)
+                .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: model.showsPrinterChoice)
                 // The chat panel's slot (the panel itself is drawn in its own layer below, so it can rise above the
                 // keyboard while the stage can't).
                 if chatOpen && chromeVisible {
@@ -235,6 +244,10 @@ struct RootView: View {
             await model.listener.requestAuth()
         }
         .sheet(isPresented: $showTyping) { PTTypeSheet { text in Task { await model.typed(text) } } }
+        // Round 24: Save printables for later (no printer): Save to Files, AirDrop, send to a grown-up.
+        .sheet(isPresented: Binding(get: { model.printablesShare != nil }, set: { if !$0 { model.printablesShareClosed() } })) {
+            if let url = model.printablesShare { PTShareSheet(items: [url]) }
+        }
         .preferredColorScheme(.light)
         .statusBarHidden()
     }
@@ -289,7 +302,7 @@ struct RootView: View {
     private func stageFrame(_ g: PTStageGeometry) -> PTStageFrame {
         var f = directorFrame(g)
         // Round 21: the step-choice row hangs along the top: her head keeps clear of it.
-        if (model.showsConfirm || model.showsColorChoice) && chromeVisible && f.shot == .closeUp && !f.writing {
+        if (model.showsConfirm || model.showsColorChoice || model.showsPrinterChoice) && chromeVisible && f.shot == .closeUp && !f.writing {
             f.topReserve = max(f.topReserve, choiceRowTop + choiceRowHeight + Theme.Space.s - PTStageGeometry.topMargin)
         }
         return f
@@ -321,6 +334,9 @@ struct RootView: View {
         if huntOnStage, let active = stageItems.last(where: { !$0.isDone }) {
             return AnyView(PTPropPinnedCard(item: active, onHunt: active.huntButtons ? { model.huntReply(found: $0) } : nil)
                 .matchedGeometryEffect(id: ptHuntActiveID, in: huntSpace))
+        }
+        if model.kitPapersOut && store.drawing {
+            return AnyView(PTDrawItCard(model: model).ptPinnedCard())
         }
         if model.kitPapersOut {
             let pages = model.kitPages

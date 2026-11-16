@@ -269,3 +269,20 @@ struct PTColorChoiceButtons: View {
         .accessibilityLabel("Full color, or color them yourself?")
     }
 }
+
+/// Round 24 (Haylee): "Do you have a printer?" Two big buttons in the same top row as the confirm and color choices.
+/// Voice answers work too.
+struct PTPrinterChoiceButtons: View {
+    let onChoose: (Bool) -> Void
+    var body: some View {
+        HStack(spacing: Theme.Space.m) {
+            PTHuntPill(title: PrinterChoice.yesLabel, symbol: "printer", fill: Theme.lime, edge: Theme.limeShade) { onChoose(true) }
+            PTHuntPill(title: PrinterChoice.noLabel, symbol: "pencil.and.scribble", fill: Theme.white, edge: Theme.line) { onChoose(false) }
+        }
+        .frame(maxWidth: 560)
+        .padding(Theme.Space.s)
+        .ptPanel(radius: 40)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(PrinterChoice.question)
+    }
+}
