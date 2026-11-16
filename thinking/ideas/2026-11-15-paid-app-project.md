@@ -13,9 +13,9 @@ Decisions are in decisions/2026-11-15-paid-app-direction.md. This file is the fu
 - ~~A "Print again" button on the checklist screen and The End~~ (built in R23, removed by Haylee: the rail's ↺ marks are enough).
 - Voice: "print it again" or "go back to the props" works.
 
-## C. Generate for 6 with ranked roles
-- Every game generates 6 ranked roles (1–2 core, 3–6 extras), a 6-up badge sheet (one image, sliced), and checklist steps for extra roles marked optional.
-- Show and print only the current player count.
+## C. Generate for 6 with ranked roles: **DONE C1** (decisions/2026-11-15-roundC1-generate-for-6.md)
+- Every game generates 6 ranked roles (R1 lead … R6), a 6-up badge sheet (one image, sliced), and ~~checklist steps for extra roles marked optional~~ (Haylee changed it: every playing role gets its OWN called-out step in every scene; hand-offs rotate through all playing roles).
+- Show and print only the current player count. A count change makes no AI call.
 
 ## D. Saved games and replays
 - At The End, "Save it to play again ⭐" replaces "Play again". Unsaved games are discarded.
