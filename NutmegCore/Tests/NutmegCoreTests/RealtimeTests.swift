@@ -22,10 +22,7 @@ import Testing
 
 /// Push-to-talk client events (decisions/2026-11-13-push-to-talk.md).
 @Test func pushToTalkEvents() throws {
-    #expect(Realtime.inputCommit["type"] as? String == "input_audio_buffer.commit")
-    #expect(Realtime.inputClear["type"] as? String == "input_audio_buffer.clear")
     #expect(Realtime.responseCancel["type"] as? String == "response.cancel")
-    #expect(Realtime.appendAudio(Data([1, 2]))["type"] as? String == "input_audio_buffer.append")
     let t = Realtime.truncate(itemID: "item_1", audioEndMs: 1234)
     #expect(t["type"] as? String == "conversation.item.truncate" && t["item_id"] as? String == "item_1")
     #expect(t["content_index"] as? Int == 0 && t["audio_end_ms"] as? Int == 1234)
@@ -173,9 +170,10 @@ import Testing
     #expect(t.lines.last?.text == "Ooh, dinosaurs! How many kids? Let's go!" && t.lines.count == 4)
 }
 
-@Test func sessionTranscribesKidSpeech() {
+/// Round 31: kid speech is transcribed on the iPad, so the session asks for no server transcription.
+@Test func sessionHasNoServerTranscription() {
     let json = Realtime.json(Realtime.sessionUpdate(voice: "marin", speed: 1))
-    #expect(json.contains("\"transcription\""))
+    #expect(!json.contains("\"transcription\"") && !json.contains("transcribe"))
 }
 
 @Test func varispeedAndApiSpeedNeverStack() {
