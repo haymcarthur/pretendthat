@@ -62,10 +62,12 @@ final class FakeLLM: LLM, @unchecked Sendable {
     #expect(a.plan.roles.count == 6)   // round C1: 6 ranked roles
     #expect((3...5).contains(a.props.props.count))
     #expect(a.kit.items.map(\.recipe) == KitRecipe.allCases.map { Optional($0) })
-    #expect(a.kit.scenes.count == 4)
-    // Round 28: every scene has 2 steps for each of the 6 roles, none for everyone.
+    #expect(a.kit.scenes.count == 3)
+    // Round 29: every scene has ONE task for each of the 6 roles plus a solo task, none for everyone, no scripted lines.
     #expect(Validate.scenes(a.kit.scenes, roles: 6) == nil)
-    #expect(a.kit.scenes.allSatisfy { $0.steps.count == 12 && !$0.steps.contains { $0.role == .all } })
+    #expect(a.kit.scenes.allSatisfy { $0.steps.map(\.role) == RoleID.allCases.map { SceneOwner($0) } + [.solo] })
+    #expect(a.kit.scenes.allSatisfy { $0.steps.allSatisfy { !GuideRepair.hasScriptedLine($0.text) } })
+    #expect(GuideRepair.repair(a.kit.scenes, roles: a.plan.roles, props: a.props.props, title: "Airplane", items: a.kit.items) == a.kit.scenes)
     // Customers are roles too: R2 is the Passenger.
     #expect(a.plan.roles[1].roleName == "Passenger")
     #expect(Sanitizer.clean(a.kit) == a.kit)   // already within limits
@@ -77,9 +79,8 @@ final class FakeLLM: LLM, @unchecked Sendable {
         #expect(a.plan.roles.map(\.roleName) == ["Captain", "Passenger", "Flight Attendant", "Co-Pilot", "Snack Chef", "VIP Passenger"])
         #expect(a.kit == Fallback.airplane(playerCount: 1).kit)   // the count never changes the game data
         let view = PlayCast.kit(a.kit, roles: a.plan.roles, players: n)
-        #expect(view.scenes.count == a.kit.scenes.count * n)   // round 28: a turn per playing role per scene
-        #expect(view.scenes.allSatisfy { s in s.steps.allSatisfy { $0.role == s.owner } })
-        #expect(view.scenes.first?.owner == .R1)
+        #expect(view.scenes.count == a.kit.scenes.count)   // round 29: the same 3 scenes for any count
+        #expect(view.scenes.allSatisfy { $0.steps.count == n })
     }
 }
 
@@ -89,7 +90,7 @@ final class FakeLLM: LLM, @unchecked Sendable {
     let llm = FakeLLM(responses: ["Kit": short])
     let kit = try await PhaseService(llm: llm).kit(ctx: AdventureContext(gameTitle: "Restaurant", playerCount: 2))
     #expect(llm.calls == 2)
-    #expect(llm.users.last?.contains("it had 1 scenes; write exactly 4 scenes") == true)
+    #expect(llm.users.last?.contains("it had 1 scenes; write exactly 3 scenes") == true)
     #expect(kit.scenes.count == 1)
 }
 

@@ -2,8 +2,8 @@ import Foundation
 import Testing
 @testable import NutmegCore
 
-// Round 16 (Haylee): every hand-off to the kid is said out loud with the real button labels, and the checklist's
-// "Hear it again" reads the title + the steps left.
+// Round 16 (Haylee): every hand-off to the kid is said out loud with the real button labels. Round 29: a scene opens
+// with its setup and every playing role's task.
 
 private func clean(_ line: String) {
     #expect(!TurnCheck.hasSoundEffect(line), "\(line)")
@@ -20,22 +20,15 @@ private func clean(_ line: String) {
     clean(l)
 }
 
-@Test func handoffLineMatchesTheCardButton() {
-    #expect(HandOffLines.handoff(spokenRole: "the Captain") == "Pass the iPad to the Captain! Tap the green check when you have the iPad!")
-    #expect(HandOffLines.handoff(spokenRole: "a Pirate") == "Pass the iPad to a Pirate! Tap the green check when you have the iPad!")
-    clean(HandOffLines.handoff(spokenRole: "the Captain"))
-}
-
-@Test func checklistLineAddsHowToOnceAndNotTwice() {
-    let first = HandOffLines.checklist(sceneLine: "Time to board the plane", firstScene: true)
-    #expect(first == "Time to board the plane. Tap each step when you do it!")
-    let later = HandOffLines.checklist(sceneLine: "Snack time on the plane!", firstScene: false)
-    #expect(later == "Snack time on the plane! Tap the steps as you go!")
-    // The scene line already says how: nothing added (no duplicate instruction).
-    let says = "Tap each step as you do it, then tap Done!"
-    #expect(HandOffLines.checklist(sceneLine: says, firstScene: true) == says)
-    #expect(HandOffLines.checklist(sceneLine: "  ", firstScene: true) == "Tap each step when you do it!")
-    clean(first)
+@Test func sceneOpenSaysTheSetupThenEveryTaskAndTheFirstSaysTheButton() {
+    // Round 29 (ensemble scenes): one flowing line, the setup then each playing role's task by name.
+    let sc = Scene(id: "s1", owner: .all, title: "Open", picture: .point, nutmegSays: "Pretend that the café just opened",
+                   steps: [Step(picture: .point, text: "Waiter, take the Customer's order", role: .R1),
+                           Step(picture: .point, text: "Customer, order from the menu!", role: .R2)])
+    #expect(HandOffLines.sceneOpen(sc) == "Pretend that the café just opened. Waiter, take the Customer's order. Customer, order from the menu!")
+    #expect(HandOffLines.sceneOpen(sc, first: true).hasSuffix("Tap the green play button for the next scene!"))
+    #expect(HandOffLines.task(sc.steps[0]) == "Waiter, take the Customer's order.")
+    clean(HandOffLines.sceneOpen(sc, first: true))
 }
 
 @Test func endLineSaysWhatEachButtonDoes() {
@@ -46,40 +39,15 @@ private func clean(_ line: String) {
     clean(plain)
 }
 
-@Test @MainActor func playLinesUseTheHandOffBuilders() async {
+@Test @MainActor func playLinesUseTheSceneBuilders() async {
     let store = await storeWithKit(owners: [.R1, .R2], players: 2)
-    store.autoCheckStep = .zero; store.autoCheckHold = .zero
     store.beginPlay()
-    #expect(store.nutmegLine == "Pass the iPad to the Captain! Tap the green check when you have the iPad!")
-    store.badgeTapped(.R1)
-    #expect(store.nutmegLine.hasSuffix("Tap each step when you do it!"))
-    // Round 25: GuideRepair pads a short guide to 4 scenes; play through all of them.
-    for _ in 0..<8 where store.phase != .end {
-        if case .handoff(let i) = store.phase, let o = store.kit?.scenes[i].owner.role { store.badgeTapped(o) }
-        await store.sceneDone()
-    }
+    #expect(store.nutmegLine == HandOffLines.sceneOpen(store.kit!.scenes[0], first: true))
+    for _ in 0..<5 where store.phase != .end { store.nextScene() }
     #expect(store.phase == .end)
     #expect(store.nutmegLine == HandOffLines.end())
-    #expect(store.goTo(.play))   // the rail's Play at The End
-    #expect(store.nutmegLine == HandOffLines.backToChecklist)
-}
-
-@Test func repeatReadsTitleAndOnlyTheStepsLeftInOrder() {
-    let steps = ["Line up the seats.", "Hold the steering wheel", "Say: Welcome aboard!"]
-    #expect(HandOffLines.repeatText(title: "Get the plane ready", steps: steps, checked: [])
-            == "Get the plane ready. First, line up the seats. Then, hold the steering wheel. Last, say: Welcome aboard.")
-    #expect(HandOffLines.repeatText(title: "Get the plane ready", steps: steps, checked: [0])
-            == "Get the plane ready. First, hold the steering wheel. Last, say: Welcome aboard.")
-    #expect(HandOffLines.repeatText(title: "Get the plane ready", steps: steps, checked: [0, 2])
-            == "Get the plane ready. Last step: hold the steering wheel.")
-}
-
-@Test func repeatReadsEveryStepWhenAllAreChecked() {
-    let steps = ["Line up the seats.", "Hold the steering wheel"]
-    #expect(HandOffLines.repeatText(title: "Get the plane ready", steps: steps, checked: [0, 1])
-            == "Get the plane ready. First, line up the seats. Last, hold the steering wheel.")
-    #expect(HandOffLines.repeatText(title: "Wave", steps: ["Wave bye"], checked: [0]) == "Wave. Wave bye.")
-    clean(HandOffLines.repeatText(title: "Get the plane ready", steps: steps, checked: []))
+    #expect(store.goTo(.play))   // the rail's Play at The End: the last scene again
+    #expect(store.nutmegLine == HandOffLines.sceneOpen(store.kit!.scenes[2]))
 }
 
 // Round 24 (Haylee): naming the "Let's play!" button is fine; telling the kids to go play at kit time is not.

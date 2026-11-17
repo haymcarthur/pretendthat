@@ -128,8 +128,6 @@ final class AppModel {
         realtime.recordRoles = { [weak self] in self?.store.plan?.roles }
         clipStore.onStored = { [weak self] _ in if self?.store.isReplay == true { self?.clipLog.savedOne() } }
         store.isRecorded = { [weak self] line in self?.clipStore.has(line) ?? false }
-        // Round 26: no Done button; the checklist moves on by itself (after a grace) with the congratulations first.
-        store.willAutoAdvance = { [weak self] in self?.prepareSceneFinish() }
         network.onChange = { [weak self] online in self?.networkChanged(online) }
         gate.onFlag = { [weak self] verdict, ticket in self?.lateFlag(verdict, ticket) }
         gate.onAllClear = { [weak self] in self?.safeSnap = nil; self?.screenedTurns = [:] }
@@ -151,13 +149,6 @@ final class AppModel {
                 return "(Silent coaching, don't mention it.) The kit is ready on screen (print step). If they want to play, "
                     + "call start_play; if they want to print, call print_kit. " + BackNav.voiceHint
                     + " Otherwise answer in ONE short line. No \"go play\" yet."
-            case .handoff(let i):
-                // Round 9: "I'm the Captain" by voice confirms the hand-off, same as tapping the card's button.
-                let role = self.store.kit.flatMap { k in k.scenes.indices.contains(i) ? k.scenes[i].owner.role : nil }
-                    .flatMap { self.store.plan?.role(for: $0)?.roleName } ?? "next player"
-                return "(Silent coaching, don't mention it.) The iPad is being passed to the \(role). If the kid says they're "
-                    + "the \(role) or that they've got the iPad, call confirm_handoff and say nothing. Otherwise answer in ONE "
-                    + "short line (remind them to tap the green check when they have the iPad)."
             case .scene, .end:
                 // Round 23: the only tool while playing is going back ("print it again", "back to the props").
                 return BackNav.playNote
@@ -301,14 +292,30 @@ final class AppModel {
     /// local player, pending cheers / repeats / deferred lines); then only the newest line plays.
     func userAction(_ action: UserAction) {
         guard action.stopsSpeech else { return }
-        cheerTask?.cancel(); cheerTask = nil
         repeatTask?.cancel(); repeatTask = nil
         deferredLine = nil
         voice.stop()
         realtime.stopSpeaking(action.rawValue)
     }
 
-    func tapHandoff(_ role: RoleID) { userAction(.handoff); store.badgeTapped(role) }
+    /// Round 29 (Haylee, ensemble scenes): the big green ▶ "Next scene" (after the last scene, The End). It stops her
+    /// at once (barge-in) and the store says the next scene's setup and tasks.
+    func tapNextScene() {
+        guard case .scene = store.phase else { return }
+        userAction(.nextScene)
+        rtLog("scene: next (tap)")
+        store.nextScene()
+    }
+    /// Round 29: a row's 🔊 reads just that role's task (her recorded clip if this game has one, else live once and
+    /// saved, D3b). Any tap stops what she was saying first.
+    func readTask(_ index: Int) {
+        guard case .scene(let i) = store.phase, let rows = store.kit?.scenes[i].steps, rows.indices.contains(index) else { return }
+        userAction(.readTask)
+        wakeUp()
+        let line = HandOffLines.task(rows[index])
+        rtLog("scene: read task \(index + 1)/\(rows.count)")
+        speak(line)   // straight to the voice (not through nutmegLine), so the same task can be heard twice
+    }
     func tapLetsPlay() {
         userAction(.letsPlay)
         store.beginPlay()
@@ -364,17 +371,17 @@ final class AppModel {
     /// Round 23: a tap back to a step on the rail: the same `store.goTo`, then her one arrival line, and a silent
     /// note so the conversation knows where the kids are. Voice uses go_to_step (the model says the line itself).
     func navigate(to step: JourneyStep) {
-        // Round 25 (Haylee): at The End, Play (finished, ↺) goes back to the last checklist with its own line.
-        let toChecklist = step == .play && store.phase == .end
+        // Round 25 (Haylee): at The End, Play (finished, ↺) reopens the last scene; round 29: the store says the scene.
+        let toLastScene = step == .play && store.phase == .end
         // Round 26: a replay's Props restarts its one-card hunt and the store says the first card's line.
-        let storeSays = store.isReplay && step == .getReady
+        let storeSays = (store.isReplay && step == .getReady) || toLastScene
         guard store.goTo(step) else { return }
         if storeSays {
-            rtLog("back-nav: \(step.label) (tap, replay hunt again)")
-            noteReplayStep()
+            rtLog("back-nav: \(step.label) (tap, \(toLastScene ? "the last scene again" : "replay hunt again"))")
+            if toLastScene { realtime.addNote(Realtime.systemNote(BackNav.tapNote(step, line: store.nutmegLine))) } else { noteReplayStep() }
             return
         }
-        let line = toChecklist ? HandOffLines.backToChecklist : store.arrivalLine(step)   // round 28: Pick names the game
+        let line = store.arrivalLine(step)   // round 28: Pick names the game
         rtLog("back-nav: \(step.label) (tap)")
         if realtime.isLive {
             realtime.addNote(Realtime.systemNote(BackNav.tapNote(step, line: line)))
@@ -391,7 +398,7 @@ final class AppModel {
     func leave() {
         userAction(.goHome)
         if store.isReplay { logReplayClips("left") }
-        cheerTask?.cancel(); repeatTask?.cancel(); pointTask?.cancel(); beatEndTask?.cancel(); kitWait?.cancel()
+        repeatTask?.cancel(); pointTask?.cancel(); beatEndTask?.cancel(); kitWait?.cancel()
         speaker.holdEngine = false   // round D3b: the session's stop now stops the engine too
         wifiPause.clear(); wifiTask?.cancel(); wifiTask = nil
         clipStore.reset()            // an unsaved game's clips go with it
@@ -459,7 +466,7 @@ final class AppModel {
         // Round 19: home (the start screen) is always silent.
         if store.phase == .hello {
             if realtime.status != .idle { realtime.disconnect() }
-            voice.stop(); cheerTask?.cancel(); repeatTask?.cancel(); deferredLine = nil
+            voice.stop(); repeatTask?.cancel(); deferredLine = nil
         }
         // Round 7 (Haylee): the mic only looks disabled while connecting. Kit making: pressable, "Almost ready!" at most.
         realtime.micWanted = true
@@ -614,57 +621,22 @@ final class AppModel {
     @ObservationIgnored var lineDeck = LineDeck()
     @ObservationIgnored var rng = SystemRandomNumberGenerator()
 
-    // MARK: Checklist cheers (round 15, Haylee)
+    // MARK: Repeat during a scene (round 29)
 
-    /// A checklist row was tapped: check/uncheck it, then (checked) ONE short varied cheer + the next step. Round 26: the
-    /// last check says nothing here; after the store's grace the checklist moves on and the congratulations leads the
-    /// next line (`willAutoAdvance`). Quick taps never overlap: a pending cheer is replaced by the newest one (it waits
-    /// a moment, and for anything she's saying to finish).
-    func checkStep(_ index: Int) {
-        guard case .scene(let i) = store.phase, let scene = store.kit?.scenes[i], !store.autoChecking else { return }
-        userAction(.checkStep)
-        store.toggleStep(index)
-        cheerTask?.cancel(); cheerTask = nil
-        let steps = scene.steps.map(\.text)
-        guard store.checkedSteps.contains(index), !store.advancePending else { return }   // an uncheck says nothing
-        cheerTask = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(600))   // a quick second tap replaces this one
-            for _ in 0..<160 where (realtime.isLive ? realtime.voiceBusy : isSpeaking) && !Task.isCancelled {
-                try? await Task.sleep(for: .milliseconds(50))   // never over another line (≤ 8 s)
-            }
-            guard !Task.isCancelled, case .scene(i) = store.phase, !store.autoChecking,
-                  store.checkedSteps.contains(index) else { return }
-            // Round D3b: on a replay, a variant she already recorded in this game first.
-            let recorded: ((String) -> Bool)? = store.isReplay ? { [clipStore] in clipStore.has($0) } : nil
-            guard let line = ChecklistCheers.afterCheck(index: index, steps: steps, checked: store.checkedSteps,
-                                                        deck: &lineDeck, using: &rng, recorded: recorded) else { return }
-            cheerTask = nil
-            rtLog("checklist cheer: \(line)")
-            speak(line)
-        }
-    }
-    @ObservationIgnored private var cheerTask: Task<Void, Never>?
-
-    /// Round 16 (Haylee): "Hear it again" on the checklist. She reads the scene title and the steps not checked yet
-    /// (all of them if every one is checked). A pending cheer is dropped (never said late), the line waits for anything
-    /// she's saying to finish, and repeated taps are ignored while one is queued or just sent: one reply per tap.
-    func repeatChecklist() {
-        guard case .scene(let i) = store.phase, let scene = store.kit?.scenes[i], !store.autoChecking else { return }
+    /// Round 29 (Haylee): "Hear it again" (the pill) during a scene re-reads the whole scene: the setup and every playing
+    /// role's task, in one line. It waits for anything she's saying to finish; repeated taps are ignored while one is
+    /// queued or just sent: one reply per tap.
+    func repeatScene() {
+        guard case .scene(let i) = store.phase, let line = store.sceneLine(i) else { return }
         guard repeatTask == nil, Date().timeIntervalSince(lastRepeatAt) > 2.5 else { return }
-        // A tap while the read-aloud itself is still playing doesn't queue a second one.
-        if Date().timeIntervalSince(lastRepeatAt) < 20 && (realtime.isLive ? realtime.isSpeaking : isSpeaking) { return }
         userAction(.repeatLine)
         lastRepeatAt = Date()
         wakeUp()
         repeatTask = Task { @MainActor in
             defer { repeatTask = nil }
-            for _ in 0..<160 where (realtime.isLive ? realtime.voiceBusy : isSpeaking) && !Task.isCancelled {
-                try? await Task.sleep(for: .milliseconds(50))   // never over another line (≤ 8 s)
-            }
             guard !Task.isCancelled, case .scene(i) = store.phase else { return }
-            let line = HandOffLines.repeatText(title: scene.title, steps: scene.steps.map(\.text), checked: store.checkedSteps)
             lastRepeatAt = Date()
-            rtLog("checklist repeat: \(line)")
+            rtLog("scene repeat: \(i + 1)")
             speak(line)
         }
     }
@@ -678,18 +650,21 @@ final class AppModel {
     var lastAppLine: String? { speaker.lastAppLine }
     /// What the pill's Repeat ("Hear it again") does right now; `.none` dims it (nothing yet, or she's busy).
     var repeatTarget: RepeatTarget {
-        let inChecklist: Bool = { if case .scene = store.phase, !store.huntActive { return true } else { return false } }()
-        let busy = isSpeaking || micState == .listening || store.autoChecking || repeatTask != nil
+        let inScene: Bool = { if case .scene = store.phase, !store.huntActive { return true } else { return false } }()
+        // Round 29: in a scene Repeat is a tap like the 🔊 (it cuts her off), so only the mic or a queued repeat dims it.
+        let busy = inScene ? (micState == .listening || repeatTask != nil)
+            : isSpeaking || micState == .listening || repeatTask != nil
             || (realtime.isLive && (realtime.isBusy || realtime.thinkingGap))
         let last = realtime.transcript.last(where: \.fromNutmeg)?.text
-        return RepeatTarget.choose(inChecklist: inChecklist, busy: busy, transcriptLast: last, appLast: lastAppLine)
+        return RepeatTarget.choose(inScene: inScene, busy: busy, transcriptLast: last, appLast: lastAppLine)
     }
-    /// The pill's Repeat: the checklist read-aloud during play (round 16), else her last line again, in the same app
+    /// The pill's Repeat: the whole scene again during play (round 29), else her last line again, in the same app
     /// line path and voice (no duplicate chat bubble). Debounced: one repeat per tap.
     func repeatTapped() {
+        rtLog("repeat tapped: \(repeatTarget)")
         switch repeatTarget {
         case .none: return
-        case .checklist: repeatChecklist()
+        case .scene: repeatScene()
         case .lastLine(let line):
             guard Date().timeIntervalSince(lastRepeatAt) > RepeatTarget.debounce else { return }
             if realtime.isLive && realtime.voiceBusy { return }
@@ -702,20 +677,6 @@ final class AppModel {
             else if store.isReplay { owe(line) }
             else if !(hasRealtime && gameVoice != nil && Self.wasLive(store.phase)) { Task { await voice.say(line) } }
         }
-    }
-    /// The scene is finished: "we're done" by voice (it checks the rest), or every step checked (round 26: the store's
-    /// auto-advance after its grace, `willAutoAdvance`). A pending step cheer is dropped and ONE overall
-    /// congratulations starts the next line (hand-off, scene, The End).
-    func sceneDone() async {
-        guard case .scene = store.phase, !store.autoChecking else { return }
-        prepareSceneFinish()
-        await store.sceneDone()
-    }
-    /// The congratulations lead-in for the next line (and a stop for anything still being said about this checklist).
-    private func prepareSceneFinish() {
-        userAction(.done)
-        store.sceneLeadIn = ChecklistCheers.finished(deck: &lineDeck, using: &rng)
-        rtLog("checklist finished: moving on")
     }
     @ObservationIgnored private var kitWait: Task<Void, Never>?
 
@@ -860,13 +821,13 @@ final class AppModel {
             return ("(Silent coaching, don't mention it.) That was undone. Say nothing more.", false)
         }
         realtime.markTrace("checked \(name)")
-        // Round 26: "we're done" on a checklist: the same finish as every step checked (the congratulations leads the
-        // app's next line), so she says nothing herself.
-        if case .finishScene = call {
-            guard case .scene = store.phase else { return ("There's no checklist right now. Answer in ONE short line.", true) }
-            rtLog("checklist: finished by voice")
-            await sceneDone()
-            return ("Scene finished: the app moves on and says the next line. Say nothing.", false)
+        // Round 29: "next scene" / "we're done" in a scene: the same as the green ▶ (the app says the next scene).
+        if case .nextScene = call {
+            guard case .scene = store.phase else { return ("There's no scene right now. Answer in ONE short line.", true) }
+            rtLog("scene: next (voice)")
+            userAction(.nextScene)
+            store.nextScene()
+            return ("Next scene: the app moves on and says its line. Say nothing.", false)
         }
         // (Round 26: a replay's Print is the first play's, so "print it" prints every page for the current count.)
         if case .printKit = call, store.phase.step != .play {
@@ -878,6 +839,7 @@ final class AppModel {
             printKit()
         }
         if case .goToStep(let step) = call { rtLog("back-nav: \(step.label) (voice)") }
+        let reopensLastScene: Bool = { if case .goToStep(.play) = call { return store.phase == .end } else { return false } }()
         if case .setGame = call {
             // Theme ideas for this game (round 7): 3 twists, never last time's; delivered in the set_game result.
             store.themeIdeas = suggestionMemory.pickTwists()
@@ -921,7 +883,8 @@ final class AppModel {
         }
         if store.props == nil { shownProps = 0 }
         // finish_planning and start_play end her turn: the app speaks the kit and scene lines.
-        return (output, call != .finishPlanning && call != .startPlay && call != .confirmHandoff)
+        // Round 29: back to the play step at The End reopens the last scene and the app says it, so she doesn't.
+        return (output, call != .finishPlanning && call != .startPlay && !reopensLastScene)
     }
 
     /// Round 19: the kit is being remade for a corrected title: drop the old art and beats so the new kit runs fresh.
@@ -1160,7 +1123,7 @@ final class AppModel {
         if realtime.isLive {
             if !planningNow {
                 // Round 13: a scene / hand-off line follows a kid's tap: the thinking state shows until it plays.
-                let tapped: Bool = { switch store.phase { case .handoff, .scene, .end: true; default: false } }()
+                let tapped: Bool = { switch store.phase { case .scene, .end: true; default: false } }()
                 speaker.say(text, thinking: tapped)
             }
             return
@@ -1470,7 +1433,7 @@ final class AppModel {
     /// Starts a replay: the saved art comes back from disk, the store loads the game (Pick), and the voice session
     /// (pre-connected on the start screen) speaks every line live (recorded clips are round D3b).
     func startReplay(_ g: SavedGame) async {
-        cheerTask?.cancel(); repeatTask?.cancel(); pointTask?.cancel(); kitBeatTask?.cancel(); kitWait?.cancel()
+        repeatTask?.cancel(); pointTask?.cancel(); kitBeatTask?.cancel(); kitWait?.cancel()
         deferredLine = nil
         let files = savedGames.art(for: g)
         let decoded = await Task.detached(priority: .userInitiated) { () -> [String: UIImage] in
@@ -1667,12 +1630,19 @@ final class AppModel {
         PictureResolver.resolve(picture, kit: store.kit, roles: store.plan?.roles ?? [])
     }
 
-    /// Round 28 (Haylee): the hand-off card shows the role's COLORED badge (the color set's slice for that role), not
-    /// the text. nil while it isn't drawn (the card shows the role's color chip).
-    func handoffBadge(_ role: Role) -> UIImage? {
-        guard let id = store.kit?.items.first(where: { $0.recipe == .badges })?.id else { return nil }
-        return colorArt.badgeSlice(id, role: role.id.index)
+    /// Round 29 (Haylee, ensemble scenes): a scene row's CHARACTER picture, cropped from the role's slice of the COLOR
+    /// badge sheet: only the illustration between the blank name banners (`BadgeCharacter`), no frame, no blank fields.
+    /// nil while it isn't drawn (the row shows the role's color chip). Cropped once per slice.
+    func characterPicture(_ role: Role) -> UIImage? {
+        guard let id = store.kit?.items.first(where: { $0.recipe == .badges })?.id,
+              let slice = colorArt.badgeSlice(id, role: role.id.index) else { return nil }
+        let key = "\(id)#\(role.id.index)"
+        if let hit = characterCache[key], hit.slice === slice { return hit.crop }
+        let crop = CharacterCropper.crop(slice)
+        characterCache[key] = (slice, crop)
+        return crop
     }
+    @ObservationIgnored private var characterCache: [String: (slice: UIImage, crop: UIImage)] = [:]
 
     /// The tile for one picture: library/action art, or this game's own kit art (one ticket, one bill, a role's
     /// badge with its title, one cut-out). Falls back to a placeholder word while art is missing.

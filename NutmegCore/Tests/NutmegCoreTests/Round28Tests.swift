@@ -70,54 +70,7 @@ import Testing
         #expect(Prompts.sceneRules.contains("Customers, visitors, guests, passengers and patients get real things to do"))
     }
 
-    // MARK: 4a. One role per checklist
-
-    @Test func eachSceneEveryPlayingRoleGetsAHandOffAndOnlyItsOwnSteps() async {
-        let a = Fallback.airplane
-        for n in 1...6 {
-            let view = PlayCast.kit(a.kit, roles: a.plan.roles, players: n)
-            for (si, scene) in a.kit.scenes.enumerated() {
-                let turns = Array(view.scenes[(si * n)..<(si * n + n)])
-                #expect(turns.map(\.owner.role) == Array(RoleID.allCases.prefix(n)))      // every playing role, every scene
-                #expect(turns.allSatisfy { $0.title == scene.title })
-                for t in turns {
-                    #expect(t.steps.count == 2 && t.steps.allSatisfy { $0.role == t.owner })
-                    #expect(!t.steps.contains { $0.text.hasPrefix("Everyone") })
-                }
-            }
-        }
-        // In the store: a hand-off before every turn (3 players), never two turns in a row for the same role.
-        let store = AdventureStore(service: nil)
-        store.beginConversation()
-        _ = await store.apply(.setPlayerCount(3)); _ = await store.confirmYes()
-        _ = await store.apply(.setRoles(a.plan.roles.map { .init(roleName: $0.roleName, job: $0.job) }))
-        _ = await store.apply(.finishPlanning)
-        for _ in 0..<100 where store.phase != .kitReady { try? await Task.sleep(for: .milliseconds(10)) }
-        store.autoCheckStep = .zero; store.autoCheckHold = .zero
-        store.beginPlay()
-        var holders: [RoleID] = []
-        for _ in 0..<40 where store.phase != .end {
-            guard case .handoff(let i) = store.phase, let o = store.kit?.scenes[i].owner.role else { Issue.record("no hand-off: \(store.phase)"); break }
-            _ = await store.apply(.confirmHandoff)
-            guard case .scene(let j) = store.phase, let sc = store.kit?.scenes[j] else { break }
-            #expect(sc.steps.allSatisfy { $0.role.role == o })
-            holders.append(o)
-            await store.sceneDone()
-        }
-        #expect(store.phase == .end && holders.count == a.kit.scenes.count * 3)
-        #expect(zip(holders, holders.dropFirst()).allSatisfy { $0 != $1 })
-    }
-
-    @Test func laterTurnsOfASceneStartAtTheRolesFirstStep() {
-        let a = Fallback.airplane
-        let turns = PlayCast.turns(a.kit.scenes[0], index: 0, roles: a.plan.roles, players: 2)
-        #expect(PretendLine.has(turns[0].nutmegSays) && turns[1].nutmegSays.isEmpty)
-        let line = HandOffLines.checklist(sceneLine: turns[1].nutmegSays, firstScene: false, firstStep: turns[1].steps.first?.text)
-        #expect(line.hasPrefix("First, ") && !line.contains("Pretend that"))
-        // The role title keeps its capitals (seen live: "First, stand Manager, put on your badge!").
-        #expect(ChecklistCheers.phrase("Stand Manager, put on your badge!") == "Stand Manager, put on your badge")
-        #expect(ChecklistCheers.phrase("Everyone, wave!") == "everyone, wave")
-    }
+    // 4a (one role per checklist, hand-offs) was replaced by round 29's ensemble scenes: see Round29Tests.
 
     // MARK: 4b. Props must be real
 
@@ -187,8 +140,8 @@ import Testing
 
     @Test func theGuidePromptsSayOnlyRealProps() {
         #expect(Prompts.sceneRules.contains("ONLY REAL PROPS"))
-        #expect(Prompts.sceneRules.contains("No steps for everyone"))
-        #expect(Prompts.system.contains("Steps name ONLY objects the kids really have"))
+        #expect(Prompts.sceneRules.contains("NEVER script lines"))
+        #expect(Prompts.system.contains("Tasks name ONLY objects the kids really have"))
     }
 
     // MARK: 6. After the yes: the game stays, only the count changes

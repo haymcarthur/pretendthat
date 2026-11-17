@@ -626,12 +626,12 @@ enum PTFan {
     }
 }
 
-/// Round 14: "Checklist" | "Chat" tabs at the top of the chat panel during play: a two-segment pill, big tap targets.
+/// Round 14: "Scene" (round 29; was "Checklist") | "Chat" tabs at the top of the chat panel during play: a two-segment pill, big tap targets.
 struct PTChatTabs: View {
     @Binding var selection: PTChatTab
     var body: some View {
         HStack(spacing: 4) {
-            seg(.checklist, "Checklist", "checklist")
+            seg(.checklist, "Scene", "theatermasks")   // round 29: the scene card (no checklist any more)
             seg(.chat, "Chat", "bubble.left.and.bubble.right")
         }
         .padding(4)

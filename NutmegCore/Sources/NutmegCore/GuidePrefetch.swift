@@ -1,5 +1,6 @@
 import Foundation
 
+// Round 29 (ensemble scenes): the guide is 3 scenes × one task per role + a solo task; the weave rewrites whole tasks.
 // Guide prefetch (2026-11-15, Haylee: "fix it first"). Round C1 made the play guide much longer (6 scenes × a step for
 // each of the 6 ranked roles + 2 for everyone), and it waited for the hunt's end, so the Paper step waited ~30 s for it.
 // Now the play guide is written DURING the hunt, as soon as the kit pages land (the props aren't known yet: the voice
@@ -29,21 +30,22 @@ public struct PropUse: Equatable, Sendable {
 }
 
 public enum GuideWeave {
-    /// Steps a prop may take over (the prompt asks for 1 or 2, in different scenes).
-    public static let maxUsesPerProp = 2
-    /// A rewritten step longer than this is dropped (the guide's steps are at most 9 words; a little slack).
-    public static let maxWords = 12
+    /// Tasks a prop may take over (round 29: 1 or 2 role tasks in different scenes, plus a solo task).
+    public static let maxUsesPerProp = 3
+    /// A rewritten task longer than this is dropped (round 29: the tasks are one sentence of at most about 20 words).
+    public static let maxWords = 26
 
     public static func schema(propIDs: [String]) -> [String: Any] {
         Schemas.obj(["uses": Schemas.arr(Schemas.obj(["propID": Schemas.enumStr(propIDs.isEmpty ? ["none"] : propIDs),
                                                        "scene": Schemas.int, "step": Schemas.int, "text": Schemas.str]))])
     }
 
-    /// The weave prompt: the guide as numbered lines, the props to add, the steps already taken by other props.
+    /// The weave prompt: the guide as numbered lines, the props to add, the tasks already taken by other props.
     public static func prompt(scenes: [Scene], props: [Prop], taken: [PropUse], roles: [Role], players: Int) -> String {
         let n = PlayCast.players(players)
         let busy = Set(taken.map { "\($0.scene).\($0.step)" })
         func who(_ s: Step) -> String {
+            if s.role == .solo { return "solo: one kid alone as R1" }
             guard let r = s.role.role else { return "everyone" }
             return "\(r.rawValue) \(roles.first { $0.id == r }?.roleName ?? "")"
         }
@@ -61,14 +63,16 @@ public enum GuideWeave {
         return """
         Phase: add household props to the play guide. The kids found these props in their home for this game:
         \(list)
-        The play guide (sN.M = scene N, step M; [who the step is for]):
+        The play guide (sN.M = scene N, task M; [who the task is for]):
         \(guide)
-        For EACH prop, pick 1 or 2 steps (in different scenes, where it fits the scene best) and rewrite ONLY those steps \
-        so the kids use the prop as what it becomes (e.g. "Captain, steer with the steering wheel!"). Pick steps of the \
-        roles that are playing (\(playing)) and spread the props over them: first a playing role with no (taken) step \
-        yet, then the prop's own role. Never pick a step marked (taken), and at most one prop per step. Keep the step for the same role: a role's step still starts \
-        with that role's title. Name the prop by what it becomes (never the \
-        household item), at most 9 words, gentle and kid-safe. Return PropWeave (scene and step are the numbers above).
+        For EACH prop, pick 1 or 2 role tasks (in different scenes, where it fits best) plus the solo task of one of \
+        those scenes, and rewrite ONLY those tasks so the kids use the prop as what it becomes, keeping what the task \
+        does with the other roles (e.g. "Waiter, carry the Customer's order on the serving tray!"). Pick tasks of the \
+        roles that are playing (\(playing)) and spread the props over them: first a playing role with no (taken) task \
+        yet, then the prop's own role. Never pick a task marked (taken), and at most one prop per task. Keep the task \
+        for the same role: it still starts with that role's title. One sentence, at most 20 words, no quotes or lines \
+        to say. Name the prop by what it becomes (never the household item), gentle and kid-safe. Return PropWeave \
+        (scene and step are the numbers above).
         """
     }
 
@@ -141,7 +145,7 @@ public enum GuideWeave {
             let escaped = NSRegularExpression.escapedPattern(for: name)
             let pattern = #"(?i)(?<![\p{L}\p{N}-])(?<!pretend )"# + escaped + #"(?![\p{L}\p{N}-])"#
             if t.range(of: pattern, options: .regularExpression) != nil {
-                return t.replacingOccurrences(of: pattern, with: "pretend " + label, options: .regularExpression)
+                return t.replacingOccurrences(of: pattern, with: "pretend " + PlayCast.lowerFirst(label), options: .regularExpression)
             }
         }
         return t   // paraphrased: the step's picture (the printed cut-out) still shows the stand-in
@@ -160,68 +164,58 @@ public enum GuideWeave {
     }
 }
 
-/// The early play guide's answer in a FIXED shape: exactly `count` scenes (scene1 … scene4), each with exactly two
-/// steps per ranked role (R1a, R1b … R6a, R6b), as required fields rather than arrays. At low effort the array form
-/// sometimes came back cut short (seen live: ONE scene, or scenes with ONE step, about 1 call in 3); a fixed shape
-/// can't be. The step's role comes from its field. Decoded into the usual scene list.
-/// Round 28 (Haylee, "one role per checklist"): 4 scenes × 2 steps for each of the 6 roles (48 steps, the same size as
-/// round C1's 6 × 8), no steps for everyone: each playing role gets a hand-off and its own 2-step checklist per scene.
-/// (The type keeps its name: it is the guide for SIX ranked roles.)
+/// The early play guide's answer in a FIXED shape: exactly `count` scenes (scene1 … scene3), each with exactly one task
+/// per ranked role (R1 … R6) and a solo task, as required fields rather than arrays. At low effort the array form
+/// sometimes came back cut short (seen live: ONE scene, about 1 call in 3); a fixed shape can't be. The task's role
+/// comes from its field. Decoded into the usual scene list.
+/// Round 29 (Haylee, ensemble scenes): 3 scenes × (6 role tasks + 1 solo task) = 21 short task strings, no pictures
+/// (the rows show each role's character), no ids. (The type keeps its name: it is the guide for SIX ranked roles.)
 public struct KitScenesSix: Decodable, Sendable, SafetyText {
     public var nutmegSays: String
     public var scenes: [Scene]
     public init(nutmegSays: String, scenes: [Scene]) { self.nutmegSays = nutmegSays; self.scenes = scenes }
-    public static let count = 4
-    static let stepKeys: [(key: String, role: SceneOwner)] = RoleID.allCases.flatMap { r in
-        ["a", "b"].map { ("\(r.rawValue)\($0)", SceneOwner(r)) }
-    }
+    public static let count = 3
+    static let taskKeys: [(key: String, role: SceneOwner)] = RoleID.allCases.map { ($0.rawValue, SceneOwner($0)) } + [("solo", .solo)]
 
     struct Key: CodingKey {
         var stringValue: String; var intValue: Int? { nil }
         init(stringValue: String) { self.stringValue = stringValue }
         init?(intValue: Int) { nil }
     }
-    struct StepBody: Decodable { var picture: Picture?; var text: String }
     struct SceneBody: Decodable {
         var scene: Scene
         init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: Key.self)
-            let steps = try KitScenesSix.stepKeys.compactMap { k -> Step? in
-                guard let b = try c.decodeIfPresent(StepBody.self, forKey: Key(stringValue: k.key)) else { return nil }
-                return Step(picture: b.picture ?? .point, text: b.text, role: k.role)
+            let steps = try KitScenesSix.taskKeys.compactMap { k -> Step? in
+                guard let t = try c.decodeIfPresent(String.self, forKey: Key(stringValue: k.key)) else { return nil }
+                return Step(picture: .point, text: t, role: k.role)
             }
-            scene = Scene(id: try c.decode(String.self, forKey: Key(stringValue: "id")), owner: .all,
-                          title: try c.decode(String.self, forKey: Key(stringValue: "title")),
-                          picture: try c.decodeIfPresent(Picture.self, forKey: Key(stringValue: "picture")) ?? .point,
-                          nutmegSays: try c.decode(String.self, forKey: Key(stringValue: "nutmegSays")), steps: steps)
+            scene = Scene(id: "", owner: .all, title: try c.decode(String.self, forKey: Key(stringValue: "title")),
+                          picture: .point, nutmegSays: try c.decode(String.self, forKey: Key(stringValue: "nutmegSays")), steps: steps)
         }
     }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: Key.self)
-        nutmegSays = try c.decode(String.self, forKey: Key(stringValue: "nutmegSays"))
-        scenes = try (1...Self.count).compactMap { try c.decodeIfPresent(SceneBody.self, forKey: Key(stringValue: "scene\($0)"))?.scene }
+        nutmegSays = try c.decodeIfPresent(String.self, forKey: Key(stringValue: "nutmegSays")) ?? ""
+        scenes = try (1...Self.count).compactMap { i -> Scene? in
+            guard var s = try c.decodeIfPresent(SceneBody.self, forKey: Key(stringValue: "scene\(i)"))?.scene else { return nil }
+            s.id = "s\(i)"
+            return s
+        }
     }
 
     public static func schema() -> [String: Any] {
-        let step = Schemas.obj(["picture": ["$ref": "#/$defs/picture"], "text": Schemas.str])
-        var sceneProps: [String: Any] = ["id": Schemas.str, "title": Schemas.str, "picture": ["$ref": "#/$defs/picture"], "nutmegSays": Schemas.str]
-        for k in stepKeys {
-            var st = ["$ref": "#/$defs/step"] as [String: Any]
-            st["description"] = "One of the \(k.role.rawValue) role's own 2 steps in this scene (its text starts with that role's title)."
-            sceneProps[k.key] = st
+        var sceneProps: [String: Any] = ["title": Schemas.str, "nutmegSays": Schemas.str]
+        for k in taskKeys {
+            sceneProps[k.key] = ["type": "string", "description": k.role == .solo
+                ? "The task for ONE kid playing alone as R1: a slightly bigger version of R1's task in this scene."
+                : "The \(k.role.rawValue) role's ONE task in this scene (starts with that role's title)."]
         }
-        var props: [String: Any] = ["nutmegSays": Schemas.str]
+        var props: [String: Any] = [:]
         for i in 1...count { props["scene\(i)"] = ["$ref": "#/$defs/scene"] }
         var o = Schemas.obj(props)
-        // One definition each (6 inline copies compile too large: the API refuses the grammar).
-        // No props yet, so the picture is an action or a printed kit item (a short enum; the props' pictures come
-        // with the weave).
-        let picture: [String: Any] = ["type": "object", "description": "The ONE picture: kind action (id an action id) or kind kit "
-            + "(id a printed item of THIS kit: ticket, money, menu, sign, badge:R1..R6, cutout:N for the Nth cutouts line).",
-            "properties": ["kind": Schemas.enumStr([PictureKind.action.rawValue, PictureKind.kit.rawValue]),
-                           "id": Schemas.enumStr(ActionArt.ids + PictureResolver.kitIDs)],
-            "required": ["id", "kind"], "additionalProperties": false]
-        o["$defs"] = ["scene": Schemas.obj(sceneProps), "step": step, "picture": picture]
+        // One definition (3 inline copies make the grammar bigger for nothing).
+        o["$defs"] = ["scene": Schemas.obj(sceneProps)]
         return o
     }
     public var safetyTexts: [String] { [nutmegSays] + scenes.flatMap { [$0.title, $0.nutmegSays] + $0.steps.map(\.text) } }

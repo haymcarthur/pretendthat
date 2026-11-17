@@ -20,10 +20,9 @@ public struct PTChatTabState: Equatable, Sendable {
 
     public mutating func select(_ t: PTChatTab) { tab = t }
 
-    /// The tabbed card's key for a phase: hand-off and scene cards only (prop / kit / finale stay pinned as before).
+    /// The tabbed card's key for a phase: scene cards only (prop / kit / finale stay pinned as before).
     public static func cardKey(for phase: Phase) -> String? {
         switch phase {
-        case .handoff(let i): "handoff-\(i)"
         case .scene(let i): "scene-\(i)"
         default: nil
         }

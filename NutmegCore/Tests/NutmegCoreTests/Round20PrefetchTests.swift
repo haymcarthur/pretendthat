@@ -41,7 +41,7 @@ import Testing
         let cut = store.kit?.items.first { $0.recipe == .cutouts }
         #expect(cut?.lines.count == 7 && cut?.lines.last == "big oven")            // the skipped prop's cut-out, appended
         #expect(store.kit?.items.map(\.id) == store.draftItems?.map(\.id))        // same pages: their art carries over
-        #expect((store.kit?.scenes.count ?? 0) >= 4)
+        #expect((store.kit?.scenes.count ?? 0) == 3)
     }
 
     @Test func noPagesBeforeTheRolesOrWithoutClaude() async {

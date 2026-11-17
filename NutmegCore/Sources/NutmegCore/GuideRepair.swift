@@ -7,12 +7,12 @@ import Foundation
 // rotated to nobody: scene 1 belongs to R1, and there was no scene 2 for R2.
 //
 // `GuideRepair` is the last line of defense, with NO AI call (it runs on replays too): every scene gets a real title,
-// a guide with fewer than `minScenes` scenes gets template scenes (a step per role from the role's job, two group
-// steps, a "Pretend that" intro), and every prop that no step uses is worked into a role step (and a group step) by
-// what it becomes. It is idempotent: a good guide comes back unchanged.
+// a guide with fewer than `minScenes` scenes gets template scenes (round 29: a task per role from the role's job, a
+// solo task, a "Pretend that" intro), scripted lines are taken out, every prop that no task uses is worked into a
+// role's task by what it becomes, and only real objects are named. It is idempotent: a good guide comes back unchanged.
 public enum GuideRepair {
-    /// A guide is padded to this many scenes (the schema asks for 6; `Validate.scenes` wants at least 4).
-    public static let minScenes = 4
+    /// A guide is padded to this many scenes (round 29: the guide has exactly 3).
+    public static let minScenes = 3
 
     /// Titles a model writes when it doesn't fill the field in.
     static let placeholders: Set<String> = ["x", "xx", "xxx", "title", "scene", "untitled", "tbd", "todo", "n/a", "na",
@@ -33,11 +33,9 @@ public enum GuideRepair {
     /// Intros for template scenes ("Pretend that" opens each, round 13).
     static let intros = ["Pretend that something surprising just happened!", "Pretend that everyone needs your help right now!",
                          "Pretend that it's the busiest moment of the day!", "Pretend that it's time for the big finish!"]
-    static let groupSteps: [(String, String)] = [("Everyone, give a big cheer!", "cheer"), ("Everyone, clap together!", "clap"),
-                                                 ("Everyone, wave to a friend!", "wave"), ("Everyone, take a bow!", "cheer")]
 
     /// The repaired guide (see the type comment). `roles` = the 6 ranked roles; `props` = the game's props; `items` =
-    /// the printed pages (round 28: steps may name only the props, the printed kit and body actions, `realProps`).
+    /// the printed pages (round 28: tasks may name only the props, the printed kit and body actions, `realProps`).
     public static func repair(_ scenes: [Scene], roles: [Role], props: [Prop], title: String, items: [KitItem] = []) -> [Scene] {
         guard !scenes.isEmpty else { return scenes }
         var out = scenes
@@ -47,20 +45,21 @@ public enum GuideRepair {
             let t = titles.first { !used.contains($0.lowercased()) } ?? "\(title) Fun"
             out[i].title = t; used.insert(t.lowercased())
         }
-        // 2. Enough scenes for the hand-offs to reach every playing role.
+        // 2. Enough scenes (round 29: 3), each a task per role from the role's job plus a solo task.
         var k = 0
         while out.count < minScenes {
             let t = titles.first { !used.contains($0.lowercased()) } ?? "More \(title) Fun"
             used.insert(t.lowercased())
-            // Round 28: two steps for each role (its own checklist), none for everyone.
-            let roleSteps = roles.prefix(RoleCast.count).enumerated().flatMap { j, r in [PlayCast.filler(r), PlayCast.filler2(r, variant: k + j)] }
-            out.append(Scene(id: "repair\(k + 1)", owner: .all, title: t, picture: .action("cheer"),
-                             nutmegSays: intros[k % intros.count], steps: roleSteps))
+            let tasks = roles.prefix(RoleCast.count).map(PlayCast.filler) + (roles.first.map { [PlayCast.soloFiller($0)] } ?? [])
+            out.append(Scene(id: "repair\(k + 1)", owner: .all, title: t, picture: .point,
+                             nutmegSays: intros[k % intros.count], steps: tasks))
             k += 1
         }
-        // 3. Every prop in the steps.
+        // 3. Round 29: tasks may imply talking but never script lines (no quotes, no "Say:").
+        out = noScriptedLines(out)
+        // 4. Every prop in the tasks.
         out = weave(out, roles: roles, props: props)
-        // 4. Round 28: only objects the kids really have.
+        // 5. Round 28: only objects the kids really have.
         return realProps(out, roles: roles, props: props, items: items)
     }
 
@@ -72,45 +71,108 @@ public enum GuideRepair {
         return (!label.isEmpty && PlayCast.names(step.text, label)) || PlayCast.names(step.text, p.householdItem)
     }
 
-    /// Props that no step uses are worked in: R1's step in one scene (R1 always plays, so every count sees it) and
-    /// R2's step in the next (round 28: no steps for everyone any more; a guide that still has one uses it). Steps that
-    /// already use a prop are left alone.
+    /// Props that no task uses are worked in (round 29: ONE task each, so the task keeps its interaction): R1's task in
+    /// any scene (R1 always plays, so every count sees it), else R2's, else the prop's own role, …; and that scene's
+    /// solo task too, so a kid playing alone uses it. A short task gets "with the <prop>" added ("Waiter, take the
+    /// order with the serving tray!"); a task that already has two parts is rewritten around the prop.
     static func weave(_ scenes: [Scene], roles: [Role], props: [Prop]) -> [Scene] {
         var out = scenes
         let missing = props.filter { p in !out.contains { $0.steps.contains { uses($0, p) } } }
         guard !missing.isEmpty else { return out }
         func taken(_ s: Step) -> Bool { props.contains { uses(s, $0) } }
         for (n, p) in missing.enumerated() {
-            let label = KitDraft.cutoutLabel(becomes: p.becomes).isEmpty ? p.householdItem.lowercased() : KitDraft.cutoutLabel(becomes: p.becomes)
+            let cut = KitDraft.cutoutLabel(becomes: p.becomes)
+            let label = cut.isEmpty ? p.householdItem.lowercased() : PlayCast.lowerFirst(cut)
             let thing = p.isSkipped ? "pretend \(label)" : label
             let pic: Picture = p.isSkipped ? .point : .prop(p.libraryID ?? p.id)
-            // A role step: R1 first (always playing), then the prop's own role, then the others.
-            let order = [RoleID.R1] + (p.forRole.role.map { [$0] } ?? []) + RoleID.allCases
+            // R1 always plays and R2 whenever two do, so a found prop is used at (almost) every count.
+            let order = [RoleID.R1, .R2] + (p.forRole.role.map { [$0] } ?? []) + RoleID.allCases
             var placed = false
-            for off in 0..<out.count where !placed {
-                let si = (n + off) % out.count
-                for r in order where !placed {
+            // Roles first, then scenes: R1 in any scene before R2 anywhere (R1 always plays, R2 whenever 2 do).
+            for r in order where !placed {
+                for off in 0..<out.count where !placed {
+                    let si = (n + off) % out.count
                     guard let j = out[si].steps.firstIndex(where: { $0.role.role == r && !taken($0) }),
                           let role = roles.first(where: { $0.id == r }) else { continue }
-                    out[si].steps[j].text = "\(role.roleName), \(verb(n)) the \(thing)!"
+                    out[si].steps[j].text = withProp(out[si].steps[j].text, thing: thing, role: role.roleName, n: n)
                     out[si].steps[j].picture = pic
                     placed = true
+                    if let k = out[si].steps.firstIndex(where: { $0.role == .solo && !taken($0) }), let r1 = roles.first {
+                        out[si].steps[k].text = withProp(out[si].steps[k].text, thing: thing, role: r1.roleName, n: n)
+                        out[si].steps[k].picture = pic
+                    }
                 }
-            }
-            // And a second step in the next scene (R2's, or an older guide's everyone step), so more kids use it.
-            let si = (n + 1) % out.count
-            if let j = out[si].steps.firstIndex(where: { $0.role == .R2 && !taken($0) }), let r2 = roles.first(where: { $0.id == .R2 }) {
-                out[si].steps[j].text = "\(r2.roleName), take a turn with the \(thing)!"
-                out[si].steps[j].picture = pic
-            } else if let j = out[si].steps.firstIndex(where: { $0.role == .all && !taken($0) }) {
-                out[si].steps[j].text = "Everyone, take a turn with the \(thing)!"
-                out[si].steps[j].picture = pic
             }
         }
         return out
     }
 
+    /// "Waiter, take the order!" → "Waiter, take the order with the serving tray!"; a task that already has two parts
+    /// ("… and …", "… then …") becomes "Waiter, grab the serving tray and get busy!".
+    static func withProp(_ text: String, thing: String, role: String, n: Int) -> String {
+        var t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        while let last = t.last, ".!?".contains(last) { t.removeLast() }
+        let twoParts = t.range(of: #"(?i)\b(and|then|while)\b"#, options: .regularExpression) != nil
+        if t.isEmpty || twoParts { return "\(role), \(verb(n)) the \(thing) and get busy!" }
+        return t + " with the \(thing)!"
+    }
+
     static func verb(_ n: Int) -> String { ["grab", "use", "hold up", "show everyone"][n % 4] }
+}
+
+// MARK: - Round 29: no scripted lines
+
+// Haylee (ensemble scenes): a task may imply talking ("take the Customer's order") but never scripts the words: no
+// quotes and no "Say:". The prompt asks for that; this is the app-side check, with no AI call: a speaking verb with
+// quoted words loses the quote ("greet the guests and say \"Welcome!\"" → "greet the guests"); if nothing would be left,
+// the verb stays with "in your own words". Any other quote marks are dropped and the words kept.
+extension GuideRepair {
+    static let speakingVerbs = "say|says|said|shout|shouts|yell|yells|call out|calls out|ask|asks|announce|announces|"
+        + "whisper|whispers|sing|sings|cheer|cheers|tell everyone|tell them|exclaim|reply|answer"
+
+    /// Whether a task scripts lines (quoted words, or "Say:").
+    public static func hasScriptedLine(_ text: String) -> Bool {
+        text.range(of: #"(?i)\b(say|says)\s*:"#, options: .regularExpression) != nil
+            || text.range(of: #"["\x{201C}\x{201D}]"#, options: .regularExpression) != nil
+            || text.range(of: #"(?<![\p{L}])['\x{2018}][^'\x{2018}\x{2019}]+['\x{2019}](?![\p{L}])"#, options: .regularExpression) != nil
+    }
+
+    /// The task with its scripted words taken out (see the extension comment). A task with none comes back unchanged.
+    public static func unscripted(_ text: String) -> String {
+        guard hasScriptedLine(text) else { return text }
+        var t = text
+        let quoted = #"(?:["\x{201C}][^"\x{201C}\x{201D}]*["\x{201D}]|(?<![\p{L}])['\x{2018}][^'\x{2018}\x{2019}]*['\x{2019}](?![\p{L}]))"#
+        let verb = "(?:" + speakingVerbs + ")"
+        // "Say: Welcome to the shop!" (no quotes): the words run to the end of the sentence.
+        let colon = #"(?i)\b(say|says)\s*:\s*[^.!?]*[.!?]?"#
+        let patterns = [
+            #"(?i),?\s*\b(?:and|then)\s+"# + verb + #"\b[\s,:]*"# + quoted,   // "… and say "Hi""
+            #"(?i)\b"# + verb + #"\b[\s,:]*"# + quoted + #"[\s,]*(?:and|then)\s+"#, // "say "Hi" and …"
+        ]
+        for p in patterns { t = t.replacingOccurrences(of: p, with: " ", options: .regularExpression) }
+        // A speaking verb whose quote is the whole action: the verb stays, the words become the kid's own.
+        t = t.replacingOccurrences(of: #"(?i)\b("# + speakingVerbs + #")\b[\s,:]*"# + quoted,
+                                   with: "$1 it in your own words", options: .regularExpression)
+        t = t.replacingOccurrences(of: colon, with: "say it in your own words!", options: .regularExpression)
+        // Any quote marks left (a quoted name or word): the words stay.
+        t = t.replacingOccurrences(of: #"["\x{201C}\x{201D}]"#, with: "", options: .regularExpression)
+        t = t.replacingOccurrences(of: #"(?<![\p{L}])['\x{2018}]([^'\x{2018}\x{2019}]+)['\x{2019}](?![\p{L}])"#, with: "$1", options: .regularExpression)
+        t = t.replacingOccurrences(of: #"\s+([,.!?])"#, with: "$1", options: .regularExpression)
+        t = t.replacingOccurrences(of: #"\s{2,}"#, with: " ", options: .regularExpression)
+        t = t.replacingOccurrences(of: #",\s*([.!?])"#, with: "$1", options: .regularExpression)
+        t = t.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let last = t.last, !".!?".contains(last) { t += "!" }
+        return t
+    }
+
+    /// Every task without scripted lines (idempotent).
+    public static func noScriptedLines(_ scenes: [Scene]) -> [Scene] {
+        scenes.map { sc in
+            var sc = sc
+            sc.steps = sc.steps.map { var st = $0; st.text = unscripted(st.text); return st }
+            return sc
+        }
+    }
 }
 
 // MARK: - Round 28: props must be real

@@ -120,33 +120,3 @@ struct ResumeTests {
         #expect(s.hasSuffix(ctx.summary))
     }
 }
-
-/// Round 9: "I'm the Captain" by voice on the hand-off card.
-@MainActor
-struct HandoffVoiceTests {
-    @Test func confirmHandoffStartsTheSceneLikeTheButton() async {
-        #expect(PlanningCall.decode(name: "confirm_handoff", arguments: "{}") == .confirmHandoff)
-        let store = AdventureStore(service: nil)
-        await store.start()
-        await store.chooseGame("Airplane")
-        store.setPlayerCount(3)
-        await store.confirmPlayers()
-        await store.confirmRoles()
-        await store.confirmProps()
-        let early = await store.apply(.confirmHandoff)
-        #expect(early.contains("no hand-off"))
-        store.autoCheckStep = .zero; store.autoCheckHold = .zero
-        store.beginPlay()
-        var guardCount = 0
-        while true {
-            guardCount += 1
-            if case .handoff = store.phase { break }
-            if case .scene = store.phase { await store.sceneDone() }
-            if store.phase == .end || guardCount > 10 { Issue.record("no hand-off in the bundled game"); return }
-        }
-        guard case .handoff(let i) = store.phase else { return }
-        let out = await store.apply(.confirmHandoff)
-        #expect(out.contains("Hand-off confirmed"))
-        #expect(store.phase == .scene(i))
-    }
-}

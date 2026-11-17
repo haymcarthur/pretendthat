@@ -74,7 +74,7 @@ import Testing
         let bad = PropWeave(uses: [
             .init(propID: "pot", scene: 9, step: 0, text: "Captain, open the big oven!"),           // no such scene
             .init(propID: "lamp", scene: 0, step: 0, text: "Captain, turn on the lamp!"),           // not asked for
-            .init(propID: "pot", scene: 0, step: 2, text: String(repeating: "word ", count: 20)),   // too long
+            .init(propID: "pot", scene: 0, step: 2, text: String(repeating: "word ", count: 40)),   // too long
             .init(propID: "pot", scene: 0, step: 3, text: "Everyone, peek in the big oven!"),       // taken
             .init(propID: "pot", scene: 2, step: 4, text: "Passenger, smell the big oven!"),        // fine
         ])
@@ -87,23 +87,23 @@ import Testing
     }
 
     @Test func theEarlyGuideHasAFixedShape() throws {
-        // Round 28: 4 scenes, each with 2 steps for each of the 6 roles (R1a … R6b), no steps for everyone.
+        // Round 29 (ensemble scenes): 3 scenes, each with ONE task string per role (R1 … R6) and a solo task; no
+        // pictures, no ids, no top-level line.
         let schema = KitScenesSix.schema()
         let req = (schema["required"] as? [String]) ?? []
-        #expect(req == ["nutmegSays", "scene1", "scene2", "scene3", "scene4"])
-        let scene = ((schema["$defs"] as? [String: Any])?["scene"] as? [String: Any])?["required"] as? [String]
-        #expect(scene?.contains("R6b") == true && scene?.contains("R1a") == true && scene?.contains("all1") == false)
-        // No prop pictures before the props are known.
-        let pic = ((schema["$defs"] as? [String: Any])?["picture"] as? [String: Any]).flatMap { ($0["properties"] as? [String: Any])?["kind"] as? [String: Any] }
-        #expect((pic?["enum"] as? [String]) == ["action", "kit"])
-        let keys = RoleID.allCases.flatMap { ["\($0.rawValue)a", "\($0.rawValue)b"] }
-        let one = #"{"id":"s","title":"Liftoff","picture":{"kind":"action","id":"wave"},"nutmegSays":"Pretend that we fly!","#
-            + keys.map { #""\#($0)":{"picture":{"kind":"action","id":"cheer"},"text":"\#($0) step"}"# }.joined(separator: ",") + "}"
-        let json = #"{"nutmegSays":"Hi!","# + (1...4).map { #""scene\#($0)":"# + one }.joined(separator: ",") + "}"
-        let four = try JSONDecoder().decode(KitScenesSix.self, from: Data(json.utf8))
-        let roles = RoleID.allCases.flatMap { r in [SceneOwner(r), SceneOwner(r)] }
-        #expect(four.scenes.count == 4 && four.scenes.allSatisfy { $0.steps.map(\.role) == roles })
-        #expect(Validate.scenes(four.scenes, roles: 6) == nil)
+        #expect(req.sorted() == ["scene1", "scene2", "scene3"])
+        let def = (schema["$defs"] as? [String: Any])?["scene"] as? [String: Any]
+        let scene = def?["required"] as? [String]
+        #expect(Set(scene ?? []) == Set(["title", "nutmegSays", "R1", "R2", "R3", "R4", "R5", "R6", "solo"]))
+        #expect(((def?["properties"] as? [String: Any])?["R3"] as? [String: Any])?["type"] as? String == "string")
+        let keys = RoleID.allCases.map(\.rawValue) + ["solo"]
+        let one = #"{"title":"Liftoff","nutmegSays":"Pretend that we fly!","# + keys.map { #""\#($0)":"\#($0) task""# }.joined(separator: ",") + "}"
+        let json = "{" + (1...3).map { #""scene\#($0)":"# + one }.joined(separator: ",") + "}"
+        let three = try JSONDecoder().decode(KitScenesSix.self, from: Data(json.utf8))
+        let roles = RoleID.allCases.map { SceneOwner($0) } + [.solo]
+        #expect(three.scenes.count == 3 && three.scenes.allSatisfy { $0.steps.map(\.role) == roles })
+        #expect(three.scenes.map(\.id) == ["s1", "s2", "s3"] && three.nutmegSays.isEmpty)
+        #expect(Validate.scenes(three.scenes, roles: 6) == nil)
     }
 
     // MARK: The store
@@ -129,11 +129,10 @@ import Testing
         let steps = store.fullKit?.scenes.flatMap(\.steps) ?? []
         #expect(steps.contains { $0.text == "Passenger, peek in the pretend big oven!" && $0.picture.kind == .kit })
         #expect(steps.contains { $0.picture == .prop("bowl") })
-        // Round 28: the playing roles are Captain + the customer counterpart (Passenger); each scene, a turn for each
-        // with ONLY its own steps.
+        // Round 29: the playing roles are Captain + the customer counterpart (Passenger); every scene shows both rows.
         #expect(store.playingRoles.map(\.roleName) == ["Captain", "Passenger"])
-        #expect(store.kit?.scenes.allSatisfy { sc in sc.steps.allSatisfy { $0.role == sc.owner } } == true)
-        #expect(store.kit?.scenes.map(\.owner) == [.R1, .R2, .R1, .R2, .R1, .R2, .R1, .R2])
+        #expect(store.kit?.scenes.count == 3)
+        #expect(store.kit?.scenes.allSatisfy { $0.steps.map(\.role) == [.R1, .R2] } == true)
     }
 
     @Test func aCorrectionRestartsTheGuide() async {
@@ -149,7 +148,7 @@ import Testing
         _ = await store.apply(.showNextProp(.init(itemID: "bowl", becomes: "the snack bowl", forRole: "all")))
         _ = await store.apply(.finishPlanning)
         await waitFor { store.phase == .kitReady && !store.guidePending }
-        #expect(guidePrompts(llm).count == 1 && (store.fullKit?.scenes.count ?? 0) >= 4)
+        #expect(guidePrompts(llm).count == 1 && (store.fullKit?.scenes.count ?? 0) == 3)
     }
 
     @Test func paperGoesAheadAndPlayWaitsForTheGuide() async {
@@ -165,8 +164,8 @@ import Testing
         #expect(store.playQueued && store.phase == .kitReady)
         #expect(await store.apply(.startPlay) == AdventureStore.playQueuedOutput)
         await waitFor { !store.guidePending }
-        #expect(store.phase == .handoff(sceneIndex: 0) || store.phase == .scene(0))   // play started by itself
-        #expect(!store.playQueued && (store.kit?.scenes.count ?? 0) == 8)   // round 28: 4 scenes × 2 playing roles
+        #expect(store.phase == .scene(0))   // play started by itself
+        #expect(!store.playQueued && (store.kit?.scenes.count ?? 0) == 3)   // round 29: the 3 scenes, everyone together
         #expect(store.fullKit?.scenes.flatMap(\.steps).contains { $0.picture == .prop("bowl") } == true)
     }
 

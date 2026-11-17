@@ -47,12 +47,12 @@ public enum Schemas {
                                "size": enumStr(["ticket", "badge", "bill", "keycard", "fullPage"]),
                                "title": str, "symbol": str, "lines": arr(str), "bigNumber": ["type": ["string", "null"]],
                                "perPlayer": bool, "copies": int, "colorMe": bool])),
-             // Round C1: no scene owner (the app rotates the hand-offs); every step belongs to a role or to everyone.
-             "scenes": nonEmpty(obj(["id": str, "title": str,
-                                "picture": picture("the scene title"), "nutmegSays": str,
-                                "steps": nonEmpty(obj(["picture": picture("the main object or action named in this step's text"), "text": str,
-                                                       "role": ["type": "string", "enum": roleIDs,
-                                                                "description": "The role this step is for (its text calls that role by its title). Round 28: every step belongs to one role (2 per role per scene)."]]))]))])
+             // Round 29 (ensemble scenes): no scene owner and no pictures (the rows show each role's character);
+             // every task belongs to one role, or is the scene's solo task.
+             "scenes": nonEmpty(obj(["id": str, "title": str, "nutmegSays": str,
+                                "steps": nonEmpty(obj(["text": str,
+                                                       "role": ["type": "string", "enum": roleIDs + ["solo"],
+                                                                "description": "Who this task is for (its text calls that role by its title): ONE task per role R1 to R6 per scene, plus one solo task (one kid playing alone as R1)."]]))]))])
     }
     /// Round 20: the kit in two parts, the pages (at the roles) and the play guide (when the hunt ends).
     public static func kitPages() -> [String: Any] {

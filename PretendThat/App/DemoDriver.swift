@@ -5,7 +5,8 @@ import NutmegCore
 
 /// DEBUG only: `-PTDemo <phase>` launches straight into a phase with the bundled airplane game
 /// (no network), so every screen can be screenshotted and reviewed quickly.
-/// Phases: hello, pickGame, players, roles, props, kitReady, handoff, scene, end; doneFlow (scene 0 with one step checked → finished early after 3 s → the hand-off).
+/// Phases: hello, pickGame, players, roles, props, kitReady, scene, scene2 (the second scene), end. Round 29:
+/// `-PTPlayers N` sets the count (default 3); `sceneLong` is scene 1 with 6 players and long tasks.
 enum DemoDriver {
     static var requestedPhase: String? {
         let args = ProcessInfo.processInfo.arguments
@@ -126,14 +127,22 @@ enum DemoDriver {
                 try? await Task.sleep(for: .seconds(1))
                 continue
             }
-            // Round 13 taps: "#found" / "#missing" (prop card buttons), "#play" (print step Let's play!), "#handoff"
-            // (the hand-off card's I'm the ___! button). Timed like real taps.
+            // Round 13 taps: "#found" / "#missing" (prop card buttons), "#play" (print step Let's play!). Round 29:
+            // "#next" (the green ▶ Next scene), "#task N" (row N's 🔊). Timed like real taps.
             // Round 26: on a replay the same card buttons answer the replay's one-card hunt.
             if turn == "#found" || turn == "#missing" {
                 if model.store.isReplay { model.replayHunt(found: turn == "#found") } else { model.huntReply(found: turn == "#found") }
                 continue
             }
-            if turn == "#done" { await model.sceneDone(); continue }
+            if turn == "#next" { model.realtime.beginTrace("next scene tap"); model.tapNextScene(); continue }
+            if turn.hasPrefix("#task "), let n = Int(turn.dropFirst(6)) { model.readTask(n); continue }
+            if turn == "#scene" {   // round 29: the current scene's rows (text only, for the log)
+                if case .scene(let i) = model.store.phase, let sc = model.store.kit?.scenes[i] {
+                    rtLog("SCENE \(i + 1) \"\(sc.title)\": \(sc.nutmegSays)")
+                    for st in sc.steps { rtLog("SCENE \(i + 1) row \(st.role.rawValue): \(st.text)") }
+                }
+                continue
+            }
             // Round 19: "#newgame" (the finale's New game: all the way home),
             // "#home" (the X close → Leave), "#sleep N" (a short pause in ms between fast taps).
             // Round 23: "#rail pick|props|paper|play" (a step-rail tap), "#chat" (dump the chat transcript to the log).
@@ -152,9 +161,7 @@ enum DemoDriver {
                 return
             }
             if turn.hasPrefix("#sleep "), let ms = Int(turn.dropFirst(7)) { try? await Task.sleep(for: .milliseconds(ms)); continue }
-            // Round 15: "#check N": the kid checks step N of the current scene's checklist.
-            if turn.hasPrefix("#check "), let n = Int(turn.dropFirst(7)) { model.checkStep(n); continue }
-            // Round 16/17: "#repeat": the pill's Repeat (the checklist read-aloud in play, else her last line again).
+            // Round 16/17: "#repeat": the pill's Repeat (the whole scene again in play, else her last line again).
             if turn == "#repeat" { model.repeatTapped(); continue }
             // Guide prefetch: "#guide": wait until the play guide is final (Paper may already be out without it).
             if turn == "#guide" {
@@ -241,23 +248,14 @@ enum DemoDriver {
                 continue
             }
             if turn == "#playthrough" {
-                for _ in 0..<80 {   // round 28: a turn per playing role per scene (up to 24 turns, 2 steps each)
+                for _ in 0..<12 {   // round 29: 3 scenes, everyone at once: let her read each scene, then ▶
                     for _ in 0..<600 where model.wifiPause.isPaused { try? await Task.sleep(for: .milliseconds(100)) }   // round D3b
-                    for _ in 0..<80 where model.realtime.isSpeaking || model.realtime.isBusy { try? await Task.sleep(for: .milliseconds(100)) }
-                    try? await Task.sleep(for: .seconds(1))
-                    switch model.store.phase {
-                    case .handoff(let i):
-                        if let t = model.store.kit?.scenes[i].owner.role { rtLog("driver: handoff to \(t.rawValue)"); model.tapHandoff(t) }
-                    case .scene(let i):
-                        // Round 26: no Done: tap every step, then the checklist moves on by itself after its grace.
-                        let n = model.store.kit?.scenes[i].steps.count ?? 0
-                        rtLog("driver: check all \(n) steps of scene \(i)")
-                        for s in 0..<n where !model.store.checkedSteps.contains(s) { model.checkStep(s); try? await Task.sleep(for: .milliseconds(500)) }
-                        for _ in 0..<60 where model.store.phase == .scene(i) { try? await Task.sleep(for: .milliseconds(100)) }
-                    default: break
-                    }
-                    // Round D3b: let her line start before the next tap (a tap 1 s in cut the hand-off lines, so they were never recorded).
                     for _ in 0..<50 where !model.realtime.isSpeaking && !model.wifiPause.isPaused { try? await Task.sleep(for: .milliseconds(100)) }
+                    for _ in 0..<900 where model.realtime.isSpeaking || model.realtime.isBusy { try? await Task.sleep(for: .milliseconds(100)) }
+                    try? await Task.sleep(for: .seconds(1))
+                    guard case .scene(let i) = model.store.phase else { break }
+                    rtLog("driver: next scene from \(i + 1)")
+                    model.tapNextScene()
                     if model.store.phase == .end { break }
                 }
                 for _ in 0..<80 where model.realtime.isSpeaking || model.realtime.isBusy { try? await Task.sleep(for: .milliseconds(100)) }
@@ -271,19 +269,6 @@ enum DemoDriver {
                 let said = String(turn.dropFirst(8))
                 rtLog("driver: \(said)")
                 if AppModel.isPlanning(model.store.phase) && !model.store.isReplay { await model.typed(said) } else { model.realtime.sendText(said) }
-                continue
-            }
-            // Round 26: "#checkall": tap every open step of the current checklist (it then moves on by itself).
-            if turn == "#checkall", case .scene(let i) = model.store.phase {
-                for s in 0..<(model.store.kit?.scenes[i].steps.count ?? 0) where !model.store.checkedSteps.contains(s) {
-                    model.checkStep(s); try? await Task.sleep(for: .milliseconds(600))
-                }
-                continue
-            }
-            if turn == "#handoff" {
-                if case .handoff(let i) = model.store.phase, let t = model.store.kit?.scenes[i].owner.role {
-                    model.realtime.beginTrace("handoff tap"); model.tapHandoff(t)
-                }
                 continue
             }
             guard model.store.phase != .makingKit else { rtLog("(kit being made, skipped: \(turn))"); continue }
@@ -321,17 +306,21 @@ enum DemoDriver {
             if target == "shelf" { model.openShelf() }
             return
         }
-        if target == "sceneLong" {   // round 14: a long Sunset-style checklist (2-line title, 6 long steps)
+        if target == "sceneLong" {   // round 14/29: 6 players, a 2-line title and 6 long tasks
             await drive(store, model: model, to: "scene")
-            if case .scene(let i) = store.phase, var sc = store.kit?.scenes[i] {
-                let pics = sc.steps.map(\.picture)
+            store.changePlayerCount(6)
+            if var sc = store.fullKit?.scenes[0] {
                 sc.title = "Sunset Closing Time at the Beach Café"
-                sc.steps = ["Wipe every table until it sparkles", "Stack the cups and plates on the tray",
-                            "Count the money in the cash register", "Flip the sign on the door to Closed",
-                            "Turn off the lights one by one", "Wave goodbye to the very last customer"]
-                    .enumerated().map { Step(picture: pics[$0.offset % max(1, pics.count)], text: $0.element) }
-                store.debugReplaceScene(i, with: sc)
+                let long = ["wipe every table until it sparkles, then stack the menus by the door",
+                            "count your Sky Dollars and pay for one last snack from the menu",
+                            "carry the snack cart to the kitchen and hand out the last cookie cut-outs",
+                            "flip the sign to Closed and wave goodbye to every passenger at the gate",
+                            "pack the snacks away and give the Captain a big thank-you high five",
+                            "find your suitcase, show your boarding pass and line up for the last ride"]
+                for k in 0..<6 { if let j = sc.steps.firstIndex(where: { $0.role.role?.index == k }) { sc.steps[j].text = long[k] } }
+                store.debugReplaceScene(0, with: sc)
             }
+            store.debugSetPhase(.scene(0))
             return
         }
         if target == "coloring" {   // the kit loader: Nutmeg coloring, clipboard back
@@ -340,12 +329,12 @@ enum DemoDriver {
             return
         }
         _ = model
-        let order = ["hello", "pickGame", "players", "roles", "props", "kitReady", "handoff", "scene", "doneFlow", "end"]
+        let order = ["hello", "pickGame", "players", "roles", "props", "kitReady", "scene", "scene2", "end"]
         guard let stop = order.firstIndex(of: target), stop > 0 else { return }
         func reached(_ name: String) -> Bool { order.firstIndex(of: name)! >= stop }
         await store.start(); if reached("pickGame") { return }
         await store.chooseGame("Airplane")
-        store.setPlayerCount(3)
+        store.setPlayerCount(demoPlayers)
         if reached("players") { return }
         await store.confirmPlayers(); if reached("roles") { return }
         await store.confirmRoles()
@@ -357,28 +346,17 @@ enum DemoDriver {
             return
         }
         store.beginPlay()
-        if target == "handoff" {   // advance until someone has to pass the iPad
-            while true {
-                switch store.phase {
-                case .handoff: return
-                case .scene: await store.sceneDone()
-                default: return
-                }
-            }
-        }
-        if case .handoff(let i) = store.phase, let t = store.kit?.scenes[i].owner.role { store.badgeTapped(t) }
-        store.toggleStep(0)
         if target == "scene" { return }
-        if target == "doneFlow" {
-            try? await Task.sleep(for: .seconds(3))
-            await store.sceneDone()
-            return
-        }
-        store.autoCheckStep = .zero; store.autoCheckHold = .zero
-        while case .scene = store.phase {
-            await store.sceneDone()
-            if case .handoff(let i) = store.phase, let t = store.kit?.scenes[i].owner.role { store.badgeTapped(t) }
-        }
+        store.nextScene()
+        if target == "scene2" { return }
+        while case .scene = store.phase { store.nextScene() }
+    }
+
+    /// Round 29: `-PTPlayers N` (1–6) for the demo phases (default 3).
+    static var demoPlayers: Int {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-PTPlayers"), i + 1 < args.count, let n = Int(args[i + 1]) else { return 3 }
+        return max(1, min(n, Players.max))
     }
 
     /// Round D2: `-PTDemo seed2`: plays the bundled airplane game to The End (no network), saves it twice under two

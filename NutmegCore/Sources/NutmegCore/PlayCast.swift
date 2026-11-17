@@ -1,10 +1,10 @@
 import Foundation
 
-// Round C1 (generate for 6, Haylee's answer 2): every game is written for 6 kids. Claude (or the voice model) makes 6
-// RANKED roles, R1…R6, and every scene has ONE step for each of the 6 roles (called out by the role's title) plus up
-// to 2 steps for everyone. With N kids the first N roles play: the app shows and says only their steps, and the
-// hand-offs rotate through those N roles over the scenes, so every kid gets a turn holding the iPad. Changing N never
-// needs an AI call: everything here is a pure function of the game data and N (unit-tested in RoundC1Tests).
+// Round C1 (generate for 6, Haylee's answer 2): every game is written for 6 kids. Claude makes 6 RANKED roles, R1…R6.
+// Round 29 (Haylee, ensemble scenes): every scene has ONE bigger, interactive task for each of the 6 roles (called out
+// by the role's title) plus a solo task. With N kids the first N roles play and the iPad stays in the middle: a scene
+// card shows ALL their rows at once (no hand-offs, no checkboxes). Changing N never needs an AI call: everything here
+// is a pure function of the game data and N (unit-tested in Round29Tests).
 
 /// Turns the roles Nutmeg proposed into the game's cast (decision roles-not-names.md): exactly 6 distinct ranked
 /// roles, ids R1…R6 by position, one kid each. A repeated or missing title gets a generic extra role.
@@ -44,94 +44,88 @@ public enum RoleCast {
 }
 
 public enum PlayCast {
-    /// The most steps a checklist shows (the checklist fit is built for 3 to 6 rows).
-    public static let maxVisibleSteps = 6
-    /// Round 28 (Haylee): a role's checklist is only theirs, so no steps for everyone are shown (kept at 0 for older
-    /// callers; a guide that still has "all" steps keeps them in the data, never on screen).
-    public static let groupStepsMax = 0
-    /// Round 28: each role has this many steps of its own in every scene (its checklist when it holds the iPad).
-    public static let stepsPerRole = 2
+    /// Round 29 (Haylee, ensemble scenes): a scene card shows one row per playing role, so at most 6 rows.
+    public static let maxRows = 6
+    /// Round 29: each role has ONE task per scene (plus the scene's one solo task).
+    public static let stepsPerRole = 1
 
     /// 1…6.
     public static func players(_ n: Int) -> Int { max(1, min(n, RoleCast.count)) }
 
-    /// Who holds the iPad in turn `i` of a guide written before round C1 (no role steps): the playing roles in turn.
-    public static func owner(scene i: Int, players n: Int) -> RoleID {
-        RoleID.allCases[((i % players(n)) + players(n)) % players(n)]
-    }
-
     /// A scene written before round C1 (no step belongs to a role): shown as it is.
-    static func isLegacy(_ s: Scene) -> Bool { !s.steps.contains { $0.role.role != nil } }
+    static func isLegacy(_ s: Scene) -> Bool { !s.steps.contains { $0.role.role != nil || $0.role == .solo } }
 
-    /// Round 28 (Haylee, "one role per checklist"): the checklist for ONE playing role in a scene: that role's own
-    /// steps (at most `stepsPerRole`), or one the app writes from the role's job if the scene has none. No other
-    /// role's steps and no steps for everyone. Order is the scene's own order.
-    public static func turnSteps(_ scene: Scene, role: Role, roles: [Role], players n: Int) -> [Step] {
+    /// One playing role's task in a scene: its own task (the first one), or one the app writes from the role's job,
+    /// with any role that isn't playing turned into "a friend", called out by the role's title.
+    public static func task(_ scene: Scene, role: Role, roles: [Role], players n: Int) -> Step {
+        var s = scene.steps.first { $0.role.role == role.id } ?? filler(role)
+        s.text = calledOut(unname(s.text, roles: roles, players: players(n)), role: role)
+        s.role = SceneOwner(role.id)
+        return s
+    }
+
+    /// Round 29 (solo, Claude's call): one kid plays the scene's `solo` task, a slightly bigger version of R1's task
+    /// written for a kid alone; a guide without one falls back to R1's task. The row is R1's (its picture and title).
+    public static func soloTask(_ scene: Scene, roles: [Role]) -> Step? {
+        guard let r1 = roles.first(where: { $0.id == .R1 }) else { return nil }
+        guard var s = scene.steps.first(where: { $0.role == .solo }) else { return task(scene, role: r1, roles: roles, players: 1) }
+        // Not "unnamed": a solo task is written for a kid alone and may speak of pretend customers ("every pretend
+        // passenger"), which would wrongly match another role's title.
+        s.text = calledOut(s.text, role: r1)
+        s.role = .R1
+        return s
+    }
+
+    /// Round 29 (Haylee): the rows N players see in a scene, all at once: one per playing role in rank order (with one
+    /// kid, the solo task). A pure function of the guide, the roles and N: a count change never needs an AI call.
+    public static func rows(_ scene: Scene, roles: [Role], players n: Int) -> [Step] {
         let n = players(n)
-        var own = scene.steps.filter { $0.role.role == role.id }
-        if own.isEmpty { own = [filler(role)] }
-        return own.prefix(stepsPerRole).map { st in
-            var s = st
-            s.text = calledOut(unname(s.text, roles: roles, players: n), role: role)
-            return s
+        if isLegacy(scene) || roles.isEmpty {
+            return scene.steps.prefix(maxRows).map { var s = $0; s.text = unname(s.text, roles: roles, players: n); return s }
         }
+        if n == 1, let solo = soloTask(scene, roles: roles) { return [solo] }
+        return RoleCast.playing(roles, kids: n).map { task(scene, role: $0, roles: roles, players: n) }
     }
 
-    /// Every playing role's steps in a scene, in role order (tests and the guide view; play uses `turnSteps`).
-    public static func visibleSteps(_ scene: Scene, roles: [Role], players n: Int) -> [Step] {
-        let n = players(n)
-        if isLegacy(scene) { return scene.steps.map { var s = $0; s.text = unname(s.text, roles: roles, players: n); return s } }
-        return RoleCast.playing(roles, kids: n).flatMap { turnSteps(scene, role: $0, roles: roles, players: n) }
+    /// The scene as N players see it: its title and "Pretend that" setup with no role that isn't playing, and its rows.
+    public static func scene(_ s: Scene, roles: [Role], players n: Int) -> Scene {
+        Scene(id: s.id, owner: .all, title: unname(s.title, roles: roles, players: players(n), title: true), picture: s.picture,
+              nutmegSays: sceneLine(s.nutmegSays, roles: roles, players: players(n)), steps: rows(s, roles: roles, players: n))
     }
 
-    /// The step the app writes for a role that has none in a scene ("Lookout, look out for surprises!").
-    static func filler(_ role: Role) -> Step {
-        let job = role.job.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: ".!"))
-        let text = job.isEmpty ? "\(role.roleName), show everyone your best move!" : "\(role.roleName), \(lowerFirst(job))!"
-        return Step(picture: .action("cheer"), text: text, role: SceneOwner(role.id))
-    }
-
-    /// Round 28: a second step the app writes (template scenes): a body action, no object.
-    static func filler2(_ role: Role, variant k: Int) -> Step {
-        let moves: [(String, String)] = [("give a friend a big wave", "wave"), ("clap for your team", "clap"),
-                                         ("point to where the fun is", "point"), ("count to five out loud", "count")]
-        let m = moves[((k % moves.count) + moves.count) % moves.count]
-        return Step(picture: .action(m.1), text: "\(role.roleName), \(m.0)!", role: SceneOwner(role.id))
-    }
-
-    /// Round 28 (Haylee, "one role per checklist"): the play TURNS for N players. For each scene, each playing role in
-    /// rank order gets a turn: a hand-off to that role, then a checklist of only that role's steps. The first turn of
-    /// a scene carries the scene's "Pretend that" intro; the others start straight at the role's first step.
-    /// A guide written before round C1 (no role steps) keeps one turn per scene, rotating as before.
-    public static func turns(_ s: Scene, index i: Int, roles: [Role], players n: Int) -> [Scene] {
-        let n = players(n)
-        let title = unname(s.title, roles: roles, players: n, title: true)
-        let intro = sceneLine(s.nutmegSays, roles: roles, players: n)
-        let playing = roles.isEmpty ? [] : RoleCast.playing(roles, kids: n)
-        if isLegacy(s) || playing.isEmpty {
-            var out = s
-            out.steps = visibleSteps(s, roles: roles, players: n)
-            out.owner = SceneOwner(owner(scene: i, players: n))
-            out.title = title; out.nutmegSays = intro
-            return [out]
-        }
-        return playing.enumerated().map { k, role in
-            Scene(id: "\(s.id)#\(role.id.rawValue)", owner: SceneOwner(role.id), title: title, picture: s.picture,
-                  nutmegSays: k == 0 ? intro : "", steps: turnSteps(s, role: role, roles: roles, players: n))
-        }
-    }
-
-    /// The scene as N players see it, for the first playing role (kept for older callers).
-    public static func scene(_ s: Scene, index i: Int, roles: [Role], players n: Int) -> Scene {
-        turns(s, index: i, roles: roles, players: n)[0]
-    }
-
-    /// The whole kit as N players see it: `scenes` is the list of play TURNS (scene 1: R1, R2, …, RN; scene 2: R1, …).
+    /// The whole kit as N players see it: the same scenes (round 29: no hand-off turns), each with its playing rows.
     /// The pages are unchanged (KitLayout prints N badges).
     public static func kit(_ k: Kit, roles: [Role], players n: Int) -> Kit {
         var out = k
-        out.scenes = k.scenes.enumerated().flatMap { turns($0.element, index: $0.offset, roles: roles, players: n) }
+        out.scenes = k.scenes.map { scene($0, roles: roles, players: n) }
         return out
+    }
+
+    /// The task the app writes for a role that has none in a scene ("Lookout, look out for surprises!").
+    static func filler(_ role: Role) -> Step {
+        let job = role.job.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: ".!"))
+        let text = job.isEmpty ? "\(role.roleName), show everyone your best move!" : "\(role.roleName), \(lowerFirst(job))!"
+        return Step(picture: .point, text: text, role: SceneOwner(role.id))
+    }
+
+    /// Round 29: the solo task the app writes when a guide has none (a template scene): R1's job, done for everyone.
+    static func soloFiller(_ role: Role) -> Step {
+        var s = filler(role)
+        s.role = .solo
+        return s
+    }
+
+    /// Round 29 (Haylee): what Nutmeg says when a scene opens, in one flowing line: the "Pretend that" setup, then each
+    /// row's task (each already starts with its role's title). `scene` is the scene as the players see it.
+    public static func sceneSpeech(_ scene: Scene) -> String {
+        ([scene.nutmegSays] + scene.steps.map(\.text))
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+            .map(endSentence).joined(separator: " ")
+    }
+
+    static func endSentence(_ s: String) -> String {
+        guard let last = s.last else { return s }
+        return ".!?".contains(last) ? s : s + "."
     }
 
     // MARK: Text

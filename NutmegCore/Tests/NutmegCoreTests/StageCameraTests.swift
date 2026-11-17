@@ -25,7 +25,7 @@ struct StageCameraTests {
         }
     }
 
-    static let phases: [Phase] = [.pickGame, .players, .props, .makingKit, .kitReady, .handoff(sceneIndex: 0), .scene(0), .end]
+    static let phases: [Phase] = [.pickGame, .players, .props, .makingKit, .kitReady, .scene(0), .end]
 
     @Test func feetOnTheFloorInEveryPhaseAndShot() {
         var checked = 0
@@ -193,7 +193,7 @@ struct StagePresetTests {
     static let curtain: CGFloat = 70
 
     @Test func everyPhaseMapsToAPresetAndOnlyPresetFrames() {
-        let allPhases: [Phase] = [.hello, .pickGame, .players, .props, .makingKit, .kitReady, .handoff(sceneIndex: 0), .scene(0), .end]
+        let allPhases: [Phase] = [.hello, .pickGame, .players, .props, .makingKit, .kitReady, .scene(0), .end]
         for g in StageCameraTests.geometries() {
             let presetFrames = D.Preset.allCases.map { D.frame($0, cards: 4, curtainInset: Self.curtain, g) }
                 + D.Preset.allCases.map { D.frame($0, cards: 0, curtainInset: Self.curtain, g) }
@@ -231,7 +231,6 @@ struct StagePresetTests {
             #expect(p(.makingKit, writing: true, chat: chat) == .writing)
             #expect(p(.kitReady, beat: .papers, chat: chat) == card)
             #expect(p(.scene(0), chat: chat) == card)
-            #expect(p(.handoff(sceneIndex: 0), chat: chat) == card)
             #expect(p(.end, chat: chat) == card)
             #expect(p(.pickGame, chat: chat) == card)   // tap screens
             #expect(p(.hello, chat: chat) == .hop)

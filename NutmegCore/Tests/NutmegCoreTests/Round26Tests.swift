@@ -36,14 +36,13 @@ import Testing
 
     @Test func linesNameThePictureButtons() {
         #expect(HandOffLines.printReady == "Your kit is ready! Want them in color, or plain to color yourself? Tap the ones you like, then the printer! Tap the green play button when you're set!")
-        #expect(HandOffLines.handoff(spokenRole: "the Head Baker") == "Pass the iPad to the Head Baker! Tap the green check when you have the iPad!")
+        #expect(HandOffLines.nextSceneHowTo == "Tap the green play button for the next scene!")
         #expect(HandOffLines.end() == "The end! What a show! Take a bow! Tap the star to save it, or the house to go home!")
         #expect(HandOffLines.end(replay: true) == "The end! What a show! Take a bow! Tap the house to go home!")
         #expect(BackNav.arrivalLine(.print) == "Back to Print! Tap the printer to print it again.")
         #expect(AdventureStore.firstPropLine(item: "bowl", becomes: "the mixing bowl").contains("tap the green check"))
         // No line names a button that's gone.
-        let all = [HandOffLines.printReady, HandOffLines.handoff(spokenRole: "the Captain"), HandOffLines.end(), HandOffLines.end(replay: true),
-                   HandOffLines.backToChecklist, HandOffLines.checklist(sceneLine: "Snack time!", firstScene: true),
+        let all = [HandOffLines.printReady, HandOffLines.nextSceneHowTo, HandOffLines.end(), HandOffLines.end(replay: true),
                    ReplayLines.greeting(title: "X"), ReplayLines.savedGame, GrownUpsCopy.emptySavedGames] + CommonLines.all
         for l in all {
             for gone in ["Done", "Let's play", "I'm the", "Save it to play again", "New game", "All set", "Don't have it", "Play it again"] {
@@ -54,12 +53,8 @@ import Testing
 
     @Test func theEndSavesOnlyAFirstPlay() async {
         let store = await storeWithKit(owners: [.R1, .R2], players: 2)
-        store.autoCheckStep = .zero; store.autoCheckHold = .zero
         store.beginPlay()
-        for _ in 0..<12 where store.phase != .end {
-            if case .handoff(let i) = store.phase, let o = store.kit?.scenes[i].owner.role { store.badgeTapped(o) }
-            await store.sceneDone()
-        }
+        for _ in 0..<12 where store.phase != .end { store.nextScene() }
         #expect(store.phase == .end && store.nutmegLine.hasSuffix(HandOffLines.end()))
         // The star is offered only while the first play can be saved; once saved (or on a replay) only the house.
         #expect(store.canSave)

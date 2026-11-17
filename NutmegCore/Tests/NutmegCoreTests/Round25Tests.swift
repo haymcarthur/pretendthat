@@ -118,43 +118,34 @@ import Testing
 
     // MARK: 3b: a replay at 1 → 2 → 3 (Haylee: the second player got no checklist)
 
-    /// Plays the replay through; returns each scene's (holder, visible step roles).
-    func playThrough(_ store: AdventureStore) async -> [(owner: RoleID?, roles: [SceneOwner])] {
-        store.autoCheckStep = .zero; store.autoCheckHold = .zero
-        var seen: [(RoleID?, [SceneOwner])] = []
+    /// Plays the replay through; returns each scene's visible row roles (round 29: no hand-offs).
+    func playThrough(_ store: AdventureStore) async -> [[SceneOwner]] {
+        var seen: [[SceneOwner]] = []
         store.replayAllFound(); store.beginPlay()
         for _ in 0..<20 where store.phase != .end {
-            if case .handoff(let i) = store.phase, let o = store.kit?.scenes[i].owner.role { store.badgeTapped(o) }
             guard case .scene(let i) = store.phase, let sc = store.kit?.scenes[i] else { break }
-            seen.append((sc.owner.role, sc.steps.map(\.role)))
-            await store.sceneDone()
+            seen.append(sc.steps.map(\.role))
+            store.nextScene()
         }
         return seen
     }
 
-    @Test func aReplayAtOneThenTwoThenThreeRotatesThroughEveryPlayingRole() async {
+    @Test func aReplayAtOneThenTwoThenThreeShowsEveryPlayingRoleInEveryScene() async {
         let store = AdventureStore(service: nil)
         for n in [1, 2, 3] {
             store.loadReplay(Self.bakeryGame)
             store.replayPick(n)
             let scenes = await playThrough(store)
             #expect(store.phase == .end)
-            #expect(scenes.count >= GuideRepair.minScenes)
-            let playing = Array(RoleID.allCases.prefix(n))
-            // Hand-offs rotate R1, R2, …, RN: every playing role holds the iPad, nobody else does.
-            #expect(scenes.map(\.owner) == scenes.indices.map { Optional(playing[$0 % n]) }, "N=\(n)")
-            #expect(Set(scenes.compactMap(\.owner)) == Set(playing))
-            for s in scenes {
-                // Round 28: each turn's checklist is ONLY the holder's steps.
-                #expect(!s.roles.isEmpty && s.roles.allSatisfy { $0.role == s.owner }, "N=\(n): \(s.roles)")
-            }
-            #expect(scenes.count == (store.fullKit?.scenes.count ?? 0) * n)
+            #expect(scenes.count == GuideRepair.minScenes)   // the repaired guide: 3 scenes
+            let playing = Array(RoleID.allCases.prefix(n)).map { SceneOwner($0) }
+            #expect(scenes.allSatisfy { $0 == playing }, "N=\(n): \(scenes)")
         }
         // And the count change in the middle of one replay (1 → 2 at Pick) needs no reload.
         store.loadReplay(Self.bakeryGame)
         store.replayPick(1); #expect(store.goTo(.game)); store.replayPick(2)   // round 26: Pick moves on to Props
         let scenes = await playThrough(store)
-        #expect(Set(scenes.compactMap(\.owner)) == [.R1, .R2])
+        #expect(scenes.allSatisfy { $0 == [.R1, .R2] })
     }
 
     @Test func theReplayChecklistHasRealTitlesAndUsesTheProps() {
@@ -171,9 +162,9 @@ import Testing
         #expect(store.kit!.scenes.flatMap { $0.steps.map(\.text) }.contains { $0.contains("pretend mixing bowl") })
     }
 
-    // MARK: 4: The End → the Play step goes back to the checklist
+    // MARK: 4: The End → the Play step goes back to the last scene (round 29)
 
-    @Test func theEndsPlayStepGoesBackToTheChecklist() async {
+    @Test func theEndsPlayStepGoesBackToTheLastScene() async {
         let store = AdventureStore(service: nil)
         store.loadReplay(Self.bakeryGame)
         store.replayPick(2)
@@ -182,13 +173,12 @@ import Testing
         #expect(store.nutmegLine.hasSuffix(HandOffLines.end(replay: true)))   // round 26: the house only
         let last = store.kit!.scenes.count - 1
         #expect(store.goTo(.play) && store.phase == .scene(last))
-        #expect(store.checkedSteps.isEmpty)   // round 26: unchecked again (checking them all moves on to The End)
-        #expect(store.nutmegLine == HandOffLines.backToChecklist)
-        // Voice: "go back to the checklist" = go_to_step play.
-        await store.sceneDone()
+        #expect(store.nutmegLine == HandOffLines.sceneOpen(store.kit!.scenes[last]))
+        // Voice: "go back to the play step" = go_to_step play.
+        store.nextScene()
         #expect(store.phase == .end)
         let out = await store.apply(.goToStep(.play))
-        #expect(store.phase == .scene(last) && out.contains(HandOffLines.backToChecklist))
+        #expect(store.phase == .scene(last) && out == AdventureStore.backToLastSceneOutput)
     }
 
     // MARK: 1: no printer question, no Draw it!

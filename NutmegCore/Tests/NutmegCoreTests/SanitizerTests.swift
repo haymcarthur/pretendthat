@@ -5,7 +5,7 @@ import Testing
     let k = Sanitizer.clean(Fixture.oversizedKit, roleCount: 2)
     #expect(k.items.count == 1)   // six ticket-sized items fill only the one tickets slot of the recipe
     #expect(k.items[0].recipe == .tickets)
-    #expect(k.scenes.count == 6)
+    #expect(k.scenes.count == 3)   // round 29: 3 scenes
     #expect(k.scenes.allSatisfy { $0.steps.count <= 5 })
     #expect(k.items.allSatisfy { (1...8).contains($0.copies) })
     #expect(k.items[0].symbol == "star")

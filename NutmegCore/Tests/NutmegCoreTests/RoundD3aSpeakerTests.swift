@@ -79,7 +79,7 @@ private let t0 = Date(timeIntervalSinceReferenceDate: 1_000)
     m.remember("Tap Let's play!")
     #expect(m.line == "Tap Let's play!")
     // It's the Repeat fallback when there's no chat line.
-    #expect(RepeatTarget.choose(inChecklist: false, busy: false, transcriptLast: nil, appLast: m.line) == .lastLine("Tap Let's play!"))
+    #expect(RepeatTarget.choose(inScene: false, busy: false, transcriptLast: nil, appLast: m.line) == .lastLine("Tap Let's play!"))
 }
 
 @Test func kidTurnStopRulesAreUnchanged() {

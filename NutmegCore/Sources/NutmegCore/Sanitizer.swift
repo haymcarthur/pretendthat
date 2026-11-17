@@ -2,9 +2,10 @@ import Foundation
 /// Clamps decoded AI output to the spec's limits (§5) instead of crashing on odd JSON.
 public enum Sanitizer {
     public enum Limits {
-        public static let ideas = 3, propsMax = 5, itemsMax = 6, scenesMax = 6, choicesMax = 4
-        /// Round 28: 2 steps for each of the 6 roles a scene, none for everyone (a role's checklist is only theirs).
-        public static let stepsMax = 12, legacyStepsMax = 5
+        /// Round 29 (ensemble scenes): 3 scenes.
+        public static let ideas = 3, propsMax = 5, itemsMax = 6, scenesMax = 3, choicesMax = 4
+        /// Round 29: ONE task for each of the 6 roles a scene, plus one solo task; none for everyone.
+        public static let stepsMax = 7, legacyStepsMax = 5
         public static let copies = 1...8
     }
 
@@ -28,10 +29,10 @@ public enum Sanitizer {
         return k
     }
 
-    /// Round 28: at most `PlayCast.stepsPerRole` steps per role (the first ones); steps for everyone are dropped (a
-    /// role's checklist is only theirs). A scene with no role steps (older JSON) keeps its first `legacyStepsMax` steps.
+    /// Round 29: at most `PlayCast.stepsPerRole` (1) task per role and one solo task (the first ones); steps for
+    /// everyone are dropped. A scene with no role steps (older JSON) keeps its first `legacyStepsMax` steps.
     static func roleSteps(_ steps: [Step]) -> [Step] {
-        guard steps.contains(where: { $0.role.role != nil }) else { return Array(steps.prefix(Limits.legacyStepsMax)) }
+        guard steps.contains(where: { $0.role.role != nil || $0.role == .solo }) else { return Array(steps.prefix(Limits.legacyStepsMax)) }
         var seen: [SceneOwner: Int] = [:]
         return steps.filter { st in
             if st.role == .all { return false }

@@ -141,10 +141,11 @@ public enum Realtime {
     are on screen, color and outline: "color" → choose_print_set color; "we'll color them", "the outline ones", "plain" \
     → choose_print_set outline. Otherwise \
     answer in one short line. "Go play" wording is only for after start_play.
-    PLAY STEP: on a checklist, if they say they're done ("we're done", "done", "finished"), call finish_scene and say \
-    nothing (the checklist also moves on by itself once every step is checked).
+    PLAY STEP: everyone plays each scene together (the app reads each role's task). If they want the next scene \
+    ("next scene", "we're done", "what's next", "finished"), call next_scene and say nothing (the app says the next \
+    scene); otherwise one short, fun line that helps the scene.
     GOING BACK (after the hunt: print step, play step, The End; the steps are Pick, Props, Print, Play): "print it \
-    again", "go back to the props", "back to the game", "back to the checklist" → call go_to_step (pick, props, print \
+    again", "go back to the props", "back to the game", "back to the play step" → call go_to_step (pick, props, print \
     or play) and say only the line its result gives you.
     6. FINISH: call finish_planning and stop talking. The app says the one "making your kit" line and tells the kids \
     when the kit is ready. Never say the kit is done, ready or "go play" yourself.
@@ -344,16 +345,13 @@ public enum Realtime {
            + "(\"in color\", \"the color ones\") or \"outline\" (\"we'll color them\", \"the outline ones\", \"plain\", "
            + "\"coloring pages\"). Moves the highlight, like tapping that set; the result says the one line to say.",
            ["set": ["type": "string", "enum": ["color", "outline"]]], required: ["set"]),
-        fn("confirm_handoff", "PLAY STEP hand-off only: the kid holding the iPad says they're the role it was passed to "
-           + "(\"I'm the Captain\", \"I've got it\"). Does exactly what tapping the card's green check does. Say nothing.",
-           [:], required: []),
-        fn("finish_scene", "PLAY STEP checklist only: the kids say they're done with this scene (\"we're done\", \"done\", "
-           + "\"finished\", \"we did it all\"). Checks the rest and moves on, like checking every step. Say nothing.",
-           [:], required: []),
+        fn("next_scene", "PLAY STEP scene only: the kids want the next scene (\"next scene\", \"we're done\", \"what's "
+           + "next\", \"finished\"). Does exactly what tapping the green Next scene button does (after the last scene: "
+           + "The End). Say nothing: the app says the next scene.", [:], required: []),
         fn("go_to_step", "After the hunt (print step, play step, The End): the kids want to go back to a step they already "
-           + "did (\"print it again\", \"go back to the props\", \"back to the game\", \"back to the checklist\"). The "
+           + "did (\"print it again\", \"go back to the props\", \"back to the game\", \"back to the play step\"). The "
            + "steps are Pick, Props, Print, Play. Does exactly what tapping that step on the step rail does; the result says "
-           + "the one line to say. \"Print it again\" = print; \"back to the checklist\" = play.",
+           + "the one line to say. \"Print it again\" = print; \"back to the last scene\" = play.",
            ["step": ["type": "string", "enum": ["pick", "props", "print", "play"]]], required: ["step"]),
         fn("start_planning", "Silent: you write the roles and the prop list on your clipboard for a moment (call it ONCE, "
            + "right before set_roles). When it returns, call set_roles, then show_next_prop, then announce both.",
@@ -401,8 +399,7 @@ public enum Realtime {
     public static func afterHuntTools(_ phase: Phase) -> [String]? {
         switch phase {
         case .kitReady: return ["start_play", "print_kit", "choose_print_set", "go_to_step", "just_talk"]
-        case .handoff: return ["confirm_handoff", "go_to_step", "just_talk"]
-        case .scene: return ["finish_scene", "go_to_step", "just_talk"]
+        case .scene: return ["next_scene", "go_to_step", "just_talk"]
         case .end: return ["go_to_step", "just_talk"]
         default: return nil
         }
@@ -591,10 +588,8 @@ public enum PlanningCall: Equatable, Sendable {
     case justTalk, startPlay, printKit
     /// Round 27: "color" / "we'll color them" on the Print step: which set the printer prints.
     case choosePrintSet(PrintStyle)
-    /// Round 9: "I'm the Captain" by voice on the hand-off card, same as tapping the button.
-    case confirmHandoff
-    /// Round 26: "we're done" on the checklist (there is no Done button): checks the rest and moves on.
-    case finishScene
+    /// Round 29 (ensemble scenes): "next scene" / "we're done" in a scene, same as the green ▶ Next scene button.
+    case nextScene
     /// Round 23: "print it again", "go back to the props": the same navigation as tapping a step on the rail.
     case goToStep(JourneyStep)
 
@@ -646,8 +641,7 @@ public enum PlanningCall: Equatable, Sendable {
         case "start_play": return .startPlay
         case "print_kit": return .printKit
         case "choose_print_set": return PrintStyle(choice: s(a, "set")).map { .choosePrintSet($0) }
-        case "confirm_handoff": return .confirmHandoff
-        case "finish_scene": return .finishScene
+        case "next_scene": return .nextScene
         case "go_to_step": return BackNav.toolSteps[s(a, "step").lowercased()].map { .goToStep($0) }
         default: return nil
         }

@@ -61,11 +61,11 @@ import Foundation
         #expect(Prompts.system.contains("EVERY scene's nutmegSays starts with \"Pretend that\""))
     }
     @Test func bundledGameScenesAllSayPretendThat() throws {
-        let kit = Sanitizer.clean(Kit(nutmegSays: "", items: [], scenes: (0..<4).map { i in
+        let kit = Sanitizer.clean(Kit(nutmegSays: "", items: [], scenes: (0..<3).map { i in
             Scene(id: "s\(i)", owner: .all, title: "Scene \(i)", picture: .point, nutmegSays: "Go, team \(i)!", steps: [])
         }), roleCount: 2)
         #expect(kit.scenes.allSatisfy { PretendLine.has($0.nutmegSays) })
-        #expect(Set(kit.scenes.map(\.nutmegSays)).count == 4)   // varied openers
+        #expect(Set(kit.scenes.map(\.nutmegSays)).count == 3)   // varied openers
     }
 }
 

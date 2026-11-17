@@ -50,7 +50,7 @@ struct Round19SafetyTests {
         #expect(Sanitizer.kidSafety(a.plan.safetyTexts) == nil)
         #expect(Sanitizer.kidSafety(a.props.safetyTexts) == nil)
         for id in PropLibrary.ids { #expect(Sanitizer.kidSafety(PropLibrary.name(id) ?? id) == nil, "\(id)") }
-        for line in [HandOffLines.printReady, HandOffLines.backToChecklist, HandOffLines.end(), HandOffLines.handoff(spokenRole: "the Captain"), TurnCheck.silenceLine] + PretendLine.openers + KitProgress.allLines { #expect(Sanitizer.kidSafety(line) == nil, "\(line)") }
+        for line in [HandOffLines.printReady, HandOffLines.nextSceneHowTo, HandOffLines.end(), TurnCheck.silenceLine] + PretendLine.openers + KitProgress.allLines { #expect(Sanitizer.kidSafety(line) == nil, "\(line)") }
     }
 
     @Test func steerAwayNeverRepeatsTheUnsafeWords() {

@@ -93,7 +93,7 @@ public final class PhaseService: Sendable {
                                    problem: { Validate.scenes($0.scenes, roles: roles) }) },
                                   Prompts.kitScenes(ctx: c, items: items, huntPending: true))
         // There's time during the hunt: a guide still short after its one fix is written again (RetryOnce).
-        if made.scenes.count < 4 { throw ClaudeError.decoding("the play guide had \(made.scenes.count) scenes") }
+        if made.scenes.count < KitScenesSix.count { throw ClaudeError.decoding("the play guide had \(made.scenes.count) scenes") }
         return Kit(nutmegSays: made.nutmegSays, items: items, scenes: made.scenes)
     }
 
@@ -171,22 +171,23 @@ public enum Validate {
         }
         return scenes(k.scenes, roles: roles)
     }
-    /// `roles`: how many ranked roles the game has (round C1: each needs its own step in every scene; 0 = no check).
+    /// `roles`: how many ranked roles the game has (round 29: each needs its own ONE task in every scene; 0 = no check).
     public static func scenes(_ scenes: [Scene], roles: Int = 0) -> Problem? {
-        if scenes.count < 4 { return short("scenes", scenes.count, want: "exactly 4 scenes", fatal: scenes.isEmpty) }
+        let want = GuideRepair.minScenes
+        if scenes.count < want { return short("scenes", scenes.count, want: "exactly \(want) scenes", fatal: scenes.isEmpty) }
         if let s = scenes.first(where: { GuideRepair.isPlaceholderTitle($0.title) }) {
             return Problem(message: "scene \"\(s.id)\" had no real title", fatal: false)
         }
-        if let s = scenes.first(where: { $0.steps.count < 3 }) {
-            return short("steps in scene \"\(s.title)\"", s.steps.count, want: "two steps for each role in every scene", fatal: s.steps.isEmpty)
+        if let s = scenes.first(where: { $0.steps.isEmpty }) {
+            return short("tasks in scene \"\(s.title)\"", 0, want: "one task for each role in every scene", fatal: true)
         }
-        // Round C1 (Haylee): every role gets its OWN step in every scene (non-fatal: the app writes one as a last resort).
+        // Every role gets its OWN task in every scene (non-fatal: the app writes one as a last resort).
         let ids = RoleID.allCases.prefix(min(roles, RoleCast.count))
         let gaps = scenes.compactMap { s -> String? in
             let missing = ids.filter { r in !s.steps.contains { $0.role.role == r } }
-            return missing.isEmpty ? nil : "scene \"\(s.title)\" had no step for \(missing.map(\.rawValue).joined(separator: ", "))"
+            return missing.isEmpty ? nil : "scene \"\(s.title)\" had no task for \(missing.map(\.rawValue).joined(separator: ", "))"
         }
         return gaps.isEmpty ? nil : Problem(message: gaps.joined(separator: "; ")
-            + "; give EVERY role (R1 to R6) its own 2 steps in EVERY scene, tagged with its role id and calling it by its title", fatal: false)
+            + "; give EVERY role (R1 to R6) its own ONE task in EVERY scene, tagged with its role id and calling it by its title", fatal: false)
     }
 }

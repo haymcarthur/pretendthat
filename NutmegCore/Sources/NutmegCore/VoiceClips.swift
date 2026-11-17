@@ -3,7 +3,7 @@ import CryptoKit
 
 // Round D3b (design 2026-11-15-saved-games-replay-design.md §D4, Haylee): replays use Nutmeg's REAL recorded voice.
 // On a play, the app records the realtime output audio of its OWN scripted lines (the ones it sends with `sayExactly`:
-// scene intros, checklist lines, cheers, hand-offs, read-outs, Print lines, rail arrivals, the save and
+// scene openings, task read-outs (round 29), Print lines, rail arrivals, the save and
 // replay lines, The End). Never the kid's audio, never her conversational replies, never a transcript of anyone.
 // A clip is kept only when her output transcript matches the script (the transcript gate). It is stored with the
 // saved game (unsaved games discard theirs). On a replay the speaker plays the clip through the same pipeline
@@ -12,7 +12,8 @@ import CryptoKit
 
 /// What a recorded line is (metadata for the hit-rate log; never content about a kid).
 public enum ClipKind: String, Codable, Sendable, CaseIterable {
-    case sceneIntro, checklistIntro, cheer, congrats, handoff, readout, printReady, draw, arrival, save, replay, end, kit
+    /// Round 29 (ensemble scenes): no hand-offs, checklists or cheers any more; a scene's opening line is `sceneIntro`.
+    case sceneIntro, readout, printReady, draw, arrival, save, replay, end, kit
     case wifi, line
 }
 
@@ -72,13 +73,9 @@ public enum ClipMeta {
         let l = line.trimmingCharacters(in: .whitespaces)
         if l == WiFiPause.spokenNote { return .wifi }
         if l.hasPrefix("Pretend that") || l.contains(" Pretend that") { return .sceneIntro }
-        if l.contains("Pass the iPad") { return .handoff }
         if l.hasPrefix("The end!") { return .end }
         if l.contains("on your shelf now") { return .save }
         if l == HandOffLines.printReady { return .printReady }
-        if l == HandOffLines.backToChecklist || l.contains("Tap the steps as you go") || l.contains("Tap each step when you do it") { return .checklistIntro }
-        if ChecklistCheers.congrats.contains(where: { l.hasPrefix($0) }) { return .congrats }
-        if ChecklistCheers.praise.contains(where: { l.hasPrefix($0) }) { return .cheer }
         if l.hasPrefix("Let's draw") || l.contains("Make one") || l.contains(", one for each friend") || l.hasPrefix("Next, draw") { return .draw }
         if l.contains("How many friends") || l.hasPrefix("Do you still have") || l.hasPrefix("No problem, we'll pretend")
             || l.hasPrefix("Next, do you still have") || l.contains(" too! Do you have ") || l == ReplayLines.savedGame || l.contains(" friends! Our crew") || l.hasPrefix("Just you!") { return .replay }
@@ -114,7 +111,8 @@ public struct ClipRecorder: Sendable {
     public enum Reason: String, Equatable, Sendable { case cancelled, incomplete, transcriptMismatch, tooShort, tooLong, noAudio }
 
     public static let minSeconds = 0.4
-    public static let maxSeconds = 30.0
+    /// Round 29: a scene's opening line reads up to 6 tasks in one reply (about 40 to 60 s), so the limit is 90 s.
+    public static let maxSeconds = 90.0
     /// The most audio buffered for one line (a little over the 30 s limit; more is cut and the line rejected).
     static let maxBytes = Int((maxSeconds + 1) * Realtime.sampleRate) * 2
 
@@ -304,7 +302,6 @@ public enum CommonLines {
     public static let all: [String] = [
         WiFiPause.spokenNote,
         HandOffLines.printReady,
-        HandOffLines.backToChecklist,
         ReplayLines.savedGame,
         ReplayLines.howMany,
         "No problem, we'll pretend!",
@@ -322,25 +319,6 @@ extension LineDeck {
         let have = pool.filter(recorded)
         if !have.isEmpty { return draw(key + ".rec", from: have, using: &rng) }
         return draw(key, from: pool, using: &rng)
-    }
-}
-
-extension ChecklistCheers {
-    /// The clip-aware cheer (§D4.3): when `recorded` is given and any whole-line variant (praise + next wording, or
-    /// congrats + tail) already has a clip, one of those; otherwise exactly the first-play draw.
-    public static func afterCheck<G: RandomNumberGenerator>(index: Int, steps: [String], checked: Set<Int>, deck: inout LineDeck,
-                                                            using rng: inout G, recorded: ((String) -> Bool)?) -> String? {
-        guard let recorded, checked.contains(index), steps.indices.contains(index) else {
-            return afterCheck(index: index, steps: steps, checked: checked, deck: &deck, using: &rng)
-        }
-        let open = steps.indices.filter { !checked.contains($0) }
-        // Round 26: every step checked = no cheer here (the auto-advance's congratulations leads the next line).
-        if open.isEmpty { return nil }
-        let next = phrase(steps[open.first { $0 > index } ?? open[0]])
-        let variants = praise.flatMap { p in nextWords.map { p + " " + $0.replacingOccurrences(of: "%@", with: next) } }
-        let have = variants.filter(recorded)
-        if !have.isEmpty { return deck.draw("check.rec", from: have, using: &rng) }
-        return afterCheck(index: index, steps: steps, checked: checked, deck: &deck, using: &rng)
     }
 }
 

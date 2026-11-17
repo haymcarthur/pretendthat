@@ -128,7 +128,6 @@ struct ComponentGallery: View {
                 section("Motion: bounce, check burst, confetti") {
                     HStack(spacing: Theme.Space.l) {
                         PTChoiceTile(label: "Tap me", size: Theme.Size.countTile) { bounces += 1 }
-                        PTChecklistRow(text: "Tap to check", isChecked: $checked) { PTPictureTile(image: UIImage(named: "action-clap"), placeholder: "clap") }.frame(width: 320)
                         Button("Confetti!") { confetti += 1 }.buttonStyle(.ptSecondary)
                     }
                     .overlay { PTConfetti().id(confetti) }
@@ -166,11 +165,13 @@ struct ComponentGallery: View {
                         PTPropCard(prop: Fallback.airplane.props.props[0], found: .constant(false))
                     }
                 }
-                section("PTChecklistRow") {
-                    PTChecklistRow(text: "Check each ticket", isChecked: $checked) { PTPictureTile(image: nil, placeholder: "Boarding Pass") }
-                    PTChecklistRow(text: "Show everyone a seat", isChecked: .constant(true)) { PTPictureTile(image: UIImage(named: "prop-chair")) }
+                section("PTTaskRow + PTNextSceneButton (round 29)") {
+                    PTTaskRow(text: "Captain, check every boarding pass and show each passenger to a seat.", tint: Theme.playerColor(0),
+                              speakLabel: "Hear the Captain's task", onSpeak: {}) { PTCharacterPicture(role: plan.roles[0], image: nil) }
+                    PTTaskRow(text: "Passenger, show your boarding pass and find your seat.", tint: Theme.playerColor(1),
+                              speakLabel: "Hear the Passenger's task", onSpeak: {}) { PTCharacterPicture(role: plan.roles[1], image: nil) }
+                    PTNextSceneButton {}
                 }
-                section("PTHandoffCard") { PTHandoffCard(role: plan.roles[0], figure: { Image("nutmeg-body-point").resizable().scaledToFit() }, onTap: {}) }
                 section("PTMicButton: push-to-talk (idle / listening / disabled while connecting); hold the first one") {
                     HStack(spacing: Theme.Space.xl) {
                         PTMicButton(mode: listening ? .listening : .idle, onPress: { listening = true }, onRelease: { listening = false })

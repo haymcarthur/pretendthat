@@ -188,7 +188,6 @@ struct RootView: View {
             case .kitReady: model.celebrations += 1   // Nutmeg celebrates when the papers have landed (KitView)
             case .end: model.gesture(.celebrate); model.celebrations += 1
             case .hello: model.gesture(.wave); startExiting = false
-            case .handoff: model.gesture(.point)   // toward the hand-off card
             default: break
             }
         }
@@ -297,8 +296,7 @@ struct RootView: View {
     private var pinnedKey: String? {
         if huntOnStage, let active = stageItems.last(where: { !$0.isDone }) { return active.id }
         if model.kitPapersOut { return "kit-papers" }
-        if case .scene(let i) = store.phase { return "scene-\(i)" }   // round 8: the checklist docks in the chat panel
-        if case .handoff(let i) = store.phase { return "handoff-\(i)" }   // round 10: so does the hand-off card
+        if case .scene(let i) = store.phase { return "scene-\(i)" }   // round 8: the scene card docks in the chat panel
         if store.phase == .end { return "end" }   // round 11: and the finale (the chat-open prop-card framing has no side zone)
         return nil
     }
@@ -309,7 +307,6 @@ struct RootView: View {
     /// pinned at the top of the chat panel at full readable size (`.ptPinnedCard()`), never shrunk into the stage gap.
     private var pinnedCard: AnyView? {
         if case .scene(let i) = store.phase, !huntOnStage, !model.kitPapersOut { return AnyView(PTScenePinnedCard(model: model, index: i)) }
-        if case .handoff(let i) = store.phase { return AnyView(HandoffView(model: model, sceneIndex: i, pinned: true)) }
         if store.phase == .end { return AnyView(EndView(model: model).padding(.vertical, Theme.Space.s).ptPinnedCard()) }
         if huntOnStage, let active = stageItems.last(where: { !$0.isDone }) {
             return AnyView(PTPropPinnedCard(item: active, onHunt: active.huntButtons ? { model.huntReply(found: $0) } : nil)
@@ -458,7 +455,6 @@ struct RootView: View {
         case .props: if store.isReplay { ReplayPropsView(model: model) } else { PropsView(model: model) }
         case .makingKit, .kitReady: KitView(model: model, clipboard: clipboard, chatOpen: chatOpen && chromeVisible, preview: $kitPreview,
                                             onCelebrate: { celebrate() })
-        case .handoff(let i): if !(chatOpen && chromeVisible) { HandoffView(model: model, sceneIndex: i).frame(width: width) }   // chat open: pinned
         case .scene(let i): if !(chatOpen && chromeVisible) { SceneView(model: model, index: i, width: width, maxHeight: height) }   // chat open: pinned in the panel
         case .end: if !(chatOpen && chromeVisible) { EndView(model: model) }   // chat open: pinned in the panel
         }
@@ -473,7 +469,6 @@ struct RootView: View {
 
     private var stageID: String {
         switch store.phase {
-        case .handoff(let i): "handoff\(i)"
         case .scene(let i): "scene\(i)"
         case .makingKit, .kitReady: "kit"
         default: "\(store.phase)"

@@ -13,7 +13,7 @@ import Testing
     let input = try #require(audio["input"] as? [String: Any])
     #expect(input["turn_detection"] is NSNull)   // push-to-talk: no server VAD
     let names = (session["tools"] as? [[String: Any]])?.compactMap { $0["name"] as? String }
-    #expect(names == ["show_game_ideas", "set_game", "set_theme", "set_player_count", "set_roles", "show_next_prop", "mark_found", "swap_prop", "skip_prop", "confirm_plan", "finish_planning", "just_talk", "start_play", "print_kit", "choose_print_set", "confirm_handoff", "finish_scene", "go_to_step", "start_planning"])
+    #expect(names == ["show_game_ideas", "set_game", "set_theme", "set_player_count", "set_roles", "show_next_prop", "mark_found", "swap_prop", "skip_prop", "confirm_plan", "finish_planning", "just_talk", "start_play", "print_kit", "choose_print_set", "next_scene", "go_to_step", "start_planning"])
     #expect(Realtime.json(s).contains("\"laundry-basket\""))   // the prop library is an enum in the schema
     // Serializes cleanly: turn detection is an explicit JSON null, never server VAD.
     #expect(Realtime.json(s).contains("\"turn_detection\":null"))
@@ -130,7 +130,6 @@ import Testing
     let store = await storeWithKit(owners: [.R1, .all, .all, .all], players: 2)
     #expect(store.reachedStep == .print)
     store.beginPlay()
-    if case .handoff = store.phase { store.badgeTapped(.R1) }
     #expect(store.reachedStep == .play)
     let playPhase = store.phase
     store.goTo(.getReady)

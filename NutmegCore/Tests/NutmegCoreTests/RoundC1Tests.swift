@@ -2,8 +2,8 @@ import Foundation
 import Testing
 @testable import NutmegCore
 
-/// Round C1 (generate for 6; Haylee's answer 2: every playing role gets its OWN called-out steps in every scene, and
-/// the hand-offs rotate through all the playing roles). Pure rules plus the store's "no AI call on a count change".
+/// Round C1 (generate for 6; Haylee's answer 2: every playing role gets its OWN called-out task in every scene; round 29:
+/// all their rows show at once). Pure rules plus the store's "no AI call on a count change".
 @MainActor
 struct RoundC1Tests {
     let roles = Fallback.airplane.plan.roles
@@ -15,25 +15,23 @@ struct RoundC1Tests {
         #expect(RoleID.allCases.map(\.rawValue) == ["R1", "R2", "R3", "R4", "R5", "R6"])
         #expect(Schemas.roleIDs == ["R1", "R2", "R3", "R4", "R5", "R6"])
         let json = String(decoding: try JSONSerialization.data(withJSONObject: Schemas.kitScenes(), options: [.sortedKeys]), as: UTF8.self)
-        #expect(json.contains(#""enum":["R1","R2","R3","R4","R5","R6"]"#))   // round 28: no steps for everyone
-        #expect(!json.contains("\"owner\""))                       // the app rotates the hand-offs
-        #expect(json.contains("badge:R1..R6"))
-        #expect(PictureResolver.kitIDs.contains("badge:R6"))
+        #expect(json.contains(#""enum":["R1","R2","R3","R4","R5","R6","solo"]"#))   // round 29: a task per role + solo
+        #expect(!json.contains("\"owner\""))
         let plan = String(decoding: try JSONSerialization.data(withJSONObject: Schemas.plan(), options: [.sortedKeys]), as: UTF8.self)
         #expect(!plan.contains("\"count\""))
-        // Strict objects: every step property is required.
+        // Strict objects: every task property is required (round 29: no pictures).
         let steps = (((Schemas.kitScenes()["properties"] as! [String: Any])["scenes"] as! [String: Any])["items"] as! [String: Any])
         let step = ((steps["properties"] as! [String: Any])["steps"] as! [String: Any])["items"] as! [String: Any]
-        #expect(Set(step["required"] as! [String]) == ["picture", "role", "text"])
+        #expect(Set(step["required"] as! [String]) == ["role", "text"])
     }
 
-    @Test func promptsAskForSixRankedRolesAndAStepPerRole() {
+    @Test func promptsAskForSixRankedRolesAndATaskPerRole() {
         let ctx = AdventureContext(gameTitle: "Pirate Ship", plan: Fallback.airplane.plan, playerCount: 2)
         #expect(Prompts.plan(game: "Pirate Ship", ctx: ctx).contains("exactly 6 different roles, ranked"))
         for p in [Prompts.kitScenes(ctx: ctx, items: kit.items), Prompts.kit(ctx: ctx)] {
-            // Round 28: 4 scenes × 2 steps per role, a role's checklist is only theirs.
-            #expect(p.contains("exactly 4 scenes") && p.contains("TWO steps for EACH role R1, R2, R3, R4, R5 and R6"))
-            #expect(p.contains("No steps for everyone"))
+            // Round 29: 3 scenes, ONE task per role + a solo task, connected, never scripted.
+            #expect(p.contains("exactly 3 scenes") && p.contains("ONE task for EACH role R1, R2, R3, R4, R5 and R6, plus one solo task"))
+            #expect(p.contains("NEVER script lines") && p.contains("CONNECT"))
         }
         #expect(Prompts.system.contains("6 RANKED roles"))
         #expect(Realtime.instructions.contains("exactly 6 RANKED roles"))
@@ -42,73 +40,61 @@ struct RoundC1Tests {
         #expect(ConfirmStep.confirmedOutput(playerCount: 3).contains("exactly 6 ranked roles"))
     }
 
-    @Test func validateAsksForAStepForEveryRoleInEveryScene() {
+    @Test func validateAsksForATaskForEveryRoleInEveryScene() {
         #expect(Validate.scenes(kit.scenes, roles: 6) == nil)
         var short = kit.scenes
         short[2].steps.removeAll { $0.role == .R5 }
         let p = Validate.scenes(short, roles: 6)
-        #expect(p?.fatal == false && p?.message.contains("no step for R5") == true)
+        #expect(p?.fatal == false && p?.message.contains("no task for R5") == true)
         #expect(Validate.scenes(short, roles: 0) == nil)   // older callers: no role check
+        #expect(Validate.scenes(Array(kit.scenes.prefix(2)), roles: 6)?.message.contains("exactly 3 scenes") == true)
     }
 
-    @Test func sanitizerKeepsOneStepPerRoleAndTwoForEveryone() {
-        // Round 28: two steps per role (the first two), none for everyone.
+    @Test func sanitizerKeepsOneTaskPerRoleAndOneSolo() {
         var s = kit.scenes[0]
-        s.steps += [Step(picture: .point, text: "Captain, again", role: .R1), Step(picture: .point, text: "All three", role: .all)]
+        s.steps += [Step(picture: .point, text: "Captain, again", role: .R1), Step(picture: .point, text: "All three", role: .all),
+                    Step(picture: .point, text: "Captain, solo again", role: .solo)]
         let clean = Sanitizer.clean(Kit(nutmegSays: "", items: [], scenes: [s])).scenes[0]
-        #expect(clean.steps.count == 12)
-        #expect(clean.steps.filter { $0.role == .R1 }.map(\.text) == ["Captain, hold the steering wheel", "Captain, say hello to the passengers"])
-        #expect(clean.steps.filter { $0.role == .all }.isEmpty)
+        #expect(clean.steps.count == 7)
+        #expect(clean.steps.filter { $0.role == .R1 }.map(\.text) == [kit.scenes[0].steps[0].text])
+        #expect(clean.steps.filter { $0.role == .solo }.count == 1 && clean.steps.filter { $0.role == .all }.isEmpty)
         #expect(clean.owner == .all)
+        #expect(Sanitizer.clean(Kit(nutmegSays: "", items: [], scenes: kit.scenes + kit.scenes)).scenes.count == 3)
         // Older JSON (no role on steps) still decodes: everyone's steps, no owner needed.
         let old = try? JSONDecoder().decode(Scene.self, from: Data(#"{"id":"a","title":"T","nutmegSays":"Pretend that!","steps":[{"text":"Wave"}]}"#.utf8))
         #expect(old?.steps.first?.role == .all && old?.owner == .all)
     }
 
-    // MARK: Per-role coverage at every count
+    // MARK: Per-role coverage at every count (round 29: one row per playing role, all at once)
 
-    @Test func everyPlayingRoleHasItsOwnCalledOutStepInEveryScene() {
-        // Round 28 (Haylee, "one role per checklist"): each scene, every playing role gets a turn (a hand-off, then a
-        // checklist of ONLY its own steps). The N-player view's scenes are those turns.
+    @Test func everyPlayingRoleHasItsOwnCalledOutRowInEveryScene() {
         for n in 1...6 {
             let view = PlayCast.kit(kit, roles: roles, players: n)
-            #expect(view.scenes.count == kit.scenes.count * n, "n=\(n)")
-            #expect(view.scenes.map(\.owner.role) == Array(repeating: Array(RoleID.allCases.prefix(n)), count: kit.scenes.count).flatMap { $0 })
-            for (t, turn) in view.scenes.enumerated() {
-                let owner = turn.owner.role!
-                #expect(turn.steps.count == PlayCast.stepsPerRole, "n=\(n) \(turn.title)")
-                #expect(turn.steps.allSatisfy { $0.role.role == owner }, "only the holder's steps")
-                for step in turn.steps { #expect(PlayCast.names(step.text, roles[owner.index].roleName), "\(step.text)") }
-                // The scene's intro on its first turn only.
-                #expect(turn.nutmegSays.isEmpty == (t % n != 0))
-                // Nothing on screen names a role that isn't playing.
+            #expect(view.scenes.count == kit.scenes.count, "n=\(n)")
+            for (i, scene) in view.scenes.enumerated() {
+                #expect(scene.steps.map(\.role) == Array(RoleID.allCases.prefix(n)).map { SceneOwner($0) })
+                for step in scene.steps { #expect(PlayCast.names(step.text, roles[step.role.role!.index].roleName), "\(step.text)") }
+                #expect(PretendLine.has(scene.nutmegSays))
+                if n == 1 { #expect(scene.steps[0].text == kit.scenes[i].steps.first { $0.role == .solo }!.text) }
                 for away in roles.dropFirst(n) {
-                    let texts = [turn.title, turn.nutmegSays] + turn.steps.map(\.text)
+                    // (Round 29: a solo task may speak of pretend passengers, so one kid's row is left out of this check.)
+                    let texts = [scene.title, scene.nutmegSays] + (n == 1 ? [] : scene.steps.map(\.text))
                     #expect(!texts.contains { PlayCast.names($0, away.roleName) }, "n=\(n) names \(away.roleName)")
                 }
             }
         }
     }
 
-    @Test func groupStepsFillTheRoomAndTheFinaleIsKept() {
-        // Round 28: an older guide's "everyone" steps never show on a role's checklist.
-        var s = kit.scenes[0]
-        s.steps += [Step(picture: .action("wave"), text: "Everyone, wave to the plane"), Step(picture: .action("cheer"), text: "Say: Welcome aboard!")]
-        for n in 1...6 {
-            for turn in PlayCast.turns(s, index: 0, roles: roles, players: n) {
-                #expect(!turn.steps.contains { $0.role == .all } && turn.steps.allSatisfy { $0.role == turn.owner })
-            }
-        }
-        #expect(PlayCast.groupStepsMax == 0)
-    }
-
-    @Test func aMissingRoleStepIsWrittenFromTheJobAndUncalledStepsGetTheTitle() {
+    @Test func aMissingRoleTaskIsWrittenFromTheJobAndUncalledTasksGetTheTitle() {
         var s = kit.scenes[0]
         s.steps.removeAll { $0.role == .R3 }
-        s.steps[0].text = "Hold the steering wheel"   // R1's step forgot to call the Captain
-        let v = PlayCast.visibleSteps(s, roles: roles, players: 3)
+        s.steps[0].text = "Hold the steering wheel"   // R1's task forgot to call the Captain
+        let v = PlayCast.rows(s, roles: roles, players: 3)
         #expect(v.first?.text == "Captain, hold the steering wheel")
         #expect(v.filter { $0.role == .R3 }.map(\.text) == ["Flight Attendant, check tickets and bring snacks!"])
+        // No solo task: one kid gets R1's.
+        s.steps.removeAll { $0.role == .solo }
+        #expect(PlayCast.rows(s, roles: roles, players: 1).map(\.text) == ["Captain, hold the steering wheel"])
     }
 
     @Test func linesNamingAnAbsentRoleAreRewritten() {
@@ -118,44 +104,6 @@ struct RoundC1Tests {
         #expect(PlayCast.unname("Co-Pilot, wave", roles: r, players: 4) == "Co-Pilot, wave")          // playing: unchanged
         #expect(PlayCast.sceneLine("Pretend that it's stormy! Snack Chef, look out!", roles: r, players: 2) == "Pretend that it's stormy!")
         #expect(!PlayCast.names("Co-Pilot, wave", "Pilot"))
-    }
-
-    // MARK: Hand-off rotation
-
-    @Test func handoffsRotateSoEveryKidGetsATurn() {
-        for n in 1...6 {
-            let owners = (0..<6).map { PlayCast.owner(scene: $0, players: n) }
-            #expect(Set(owners) == Set(RoleID.allCases.prefix(n)))    // 6 scenes: every playing kid holds the iPad
-            #expect(owners.first == .R1)
-            #expect(owners.allSatisfy { $0.rank <= n })
-        }
-        #expect((0..<6).map { PlayCast.owner(scene: $0, players: 2) } == [.R1, .R2, .R1, .R2, .R1, .R2])
-    }
-
-    @Test func storeHandsOffToEachPlayingRoleInTurn() async {
-        let store = AdventureStore(service: nil)
-        store.beginConversation()
-        _ = await store.apply(.setPlayerCount(3)); _ = await store.confirmYes()
-        _ = await store.apply(.setRoles(roles.map { .init(roleName: $0.roleName, job: $0.job) }))
-        _ = await store.apply(.finishPlanning)
-        for _ in 0..<100 where store.phase != .kitReady { try? await Task.sleep(for: .milliseconds(10)) }
-        store.autoCheckStep = .zero; store.autoCheckHold = .zero
-        store.beginPlay()
-        // Round 28: each scene, every playing role in turn: a hand-off, then ONLY its own checklist.
-        var lines: [String] = []
-        let turns = kit.scenes.count * 3
-        for i in 0..<turns {
-            #expect(store.phase == .handoff(sceneIndex: i))
-            lines.append(store.nutmegLine)
-            _ = await store.apply(.confirmHandoff)
-            #expect(store.phase == .scene(i))
-            let holder = store.kit?.scenes[i].owner.role
-            #expect(store.kit?.scenes[i].steps.allSatisfy { $0.role.role == holder } == true)
-            await store.sceneDone()
-        }
-        #expect(store.phase == .end)
-        let who = Array(repeating: ["Captain", "Passenger", "Flight Attendant"], count: kit.scenes.count).flatMap { $0 }
-        for (line, role) in zip(lines, who) { #expect(line.contains("Pass the iPad to the \(role)! Tap the green check when you have the iPad!"), "\(line)") }
     }
 
     // MARK: Roles in the voice path
@@ -197,8 +145,8 @@ struct RoundC1Tests {
         for n in [1, 6, 3] {
             _ = await store.apply(.setPlayerCount(n))
             #expect(store.playerCount == n && store.phase == .kitReady && store.fullKit == full)
-            #expect(store.kit?.scenes.count == (store.fullKit?.scenes.count ?? 0) * n)   // round 28: a turn per playing role
-            #expect(store.kit?.scenes.allSatisfy { sc in sc.steps.allSatisfy { $0.role == sc.owner } } == true)
+            #expect(store.kit?.scenes.count == store.fullKit?.scenes.count)   // round 29: the same 3 scenes
+            #expect(store.kit?.scenes.allSatisfy { $0.steps.count == n } == true)   // a row per playing role
             let badges = KitLayout.pages(for: store.kit!, roles: store.plan!.roles, playerCount: n).filter { $0.item.recipe == .badges }
             #expect(badges.flatMap(\.slots).count == n)
         }
@@ -210,7 +158,7 @@ struct RoundC1Tests {
         #expect(store.goTo(.game))
         _ = await store.apply(.setPlayerCount(2))
         #expect(store.playerCount == 2)
-        #expect(store.goTo(.play) && store.phase == .handoff(sceneIndex: 0))
+        #expect(store.goTo(.play) && store.phase == .scene(0))
         #expect(llm.calls == afterKit)
     }
 

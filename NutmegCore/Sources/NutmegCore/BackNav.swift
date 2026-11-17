@@ -71,9 +71,10 @@ public enum BackNav {
 
     /// Round 23: the post-hunt coaching line that lets voice go back ("print it again" → paper).
     public static let voiceHint = "If they want to go back to a step (\"print it again\", \"back to the props\", "
-        + "\"back to the game\", \"back to the checklist\"), call go_to_step (print, props, pick or play) and say only the line its result gives you."
-    /// The play step's (scene, The End) coaching note: go_to_step is its only tool (round 22 said "No tools").
-    public static let playNote = "(Silent coaching, don't mention it.) They're playing now. " + voiceHint
+        + "\"back to the game\", \"back to the play step\"), call go_to_step (print, props, pick or play) and say only the line its result gives you."
+    /// The play step's (scene, The End) coaching note. Round 29: in a scene, "next scene" / "we're done" is next_scene.
+    public static let playNote = "(Silent coaching, don't mention it.) They're playing now. If they want the next scene "
+        + "(\"next scene\", \"we're done\", \"what's next\"), call next_scene and say nothing. " + voiceHint
         + " Otherwise answer in ONE short, fun line that helps the current scene, with no tools."
 
     /// The silent note after a TAP on the rail, so the conversation knows where the kids are.

@@ -127,7 +127,7 @@ extension ResumeContext {
         switch store.phase {
         case .makingKit: kit = .making
         case .kitReady: kit = store.kit == nil ? .making : .ready
-        case .handoff(let i), .scene(let i): kit = .playing(scene: i, of: store.kit?.scenes.count ?? 1)
+        case .scene(let i): kit = .playing(scene: i, of: store.kit?.scenes.count ?? 1)
         case .end: kit = .playing(scene: max(0, (store.kit?.scenes.count ?? 1) - 1), of: store.kit?.scenes.count ?? 1)
         default: kit = .notYet
         }

@@ -102,7 +102,6 @@ struct Round23Tests {
     @MainActor @Test func voiceGoesBackThroughTheSameNavigation() async {
         let store = await storeWithKit(owners: [.R1, .all, .all, .all], players: 2)
         store.beginPlay()
-        if case .handoff = store.phase { store.badgeTapped(.R1) }
         let playPhase = store.phase
         #expect(PlanningCall.decode(name: "go_to_step", arguments: #"{"step":"props"}"#) == .goToStep(.getReady))
         #expect(PlanningCall.decode(name: "go_to_step", arguments: #"{"step":"paper"}"#) == .goToStep(.print))

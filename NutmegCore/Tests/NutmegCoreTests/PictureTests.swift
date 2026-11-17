@@ -42,8 +42,10 @@ struct PictureTests {
     }
 
     @Test func schemaConstrainsPictureKindsAndIDs() {
+        // Round 29: the play guide asks for no pictures (the rows show each role's character); props are still an enum.
         let json = Realtime.json(Schemas.kit())
-        #expect(json.contains("\"cutout:7\"") && json.contains("\"badge:R1\"") && json.contains("\"ring-bell\"") && json.contains("\"laundry-basket\""))
+        #expect(!json.contains("\"picture\""))
+        #expect(Realtime.json(Schemas.props()).contains("\"laundry-basket\""))
         #expect(!json.contains("\"emoji\""))
         #expect(!Realtime.json(Schemas.props()).contains("\"emoji\""))
     }

@@ -29,11 +29,14 @@ struct RoundD1SavedGamesTests {
         let data = try SavedGame.encoder().encode(g)
         let back = try SavedGame.decode(data)
         #expect(back == g)
-        #expect(back.schemaVersion == 1 && back.roles.count == 6 && back.kit.scenes.count == g.kit.scenes.count)
+        #expect(back.schemaVersion == 2 && back.roles.count == 6 && back.kit.scenes.count == g.kit.scenes.count)
         #expect(g.voiceID == "coral@gpt-realtime-2.1")
         // A newer schema than this build knows is refused (never half-read).
         var future = try JSONSerialization.jsonObject(with: data) as! [String: Any]
         future["schemaVersion"] = 99
+        #expect(throws: (any Error).self) { try SavedGame.decode(try JSONSerialization.data(withJSONObject: future)) }
+        // Round 29: a v1 game (round 28's hand-off guide) is dropped, never read.
+        future["schemaVersion"] = 1
         #expect(throws: (any Error).self) { try SavedGame.decode(try JSONSerialization.data(withJSONObject: future)) }
     }
 
@@ -114,14 +117,12 @@ struct RoundD1SavedGamesTests {
         #expect(!store.canSave)
         store.loadReplay(fixture())
         store.replayPick(2); store.replayAllFound(); store.beginPlay()
-        store.autoCheckStep = .zero; store.autoCheckHold = .zero
         await finishPlay(store)
         #expect(store.phase == .end && !store.canSave)   // a replay is already saved
         // A first play (bundled game) at The End: saveable, once.
         let first = AdventureStore(service: nil)
         await first.start(); await first.chooseGame("Airplane"); first.setPlayerCount(2)
         await first.confirmPlayers(); await first.confirmRoles(); await first.confirmProps()
-        first.autoCheckStep = .zero; first.autoCheckHold = .zero
         first.beginPlay(); await finishPlay(first)
         #expect(first.phase == .end && first.canSave)
         first.markSaved(UUID())
@@ -132,11 +133,8 @@ struct RoundD1SavedGamesTests {
 
     func finishPlay(_ store: AdventureStore) async {
         for _ in 0..<40 {
-            switch store.phase {
-            case .handoff(let i): if let r = store.kit?.scenes[i].owner.role { store.badgeTapped(r) }
-            case .scene: await store.sceneDone()
-            default: return
-            }
+            guard case .scene = store.phase else { return }
+            store.nextScene()   // round 29: the green ▶
         }
     }
 
@@ -163,7 +161,7 @@ struct RoundD1SavedGamesTests {
         #expect(store.phase == .players)
         let voice = await store.apply(.setPlayerCount(3))
         #expect(voice == ReplayLines.appSaysOutput && store.playerCount == 3 && store.phase == .props)
-        #expect(store.kit?.scenes.count == (store.fullKit?.scenes.count ?? 0) * 3 && store.kit?.scenes.allSatisfy { sc in sc.steps.allSatisfy { $0.role == sc.owner } } == true)   // round 28: a turn per role
+        #expect(store.kit?.scenes.count == store.fullKit?.scenes.count && store.kit?.scenes.allSatisfy { $0.steps.count == 3 } == true)   // round 29: a row per role
         let props = g.props.map(\.replayProp)
         #expect(store.replayHuntActive && store.replayCurrentProp?.id == props[0].id && store.foundProps.isEmpty)
         #expect(store.nutmegLine.hasPrefix("Three friends!") && store.nutmegLine.contains(ReplayLines.propAsk(props[0], first: true)))
@@ -182,7 +180,7 @@ struct RoundD1SavedGamesTests {
                 #expect(await store.apply(.skipProp("plate")) == ReplayLines.appSaysOutput)   // "we don't have one" by voice
                 #expect(store.props?.props.first { $0.id == "plate" }?.isSkipped == true)
                 #expect(store.nutmegLine.hasPrefix("No problem, we'll pretend the steering wheel!"))
-                #expect(store.fullKit?.scenes[0].steps[0].text.lowercased().contains("pretend") == true)
+                #expect(store.fullKit?.scenes[1].steps[0].text.lowercased().contains("pretend") == true)
             } else {
                 #expect(await store.apply(.markFound(cur.id)) == ReplayLines.appSaysOutput)
                 #expect(store.foundProps.contains(cur.id))
@@ -193,15 +191,14 @@ struct RoundD1SavedGamesTests {
         #expect(store.phase == .kitReady && !store.replayHuntActive && store.nutmegLine.hasSuffix(HandOffLines.printReady))
         // "let's play" by voice (start_play), as on a first play.
         _ = await store.apply(.startPlay)
-        #expect(store.phase == .handoff(sceneIndex: 0))   // the first holder (R1) gets the iPad
-        store.autoCheckStep = .zero; store.autoCheckHold = .zero
+        #expect(store.phase == .scene(0))   // round 29: scene 1, everyone together
         await finishPlay(store)
         #expect(store.phase == .end && store.nutmegLine.hasSuffix(HandOffLines.end(replay: true)))
         // Back to Pick on the rail, a new count (the tile fallback): still no call; Props starts over at card 1.
         #expect(store.goTo(.game) && store.phase == .players)
         store.replayPick(5)
         #expect(store.phase == .props && store.replayCurrentProp?.id == props[0].id && store.foundProps.isEmpty)
-        #expect(store.kit?.scenes.count == (store.fullKit?.scenes.count ?? 0) * 5 && store.kit?.scenes.allSatisfy { sc in sc.steps.allSatisfy { $0.role == sc.owner } } == true)   // round 28: a turn per role
+        #expect(store.kit?.scenes.count == store.fullKit?.scenes.count && store.kit?.scenes.allSatisfy { $0.steps.count == 5 } == true)   // round 29: a row per role
         // The rail's Props restarts the hunt with the first card's line.
         store.replayAllFound()
         #expect(store.goTo(.getReady) && store.replayCurrentProp?.id == props[0].id)
@@ -268,7 +265,7 @@ final class CountingLedger: GameLedger {
     #expect(ReplayLines.tools(.props) == ["mark_found", "skip_prop", "swap_prop", "go_to_step", "just_talk"])   // round 26: the hunt by voice
     #expect(ReplayLines.tools(.kitReady) == Realtime.afterHuntTools(.kitReady))
     let names = Set(Realtime.tools.compactMap { $0["name"] as? String })
-    for phase in [Phase.players, .props, .kitReady, .handoff(sceneIndex: 0), .scene(0), .end] {
+    for phase in [Phase.players, .props, .kitReady, .scene(0), .end] {
         #expect(Set(ReplayLines.tools(phase) ?? []).isSubset(of: names))
     }
 }

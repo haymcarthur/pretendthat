@@ -95,33 +95,101 @@ struct PTRoleBadge: View {
     }
 }
 
-/// One checklist step: emoji + short text + a big check. Long-press hears it.
-struct PTChecklistRow<Picture: View>: View {
+/// Round 29 (Haylee, ensemble scenes): one playing role's row on a scene card: the role's character picture, its ONE
+/// task for the scene, and a big 🔊 (≥ 56 pt) that reads just that task. No checkbox: the iPad stays in the middle and
+/// everyone plays at once; the green ▶ moves on.
+struct PTTaskRow<Picture: View>: View {
     let text: String
-    @Binding var isChecked: Bool
-    /// Round 8: compact rows (many steps, or pinned in the chat panel) shrink padding and spacing first; the text
-    /// never goes below 17 pt.
+    /// The role's color (the row's edge and the 🔊 ring), so a kid finds their row by color and character.
+    var tint: Color = Theme.coral
     var fontSize: CGFloat = Theme.TextSize.body
     var padding: CGFloat = Theme.Space.s
-    /// Exactly one picture (prop, action or kit art; PTPictureTile).
+    let speakLabel: String
+    let onSpeak: () -> Void
     @ViewBuilder var picture: Picture
 
     var body: some View {
-        Toggle(isOn: $isChecked) {
-            HStack(spacing: padding < Theme.Space.s ? Theme.Space.s : Theme.Space.m) {
-                picture
-                Text(text).strikethrough(isChecked, color: Theme.inkMuted)
-                    .font(Theme.bodyFont(fontSize)).foregroundStyle(Theme.ink).multilineTextAlignment(.leading)
-                    .minimumScaleFactor(min(1, 17 / fontSize))
-                    .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 0)
+        HStack(spacing: padding < Theme.Space.s ? Theme.Space.s : Theme.Space.m) {
+            picture
+            Text(text)
+                .font(Theme.bodyFont(fontSize)).foregroundStyle(Theme.ink).multilineTextAlignment(.leading)
+                .minimumScaleFactor(min(1, 17 / fontSize))
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+            Button(action: onSpeak) {
+                Image(systemName: "speaker.wave.2.fill")
+                    .font(.system(size: 24, weight: .bold)).foregroundStyle(Theme.ink)
+                    .frame(width: 56, height: 56)
+                    .background(Circle().fill(Theme.chipGray))
+                    .overlay(Circle().strokeBorder(tint, lineWidth: 3))
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(speakLabel)
+        }
+        .ptCard(fill: Theme.white, edge: tint, padding: padding)
+    }
+}
+
+/// Round 29: a role's character (cropped from its color badge slice) in a circle with a ring in the role color; the
+/// role's color chip (its first letter) until the badge art is drawn.
+struct PTCharacterPicture: View {
+    let role: Role
+    let image: UIImage?
+    var size: CGFloat = 64
+
+    var body: some View {
+        let tint = Theme.playerColor(role.id.index)
+        ZStack {
+            if let image {
+                Image(uiImage: image).resizable().interpolation(.high).scaledToFill()
+                    .frame(width: size, height: size)
+                    .clipShape(Circle())
+                    .background(Circle().fill(Theme.white))
+            } else {
+                Circle().fill(tint)
+                Text(String(role.roleName.prefix(1)))
+                    .font(Theme.headlineFont(size * 0.42)).foregroundStyle(Theme.white)
             }
         }
-        .toggleStyle(.ptCheck)
-        .ptCard(fill: isChecked ? Theme.limeTint : Theme.white,
-                edge: isChecked ? Theme.limeShade : nil, padding: padding)
-        .animation(Theme.springy, value: isChecked)
-        .ptSpeakOnLongPress(text)
+        .frame(width: size, height: size)
+        .overlay(Circle().strokeBorder(tint, lineWidth: max(2, size * 0.05)))
+        .background(Circle().fill(Theme.playerShade(role.id.index)).offset(y: Theme.cardDepth * 0.6))
+        .animation(.easeInOut(duration: 0.25), value: image != nil)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(role.roleName)
+    }
+}
+
+/// Round 29 (Haylee): the ONE big green button on a scene card: ▶ plus the short words "Next scene" (after the last
+/// scene it goes to The End). Nutmeg names it on the first scene ("the green play button").
+struct PTNextSceneButton: View {
+    var height: CGFloat = 76
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: Theme.Space.s) {
+                Image(systemName: "play.fill").font(.system(size: height * 0.36, weight: .heavy, design: .rounded))
+                Text("Next scene").font(Theme.headlineFont(height * 0.34))
+            }
+            .foregroundStyle(Theme.ink)
+            .padding(.horizontal, Theme.Space.l)
+            .frame(minHeight: height)
+        }
+        .buttonStyle(PTNextSceneButton.Style())
+        .accessibilityLabel("Next scene")
+    }
+    struct Style: ButtonStyle {
+        func makeBody(configuration: Configuration) -> some View {
+            let down = configuration.isPressed ? Theme.depth : 0
+            configuration.label
+                .background(Capsule().fill(Theme.lime))
+                .offset(y: down)
+                .background(Capsule().fill(Theme.limeShade).offset(y: Theme.depth))
+                .contentShape(Capsule())
+                .animation(Theme.press, value: configuration.isPressed)
+                .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.7), trigger: configuration.isPressed) { _, new in new }
+        }
     }
 }
 
@@ -151,75 +219,6 @@ struct PTPropCard: View {
         .ptCard(fill: found ? Theme.limeTint : Theme.white, edge: found ? Theme.limeShade : nil)
         .animation(Theme.springy, value: found)
         .ptSpeakOnLongPress("\(prop.householdItem) becomes \(prop.becomes)")
-    }
-}
-
-/// "Pass the iPad to the Captain!" card (round 8, Haylee: "Tap your badge" was confusing; "badge" is also the printed
-/// name badge). Round 26 (Haylee's button audit): the new holder taps ONE big green check (no "I'm the Captain!" text:
-/// most players can't read), and there's no "Back to the checklist" on the card. Nutmeg points at the card from the
-/// shared stage and says the line aloud ("…Tap the green check when you have the iPad!").
-struct PTHandoffCard<Figure: View>: View {
-    let role: Role
-    @ViewBuilder var figure: Figure
-    let onTap: () -> Void
-    /// Round 10: chat open, the card is pinned at the top of the chat panel (panel width, same big button).
-    var pinned = false
-    /// Round 28 (Haylee): the role's COLORED badge (its slice of the color badge sheet) instead of the "Pass the iPad
-    /// to …" text (most players can't read; Nutmeg still says it). nil = not drawn yet: the role's color chip.
-    var badge: UIImage? = nil
-    @State private var shown = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        if pinned {
-            VStack(spacing: Theme.Space.s) {
-                badgeView(height: 150)
-                checkButton
-            }
-            .padding(.vertical, Theme.Space.s)
-            .ptPinnedCard()
-        } else {
-            VStack(spacing: Theme.Space.m) {
-                badgeView(height: 250)
-                if Figure.self != EmptyView.self { figure.frame(height: 200) }
-                checkButton
-            }
-            .frame(maxWidth: .infinity)
-            .ptCard(fill: Theme.white, edge: Theme.playerColor(role.id.index), padding: Theme.Space.m)
-            .offset(x: shown || reduceMotion ? 0 : 700)
-            .rotationEffect(.degrees(shown || reduceMotion ? 0 : 8))
-            .opacity(shown || !reduceMotion ? 1 : 0)
-            .onAppear { withAnimation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove) { shown = true } }
-            .sensoryFeedback(.impact(weight: .medium), trigger: shown)
-        }
-    }
-
-    /// The colored badge, big, framed in the role color, with a tiny role name under it; the color chip until the
-    /// badge art is there.
-    @ViewBuilder private func badgeView(height: CGFloat) -> some View {
-        VStack(spacing: 4) {
-            if let badge {
-                Image(uiImage: badge).resizable().scaledToFit()
-                    .frame(height: height)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.smallRadius))
-                    .overlay(RoundedRectangle(cornerRadius: Theme.smallRadius).strokeBorder(Theme.playerColor(role.id.index), lineWidth: 5))
-                    .background(RoundedRectangle(cornerRadius: Theme.smallRadius).fill(Theme.playerShade(role.id.index)).offset(y: Theme.cardDepth))
-                    .transition(.opacity)
-                Text(role.roleName).font(Theme.headlineFont(14)).foregroundStyle(Theme.inkMuted).lineLimit(1)
-            } else {
-                PTRoleBadge(role: role, size: height * 0.62)
-                    .frame(height: height)
-            }
-        }
-        .animation(.easeInOut(duration: 0.25), value: badge != nil)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Pass the iPad to \(role.spoken)")
-    }
-
-    private var checkButton: some View {
-        PTBigIconButton(kind: .check, size: pinned ? 88 : 104, label: "I'm \(role.spoken)! I have the iPad", action: onTap)
-            .ptBounce(trigger: shown)
-            .padding(.bottom, Theme.depth)
     }
 }
 

@@ -12,8 +12,10 @@ public enum RoleID: String, Codable, Sendable, CaseIterable, Hashable {
     public var rank: Int { index + 1 }
 }
 
+/// Who a play-guide task is for: a ranked role, everyone (older guides only), or (round 29) `solo`: the task for ONE kid
+/// playing alone (as R1), a slightly bigger version of R1's task in the same scene.
 public enum SceneOwner: String, Codable, Sendable, Hashable {
-    case R1, R2, R3, R4, R5, R6, all
+    case R1, R2, R3, R4, R5, R6, all, solo
     public var role: RoleID? { RoleID(rawValue: rawValue) }
     public init(_ role: RoleID) { self = SceneOwner(rawValue: role.rawValue)! }
 }
@@ -145,8 +147,9 @@ public struct KitItem: Codable, Equatable, Sendable, Identifiable {
         try c.encode(copies, forKey: .copies); try c.encode(colorMe, forKey: .colorMe)
     }
 }
-/// One checklist step: short text plus exactly ONE picture (prop, action or kit item; checklist-pictures.md).
-/// Round C1 (Haylee): every step belongs to one role (R1…R6, called out by its title) or to everyone ("all").
+/// One play-guide task. Round 29 (ensemble scenes): ONE task per role per scene (R1…R6, called out by its title) plus a
+/// `solo` task. The picture is no longer asked for or shown (the row shows the role's character); it still marks a step
+/// that uses a household prop (`.prop`), so skips, swaps and replays can find it.
 public struct Step: Codable, Equatable, Sendable {
     public var picture: Picture; public var text: String
     public var role: SceneOwner

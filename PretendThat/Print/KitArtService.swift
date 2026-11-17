@@ -283,7 +283,16 @@ enum PaperWhite {
 enum CutoutSlicer {
     /// `badges`: the 6-up badge sheet (portrait cells, not squared).
     static func slice(_ image: UIImage, count: Int, badges: Bool = false) -> [UIImage] {
-        guard let cg = image.cgImage else { return [] }
+        guard let cg = image.cgImage, let gray = grayPixels(cg) else { return [] }
+        let w = cg.width, h = cg.height
+        let cells = badges ? BadgeSheet.cells(gray: gray, width: w, height: h) : CutoutSheet.cells(gray: gray, width: w, height: h, count: count)
+        return cells.compactMap { r in
+            cg.cropping(to: CGRect(x: r.x, y: r.y, width: r.width, height: r.height)).map { UIImage(cgImage: $0, scale: image.scale, orientation: .up) }
+        }
+    }
+
+    /// The image as 8-bit grayscale, top row first.
+    static func grayPixels(_ cg: CGImage) -> [UInt8]? {
         let w = cg.width, h = cg.height
         var gray = [UInt8](repeating: 255, count: w * h)
         let ok = gray.withUnsafeMutableBytes { buf -> Bool in
@@ -292,10 +301,17 @@ enum CutoutSlicer {
             ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
             return true
         }
-        guard ok else { return [] }
-        let cells = badges ? BadgeSheet.cells(gray: gray, width: w, height: h) : CutoutSheet.cells(gray: gray, width: w, height: h, count: count)
-        return cells.compactMap { r in
-            cg.cropping(to: CGRect(x: r.x, y: r.y, width: r.width, height: r.height)).map { UIImage(cgImage: $0, scale: image.scale, orientation: .up) }
-        }
+        return ok ? gray : nil
+    }
+}
+
+/// Round 29 (Haylee, ensemble scenes): a scene row's character picture: the illustration between a badge slice's two
+/// blank banners (`BadgeCharacter` finds them), with no badge frame or blank fields.
+enum CharacterCropper {
+    static func crop(_ image: UIImage) -> UIImage {
+        guard let cg = image.cgImage, let gray = CutoutSlicer.grayPixels(cg) else { return image }
+        let r = BadgeCharacter.rect(gray: gray, width: cg.width, height: cg.height)
+        return cg.cropping(to: CGRect(x: r.x, y: r.y, width: r.width, height: r.height))
+            .map { UIImage(cgImage: $0, scale: image.scale, orientation: .up) } ?? image
     }
 }
