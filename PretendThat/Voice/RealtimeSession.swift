@@ -321,6 +321,9 @@ final class RealtimeSession {
             for await text in socket.messages { await self?.receive(text) }
             await self?.socketClosed()
         }
+        #if DEBUG
+        await openLineSocket(auth: auth, config: config)
+        #endif
         updateGate()
         return true
     }
@@ -377,6 +380,9 @@ final class RealtimeSession {
     func disconnect() {
         receiveTask?.cancel(); receiveTask = nil
         socket?.close(); socket = nil
+        #if DEBUG
+        lineTask?.cancel(); lineTask = nil; lineSocket?.close(); lineSocket = nil
+        #endif
         stopAudio()
         suspended = false; socketDropped = false; reminderAwaitingEnd = false; reminderDoneAt = nil
         pendingOutputs = []; gate = ResponseGate()   // (the speaker was cleared by stopAudio)
@@ -541,7 +547,12 @@ final class RealtimeSession {
 
     /// Stops her mid-sentence: cancel the response, silence the speaker, truncate her item at what was heard.
     private func interrupt(sendCancel: Bool = true) {
-        if sendCancel && responseActive { socket?.send(Realtime.responseCancel); rtLog("ptt: response.cancel") }
+        if sendCancel && responseActive {
+            socket?.send(Realtime.responseCancel); rtLog("ptt: response.cancel")
+            #if DEBUG
+            lineSocket?.send(Realtime.responseCancel)
+            #endif
+        }
         if let id = audioItemID, let start = audioItemStart {
             let ms = speaker.heardMs(itemStart: start)
             socket?.send(Realtime.truncate(itemID: id, audioEndMs: ms))
@@ -572,9 +583,9 @@ final class RealtimeSession {
         if record {
             // Round D3b: the app's own line, tagged so the recorder captures exactly this response.
             let r = recorder.request(line: line, kind: ClipMeta.kind(of: line), role: recordRoles().flatMap { ClipMeta.role(of: line, roles: $0) })
-            socket.send(Realtime.sayExactly(line, tag: r.tag))
+            lineTarget(socket).send(Realtime.sayExactly(line, tag: r.tag))
         } else {
-            socket.send(Realtime.sayExactly(line))
+            lineTarget(socket).send(Realtime.sayExactly(line))
         }
         trace.mark("say.create")
     }
@@ -705,7 +716,7 @@ final class RealtimeSession {
             self.reasks += 1
             self.reminderPending = true
             rtLog("nudge: silence (fixed line, own chat bubble)")
-            self.socket?.send(Realtime.sayExactly(line))
+            if let s = self.socket { self.lineTarget(s).send(Realtime.sayExactly(line)) }
         }
     }
 
@@ -719,18 +730,63 @@ final class RealtimeSession {
     @ObservationIgnored private var createdSeen = 0
     @ObservationIgnored private var stopAt = Date.distantPast
 
+    #if DEBUG
+    // MARK: Cost v3 experiment: the app's fixed lines on a cheaper model (`-PTMiniLines [model]`, personal keys only)
+    @ObservationIgnored private var lineSocket: RealtimeSocket?
+    @ObservationIgnored private var lineTask: Task<Void, Never>?
+    /// Counts of the fixed-lines session (numbers only).
+    @ObservationIgnored private(set) var lineUsageTotals = RealtimeUsageTotals()
+
+    private func openLineSocket(auth: RealtimeAuth, config: VoiceConfig) async {
+        guard let model = Realtime.lineModel else { return }
+        lineTask?.cancel(); lineSocket?.close(); lineSocket = nil
+        guard let bearer = try? await auth.bearer() else { rtLog("lines: no bearer"); return }
+        var req = URLRequest(url: Realtime.url(model: model))
+        req.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
+        let s = RealtimeSocket(request: req)
+        s.send(config.lineSessionUpdate())
+        guard await Self.waitReady(s) else { rtLog("lines: \(model) not ready (\(s.firstError ?? "-")), app lines stay on the main session"); s.close(); return }
+        lineSocket = s
+        rtLog("lines: fixed app lines go to \(model) (separate session)")
+        lineTask = Task { [weak self] in
+            for await text in s.messages { await self?.receive(text, line: true) }
+        }
+    }
+    #endif
+
+    /// Where a fixed app line (`sayExactly`) is sent: the main session, or (DEBUG experiment) the fixed-lines session.
+    private func lineTarget(_ main: RealtimeSocket) -> RealtimeSocket {
+        #if DEBUG
+        if let lineSocket, lineSocket.firstError == nil { return lineSocket }
+        #endif
+        return main
+    }
+
     /// Round 20: token counts from every response.done (never content), for the prompt-cache check.
     @ObservationIgnored private(set) var usageTotals = RealtimeUsageTotals()
 
-    private func receive(_ text: String) async {
+    private func receive(_ text: String, line: Bool = false) async {
         let id = Realtime.responseID(text)
         let event = Realtime.parse(text)
-        if event == .responseDone, let u = RealtimeUsage.parse(text) {
+        #if DEBUG
+        if line {
+            // Cost v3: the fixed-lines session's counts are kept apart; its responses never count toward the main
+            // socket's response.create bookkeeping (createdSeen / cancelThrough).
+            if event == .responseDone, let u = RealtimeUsage.parse(text) {
+                lineUsageTotals.add(u)
+                rtLog("USAGE-LINES #\(lineUsageTotals.responses): \(u.line)")
+            }
+            if event == .responseCreated { speech.created(id); recorder.created(responseID: id, tag: Realtime.lineTag(text)) }
+            if case .sessionReady = event { return }
+            if case .error(let m) = event { rtLog("lines session error (ignored): \(m)"); return }
+        }
+        #endif
+        if !line, event == .responseDone, let u = RealtimeUsage.parse(text) {
             usageTotals.add(u)
             rtLog("USAGE #\(usageTotals.responses): \(u.line); session in \(usageTotals.input), cached \(usageTotals.cached) "
                   + String(format: "(%.0f%%)", usageTotals.cachedShare * 100))
         }
-        if event == .responseCreated {
+        if event == .responseCreated, !line {
             createdSeen += 1
             if createdSeen <= cancelThrough, Date().timeIntervalSince(stopAt) < 4, let id {
                 // Asked for before the kid moved on (e.g. a cheer already sent): cancel it the moment it exists.
@@ -741,7 +797,7 @@ final class RealtimeSession {
                 speech.created(id)
             }
         }
-        if event == .responseCreated { recorder.created(responseID: id, tag: Realtime.lineTag(text)) }
+        if event == .responseCreated, !line { recorder.created(responseID: id, tag: Realtime.lineTag(text)) }
         if speech.drops(event, responseID: id) { recorder.cancel(id.map { [$0] } ?? []); return }
         if recorder.isCapturing(id) {
             switch event {
@@ -772,7 +828,12 @@ final class RealtimeSession {
         let wasSpeaking = speaker.hasAudioQueued
         let ids = speech.cancelAll()
         recorder.cancel(ids)   // round D3b: a cut line is never saved
-        for id in ids { socket.send(Realtime.responseCancel(id: id)) }
+        for id in ids {
+            socket.send(Realtime.responseCancel(id: id))
+            #if DEBUG
+            lineSocket?.send(Realtime.responseCancel(id: id))
+            #endif
+        }
         cancelThrough = socket.createsSent
         stopAt = Date()
         interrupt(sendCancel: false)

@@ -121,6 +121,7 @@ The map. Read this first, then open only what you need.
 ## Research
 - [Cost per game (2026-11-15)](research/2026-11-15-cost-per-game.md): about $1.60/game, OpenAI voice is the biggest share; levers ranked
 - [Cost per game v2, measured (2026-11-16)](research/2026-11-16-cost-per-game-v2.md): about $1.20 per new game (voice $0.60–0.78, images $0.28–0.33, Claude $0.15), replay $0.14 first then $0.03; mini model $0.65 but skipped steps; margin table and plan limits
+- [Cost per game v3 (2026-11-16)](research/2026-11-16-cost-per-game-v3.md): current build about $1.03/game; Sonnet 5.5 for the play guide + weave saves ~$0.09 (keep Opus for pages; Haiku not good enough); mini voice for the scripted lines saves ~$0.16 with exact words (A/B audio in design/voice-ab/ for Haylee to hear); both ≈ $0.78; limits 8/12 now, 10/15 after both
 - [Parent onboarding + plans (2026-11-16)](research/2026-11-16-onboarding-research.md): how kids' apps onboard parents, Apple's Kids/paywall/permission rules, a proposed 6-screen flow, 5 decisions for Haylee
 - [App Store compliance gap list (2026-11-16)](research/2026-11-16-app-store-compliance.md): 29 requirements → status → fix; blockers: release builds embed personal API keys, 5.1.2(i) third-party-AI consent, OpenAI/Anthropic ZDR for COPPA, privacy manifest, StoreKit + Terms, AI content reporting; 8 questions for Haylee
 - [Competitor analysis](research/competitor-analysis.md): competitors, white space, novelty angles, pricing

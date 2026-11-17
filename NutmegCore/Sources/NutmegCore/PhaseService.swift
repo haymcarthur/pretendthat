@@ -38,30 +38,40 @@ public final class PhaseService: Sendable {
     }
 
     public func ideas(kidSaid: String?) async throws -> GameIdeas {
+        try await ClaudeRouting.$call.withValue(.ideas) {
         try await safe({ try await self.ask(GameIdeas.self, $0, Schemas.gameIdeas(), .medium,
                                             clean: Sanitizer.clean, problem: Validate.ideas) }, Prompts.ideas(kidSaid: kidSaid))
+        }
     }
     public func plan(game: String, ctx: AdventureContext) async throws -> GamePlan {
+        try await ClaudeRouting.$call.withValue(.plan) {
         try await safe({ try await self.ask(GamePlan.self, $0, Schemas.plan(), .medium,
                       clean: { Sanitizer.clean($0, playerCount: ctx.playerCount) }, problem: { Validate.plan($0, count: RoleCast.count) }) },
                        Prompts.plan(game: game, ctx: ctx))
+        }
     }
     /// Round 24: misfit pairings get one retry (`Validate.props`), then the app's curated sensible pairs.
     public func props(ctx: AdventureContext) async throws -> Props {
+        try await ClaudeRouting.$call.withValue(.props) {
         PropFit.repair(try await safe({ try await self.ask(Props.self, $0, Schemas.props(), .medium, clean: Sanitizer.clean, problem: Validate.props) },
                                       Prompts.props(ctx: ctx)))
+        }
     }
     public func kit(ctx: AdventureContext) async throws -> Kit {
+        try await ClaudeRouting.$call.withValue(.kit) {
         try await safe({ try await self.ask(Kit.self, $0, Schemas.kit(), .medium,
                       clean: { Sanitizer.clean($0) }, problem: { Validate.kit($0, roles: ctx.plan?.roles.count ?? 0) }) }, Prompts.kit(ctx: ctx))
+        }
     }
 
     /// Round 20: the kit pages alone (during the hunt). Validated for all 6 recipe items.
     public func kitPages(ctx: AdventureContext) async throws -> [KitItem] {
+        try await ClaudeRouting.$call.withValue(.pages) {
         let pages = try await safe({ try await self.ask(KitPages.self, $0, Schemas.kitPages(), .medium,
                                     clean: { p in KitPages(nutmegSays: p.nutmegSays, items: Sanitizer.clean(Kit(nutmegSays: "", items: p.items, scenes: [])).items) },
                                     problem: Validate.pages) }, Prompts.kitPages(ctx: ctx))
         return pages.items
+        }
     }
 
     /// Round 20: the play guide for pages that already exist (when the hunt ends): the whole kit.
@@ -70,6 +80,7 @@ public final class PhaseService: Sendable {
 
     public func kitScenes(ctx: AdventureContext, items: [KitItem], effort: Effort = PhaseService.scenesEffort,
                           huntPending: Bool = false) async throws -> Kit {
+        try await ClaudeRouting.$call.withValue(.guide) {
         let roles = ctx.plan?.roles.count ?? 0
         let call = {
             try await self.safe({ try await self.ask(KitScenes.self, $0, Schemas.kitScenes(), effort,
@@ -82,10 +93,12 @@ public final class PhaseService: Sendable {
         // whatever comes back, `GuideRepair` makes sure there are enough scenes, real titles and the props.
         if made.scenes.count < GuideRepair.minScenes, let again = try? await call(), again.scenes.count > made.scenes.count { made = again }
         return Kit(nutmegSays: made.nutmegSays, items: items, scenes: made.scenes)
+        }
     }
 
     /// Guide prefetch (2026-11-15): the play guide written while the kids are still hunting (no props in it yet).
     public func earlyGuide(ctx: AdventureContext, items: [KitItem]) async throws -> Kit {
+        try await ClaudeRouting.$call.withValue(.guide) {
         var c = ctx; c.props = nil
         let roles = ctx.plan?.roles.count ?? 0
         let made = try await safe({ try await self.ask(KitScenesSix.self, $0, KitScenesSix.schema(), Self.scenesEffort,
@@ -95,15 +108,18 @@ public final class PhaseService: Sendable {
         // There's time during the hunt: a guide still short after its one fix is written again (RetryOnce).
         if made.scenes.count < KitScenesSix.count { throw ClaudeError.decoding("the play guide had \(made.scenes.count) scenes") }
         return Kit(nutmegSays: made.nutmegSays, items: items, scenes: made.scenes)
+        }
     }
 
     /// Guide prefetch: the props worked into 1 or 2 existing steps each (small and fast: low effort, short answer).
     /// The rewritten steps pass the kid-safety check (regenerated once, then this throws and the guide stays as it was).
     public func weaveProps(scenes: [Scene], props: [Prop], taken: [PropUse], ctx: AdventureContext) async throws -> PropWeave {
+        try await ClaudeRouting.$call.withValue(.weave) {
         let roles = ctx.plan?.roles ?? []
         return try await safe({ try await self.ask(PropWeave.self, $0, GuideWeave.schema(propIDs: props.map(\.id)), .low,
                                                    clean: { $0 }, problem: { _ in nil }) },
                               GuideWeave.prompt(scenes: scenes, props: props, taken: taken, roles: roles, players: ctx.playerCount))
+        }
     }
 
     /// Guide prefetch: the final guide's text (after the hunt's skips and swaps were applied) passes the kid-safety
@@ -130,12 +146,16 @@ public final class PhaseService: Sendable {
         }
     }
     public func turn(kidSaid: String, phase: String, ctx: AdventureContext) async throws -> NutmegTurn {
+        try await ClaudeRouting.$call.withValue(.turn) {
         try await safe({ Sanitizer.clean(try await self.llm.structured(NutmegTurn.self, system: Prompts.system, user: $0, schema: JSONSchema(Schemas.turn()), effort: .low)) },
                        Prompts.turn(kidSaid: kidSaid, phase: phase, ctx: ctx))
+        }
     }
     public func help(scene: Scene, ctx: AdventureContext) async throws -> NutmegTurn {
+        try await ClaudeRouting.$call.withValue(.help) {
         try await safe({ Sanitizer.clean(try await self.llm.structured(NutmegTurn.self, system: Prompts.system, user: $0, schema: JSONSchema(Schemas.turn()), effort: .low)) },
                        Prompts.help(scene: scene, ctx: ctx))
+        }
     }
 }
 

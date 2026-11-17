@@ -302,6 +302,10 @@ enum DemoDriver {
                 rtLog("COST calls: \(AICallLog.summary()); claude \(c.count) calls, in \(c.map(\.input).reduce(0, +)), out \(c.map(\.output).reduce(0, +)); "
                       + "images \(im.requests) requests, in \(im.inputTokens), out \(im.outputTokens); realtime \(r.responses) responses, "
                       + "in \(r.input) (text \(r.textIn), audio \(r.audioIn)), cached \(r.cached), out \(r.output) (audio \(r.outAudio))")
+                let l = model.realtime.lineUsageTotals
+                if l.responses > 0 {   // cost v3: the fixed-lines session (-PTMiniLines)
+                    rtLog("COST lines session: \(l.responses) responses, in \(l.input) (text \(l.textIn)), cached \(l.cached), out \(l.output) (audio \(l.outAudio))")
+                }
                 continue
             }
             if turn == "#props" {
