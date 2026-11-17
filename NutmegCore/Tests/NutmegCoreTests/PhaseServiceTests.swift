@@ -79,8 +79,9 @@ final class FakeLLM: LLM, @unchecked Sendable {
         #expect(a.plan.roles.map(\.roleName) == ["Captain", "Passenger", "Flight Attendant", "Co-Pilot", "Snack Chef", "VIP Passenger"])
         #expect(a.kit == Fallback.airplane(playerCount: 1).kit)   // the count never changes the game data
         let view = PlayCast.kit(a.kit, roles: a.plan.roles, players: n)
-        #expect(view.scenes.count == a.kit.scenes.count)   // round 29: the same 3 scenes for any count
-        #expect(view.scenes.allSatisfy { $0.steps.count == n })
+        #expect(view.playScenes.count == a.kit.scenes.count)   // round 29: the same 3 scenes for any count (round 36: + story, setup, clean-up)
+        #expect(view.scenes.map(\.arc) == [.story, .setup, .play, .play, .play, .cleanup])
+        #expect(view.scenes.filter { $0.arc != .story }.allSatisfy { $0.steps.count == n })
     }
 }
 

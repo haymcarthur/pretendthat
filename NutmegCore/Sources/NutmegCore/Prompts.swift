@@ -95,6 +95,9 @@ public enum Prompts {
         \(recipe)
         Never put names or name placeholders anywhere: the app prints each badge's role title and a blank "Name: ____" line on badges and tickets for kids to write on. Keep wording short (lines 1 to 5 words each).
         The cutouts item's lines are exactly \(KitDraft.themedCutouts) cut-out items (each is drawn as its own picture). \
+        Every page is used ON PURPOSE in the game: set each item's purpose to ONE short sentence saying what the kids do \
+        with it while they play (e.g. "Customers read it to choose their pancakes", "Hang it by the door so everyone \
+        knows the bakery is open", "Customers pay with them"); for cutouts, what the cut-out things are for. \
         Return KitPages.
         \(contextJSON(ctx))
         """
@@ -106,14 +109,15 @@ public enum Prompts {
     /// is worked into a step or two later, `GuideWeave`).
     public static func kitScenes(ctx: AdventureContext, items: [KitItem], huntPending: Bool = false) -> String {
         let enc = JSONEncoder(); enc.outputFormatting = [.sortedKeys]
-        let pages = items.map { ["id": $0.id, "recipe": $0.recipe?.rawValue ?? "", "title": $0.title, "lines": $0.lines.joined(separator: " | ")] }
+        let pages = items.map { ["id": $0.id, "recipe": $0.recipe?.rawValue ?? "", "title": $0.title, "lines": $0.lines.joined(separator: " | "),
+                                 "purpose": $0.purpose ?? ""] }
         let pagesJSON = (try? enc.encode(pages)).map { String(decoding: $0, as: UTF8.self) } ?? "[]"
         return """
         Phase: the play guide. The printable pages are already made (JSON): \(pagesJSON)
         Props the kids found are real household props; props marked skipped are pretend (the kids don't have them; if a \
         cutouts line names one, use that cut-out).
         \(sceneRules) \
-        \(huntPending ? "The kids are still hunting for household props, so none are known yet: use NO household props (no household things), only the printed pages, actions and pretend play; the app works their props into the steps later. Every scene needs a real, specific title of 2 to 5 words. Return the 3 scenes as scene1 to scene3 (each with title, nutmegSays, R1 to R6 and solo), all of them in this one answer." : "Use the found props and the printed pages in the tasks: work EVERY household prop into at least one role's task (and that scene's solo task), named by what it becomes. Every scene needs a real, specific title of 2 to 5 words about what happens in it (never a placeholder like x or Scene 1). Each task is a step with role R1 to R6 or solo. Return KitScenes.")
+        \(huntPending ? "The kids are still hunting for household props, so none are known yet: use NO household props (no household things), only the printed pages, actions and pretend play; the app works their props into the steps later. Every scene needs a real, specific title of 2 to 5 words. Return the 3 scenes as scene1 to scene3 (each with title, nutmegSays, R1 to R6 and solo), all of them in this one answer. \(bookendRules)" : "Use the found props and the printed pages in the tasks: work EVERY household prop into at least one role's task (and that scene's solo task), named by what it becomes. Every scene needs a real, specific title of 2 to 5 words about what happens in it (never a placeholder like x or Scene 1). Each task is a step with role R1 to R6 or solo. Return KitScenes.")
         \(contextJSON(ctx))
         """
     }
@@ -154,6 +158,22 @@ public enum Prompts {
         + "(hands, feet, voice). Never any other object (no bell, wand, phone, basket, cash register, cup, unless it is "
         + "one of the props or printed pages): if a task needs one, make it a pretend action (\"pretend to ring a "
         + "bell\") or use a printed page instead."
+
+    /// Round 36 (Haylee): the arc around the 3 play scenes. The setup ROWS are put together by the app from the item
+    /// jobs (per player count), so every page gets one job here and each prop gets its jobs when it's woven in.
+    static let bookendRules = "The game also has a STORY, a SETUP scene before the 3 play scenes and a CLEAN-UP scene "
+        + "after them. story: what Nutmeg tells right after printing, 3 or 4 short sentences (about 15 seconds): where we "
+        + "are, who the kids are, and what is about to happen; it leads into the setup. setupScene: the kids set up their "
+        + "play space with the printed pages and their props (title 2 to 4 words; nutmegSays ONE sentence starting with "
+        + "\"Pretend that\", e.g. \"Pretend that the bakery opens in five minutes!\"). cleanupScene: the story's ending, "
+        + "putting everything away (e.g. title \"Closing Time\", nutmegSays \"Pretend that the bakery is closing for the "
+        + "night!\"). pageJobs: for EACH printed page, the job that gives it its purpose: setupSay = what the kids do with "
+        + "that page to set up (an imperative phrase of 5 to 15 words, no role title, naming the page, e.g. \"hang the "
+        + "Sunny Bakery sign by the door so customers can find us\"; badges: \"put on your badge\"; cut-outs: what they "
+        + "set the cut-outs out as), cleanupSay = how they tidy it at the end, framed in the story, both with short row "
+        + "texts, and role = the role it suits best (spread them over R1 to R6). Every page and every prop must have a "
+        + "clear purpose, nothing random or unused: the play tasks may refer back to what was set up (\"serve the cakes "
+        + "you lined up on the counter\")."
 
     static func contextJSON(_ ctx: AdventureContext) -> String {
         let enc = JSONEncoder(); enc.outputFormatting = [.sortedKeys]

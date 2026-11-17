@@ -335,8 +335,34 @@ enum DemoDriver {
                 rtLog("PROPS " + (model.store.props?.props.map { "\($0.id)=\($0.householdItem)\($0.isSkipped ? "(pretend)" : "")" }.joined(separator: ", ") ?? "-"))
                 continue
             }
+            // Round 36: "#arc": every scene as the players see it (story, setup, play, clean-up) with each row's shown and
+            // spoken text, then the item → task mapping (every prop and printed page, where it's used).
+            if turn == "#arc" {
+                for (i, sc) in (model.store.kit?.scenes ?? []).enumerated() {
+                    rtLog("ARC[\(i)] \(sc.arc.rawValue) \"\(sc.title)\": \(sc.nutmegSays)")
+                    for st in sc.steps { rtLog("ARC[\(i)]   \(st.role.rawValue) [\(st.short ?? "-")] \(st.text)") }
+                }
+                for line in model.store.coverageLog { rtLog("COVERAGE players=\(model.store.playerCount) \(line)") }
+                continue
+            }
+            // Round 36: "#waitsetup": wait (≤ 60 s) until the story has been told and the setup scene opened by itself.
+            if turn == "#waitsetup" {
+                let t0 = Date()
+                for _ in 0..<600 where model.store.inStory { try? await Task.sleep(for: .milliseconds(100)) }
+                rtLog(String(format: "STORY done: %@ after %.1f s (now %@)", model.store.inStory ? "STILL IN STORY" : "setup opened by itself",
+                             Date().timeIntervalSince(t0), model.store.currentArc?.rawValue ?? "-"))
+                continue
+            }
             if turn == "#playthrough" {
                 for _ in 0..<12 {   // round 29: 3 scenes, everyone at once: let her read each scene, then ▶
+                    // Round 36: the story moves on by itself when she has told it (never tapped past here).
+                    if model.store.inStory {
+                        let t0 = Date()
+                        for _ in 0..<600 where model.store.inStory { try? await Task.sleep(for: .milliseconds(100)) }
+                        rtLog(String(format: "driver: story told, setup opened by itself after %.1f s", Date().timeIntervalSince(t0)))
+                        rtLog("driver: now \(model.store.phase) (\(model.store.currentArc?.rawValue ?? "-"))")
+                        continue
+                    }
                     for _ in 0..<600 where model.wifiPause.isPaused { try? await Task.sleep(for: .milliseconds(100)) }   // round D3b
                     for _ in 0..<50 where !model.realtime.isSpeaking && !model.wifiPause.isPaused { try? await Task.sleep(for: .milliseconds(100)) }
                     for _ in 0..<900 where model.realtime.isSpeaking || model.realtime.isBusy { try? await Task.sleep(for: .milliseconds(100)) }

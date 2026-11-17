@@ -69,7 +69,7 @@ struct RoundC1Tests {
 
     @Test func everyPlayingRoleHasItsOwnCalledOutRowInEveryScene() {
         for n in 1...6 {
-            let view = PlayCast.kit(kit, roles: roles, players: n)
+            var view = PlayCast.kit(kit, roles: roles, players: n); view.scenes = view.playScenes   // round 36: the play scenes
             #expect(view.scenes.count == kit.scenes.count, "n=\(n)")
             for (i, scene) in view.scenes.enumerated() {
                 #expect(scene.steps.map(\.role) == Array(RoleID.allCases.prefix(n)).map { SceneOwner($0) })
@@ -145,8 +145,8 @@ struct RoundC1Tests {
         for n in [1, 6, 3] {
             _ = await store.apply(.setPlayerCount(n))
             #expect(store.playerCount == n && store.phase == .kitReady && store.fullKit == full)
-            #expect(store.kit?.scenes.count == store.fullKit?.scenes.count)   // round 29: the same 3 scenes
-            #expect(store.kit?.scenes.allSatisfy { $0.steps.count == n } == true)   // a row per playing role
+            #expect(store.kit?.playScenes.count == store.fullKit?.scenes.count)   // round 29: the same 3 scenes
+            #expect(store.kit?.scenes.filter { $0.arc != .story }.allSatisfy { $0.steps.count == n } == true)   // a row per playing role
             let badges = KitLayout.pages(for: store.kit!, roles: store.plan!.roles, playerCount: n).filter { $0.item.recipe == .badges }
             #expect(badges.flatMap(\.slots).count == n)
         }

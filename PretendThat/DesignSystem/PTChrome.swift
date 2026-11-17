@@ -642,7 +642,7 @@ struct PTChatTabs: View {
         .background(Capsule().fill(Theme.chipGray))
     }
     static func title(_ s: PTStepTab) -> String {
-        switch s { case .props: "Props"; case .print: "Print"; case .scene: "Scene"; case .cover: "Game" }
+        switch s { case .props: "Props"; case .print: "Print"; case .scene: "Scene"; case .cover: "Game"; case .setup: "Setup"; case .cleanup: "Clean-up" }
     }
     static func symbol(_ s: PTStepTab) -> String {
         switch s {
@@ -650,6 +650,8 @@ struct PTChatTabs: View {
         case .print: "printer.fill"
         case .scene: "theatermasks"
         case .cover: "photo.on.rectangle"
+        case .setup: "hammer.fill"      // round 36
+        case .cleanup: "basket.fill"    // round 36
         }
     }
     private func seg(_ t: PTChatTab, _ title: String, _ symbol: String) -> some View {

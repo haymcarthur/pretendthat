@@ -16,9 +16,57 @@ public struct PropWeave: Codable, Equatable, Sendable {
         public init(propID: String, scene: Int, step: Int, text: String) { self.propID = propID; self.scene = scene; self.step = step; self.text = text }
     }
     public var uses: [Use]
-    public init(uses: [Use]) { self.uses = uses }
+    /// Round 36: each prop's setup and clean-up jobs (`item` = the prop id), written in the same call.
+    public var jobs: [ItemJobs.Job]?
+    public init(uses: [Use], jobs: [ItemJobs.Job]? = nil) { self.uses = uses; self.jobs = jobs }
 }
-extension PropWeave: SafetyText { public var safetyTexts: [String] { uses.map(\.text) } }
+extension PropWeave: SafetyText { public var safetyTexts: [String] { uses.map(\.text) + (jobs ?? []).flatMap(\.texts) } }
+
+/// Round 36: one item's setup + clean-up jobs, as the AI writes them (the guide for the pages, the weave for a prop,
+/// and the one re-ask for anything missing).
+public struct ItemJobs: Codable, Equatable, Sendable, SafetyText {
+    public struct Job: Codable, Equatable, Sendable {
+        public var item: String; public var role: String
+        public var setupShort: String; public var setupSay: String
+        public var cleanupShort: String; public var cleanupSay: String
+        public init(item: String, role: String, setupShort: String, setupSay: String, cleanupShort: String, cleanupSay: String) {
+            self.item = item; self.role = role; self.setupShort = setupShort; self.setupSay = setupSay
+            self.cleanupShort = cleanupShort; self.cleanupSay = cleanupSay
+        }
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            item = try c.decodeIfPresent(String.self, forKey: .item) ?? ""   // the guide's page jobs are keyed by recipe
+            role = try c.decodeIfPresent(String.self, forKey: .role) ?? ""
+            setupShort = try c.decode(String.self, forKey: .setupShort); setupSay = try c.decode(String.self, forKey: .setupSay)
+            cleanupShort = try c.decode(String.self, forKey: .cleanupShort); cleanupSay = try c.decode(String.self, forKey: .cleanupSay)
+        }
+        var texts: [String] { [setupShort, setupSay, cleanupShort, cleanupSay] }
+        /// The two `ItemJob`s for a cover item id ("page:sign" / "prop:bowl").
+        public func jobs(id: String, prop: Prop? = nil) -> (setup: ItemJob, cleanup: ItemJob) {
+            let r = RoleID(rawValue: role)
+            return (ItemJob(item: id, short: setupShort, say: setupSay, role: r, householdItem: prop?.householdItem, becomes: prop?.becomes),
+                    ItemJob(item: id, short: cleanupShort, say: cleanupSay, role: r, householdItem: prop?.householdItem, becomes: prop?.becomes))
+        }
+    }
+    public var jobs: [Job]
+    public init(jobs: [Job]) { self.jobs = jobs }
+    public var safetyTexts: [String] { jobs.flatMap(\.texts) }
+
+    static var jobProps: [String: Any] { [
+        "role": Schemas.enumStr(RoleID.allCases.map(\.rawValue)),
+        "setupShort": ["type": "string", "description": "What the setup row SHOWS: 2 to 5 words, no role title (e.g. Hang up the sign)."],
+        "setupSay": ["type": "string", "description": "The setup job Nutmeg SAYS: an imperative phrase of 5 to 15 words with no role title that NAMES this item and gives it a clear purpose in the play space (e.g. hang the Sunny Bakery sign by the door so customers can find us)."],
+        "cleanupShort": ["type": "string", "description": "What the clean-up row SHOWS: 2 to 5 words (e.g. Put the bowl away)."],
+        "cleanupSay": ["type": "string", "description": "The clean-up job: an imperative phrase of 5 to 15 words with no role title that names this item and puts it away, framed in the story (e.g. put the mixing bowl back in the kitchen for the night)."],
+    ] }
+    /// The re-ask / weave schema: a list of jobs, `item` one of `ids`.
+    public static func schema(ids: [String]) -> [String: Any] {
+        var j = jobProps; j["item"] = Schemas.enumStr(ids.isEmpty ? ["none"] : ids)
+        return Schemas.obj(["jobs": Schemas.arr(Schemas.obj(j))])
+    }
+    /// The guide's fixed per-page object (one per recipe, required).
+    static func pageSchema() -> [String: Any] { Schemas.obj(jobProps) }
+}
 
 /// One step that uses a prop, with the prop as it was when the step was written (to apply a later skip or swap).
 public struct PropUse: Equatable, Sendable {
@@ -36,8 +84,11 @@ public enum GuideWeave {
     public static let maxWords = 40   // round 34: the spoken task has the job plus 1–2 concrete ideas
 
     public static func schema(propIDs: [String]) -> [String: Any] {
-        Schemas.obj(["uses": Schemas.arr(Schemas.obj(["propID": Schemas.enumStr(propIDs.isEmpty ? ["none"] : propIDs),
-                                                       "scene": Schemas.int, "step": Schemas.int, "text": Schemas.str]))])
+        var j = ItemJobs.jobProps; j["item"] = Schemas.enumStr(propIDs.isEmpty ? ["none"] : propIDs)
+        return Schemas.obj(["uses": Schemas.arr(Schemas.obj(["propID": Schemas.enumStr(propIDs.isEmpty ? ["none"] : propIDs),
+                                                              "scene": Schemas.int, "step": Schemas.int, "text": Schemas.str])),
+                            // Round 36: each prop's setup + clean-up job (one entry per prop).
+                            "jobs": Schemas.arr(Schemas.obj(j))])
     }
 
     /// The weave prompt: the guide as numbered lines, the props to add, the tasks already taken by other props.
@@ -71,7 +122,12 @@ public enum GuideWeave {
         roles that are playing (\(playing)) and spread the props over them: first a playing role with no (taken) task \
         yet, then the prop's own role. Never pick a task marked (taken), and at most one prop per task. Keep the task \
         for the same role: it still starts with that role's title. These are the SPOKEN tasks: the job plus 1 or 2 concrete ideas, at most 30 words, no quotes or lines \
-        to say. Name the prop by what it becomes (never the household item), gentle and kid-safe. Return PropWeave \
+        to say. Name the prop by what it becomes (never the household item), gentle and kid-safe. \
+        ALSO, for EACH prop, write its jobs (one entry per prop, item = the prop id): setupSay = how the kids put it in \
+        place before the play starts so it has a clear purpose in the play space (e.g. "set the treasure chest by the \
+        ship's wheel to hold the gold"), named by what it becomes; setupShort its 2 to 5 word row text; cleanupSay = how \
+        they put the household item back at the end, framed in the story (e.g. "put the box back in the closet so the \
+        ship can rest"); cleanupShort its row text; role = the playing role it suits best. No quotes. Return PropWeave \
         (scene and step are the numbers above).
         """
     }
@@ -173,8 +229,31 @@ public enum GuideWeave {
 public struct KitScenesSix: Decodable, Sendable, SafetyText {
     public var nutmegSays: String
     public var scenes: [Scene]
-    public init(nutmegSays: String, scenes: [Scene]) { self.nutmegSays = nutmegSays; self.scenes = scenes }
+    /// Round 36 (Haylee): the story opener and the setup / clean-up scenes (titles, lines, one job per printed page),
+    /// written in this same call. Nil in an answer without them (tests, older shapes).
+    public var story: String?
+    public var setup: Bookend?
+    public var cleanup: Bookend?
+    public init(nutmegSays: String, scenes: [Scene], story: String? = nil, setup: Bookend? = nil, cleanup: Bookend? = nil) {
+        self.nutmegSays = nutmegSays; self.scenes = scenes; self.story = story; self.setup = setup; self.cleanup = cleanup
+    }
     public static let count = 3
+
+    struct BookendBody: Decodable { var title: String; var nutmegSays: String }
+    /// Round 36: the setup / clean-up scenes and the pages' jobs (keyed by recipe).
+    static func bookends(_ c: KeyedDecodingContainer<Key>) -> (setup: Bookend, cleanup: Bookend)? {
+        guard let s = try? c.decode(BookendBody.self, forKey: Key(stringValue: "setupScene")),
+              let k = try? c.decode(BookendBody.self, forKey: Key(stringValue: "cleanupScene")) else { return nil }
+        var setup = Bookend(title: s.title, nutmegSays: s.nutmegSays), cleanup = Bookend(title: k.title, nutmegSays: k.nutmegSays)
+        if let pages = try? c.nestedContainer(keyedBy: Key.self, forKey: Key(stringValue: "pageJobs")) {
+            for r in KitRecipe.allCases {
+                guard let j = try? pages.decode(ItemJobs.Job.self, forKey: Key(stringValue: r.rawValue)) else { continue }
+                let two = j.jobs(id: Bookends.pageID(r))
+                setup.put(two.setup); cleanup.put(two.cleanup)
+            }
+        }
+        return (setup, cleanup)
+    }
     static let taskKeys: [(key: String, role: SceneOwner)] = RoleID.allCases.map { ($0.rawValue, SceneOwner($0)) } + [("solo", .solo)]
 
     struct Key: CodingKey {
@@ -209,6 +288,8 @@ public struct KitScenesSix: Decodable, Sendable, SafetyText {
             s.id = "s\(i)"
             return s
         }
+        story = try? c.decodeIfPresent(String.self, forKey: Key(stringValue: "story"))
+        if let b = Self.bookends(c) { setup = b.setup; cleanup = b.cleanup }
     }
 
     public static func schema() -> [String: Any] {
@@ -224,10 +305,23 @@ public struct KitScenesSix: Decodable, Sendable, SafetyText {
         }
         var props: [String: Any] = [:]
         for i in 1...count { props["scene\(i)"] = ["$ref": "#/$defs/scene"] }
+        // Round 36 (Haylee): the story opener, the setup and clean-up scenes, and one job per printed page.
+        props["story"] = ["type": "string", "description": "The story Nutmeg tells right after printing, before the setup: 3 or 4 short sentences, about 40 to 55 words (15 seconds): where we are, who the kids are (the R1 role and the crew; name no other role), and what is about to happen. Kid words, exciting, no quotes."]
+        let bookend: [String: Any] = Schemas.obj(["title": ["type": "string", "description": "2 to 4 words."],
+                                                  "nutmegSays": ["type": "string", "description": "ONE sentence that starts with \"Pretend that\"."]])
+        props["setupScene"] = ["$ref": "#/$defs/bookend"]
+        props["cleanupScene"] = ["$ref": "#/$defs/bookend"]
+        var pages: [String: Any] = [:]
+        for r in KitRecipe.allCases { pages[r.rawValue] = ["$ref": "#/$defs/job"] }
+        props["pageJobs"] = Schemas.obj(pages)
         var o = Schemas.obj(props)
-        // One definition (3 inline copies make the grammar bigger for nothing).
-        o["$defs"] = ["scene": Schemas.obj(sceneProps)]
+        // One definition each (inline copies make the grammar and the input bigger for nothing; round 36: the 6 page
+        // jobs share one, the 2 bookend scenes another).
+        o["$defs"] = ["scene": Schemas.obj(sceneProps), "bookend": bookend, "job": ItemJobs.pageSchema()]
         return o
     }
-    public var safetyTexts: [String] { [nutmegSays] + scenes.flatMap { [$0.title, $0.nutmegSays] + $0.steps.flatMap { [$0.text] + ($0.short.map { [$0] } ?? []) } } }
+    public var safetyTexts: [String] {
+        [nutmegSays] + scenes.flatMap { [$0.title, $0.nutmegSays] + $0.steps.flatMap { [$0.text] + ($0.short.map { [$0] } ?? []) } }
+            + Bookends.safetyTexts(Kit(nutmegSays: "", items: [], scenes: [], story: story, setup: setup, cleanup: cleanup))
+    }
 }

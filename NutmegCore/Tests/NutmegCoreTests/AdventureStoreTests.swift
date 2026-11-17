@@ -42,14 +42,17 @@ func walk(_ store: AdventureStore) async -> [Phase] {
     store.beginPlay()
     // Round 29 (ensemble scenes): no hand-off; scene 1 opens with every playing role's task.
     #expect(store.phase == .scene(0))
-    #expect(store.kit?.scenes[0].steps.count == 5)
+    // Round 36: scene 0 is the story (no rows), then the setup scene; every scene after it has a row per playing role.
+    #expect(store.inStory && store.kit?.scenes[0].steps.isEmpty == true && store.nutmegLine == store.kit?.story.map { PlayCast.endSentence($0) })
+    #expect(store.kit?.scenes.dropFirst().allSatisfy { $0.steps.count == 5 } == true)
+    store.nextScene()
     #expect(store.nutmegLine.hasPrefix("Pretend that") && store.nutmegLine.contains(HandOffLines.taskCue) && !store.nutmegLine.contains("Captain,"))   // round 34
 }
 
 @Test @MainActor func everyKidCountPlaysTheSameThreeScenes() async {
     for n in [1, 2, 3, 6] {
         let store = await storeWithKit(owners: [.R1, .R2, .all], players: n)
-        #expect(await walk(store) == [.scene(0), .scene(1), .scene(2)], "\(n)")
+        #expect(await walk(store) == (0..<6).map { .scene($0) }, "\(n)")   // round 36: story, setup, 3 play, clean-up
         #expect(store.phase == .end)
     }
 }
@@ -83,7 +86,7 @@ func walk(_ store: AdventureStore) async -> [Phase] {
     await store.confirmProps()
     #expect(store.usingFallback)
     #expect(store.phase == .kitReady)
-    #expect(store.kit?.scenes.allSatisfy { $0.steps.count == 2 && !$0.steps.contains { $0.role == .R3 } } == true)
+    #expect(store.kit?.scenes.filter { $0.arc != .story }.allSatisfy { $0.steps.count == 2 && !$0.steps.contains { $0.role == .R3 } } == true)
 }
 
 @Test @MainActor func newGameClearsEverything() async {
@@ -156,8 +159,8 @@ func storeAtFirstScene(players: Int = 3) async -> AdventureStore {
     let store = await storeAtFirstScene()
     #expect(store.phase == .scene(0))
     store.nextScene()
-    #expect(store.phase == .scene(1) && store.nutmegLine == HandOffLines.sceneOpen(store.kit!.scenes[1]))
-    store.nextScene(); store.nextScene()
+    #expect(store.phase == .scene(1) && store.nutmegLine == HandOffLines.sceneOpen(store.kit!.scenes[1], first: true) && store.kit!.scenes[1].arc == .setup)
+    store.nextScene(); store.nextScene(); store.nextScene(); store.nextScene(); store.nextScene()   // round 36: + setup … clean-up
     #expect(store.phase == .end && store.nutmegLine == HandOffLines.end())
     store.nextScene()   // nothing past The End
     #expect(store.phase == .end)
@@ -177,10 +180,10 @@ func storeAtFirstScene(players: Int = 3) async -> AdventureStore {
 
 @Test @MainActor func thePlayStepAtTheEndReopensTheLastScene() async {
     let store = await storeAtFirstScene()
-    store.nextScene(); store.nextScene(); store.nextScene()
+    for _ in 0..<6 { store.nextScene() }   // round 36: story, setup, 3 play scenes, clean-up
     #expect(store.phase == .end)
     #expect(store.goTo(.play))
-    #expect(store.phase == .scene(2) && store.nutmegLine == HandOffLines.sceneOpen(store.kit!.scenes[2]))
+    #expect(store.phase == .scene(5) && store.nutmegLine == HandOffLines.sceneOpen(store.kit!.scenes[5]) && store.kit!.scenes[5].arc == .cleanup)
     store.nextScene(); store.debugSetPhase(.end)
-    #expect(await store.apply(.goToStep(.play)) == AdventureStore.backToLastSceneOutput && store.phase == .scene(2))
+    #expect(await store.apply(.goToStep(.play)) == AdventureStore.backToLastSceneOutput && store.phase == .scene(5))
 }

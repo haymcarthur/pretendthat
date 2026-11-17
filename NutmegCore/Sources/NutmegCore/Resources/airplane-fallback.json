@@ -121,7 +121,8 @@
         "perPlayer": true,
         "copies": 1,
         "colorMe": true,
-        "recipe": "badges"
+        "recipe": "badges",
+        "purpose": "Each kid wears one so everyone knows who is the Captain and who is a passenger."
       },
       {
         "id": "sign",
@@ -138,7 +139,8 @@
         "bigNumber": null,
         "perPlayer": false,
         "copies": 1,
-        "colorMe": true
+        "colorMe": true,
+        "purpose": "Hang it at the gate so passengers know where to board."
       },
       {
         "id": "money",
@@ -153,7 +155,8 @@
         "perPlayer": false,
         "copies": 8,
         "colorMe": true,
-        "recipe": "money"
+        "recipe": "money",
+        "purpose": "Passengers pay for snacks with them."
       },
       {
         "id": "pass",
@@ -168,7 +171,8 @@
         "perPlayer": true,
         "copies": 1,
         "colorMe": true,
-        "recipe": "tickets"
+        "recipe": "tickets",
+        "purpose": "Passengers show it at the door to get on the plane."
       },
       {
         "id": "menu",
@@ -185,7 +189,8 @@
         "perPlayer": false,
         "copies": 1,
         "colorMe": true,
-        "recipe": "menu"
+        "recipe": "menu",
+        "purpose": "Passengers read it to choose a snack."
       },
       {
         "id": "cutouts",
@@ -205,7 +210,8 @@
         "bigNumber": null,
         "perPlayer": false,
         "copies": 1,
-        "colorMe": true
+        "colorMe": true,
+        "purpose": "The suitcases and snacks the crew loads onto the plane."
       }
     ],
     "scenes": [
@@ -431,6 +437,149 @@
           }
         ]
       }
-    ]
+    ],
+    "story": "Welcome to Sky Airlines, the friendliest airline in the sky! Today you are the Captain and the crew of the Ocean Express. Your passengers are lining up at Gate 3, and they can't wait to fly over the big blue ocean. First, let's get the plane ready!",
+    "setup": {
+      "title": "Get the Plane Ready",
+      "nutmegSays": "Pretend that the plane leaves in five minutes!",
+      "jobs": [
+        {
+          "item": "page:sign",
+          "short": "Hang up the gate sign",
+          "say": "hang the Sky Airlines Gate 3 sign where the passengers line up",
+          "role": "R1"
+        },
+        {
+          "item": "page:money",
+          "short": "Hand out the money",
+          "say": "give each passenger some Sky Dollars to buy snacks",
+          "role": "R2"
+        },
+        {
+          "item": "page:tickets",
+          "short": "Fill in the boarding pass",
+          "say": "write your name on a boarding pass and keep it ready",
+          "role": "R2"
+        },
+        {
+          "item": "page:menu",
+          "short": "Set out the snack menu",
+          "say": "put the snack menu on the snack cart for the passengers",
+          "role": "R3"
+        },
+        {
+          "item": "page:cutouts",
+          "short": "Load the cut-outs",
+          "say": "line up the snack and travel cut-outs by the plane",
+          "role": "R5"
+        },
+        {
+          "item": "prop:chair",
+          "short": "Line up the seats",
+          "say": "line up the airplane seats in two neat rows",
+          "role": "R2",
+          "householdItem": "Chair",
+          "becomes": "Airplane seats"
+        },
+        {
+          "item": "prop:plate",
+          "short": "Set the steering wheel",
+          "say": "put the steering wheel on the front seat, ready to fly",
+          "role": "R1",
+          "householdItem": "Plastic plate",
+          "becomes": "Steering wheel"
+        },
+        {
+          "item": "prop:tray",
+          "short": "Load the snack cart",
+          "say": "set the snack cart by the seats, ready to roll",
+          "role": "R3",
+          "householdItem": "Tray",
+          "becomes": "Snack cart"
+        },
+        {
+          "item": "prop:backpack",
+          "short": "Pack the suitcase",
+          "say": "pack the suitcase and put it under your seat",
+          "role": "R6",
+          "householdItem": "Backpack",
+          "becomes": "Suitcase"
+        }
+      ]
+    },
+    "cleanup": {
+      "title": "Back at the Gate",
+      "nutmegSays": "Pretend that the plane just landed safely and the airport is closing for the night!",
+      "jobs": [
+        {
+          "item": "page:badges",
+          "short": "Collect the badges",
+          "say": "take off your crew badge and put it in the badge pile",
+          "role": "R4"
+        },
+        {
+          "item": "page:sign",
+          "short": "Take down the sign",
+          "say": "take down the Gate 3 sign and lay it flat",
+          "role": "R1"
+        },
+        {
+          "item": "page:money",
+          "short": "Gather the money",
+          "say": "gather up all the Sky Dollars in one pile",
+          "role": "R2"
+        },
+        {
+          "item": "page:tickets",
+          "short": "Collect the passes",
+          "say": "collect the boarding passes in a neat stack",
+          "role": "R6"
+        },
+        {
+          "item": "page:menu",
+          "short": "Fold up the menu",
+          "say": "fold up the snack menu for the next flight",
+          "role": "R3"
+        },
+        {
+          "item": "page:cutouts",
+          "short": "Stack the cut-outs",
+          "say": "stack the snack and travel cut-outs in a pile",
+          "role": "R5"
+        },
+        {
+          "item": "prop:chair",
+          "short": "Put the chairs back",
+          "say": "put the chairs back at the table for the night",
+          "role": "R2",
+          "householdItem": "Chair",
+          "becomes": "Airplane seats"
+        },
+        {
+          "item": "prop:plate",
+          "short": "Put the plate away",
+          "say": "put the plastic plate back in the kitchen",
+          "role": "R1",
+          "householdItem": "Plastic plate",
+          "becomes": "Steering wheel"
+        },
+        {
+          "item": "prop:tray",
+          "short": "Put the tray away",
+          "say": "put the tray back where it lives",
+          "role": "R3",
+          "householdItem": "Tray",
+          "becomes": "Snack cart"
+        },
+        {
+          "item": "prop:backpack",
+          "short": "Put the backpack away",
+          "say": "put the backpack back in your room",
+          "role": "R6",
+          "householdItem": "Backpack",
+          "becomes": "Suitcase"
+        }
+      ]
+    }
   }
 }

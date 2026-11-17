@@ -186,7 +186,7 @@ import Testing
     // MARK: 5. The whole row is the tap target
 
     @Test func aRowTapPlaysThatRolesSay() {
-        let rows = PlayCast.kit(a.kit, roles: roles, players: 3).scenes[0].steps
+        let rows = PlayCast.kit(a.kit, roles: roles, players: 3).playScenes[0].steps
         for i in rows.indices { #expect(SceneRowTap.line(rows: rows, index: i) == HandOffLines.task(rows[i])) }
         #expect(SceneRowTap.line(rows: rows, index: 7) == nil)
         #expect(SceneRowTap.accessibilityLabel(roleName: "Pet Trainer") == "Hear the Pet Trainer's job")
@@ -199,6 +199,7 @@ import Testing
 
     @Test func voiceReadJobPointsAtTheRow() async {
         let store = await storeAtFirstScene(players: 3)
+        store.nextScene()   // round 36: past the story (no rows) to the setup scene
         let second = store.plan?.roles[1].roleName ?? "#"
         let out = await store.apply(.readJob(second))
         #expect(out.contains("Say nothing") && store.lastReadJobRow == 1)

@@ -99,9 +99,13 @@ public enum PlayCast {
 
     /// The whole kit as N players see it: the same scenes (round 29: no hand-off turns), each with its playing rows.
     /// The pages are unchanged (KitLayout prints N badges).
-    public static func kit(_ k: Kit, roles: [Role], players n: Int) -> Kit {
+    /// Round 36 (Haylee): with the arc, the scenes are the story, the setup scene, the play scenes and the clean-up
+    /// scene (`Bookends.compose`, from the item jobs, with `props` as they are now). A game saved before round 36 has
+    /// only its play scenes.
+    public static func kit(_ k: Kit, roles: [Role], players n: Int, props: [Prop] = []) -> Kit {
         var out = k
-        out.scenes = k.scenes.map { scene($0, roles: roles, players: n) }
+        let play = k.scenes.map { scene($0, roles: roles, players: n) }
+        out.scenes = Bookends.compose(k, play: play, roles: roles, players: n, props: props)
         return out
     }
 

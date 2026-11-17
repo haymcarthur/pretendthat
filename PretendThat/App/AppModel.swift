@@ -525,6 +525,7 @@ final class AppModel {
     }
 
     func phaseChanged() {
+        watchStory()
         // Round 19: home (the start screen) is always silent.
         if store.phase == .hello {
             if realtime.status != .idle { realtime.disconnect() }
@@ -700,10 +701,40 @@ final class AppModel {
             lastRepeatAt = Date()
             rtLog("scene repeat: \(i + 1)")
             speak(line)
+            if store.inStory { watchStory() }   // round 36: the story told again; the setup waits for its end
         }
     }
     @ObservationIgnored private var repeatTask: Task<Void, Never>?
     @ObservationIgnored private var lastRepeatAt = Date.distantPast
+
+    // MARK: The story opener (round 36)
+
+    /// Round 36 (Haylee): after printing, Nutmeg tells the story on stage (no card, no rows); when she has finished it,
+    /// the setup scene opens by itself. The ▶ / "next scene" skip it; Repeat tells it again (and the wait starts over).
+    /// No voice at all (offline, no clip): it moves on after a short pause instead of leaving the kids on an empty stage.
+    func watchStory() {
+        storyTask?.cancel(); storyTask = nil
+        guard store.inStory, case .scene(let i) = store.phase else { return }
+        storyTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            var started = false
+            // A line cut off by the tap that started play may still be fading out (≤ 1.5 s; a story clip that's
+            // already playing is simply still playing after it).
+            for _ in 0..<15 where !Task.isCancelled && self.isSpeaking { try? await Task.sleep(for: .milliseconds(100)) }
+            for _ in 0..<120 where !Task.isCancelled {   // her line starts (≤ 12 s: a live line takes a moment, a clip at once)
+                if self.isSpeaking { started = true; break }
+                try? await Task.sleep(for: .milliseconds(100))
+            }
+            while !Task.isCancelled && (self.isSpeaking || self.wifiPause.isPaused || self.repeatTask != nil) {
+                try? await Task.sleep(for: .milliseconds(100))
+            }
+            try? await Task.sleep(for: .seconds(started ? 0.9 : 1.5))
+            guard !Task.isCancelled, case .scene(i) = self.store.phase, self.store.inStory, !self.isSpeaking else { return }
+            rtLog("story: told (\(started ? "heard" : "no voice")), on to the setup scene")
+            self.store.nextScene()
+        }
+    }
+    @ObservationIgnored private var storyTask: Task<Void, Never>?
 
     // MARK: Repeat in the control pill (round 17, Haylee)
 
@@ -1631,7 +1662,7 @@ final class AppModel {
     /// The one system note a replay's session gets (title, roles, props, the current step, the scene titles).
     var replayNote: String {
         ReplayLines.note(title: store.currentTitle, roles: store.plan?.roles ?? [], players: store.playerCount,
-                         props: store.props?.props ?? [], step: store.phase.step, scenes: store.fullKit?.scenes.map(\.title) ?? [])
+                         props: store.props?.props ?? [], step: store.phase.step, scenes: (store.kit?.scenes ?? []).filter { $0.arc != .story }.map(\.title))   // round 36: setup … clean-up
     }
 
     /// DEBUG/live check: the AI calls made since the replay started (content = Claude + images).

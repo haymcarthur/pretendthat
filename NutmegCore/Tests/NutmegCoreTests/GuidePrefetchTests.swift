@@ -91,7 +91,7 @@ import Testing
         // pictures, no ids, no top-level line.
         let schema = KitScenesSix.schema()
         let req = (schema["required"] as? [String]) ?? []
-        #expect(req.sorted() == ["scene1", "scene2", "scene3"])
+        #expect(req.sorted() == ["cleanupScene", "pageJobs", "scene1", "scene2", "scene3", "setupScene", "story"])   // round 36: + the arc
         let def = (schema["$defs"] as? [String: Any])?["scene"] as? [String: Any]
         let scene = def?["required"] as? [String]
         #expect(Set(scene ?? []) == Set(["title", "nutmegSays", "R1", "R2", "R3", "R4", "R5", "R6", "solo"]))
@@ -131,8 +131,8 @@ import Testing
         #expect(steps.contains { $0.picture == .prop("bowl") })
         // Round 29: the playing roles are Captain + the customer counterpart (Passenger); every scene shows both rows.
         #expect(store.playingRoles.map(\.roleName) == ["Captain", "Passenger"])
-        #expect(store.kit?.scenes.count == 3)
-        #expect(store.kit?.scenes.allSatisfy { $0.steps.map(\.role) == [.R1, .R2] } == true)
+        #expect(store.kit?.playScenes.count == 3)
+        #expect(store.kit?.scenes.filter { $0.arc != .story }.allSatisfy { $0.steps.map(\.role) == [.R1, .R2] } == true)
     }
 
     @Test func aCorrectionRestartsTheGuide() async {
@@ -165,7 +165,7 @@ import Testing
         #expect(await store.apply(.startPlay) == AdventureStore.playQueuedOutput)
         await waitFor { !store.guidePending }
         #expect(store.phase == .scene(0))   // play started by itself
-        #expect(!store.playQueued && (store.kit?.scenes.count ?? 0) == 3)   // round 29: the 3 scenes, everyone together
+        #expect(!store.playQueued && (store.kit?.playScenes.count ?? 0) == 3)   // round 29: the 3 scenes, everyone together
         #expect(store.fullKit?.scenes.flatMap(\.steps).contains { $0.picture == .prop("bowl") } == true)
     }
 

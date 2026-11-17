@@ -45,7 +45,10 @@ public struct SavedClip: Codable, Equatable, Sendable {
 /// with ONE task per role (R1…R6) plus a solo task. Version 1 games (round 28's hand-off guide) are dropped: the app
 /// wasn't live, so they are never read (they stay off the shelf).
 public struct SavedGame: Codable, Equatable, Sendable, Identifiable {
-    public static let currentSchema = 2
+    public static let currentSchema = 3
+    /// Round 36: schema 3 adds the story and the setup / clean-up scenes (`Kit.story`, `.setup`, `.cleanup`). A schema 2
+    /// game (round 29 to 35) still opens: it has no arc, so its replay is exactly its 3 play scenes, as first played.
+    public static let readableSchemas: Set<Int> = [2, 3]
     public var id: UUID
     public var schemaVersion: Int
     /// Device usage for the shelf order (newest first), not about a kid.
@@ -90,7 +93,7 @@ public struct SavedGame: Codable, Equatable, Sendable, Identifiable {
     /// Decodes the current schema only (round 29: a v1 game's guide is the old hand-off shape, so it's dropped).
     public static func decode(_ data: Data) throws -> SavedGame {
         let g = try decoder().decode(SavedGame.self, from: data)
-        guard g.schemaVersion == currentSchema else { throw CocoaError(.coderReadCorrupt) }
+        guard Self.readableSchemas.contains(g.schemaVersion) else { throw CocoaError(.coderReadCorrupt) }
         return g
     }
 

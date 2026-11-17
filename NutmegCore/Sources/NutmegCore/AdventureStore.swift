@@ -74,6 +74,17 @@ public final class AdventureStore {
             guard let k = fullKit, !k.scenes.isEmpty else { return }
             let fixed = GuideRepair.repair(k.scenes, roles: plan?.roles ?? [], props: props?.props ?? [], title: currentTitle, items: k.items)
             if fixed != k.scenes { fullKit?.scenes = fixed }
+            // Round 36: a kit with the arc gets every missing story / setup / clean-up part written by the app (the AI
+            // was asked once more during the hunt). An older saved game (no arc) is left as it was.
+            if let cur = fullKit, cur.hasBookends {
+                let r = Bookends.repair(cur, props: props?.props ?? [], roles: plan?.roles ?? [], title: currentTitle)
+                if r.kit != cur {
+                    #if DEBUG
+                    if !r.repaired.isEmpty { NSLog("[GUIDE] arc repaired by the app: %@", r.repaired.joined(separator: ", ")) }
+                    #endif
+                    fullKit = r.kit
+                }
+            }
         }
     }
     /// The kit as the N playing kids see it: only their steps, hand-offs rotating through them, no line naming a role
@@ -82,12 +93,26 @@ public final class AdventureStore {
         guard let fullKit else { return nil }
         // Round 25: memoized (PlayCast compiles regexes per step; SwiftUI and the driver read `kit` many times a frame).
         let roles = plan?.roles ?? []
-        if let c = kitCache, c.players == playerCount, c.roles == roles, c.full == fullKit { return c.kit }
-        let k = PlayCast.kit(fullKit, roles: roles, players: playerCount)
-        kitCache = (fullKit, roles, playerCount, k)
+        let list = props?.props ?? []
+        if let c = kitCache, c.players == playerCount, c.roles == roles, c.full == fullKit, c.props == list { return c.kit }
+        let k = PlayCast.kit(fullKit, roles: roles, players: playerCount, props: list)
+        kitCache = (fullKit, roles, playerCount, list, k)
         return k
     }
-    @ObservationIgnored private var kitCache: (full: Kit, roles: [Role], players: Int, kit: Kit)?
+    @ObservationIgnored private var kitCache: (full: Kit, roles: [Role], players: Int, props: [Prop], kit: Kit)?
+
+    /// Round 36: the scene on screen is the story (Nutmeg tells it; no rows).
+    public var inStory: Bool { currentArc == .story }
+    /// Round 36: where the scene on screen sits in the arc (nil outside a scene).
+    public var currentArc: SceneKind? {
+        guard case .scene(let i) = phase, let s = kit?.scenes, s.indices.contains(i) else { return nil }
+        return s[i].arc
+    }
+    /// Round 36: the cover items and where the players use them now (DEBUG logs, the coverage test runs).
+    public var coverageLog: [String] {
+        guard let full = fullKit, let k = kit else { return [] }
+        return SetupCoverage.log(k.scenes, items: Bookends.coverItems(items: full.items, props: props?.props ?? []), roles: plan?.roles ?? [])
+    }
     /// Round C1: the roles playing now (the first N of the 6 ranked roles).
     public var playingRoles: [Role] { RoleCast.playing(plan?.roles ?? [], kids: playerCount) }
     /// What Nutmeg says next (for TTS and display).
@@ -302,7 +327,7 @@ public final class AdventureStore {
             let made: Kit
             if let pages { made = try await svc.kitScenes(ctx: context, items: KitDraft.finalItems(pages, props: props)) }
             else { made = try await svc.kit(ctx: context) }
-            if gen == kitGeneration { fullKit = made }
+            if gen == kitGeneration { fullKit = Bookends.ensure(made) }   // round 36: the arc (written by the app here)
         } fallback: { [self] in if gen == kitGeneration { useFallbackGame() } }
         guard gen == kitGeneration else { return }
         if kit != nil {
@@ -338,7 +363,10 @@ public final class AdventureStore {
     /// What Nutmeg says when scene `i` opens (and what Repeat says again): the setup + every playing role's task.
     public func sceneLine(_ i: Int) -> String? {
         guard let s = kit?.scenes, s.indices.contains(i) else { return nil }
-        return HandOffLines.sceneOpen(s[i], first: i == 0)
+        // Round 36: the story is told as written (no cue: there are no rows); the first scene WITH rows (the setup)
+        // says how to move on.
+        if s[i].arc == .story { return PlayCast.endSentence(s[i].nutmegSays.trimmingCharacters(in: .whitespacesAndNewlines)) }
+        return HandOffLines.sceneOpen(s[i], first: i == s.firstIndex { $0.arc != .story })
     }
 
     /// One quick idea for right now. Never throws; offline it uses a built-in idea.
@@ -419,8 +447,10 @@ public final class AdventureStore {
         // Draw it! game: ONE scene titled "x") is repaired here, with no AI call (`GuideRepair`).
         let items = g.kit.items
         replayBase = GuideRepair.repair(g.kit.scenes, roles: g.roles, props: g.props.map(\.replayProp), title: g.title, items: g.kit.items)
+        // Round 36: the saved story / setup / clean-up come along (a schema 2 game has none: its 3 play scenes only).
         fullKit = Kit(nutmegSays: g.kit.nutmegSays, items: g.kit.items,
-                      scenes: ReplayProps.apply(replayBase, saved: g.props, current: list, items: items))
+                      scenes: ReplayProps.apply(replayBase, saved: g.props, current: list, items: items),
+                      story: g.kit.story, setup: g.kit.setup, cleanup: g.kit.cleanup)
         planningStep = .finish
         phase = .players
         say(ReplayLines.greeting(title: g.title))
@@ -1165,7 +1195,18 @@ public final class AdventureStore {
         guideTask = Task { [weak self] in
             if let gate, !(await gate()) { return nil }
             guard !Task.isCancelled else { return nil }
-            let kit = try? await RetryOnce.run { try await service.earlyGuide(ctx: ctx, items: items) }
+            var kit = try? await RetryOnce.run { try await service.earlyGuide(ctx: ctx, items: items) }
+            // Round 36: a page whose setup / clean-up job came back missing or unusable is asked for ONCE more, now,
+            // while the kids are still hunting (else the app writes it, `Bookends.repair`).
+            if let k = kit {
+                let again = Bookends.toReask(k, props: [])
+                if !again.isEmpty {
+                    #if DEBUG
+                    NSLog("[GUIDE] re-asking the jobs of: %@", again.map(\.id).joined(separator: ", "))
+                    #endif
+                    if let ans = try? await service.itemJobs(again, ctx: ctx) { kit = Bookends.merge(ans.jobs, into: k, props: []) }
+                }
+            }
             guard let self, gen == self.guideGeneration, !Task.isCancelled else { return nil }
             if let kit { self.guideKit = kit; self.guideBase = kit.scenes; self.guideWrittenAt = Date(); self.refreshWeave() }
             return kit
@@ -1174,7 +1215,7 @@ public final class AdventureStore {
 
     private func cancelGuide() {
         guideTask?.cancel(); guideTask = nil; weaveTask?.cancel(); weaveTask = nil
-        guideGeneration = -1; guideKit = nil; guideBase = []; guideUses = []; weaveAttempted = []
+        guideGeneration = -1; guideKit = nil; guideBase = []; guideUses = []; weaveAttempted = []; jobsReasked = []
         guideStartedAt = nil; guideWrittenAt = nil; guideFinalAt = nil
     }
 
@@ -1196,11 +1237,36 @@ public final class AdventureStore {
             guard let self, gen == self.guideGeneration, !Task.isCancelled else { return }
             if let answer, var k = self.guideKit {
                 let woven = GuideWeave.apply(answer, to: k.scenes, props: todo, taken: self.guideUses)
-                k.scenes = woven.scenes; self.guideKit = k; self.guideUses += woven.uses
+                k.scenes = woven.scenes; self.guideUses += woven.uses
+                // Round 36: the props' setup and clean-up jobs came in the same answer.
+                k = Bookends.merge(answer.jobs ?? [], into: k, props: todo)
+                self.guideKit = k
+            }
+            // Round 36: a prop whose jobs are still missing is asked for ONCE more (still during the hunt).
+            if allowed, let k = self.guideKit {
+                let again = Bookends.toReask(k, props: todo).filter { $0.prop != nil && !self.jobsReasked.contains($0.id) }
+                if !again.isEmpty {
+                    self.jobsReasked.formUnion(again.map(\.id))
+                    #if DEBUG
+                    NSLog("[GUIDE] re-asking the jobs of: %@", again.map(\.id).joined(separator: ", "))
+                    #endif
+                    if let ans = try? await service.itemJobs(again, ctx: ctx), gen == self.guideGeneration, !Task.isCancelled, let cur = self.guideKit {
+                        self.guideKit = Bookends.merge(ans.jobs, into: cur, props: todo)
+                    }
+                }
             }
             self.weaveTask = nil
             self.refreshWeave()
         }
+    }
+    @ObservationIgnored private var jobsReasked: Set<String> = []
+
+    /// Round 36: a new game's kit carries the story and the setup / clean-up scenes written with the guide (and the
+    /// props' jobs from their weaves); anything missing is written by the app when `fullKit` is set.
+    private func withArc(_ k: Kit) -> Kit {
+        var k = k
+        if let g = guideKit, guideGeneration == draftGeneration { k.story = g.story; k.setup = g.setup; k.cleanup = g.cleanup }
+        return Bookends.ensure(k)
     }
 
     /// The hunt is over and the guide was started during it: the pages go out now (Paper never waits for the guide);
@@ -1209,7 +1275,7 @@ public final class AdventureStore {
     private func finishWithPrefetchedGuide(pages: [KitItem], gen: Int) async {
         let items = KitDraft.finalItems(pages, props: props)
         if let scenes = await finalGuideIfReady(items: items), gen == kitGeneration {
-            fullKit = Kit(nutmegSays: guideKit?.nutmegSays ?? "", items: items, scenes: scenes)
+            fullKit = withArc(Kit(nutmegSays: guideKit?.nutmegSays ?? "", items: items, scenes: scenes))
             guideFinalAt = Date(); phase = .kitReady
             return
         }
@@ -1236,7 +1302,7 @@ public final class AdventureStore {
             guard gen == kitGeneration else { return }
         }
         let final = scenes ?? Fallback.airplane(playerCount: max(1, playerCount)).kit.scenes
-        fullKit = Kit(nutmegSays: guideKit?.nutmegSays ?? "", items: items, scenes: final)
+        fullKit = withArc(Kit(nutmegSays: guideKit?.nutmegSays ?? "", items: items, scenes: final))
         guideFinalAt = Date()
         guidePending = false
         if playQueued, phase == .kitReady { playQueued = false; beginPlay() }
