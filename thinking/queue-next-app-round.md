@@ -319,3 +319,41 @@ Game arc becomes: Print → **story opener** → **setup scene** → 3 play scen
   - The curtain tie-backs peek out halfway down, behind the card's edges.
 - Want: the stage reads as one whole scene at every size. Nutmeg can shrink, but the backdrop, floor, platform and curtains stay composed: the horizon sits where it naturally would, the platform is in scale with her, and the tie-backs are either visible in a sensible spot or hidden, never half-covered.
 - Options for the builder to compare in screenshots: scale the whole stage scene with her (camera zoom-out) rather than shrinking her inside a fixed scene, or have the card cover the lower stage cleanly. iPhone only; iPad unchanged. Show before/after for a setup scene (4 rows), a 2-row scene, the hunt card and The End.
+
+## Writing hand: proper fix (queued 2026-11-17, Haylee chose the proper fix over shrinking the rock)
+- **FOUND IT (2026-11-17, Haylee's eye, confirmed by Claude):** nutmeg-writing-crayon.svg contains ONE dark purple path (fill #470D62, the vest-shadow color). That is the shadow cast on her vest, and it rocks with the crayon, so the shadow and the vest line move with the hand. Simplest fix FIRST: move that one path, unchanged, out of the crayon SVG into a new static layer (e.g. nutmeg-writing-crayon-shadow), drawn in the same place right under the crayon, with no rock. Check before/after frames at −3.2°/0/+3.2° (the still frame must be pixel-identical). If that alone looks right to Haylee, the new-body work below is NOT needed; keep it only as a fallback.
+- Round 39 found that the "moving shadow" is the rocking fingers + crayon layer uncovering the writing BODY's own paw edge and crease underneath. It is not a shadow inside the fingers layer.
+- UPDATE 2026-11-17: Haylee's vectorized new body is at design/export/writing-pose/new-body-writing.svg (same 1178×1335 canvas; the arm ends at the hand, with no paw underneath). The fingers layer is only the FINGERS. The fist and palm live in the old body, which is why the new body + fingers looked like a floating hand. Build it like this: the moving hand group = the old body's FIST paths (moved exactly as they are, with no redrawing, from nutmeg-body-writing.svg into a new hand layer) + crayon + fingers, rocking together around the wrist; the body underneath = the new body. Claude's rough mock (raster clip, not exact) is in design/export/writing-pose/mock-hand-rock-0/1/2.png and shows the idea works: vest under the fist and no hidden paw. Its star fragment and the hard edge at the wrist come from the rough clip only; the real build takes exact paths, keeps the star and belly in the body, and checks the wrist seam at ±3.2°.
+- Original plan, for the record: Haylee regenerates the writing body in ChatGPT, then vectorizes it in Figma (art rule). The new body is the same pose, but with no paw under the fingers layer: the clipboard and vest continue where the hand sits, with a clean wrist. The existing fingers + crayon layer stays on top and keeps the same wrist pivot. The builder swaps in the new nutmeg-body-writing, checks that a still frame matches today, and checks that the rock at ±3.2° shows nothing odd.
+
+## Record the new lines as built-in clips (queued 2026-11-17, Haylee OK'd the recording cost)
+- Record with `-PTRecordCommon` (a few cents) on PT-R15 only, within the pitch band.
+- Wording (Haylee approved 2026-11-17):
+  - First game ever, shelf still empty: "I'm saving our game, so we can play it again anytime!"
+  - Later games: "I put it on your bookshelf!"
+  - The End: "The end! What a show! Take a bow! Tap the arrow to play it again, or the house to go home!" ("It's on your bookshelf" is dropped.)
+- Record all three as built-in clips. Old saved games that lack the End line keep working: offline, she pauses as before.
+- Reference for the writing-hand regeneration: design/export/writing-pose/writing-body-with-hand.png (the headless body + crayon + fingers, as composed in the app) and writing-body-only.png (the body layer alone; it shows the paw under the hand).
+
+## Bug: 4th role button cut off by the curtain tie-back on iPad (queued 2026-11-17, found by the site agent)
+- On the iPad's replay Pick step with 4 players, the 4th role button (role tiles: Captain / Passenger / Flight Attendant / ...) is partly covered by the curtain tie-back. Check 4–6 players on iPad 11" and 13", and on iPhone; keep every role tile fully visible and tappable.
+
+## Bug: Nutmeg too zoomed out on iPad when the chat panel is open (queued 2026-11-17, Haylee, screenshot during Props)
+- With the chat panel open on iPad, the stage camera pulls back, so Nutmeg stands small on a big platform. Keep her framed like the normal talking view: zoomed in, with her full body comfortably filling the stage area left of the panel. iPad only; the iPhone chat shelf is handled separately.
+
+## Suggestions feel stuck (queued 2026-11-17, Haylee)
+- What she sees: Nutmeg opens with only TWO game ideas ("Maybe a bakery or a doctor's office?") but gives three theme twists, and the twists feel like the same ones every time (e.g. "nighttime under the stars, up in the clouds, or with robots").
+- What the code has: NutmegCore/Suggestions.swift holds 42 games and 32 twists. The app samples 3 of each (games at session start, injected into the instructions; twists in the set_game result) and avoids last session's picks.
+- Suspects (Claude, not yet verified):
+  1. The returning greeting (round 34's short clip, "Welcome back! What should we play today?") means the live follow-up may not use the injected 3 games, so the model falls back to its own classics (bakery, doctor's office) and says two.
+  2. The instructions' fixed example line in RealtimeProtocol.swift ("Maybe a hotel, a pirate ship, or a pet groomer?" / "Maybe teddy bears, a pirate island, or up in the clouds?") pulls the model toward the same picks.
+  3. The memory only avoids the LAST session's picks, so with a small effective pool repeats come back fast.
+- Fix: always say exactly the 3 sampled games and 3 sampled twists (pass them as exact words, or make them app-said lines). Remove or neutralize the fixed examples. Avoid repeats over the last ~3 sessions. Verify in logs over 3 sessions (cheap test: typed turns, at most one live session per rule 7).
+
+## Site follow-ups (2026-11-17, Haylee)
+- After the printables overhaul ships, replace the site's Step 3 print fan with pages from the new kit, rendered from a real saved game with the agent's KitPageView harness (scratchpad/ptcopy, -PTNoAI).
+- Swap in the four-game bookshelf shots once the two extra cover-only games are ready.
+
+## Printables overhaul (queued 2026-11-17, Haylee approved): its own round, after the small-fixes round
+- Spec: decisions/2026-11-17-printables-library.md + research/2026-11-17-printables-library.md + design/printables-library/index.html.
+- Big enough to be a round on its own. Build the picture-only art rule and app-drawn text first (it fixes the double frames on its own), then the library, the per-game shortlists and the variants. Test with no keys via fixtures; at most one live game (rule 7) for a real kit.

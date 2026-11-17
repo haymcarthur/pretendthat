@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Printables Library</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --coral:#FF6B5B; --purple:#5B2A86; --yellow:#FFC93C; --lime:#8BD346; --cream:#FFE9CF; --creamShade:#F2CFA6;
+  --ink:#2A1846; --muted:#6E5D8A; --bg:#FFFAF3; --card:#FFFFFF; --line:#E7DCCB; --paper:#FFFFFF; --sketch:#2A1846;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --ink:#F4ECFF; --muted:#BBA9D6; --bg:#1B1229; --card:#261A3A; --line:#3B2D55; --paper:#FFFDF8; --sketch:#2A1846; }
+}
+:root[data-theme="dark"]{ --ink:#F4ECFF; --muted:#BBA9D6; --bg:#1B1229; --card:#261A3A; --line:#3B2D55; --paper:#FFFDF8; --sketch:#2A1846; }
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 Poppins,system-ui,sans-serif}
+main{max-width:1180px;margin:0 auto;padding:28px 16px 60px}
+h1{font-size:30px;margin:0 0 4px} h2{font-size:21px;margin:40px 0 6px} p.lede{color:var(--muted);margin:0 0 18px;max-width:760px}
+.muted{color:var(--muted)}
+.row{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+.card h3{margin:0 0 2px;font-size:16px}
+.tag{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;background:var(--cream);color:#5a3a1f;margin:2px 4px 2px 0}
+.tag.new{background:#E3F5D0;color:#2f5410} .tag.keep{background:#EFEAF7;color:#3F1A60}
+.small{font-size:13px}
+/* sketches: paper preview */
+.paper{background:var(--paper);border-radius:8px;height:150px;margin:8px 0 10px;position:relative;overflow:hidden;border:1px solid #e5ddd0;color:var(--sketch)}
+.pic{background:repeating-linear-gradient(45deg,#FFE9CF 0 6px,#FFD9A8 6px 12px);border-radius:6px;position:absolute}
+.ln{position:absolute;height:3px;background:var(--sketch);border-radius:2px;opacity:.75}
+.txt{position:absolute;font:700 10px Poppins,sans-serif;color:var(--sketch);white-space:nowrap}
+.box{position:absolute;border:2px solid var(--sketch);border-radius:8px}
+.dash{position:absolute;border:1.5px dashed #9b8fb0}
+.circ{position:absolute;border:2px solid var(--sketch);border-radius:50%}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;margin:6px 0 14px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:22px;height:14px;border-radius:4px;display:inline-block}
+/* before/after */
+.ba{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:640px){.ba{grid-template-columns:1fr}}
+.badgeDemo{width:120px;height:200px;margin:10px auto;position:relative}
+/* games */
+.games{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px}
+.game{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.game b{font-size:14px}
+.chip{display:inline-block;font-size:11.5px;padding:2px 8px;border-radius:99px;margin:3px 3px 0 0;border:1px solid var(--line)}
+.chip.k{background:#EFEAF7;color:#3F1A60;border-color:#DCD3EC} .chip.n{background:#E3F5D0;color:#2f5410;border-color:#c9e8a8}
+.filter{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 14px}
+.filter button{font:600 13px Poppins,sans-serif;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:6px 12px;border-radius:99px;cursor:pointer}
+.filter button.on{background:var(--purple);color:#fff;border-color:var(--purple)}
+table{border-collapse:collapse;width:100%;font-size:14px} td,th{border-bottom:1px solid var(--line);padding:8px 6px;text-align:left;vertical-align:top}
+.scroll{overflow-x:auto}
+.variants{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.variants .paper{height:62px;margin:6px 0 4px}
+#variants{grid-template-columns:repeat(auto-fill,minmax(330px,1fr))}
+</style>
+</head>
+<body>
+<main>
+<h1>Printables library</h1>
+<p class="lede">A custom kit per game: 17 printable types, 4 to 6 picked per game, every one used on purpose in a scene. Research sketch for Haylee, 2026-11-17. Full write-up: <code>thinking/research/2026-11-17-printables-library.md</code>. Drawn in HTML/CSS; no AI images.</p>
+
+<h2>1. Why badges look like a frame on a frame</h2>
+<p class="muted small">The image prompt asks the model to draw blank banners; the app then draws its own banners on top at fixed spots. They never line up.</p>
+<div class="ba">
+  <div class="card">
+    <h3>Today</h3>
+    <div class="paper" style="height:230px">
+      <div class="badgeDemo">
+        <div class="box" style="inset:0;border-radius:14px"></div>
+        <div class="circ" style="width:18px;height:18px;left:51px;top:6px"></div>
+        <div class="box" style="left:10px;right:10px;top:30px;height:34px;border-radius:6px" title="model's banner"></div>
+        <div class="box" style="left:6px;right:6px;top:12px;height:30px;border-radius:99px;background:#fff;border-color:#EE5242;display:flex;align-items:center;justify-content:center;font:700 10px Poppins">Name: ______</div>
+        <div class="pic" style="left:22px;right:22px;top:74px;height:70px"></div>
+        <div class="box" style="left:10px;right:10px;bottom:10px;height:32px;border-radius:6px"></div>
+        <div class="box" style="left:14px;right:14px;bottom:18px;height:24px;background:#fff;border-color:#EE5242;display:flex;align-items:center;justify-content:center;font:700 10px Poppins">Captain</div>
+      </div>
+    </div>
+    <p class="small">Black boxes: drawn by the image model. Red: drawn by the app (at 5% from the top and 6% from the bottom). Two outlines show.</p>
+  </div>
+  <div class="card">
+    <h3>Proposed</h3>
+    <div class="paper" style="height:230px">
+      <div class="badgeDemo">
+        <div class="box" style="inset:0;border-radius:14px;border-color:#5B2A86"></div>
+        <div class="circ" style="width:18px;height:18px;left:51px;top:6px;border-color:#5B2A86"></div>
+        <div class="pic" style="left:16px;right:16px;top:32px;height:92px"></div>
+        <div class="txt" style="left:0;right:0;top:134px;text-align:center;font-size:15px;color:#5B2A86">Captain</div>
+        <div class="txt" style="left:12px;top:166px;color:#5B2A86">Name:</div>
+        <div class="ln" style="left:50px;right:12px;top:178px;background:#5B2A86"></div>
+      </div>
+    </div>
+    <p class="small">Purple: everything the app draws (card, hole, title, name line). The art is a picture only, in its own box. Nothing sits on top of it.</p>
+  </div>
+</div>
+
+<h2>2. The library</h2>
+<div class="legend"><span><i class="sw pic" style="position:static"></i> AI picture (no words, no frames)</span><span><i class="sw" style="background:#2A1846"></i> drawn by the app</span><span><span class="tag keep">today's</span> reworked</span><span><span class="tag new">new</span></span></div>
+<div class="row" id="lib"></div>
+
+<h2>3. Layout variants (free: the app draws them)</h2>
+<div class="row" id="variants"></div>
+
+<h2>4. Game → its printables</h2>
+<p class="muted small">Badges are in every kit. <span class="chip k">purple</span> = today's types, <span class="chip n">green</span> = new types.</p>
+<div class="filter" id="filter"></div>
+<div class="games" id="games"></div>
+
+<h2>5. Images per game</h2>
+<div class="scroll"><table>
+<tr><th>Plan</th><th>Per style</th><th>Per game (2 styles + cover)</th><th>Cost</th></tr>
+<tr><td>Today (fixed 6)</td><td>6</td><td>13</td><td>$0.275</td></tr>
+<tr><td><b>Shared sheets</b></td><td>3–4 (character sheet, picture sheet, + spot sheet or hero)</td><td>7–9</td><td>$0.15–0.19</td></tr>
+<tr><td>One picture per printable</td><td>4–6</td><td>9–13</td><td>$0.19–0.28</td></tr>
+</table></div>
+</main>
+<script>
+const P=(s)=>`<div class="paper">${s}</div>`;
+const pic=(l,t,w,h,r)=>`<div class="pic" style="left:${l}px;top:${t}px;width:${w}px;height:${h}px;${r?'border-radius:50%':''}"></div>`;
+const ln=(l,t,w)=>`<div class="ln" style="left:${l}px;top:${t}px;width:${w}px"></div>`;
+const tx=(l,t,s,z)=>`<div class="txt" style="left:${l}px;top:${t}px;${z?'font-size:'+z+'px':''}">${s}</div>`;
+const bx=(l,t,w,h,r)=>`<div class="box" style="left:${l}px;top:${t}px;width:${w}px;height:${h}px;${r!=null?'border-radius:'+r+'px':''}"></div>`;
+const ci=(l,t,d)=>`<div class="circ" style="left:${l}px;top:${t}px;width:${d}px;height:${d}px"></div>`;
+const da=(l,t,w,h)=>`<div class="dash" style="left:${l}px;top:${t}px;width:${w}px;height:${h}px"></div>`;
+function grid(c,r,f){let s='';const W=220/c,H=130/r;for(let y=0;y<r;y++)for(let x=0;x<c;x++)s+=f(10+x*W,10+y*H,W-6,H-6,y*c+x);return s}
+
+const LIB=[
+ {n:"Role badge",k:"keep",job:"Wear it so everyone knows their job",lay:"6 a page",app:"Card, clip hole, role title, Name line",art:"Character sheet slice",
+  s:grid(3,2,(x,y,w,h)=>bx(x,y,w,h,8)+pic(x+10,y+8,w-20,h-34)+ln(x+8,y+h-14,w-16))},
+ {n:"Place sign",k:"keep",job:"Hang it up: the place is open",lay:"1 page",app:"Name, tagline, border",art:"Hero picture",
+  s:bx(40,8,160,132,10)+pic(60,18,120,64)+tx(68,92,"COZY CAFÉ",16)+ln(70,120,100)},
+ {n:"Play money",k:"keep",job:"Pay and give change",lay:"Bills 8 · Coins 12",app:"$1, border, money name",art:"One emblem slice",
+  s:grid(2,4,(x,y,w,h)=>bx(x,y,w,h,4)+pic(x+w/2-10,y+4,20,h-10,1)+tx(x+4,y+4,"$1",9))},
+ {n:"Tickets & passes",k:"keep",job:"Show it to get in, punch it",lay:"8 a page, numbered",app:"Shape, stub, title, seat 1A/1B…, Name line",art:"Small picture, different per copy",
+  s:grid(2,4,(x,y,w,h,i)=>bx(x,y,w,h,4)+pic(x+4,y+4,20,h-10)+tx(x+30,y+3,"1"+"ABCDEFGH"[i],9)+`<div class="dash" style="left:${x+w-22}px;top:${y}px;width:0;height:${h}px"></div>`)},
+ {n:"Menu / price list / program",k:"keep",job:"Read it to choose",lay:"1 page",app:"Title, every line and price",art:"Line pictures reused from the picture sheet",
+  s:tx(80,8,"MENU",14)+[0,1,2,3,4].map(i=>pic(40,34+i*21,16,16)+ln(64,41+i*21,110)+tx(182,35+i*21,"$"+(i+1),10)).join('')},
+ {n:"Prop cut-outs",k:"keep",job:"Cut out, use as pretend things",lay:"1 page, 6–8 cells",app:"Title, dashed cut lines",art:"Picture sheet (as today)",
+  s:grid(3,2,(x,y,w,h)=>da(x,y,w,h)+pic(x+10,y+8,w-20,h-16,1))},
+ {n:"Order slips",k:"new",job:"Tick the order, cook makes it",lay:"8 a page",app:"Slip, Table __, tick boxes",art:"None (menu pictures reused)",
+  s:grid(4,2,(x,y,w,h)=>bx(x,y,w,h,3)+[0,1,2].map(j=>`<div class="box" style="left:${x+4}px;top:${y+8+j*16}px;width:9px;height:9px;border-radius:2px;border-width:1.5px"></div>`+pic(x+16,y+6+j*16,12,12)).join(''))},
+ {n:"Map",k:"new",job:"Follow it, find the X",lay:"1 page",app:"Title ribbon, compass, numbered stops, X spot",art:"Hero map picture, no labels",
+  s:pic(20,20,200,118)+bx(70,4,100,20,10)+ci(34,30,16)+tx(39,31,"1",10)+ci(110,90,16)+tx(115,91,"2",10)+tx(180,48,"✕",20)},
+ {n:"Clue cards",k:"new",job:"Hide, find, read the next clue",lay:"6 a page, numbered",app:"Number, one short clue",art:"Spot sheet slice",
+  s:grid(3,2,(x,y,w,h,i)=>bx(x,y,w,h,8)+tx(x+4,y+3,""+(i+1),12)+pic(x+w/2-14,y+12,28,26)+ln(x+8,y+h-12,w-16))},
+ {n:"Mission / job cards",k:"new",job:"Draw a card, do the job",lay:"6 a page",app:"Mission title, one line, done box",art:"Spot or picture sheet slice",
+  s:grid(3,2,(x,y,w,h)=>bx(x,y,w,h,8)+pic(x+6,y+6,w-12,h-36)+ln(x+6,y+h-22,w-12)+`<div class="box" style="left:${x+w-16}px;top:${y+h-14}px;width:10px;height:10px;border-radius:2px;border-width:1.5px"></div>`)},
+ {n:"Log / chart sheet",k:"new",job:"Write or tick what happened",lay:"1 page",app:"Title, lines or tick grid, date and by",art:"Small header picture",
+  s:pic(20,10,34,30)+tx(64,16,"CAPTAIN'S LOG",12)+[0,1,2,3,4].map(i=>ln(20,52+i*18,200)).join('')},
+ {n:"Medals & certificates",k:"new",job:"Give one at the end of a scene",lay:"Medals 6 · Certificates 2",app:"Ribbon, title, Awarded to ____",art:"Center picture slice",
+  s:grid(3,2,(x,y,w,h)=>ci(x+w/2-24,y+4,48)+pic(x+w/2-15,y+13,30,30,1)+`<div style="position:absolute;left:${x+w/2-10}px;top:${y+50}px;width:0;height:0;border-left:10px solid transparent;border-right:10px solid transparent;border-top:12px solid #EE5242"></div>`)},
+ {n:"Stickers & stamps",k:"new",job:"Stamp a passport, reward a patient",lay:"12–20 circles",app:"Edge, tiny word",art:"Sheet slices",
+  s:grid(5,3,(x,y,w,h)=>ci(x+2,y,Math.min(w,h)-2)+pic(x+8,y+6,Math.min(w,h)-14,Math.min(w,h)-14,1))},
+ {n:"Passport / booklet",k:"new",job:"Get a stamp at each stop",lay:"1 page folds to 4",app:"Cover title, Name, 6 stamp boxes",art:"Cover picture slice",
+  s:da(120,6,0,138)+da(10,75,220,0)+pic(30,14,70,50)+tx(140,14,"STAMPS",10)+grid(3,2,(x,y,w,h)=>'').replace('','')+[0,1,2].map(i=>bx(136+i*30,32,24,24,4)).join('')+ln(30,110,70)},
+ {n:"Labels & tags",k:"new",job:"Tag prices, label animals",lay:"12 a page",app:"Tag shape, hole, word or price",art:"Small picture per tag",
+  s:grid(4,3,(x,y,w,h,i)=>bx(x,y,w,h,6)+ci(x+4,y+4,7)+pic(x+14,y+6,16,16)+tx(x+34,y+8,"$"+(i%5+1),9))},
+ {n:"Code decoder",k:"new",job:"Decode a secret message",lay:"1 page: strip + 3 messages",app:"Everything",art:"None",
+  s:"ABCDEFGH".split('').map((c,i)=>bx(14+i*27,12,24,40,4)+tx(21+i*27,14,c,10)+tx(20+i*27,32,"★▲●■♥◆✚☾"[i],11)).join('')+[0,1,2].map(i=>ln(20,72+i*22,200)).join('')},
+ {n:"Control panel",k:"new",job:"Press buttons, turn dials",lay:"1 page",app:"Buttons, dials, switches, labels",art:"Optional slices on big buttons",
+  s:bx(14,10,212,128,10)+ci(30,24,40)+ci(80,24,40)+pic(40,34,20,20,1)+pic(90,34,20,20,1)+[0,1,2,3].map(i=>bx(140+(i%2)*38,22+Math.floor(i/2)*34,30,24,6)).join('')+ln(30,100,180)+ln(30,118,120)},
+ {n:"Letters & postcards",k:"new",job:"Write, stamp, deliver",lay:"4 a page",app:"Address lines, stamp box",art:"Postcard front picture",
+  s:grid(2,2,(x,y,w,h)=>bx(x,y,w,h,4)+bx(x+w-26,y+5,20,22,2)+ln(x+8,y+h-26,w-44)+ln(x+8,y+h-14,w-44))}
+];
+document.getElementById('lib').innerHTML=LIB.map(t=>`<div class="card"><h3>${t.n}</h3><span class="tag ${t.k}">${t.k=='new'?'new':"today's"}</span><span class="tag">${t.lay}</span>${P(t.s)}<div class="small"><b>Kids:</b> ${t.job}<br><b>App draws:</b> ${t.app}<br><b>Art:</b> ${t.art}</div></div>`).join('');
+
+const VAR=[
+ ["Badge",[["Lanyard tag",bx(90,6,60,100,10)+ci(114,10,12)+pic(100,26,40,40)+ln(98,80,44)],["Round pin",ci(70,4,100)+pic(95,20,50,50,1)+ln(88,82,64)],["ID card",bx(40,20,160,74,8)+pic(50,30,46,54)+ln(106,40,80)+ln(106,64,70)]]],
+ ["Sign",[["Door sign",bx(80,4,80,100,6)+pic(92,12,56,44)+ln(92,70,56)],["Banner",`<div style="position:absolute;left:30px;top:20px;width:0;height:0;border-left:90px solid transparent;border-right:90px solid transparent;border-top:80px solid #EFEAF7"></div>`+pic(100,26,40,30)+ln(70,30,24)],["Marquee",bx(40,10,160,90,60)+pic(100,56,40,34)+ln(80,34,80)]]],
+ ["Money",[["Bills",grid(2,2,(x,y,w,h)=>bx(x,y,w,h-30,4)).replace(/top:(\d+)/g,(m,a)=>'top:'+a)],["Coins",[0,1,2,3,4,5].map(i=>ci(20+(i%3)*70,8+Math.floor(i/3)*50,44)).join('')],["Tokens",[0,1,2,3,4,5].map(i=>bx(20+(i%3)*70,10+Math.floor(i/3)*48,60,38,4)+tx(42+(i%3)*70,20+Math.floor(i/3)*48,"★",14)).join('')]]],
+ ["Tickets",[["Boarding pass",bx(30,20,180,70,6)+`<div class="dash" style="left:160px;top:20px;width:0;height:70px"></div>`+pic(40,30,40,40)+tx(170,40,"1A",14)],["Admission",bx(30,20,180,70,0)+ci(22,47,16)+ci(202,47,16)+pic(50,32,40,40)+ln(100,52,80)],["Keycard",bx(50,16,140,80,14)+pic(60,26,30,30)+ln(100,40,70)+ln(60,76,120)]]],
+ ["Menu / list",[["Menu card",[0,1,2,3].map(i=>pic(30+(i%2)*100,14+Math.floor(i/2)*44,20,20)+ln(56+(i%2)*100,22+Math.floor(i/2)*44,60)).join('')],["Board",`<div style="position:absolute;inset:8px 30px;background:#2f3b33;border-radius:6px"></div>`+[0,1,2].map(i=>`<div class="ln" style="left:50px;top:${26+i*24}px;width:110px;background:#fff"></div>`).join('')],["Program",[1,2,3,4].map(i=>tx(50,8+(i-1)*24,i+".",12)+ln(70,14+(i-1)*24,110)).join('')]]]
+];
+document.getElementById('variants').innerHTML=VAR.map(([n,vs])=>`<div class="card" style="grid-column:span 1"><h3>${n}</h3><div class="variants">${vs.map(([vn,s])=>`<div><div class="paper" style="transform-origin:0 0">${`<div style="transform:scale(.4);transform-origin:0 0;width:240px;height:150px;position:absolute;left:0;top:0">${s}</div>`}</div><div class="small" style="text-align:center">${vn}</div></div>`).join('')}</div></div>`).join('');
+
+const KEEP=new Set(["Badge","Sign","Money","Coins","Tickets","Menu","Cut-outs","Boarding pass","Admission ticket","Appointment card","Keycard","Program","Price list"]);
+const G=[
+["Restaurant","food","Badge,Sign,Menu,Order slips,Money,Cut-outs"],["Vet clinic","care","Badge,Sign,Appointment card,Patient chart,Cut-outs,Stickers"],
+["Airplane trip","travel","Badge,Sign,Boarding pass,Passport,Menu,Cut-outs"],["Pirate ship","adventure","Badge,Sign,Treasure map,Coins,Captain's log,Cut-outs"],
+["Post office","shop","Badge,Sign,Postcards,Stamps,Labels,Money"],["Space station","mission","Badge,Sign,Control panel,Mission cards,Logbook,Cut-outs"],
+["Grocery store","shop","Badge,Sign,Price tags,Money,Shopping list,Cut-outs"],["Firefighters","mission","Badge,Sign,Mission cards,Control panel,Medals,Cut-outs"],
+["Hair salon","care","Badge,Sign,Appointment card,Menu,Money,Cut-outs"],["Library","shop","Badge,Sign,Library card,Labels,Stamps,Logbook"],
+["Ice cream truck","food","Badge,Sign,Menu,Order slips,Money,Cut-outs"],["Dinosaur dig","adventure","Badge,Map,Field notes,Labels,Medals,Cut-outs"],
+["Bakery","food","Badge,Sign,Menu,Order slips,Money,Cut-outs"],["Doctor's office","care","Badge,Sign,Appointment card,Patient chart,Stickers,Cut-outs"],
+["Train ride","travel","Badge,Sign,Tickets,Passport,Menu,Money"],["Camping trip","adventure","Badge,Trail map,Mission cards,Field notes,Medals,Cut-outs"],
+["Zoo","travel","Badge,Sign,Admission ticket,Map,Labels,Passport"],["School","care","Badge,Sign,Logbook,Mission cards,Certificates,Stickers"],
+["Pizza shop","food","Badge,Sign,Menu,Order slips,Money,Cut-outs"],["Toy shop","shop","Badge,Sign,Price tags,Money,Labels,Cut-outs"],
+["Farm","shop","Badge,Sign,Labels,Logbook,Price tags,Cut-outs"],["Rocket launch","mission","Badge,Control panel,Mission cards,Logbook,Passport,Cut-outs"],
+["Submarine","mission","Badge,Control panel,Map,Logbook,Labels,Cut-outs"],["Tea party","food","Badge,Sign,Menu,Labels,Certificates,Cut-outs"],
+["Detective mystery","mission","Badge,Clue cards,Code decoder,Logbook,Map,Cut-outs"],["Construction site","mission","Badge,Sign,Mission cards,Map,Labels,Cut-outs"],
+["Car wash","shop","Badge,Sign,Menu,Tickets,Money,Cut-outs"],["Flower shop","shop","Badge,Sign,Price tags,Labels,Money,Cut-outs"],
+["Museum","travel","Badge,Sign,Admission ticket,Map,Labels,Passport"],["Circus show","show","Badge,Sign,Admission ticket,Program,Medals,Coins"],
+["Puppet show","show","Badge,Sign,Admission ticket,Program,Money,Cut-outs"],["Hotel","travel","Badge,Sign,Keycard,Menu,Labels,Money"],
+["Pet groomer","care","Badge,Sign,Appointment card,Menu,Money,Cut-outs"],["Treasure hunt","adventure","Badge,Treasure map,Clue cards,Coins,Captain's log,Cut-outs"],
+["Bus ride","travel","Badge,Sign,Tickets,Map,Passport,Money"],["Lemonade stand","food","Badge,Sign,Menu,Money,Order slips,Cut-outs"],
+["Cooking show","show","Badge,Sign,Mission cards,Menu,Medals,Cut-outs"],["Knights at a castle","adventure","Badge,Sign,Mission cards,Coins,Medals,Cut-outs"],
+["Bird-watching","adventure","Badge,Field notes,Map,Labels,Medals,Cut-outs"],["Mail route","shop","Badge,Postcards,Stamps,Labels,Map,Logbook"],
+["Weather report","mission","Badge,Control panel,Mission cards,Logbook,Cut-outs"],["Marching band","show","Badge,Sign,Program,Admission ticket,Medals,Cut-outs"],
+["Spy mission","mission","Badge,Code decoder,Mission cards,Price list,Money,Clue cards"],["Superheroes","mission","Badge,Mission cards,Control panel,Medals,Logbook,Cut-outs"]
+];
+const FAM=["all","food","shop","care","travel","adventure","mission","show"];
+let cur="all";
+function draw(){
+ document.getElementById('filter').innerHTML=FAM.map(f=>`<button class="${f==cur?'on':''}" data-f="${f}">${f=='all'?'All games':f[0].toUpperCase()+f.slice(1)}</button>`).join('');
+ document.getElementById('games').innerHTML=G.filter(g=>cur=="all"||g[1]==cur).map(([n,f,p])=>`<div class="game"><b>${n}</b> <span class="muted small">· ${f}</span><br>${p.split(',').map(x=>`<span class="chip ${KEEP.has(x)?'k':'n'}">${x}</span>`).join('')}</div>`).join('');
+}
+document.getElementById('filter').addEventListener('click',e=>{const f=e.target.dataset&&e.target.dataset.f;if(f){cur=f;draw()}});
+draw();
+</script>
+</body>
+</html>
