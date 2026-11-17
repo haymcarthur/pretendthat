@@ -311,7 +311,7 @@ final class RealtimeSession {
         self.socket = socket
         guard ready else { return fail(socket.firstError ?? "Couldn't reach OpenAI Realtime") }
 
-        speaker.configure(VoiceShape(method: config.method, cents: config.cents, rate: config.rate))
+        speaker.configure(VoiceShape(method: config.method, cents: config.cents, rate: config.rate, shift: config.pitchShift))
         connectedConfig = config
         rtLog("voice: \(config)")
         do { try startAudio(echoCancel: echoCancel) } catch { return fail("Audio: \(error.localizedDescription)") }
@@ -875,6 +875,9 @@ final class RealtimeSession {
         }
         #endif
         switch event {
+        case .audioDone:
+            // Voice pitch build: the line's audio is all here, so the pitch shifter's held-back last ~60 ms plays now.
+            speaker.endOfLine()
         case .audioDelta where dropAudio || holdStartedAt != nil || silentResponse || suspended || !speaker.isRunning:
             break   // the kid interrupted this response (or is holding the mic): never play it
         case .audioDelta(let data):
@@ -1191,6 +1194,8 @@ struct VoiceShape: Equatable {
     var method: Realtime.PitchMethod = Realtime.defaultPitchMethod
     var cents: Double = Realtime.defaultPitchCents
     var rate: Double = Realtime.defaultVarispeedRate
+    /// Voice pitch build (2026-11-17): Signalsmith Stretch +2 semitones before the player (0 = off).
+    var shift: PitchShift = VoiceConfig.nutmeg.pitchShift
 }
 
 

@@ -21,6 +21,12 @@ import NutmegCore
 ///   Varispeed, so the pitch unit applies it exactly once), the same lip sync and the same barge-in `cancel()`. With no
 ///   clip, the line goes to the live voice (the session's `sayExactly`, recorded when asked). Offline on a replay
 ///   with no clip, the caller pauses on the line (the Wi-Fi note). Never the system voice.
+/// - Pitch raise (voice pitch build, Haylee 2026-11-17): live audio goes through a streaming Signalsmith Stretch shifter
+///   (+2 semitones, formants not preserved, `VoiceConfig.pitchShift`) BEFORE the player, so `queueMouth` and the
+///   timeline see exactly what is heard. The shifter holds back ~60 ms (heard) at a line's start; `endOfLine()` (the
+///   session's audio done, or the idle check when the queue runs dry) plays the rest; `cancel()` resets it so a cut
+///   line never leaks into the next. Clips get their OWN shift toward the live voice (`ClipPitch`, from the clip's
+///   measured pitch), never the live +2 on top. A shift of 0 = no processing.
 /// - Memory: the last app line she was given (Repeat's fallback, round 17).
 /// The speaker itself stores nothing: buffers are played and dropped (the session's recorder keeps app lines only).
 @Observable @MainActor
@@ -78,11 +84,38 @@ final class NutmegSpeaker {
     @ObservationIgnored private var mouthQueue: [(time: Double, features: MouthFeatures)] = []
     @ObservationIgnored private var mouthClock: Task<Void, Never>?
     @ObservationIgnored private let playFormat = AVAudioFormat(standardFormatWithSampleRate: Realtime.sampleRate, channels: 1)!
+    /// The live voice's streaming pitch shifter (nil when the shift is 0).
+    @ObservationIgnored private var liveShifter: VoicePitchShifter?
+    /// Flushes the live shifter when no audio came and the queue is about to run dry (a missed audio-done).
+    @ObservationIgnored private var idleFlush: Task<Void, Never>?
+    /// A clip still being shifted and fed to the player (cancelled by a barge-in).
+    @ObservationIgnored private var clipFeed: Task<Void, Never>?
 
     /// Playback rate of the queued audio (Varispeed plays it faster), for timing when she stops talking.
     private var playbackRate: Double { shape.method == .varispeed ? shape.rate : 1 }
 
-    init() { timeline.playbackRate = playbackRate }
+    init() {
+        #if DEBUG
+        shape.shift = Self.debugShift(shape.shift)
+        #endif
+        timeline.playbackRate = playbackRate
+        makeLiveShifter()
+    }
+
+    #if DEBUG
+    /// `-PTPitchShift N`: the live raise in semitones for this run (0 = today's voice, no processing; before/after captures).
+    static func debugShift(_ shift: PitchShift) -> PitchShift {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-PTPitchShift"), i + 1 < args.count, let st = Double(args[i + 1]) else { return shift }
+        return PitchShift(semitones: st, preserveFormants: shift.preserveFormants)
+    }
+    #endif
+
+    private func makeLiveShifter() {
+        liveShifter = shape.shift.isOn
+            ? VoicePitchShifter(semitones: shape.shift.semitones, formantSemitones: shape.shift.liveFormantSemitones, playbackRate: playbackRate)
+            : nil
+    }
 
     // MARK: App lines
 
@@ -105,8 +138,15 @@ final class NutmegSpeaker {
 
     /// The voice shape for the next `start` (pitch method, cents, Varispeed rate).
     func configure(_ shape: VoiceShape) {
+        var shape = shape
+        #if DEBUG
+        shape.shift = Self.debugShift(shape.shift)
+        #endif
+        let changed = shape != self.shape
         self.shape = shape
         timeline.playbackRate = playbackRate
+        if changed { makeLiveShifter() }
+        rtLog("speaker: pitch shift \(shape.shift)")
     }
 
     /// Round D3b: the engine for clips with no live session (a replay starting or offline). Same output chain.
@@ -281,8 +321,37 @@ final class NutmegSpeaker {
     /// Live audio: one Realtime PCM16 24 kHz delta.
     func play(_ pcm16: Data) {
         ensureRunning()
-        guard let buffer = SpeakerGraph.pcm16Buffer(pcm16) else { return }
-        schedule(buffer)
+        guard let liveShifter else {
+            guard let buffer = SpeakerGraph.pcm16Buffer(pcm16) else { return }
+            schedule(buffer)
+            return
+        }
+        let shifted = liveShifter.process(ClipAudio.floats(pcm16))
+        if !shifted.isEmpty { for b in SpeakerGraph.clipBuffers(shifted) { schedule(b) } }
+        armIdleFlush()
+    }
+
+    /// The end of a live line (the session's response audio done): the shifter's held-back audio plays now.
+    func endOfLine() {
+        idleFlush?.cancel(); idleFlush = nil
+        guard let liveShifter, !liveShifter.isIdle else { return }
+        let tail = liveShifter.finish()
+        guard !tail.isEmpty else { return }
+        ensureRunning()
+        for b in SpeakerGraph.clipBuffers(tail) { schedule(b) }
+    }
+
+    /// A safety net for a missed audio-done: when no new audio arrives before the queue runs dry, flush the line.
+    /// (A flush mid-line only happens if the network stalls longer than what's queued, when she'd pause anyway.)
+    private func armIdleFlush() {
+        idleFlush?.cancel()
+        let wait = max(0.15, timeline.speakingUntil.timeIntervalSinceNow - 0.03)
+        idleFlush = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(wait))
+            guard let self, !Task.isCancelled, let s = self.liveShifter, !s.isIdle else { return }
+            rtLog("speaker: pitch shifter flushed by the idle check")
+            self.endOfLine()
+        }
     }
 
     /// The one playback path (live deltas now, recorded clips in D3b): speaking state, lip sync, the end check.
@@ -309,6 +378,7 @@ final class NutmegSpeaker {
     func cancel() {
         let t0 = CACurrentMediaTime()
         let wasClip = clipPlaying
+        resetShifters()   // nothing of the cut line is held back for the next one
         player.stop(); player.play()
         silence()
         if wasClip {
@@ -327,13 +397,47 @@ final class NutmegSpeaker {
         ensureRunning()
         live?.clipStarted(clip.text, echo: echo)
         clipPlaying = true
-        rtLog(String(format: "CLIP play %@ (%.1f s%@)", String(clip.key.prefix(8)), Double(clip.samples.count) / Realtime.sampleRate, echo ? ", repeat" : ""))
-        for buf in SpeakerGraph.clipBuffers(clip.samples) { schedule(buf) }
+        let plan = ClipPitch.plan(clipHz: clip.pitchHz, shift: shape.shift)
+        rtLog(String(format: "CLIP play %@ (%.1f s%@), pitch %.0f Hz raw → shift %+.2f st%@", String(clip.key.prefix(8)),
+                     Double(clip.samples.count) / Realtime.sampleRate, echo ? ", repeat" : "", clip.pitchHz ?? 0, plan.semitones,
+                     plan.formantSemitones.map { String(format: ", formants %+.1f", $0) } ?? ""))
+        clipFeed?.cancel(); clipFeed = nil
+        if plan.isOn {
+            // Its own shift (stored before Varispeed and before the raise): the first ~0.3 s now, the rest a chunk at
+            // a time so a long scene line never blocks the main actor (the shifter runs hundreds of times real time).
+            let shifter = VoicePitchShifter(plan, playbackRate: playbackRate)
+            let chunks = ClipAudio.chunks(count: clip.samples.count)
+            let first = min(3, chunks.count)
+            for r in chunks[..<first] { scheduleSamples(shifter.process(Array(clip.samples[r]))) }
+            let samples = clip.samples
+            clipFeed = Task { [weak self] in
+                for r in chunks[first...] {
+                    await Task.yield()
+                    guard let self, !Task.isCancelled else { return }
+                    self.scheduleSamples(shifter.process(Array(samples[r])))
+                }
+                guard let self, !Task.isCancelled else { return }
+                self.scheduleSamples(shifter.finish())
+            }
+        } else {
+            for buf in SpeakerGraph.clipBuffers(clip.samples) { schedule(buf) }
+        }
         clipEnd?.cancel()
         clipEnd = Task { [weak self] in
             while let self, self.isSpeaking, !Task.isCancelled { try? await Task.sleep(for: .milliseconds(50)) }
             self?.clipPlaying = false
         }
+    }
+
+    private func scheduleSamples(_ samples: [Float]) {
+        guard !samples.isEmpty else { return }
+        for b in SpeakerGraph.clipBuffers(samples) { schedule(b) }
+    }
+
+    private func resetShifters() {
+        idleFlush?.cancel(); idleFlush = nil
+        clipFeed?.cancel(); clipFeed = nil
+        liveShifter?.reset()
     }
 
     /// Where a new conversation item's audio starts, in player samples.
@@ -350,6 +454,7 @@ final class NutmegSpeaker {
     }
 
     private func silence() {
+        resetShifters()
         clipEnd?.cancel(); clipPlaying = false
         timeline.clear(); tailTask?.cancel()
         isSpeaking = false; level = 0
@@ -448,6 +553,8 @@ struct NutmegClip: Sendable {
     let samples: [Float]
     /// A bundled common line (not this game's).
     var common = false
+    /// Its measured raw median pitch (`PitchTracker`), for its own shift toward the live voice (nil = unmeasured).
+    var pitchHz: Double?
 }
 
 /// The game's clips (`ClipStore`). `clip(for:)` is nil for a line she has never said.

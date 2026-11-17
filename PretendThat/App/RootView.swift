@@ -276,6 +276,7 @@ struct RootView: View {
             if let demo = DemoDriver.requestedPhase { await DemoDriver.drive(store, model: model, to: demo) }
             if ProcessInfo.processInfo.arguments.contains("-PTLeaveDialog") { try? await Task.sleep(for: .seconds(2)); confirmLeave = true }
             if let turns = DemoDriver.liveTurns { await DemoDriver.live(model, turns: turns) }
+            if let file = DemoDriver.voiceRenderFile { await DemoDriver.voiceRender(model, file: file) }
             if DemoDriver.grownUps != nil { try? await Task.sleep(for: .seconds(4)); model.openGrownUps() }   // round D2 shots
             #endif
             await model.launchOnboardingCheck()   // round 33: the parent onboarding on first launch (asks for the mic itself)

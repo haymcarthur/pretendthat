@@ -506,6 +506,28 @@ struct GUAboutView: View {
                     .accessibilityElement(children: .combine)
                 }
             }
+            // Voice pitch build (2026-11-17): open-source credits (Signalsmith Stretch + Linear, MIT).
+            Section {
+                ForEach(GrownUpsCopy.credits) { credit in
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(credit.line).font(GUType.headline).foregroundStyle(Theme.ink)
+                        Text(credit.copyright).font(GUType.body).foregroundStyle(Theme.inkMuted)
+                        Text(credit.url).font(GUType.footnote).foregroundStyle(Theme.inkMuted)
+                    }
+                    .padding(.vertical, 4)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("credit-\(credit.name)")
+                }
+                DisclosureGroup {
+                    Text(GrownUpsCopy.mitLicense).font(GUType.footnote).foregroundStyle(Theme.inkMuted).padding(.vertical, 4)
+                } label: {
+                    Text("MIT License").font(GUType.button)
+                }
+            } header: {
+                Text(GrownUpsCopy.creditsTitle).accessibilityAddTraits(.isHeader)
+            } footer: {
+                Text(GrownUpsCopy.creditsFooter).font(GUType.footnote)
+            }
         }
         .listStyle(.insetGrouped)
         .navigationTitle("About what we save")

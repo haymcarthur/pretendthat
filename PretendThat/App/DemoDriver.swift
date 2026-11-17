@@ -46,6 +46,46 @@ enum DemoDriver {
     /// Round 11: `-PTAutoStart`: the start screen taps "Let's play!" itself 1 s after the opening, and the conversation
     /// starts WITHOUT a voice session (forced conversation stage, no audio): frame strips of start → game.
     static var autoStart: Bool { ProcessInfo.processInfo.arguments.contains("-PTAutoStart") }
+
+    /// Voice pitch build: `-PTVoiceRender <raw 24 kHz .caf>` (with `-PTTapOut`, optionally `-PTPitchShift 0`): the
+    /// bright greeting clip (0adc8906), then the file fed to the speaker as a LIVE line (PCM16 deltas of 50 ms, faster
+    /// than real time like Realtime's, then the audio-done), through the real NutmegSpeaker. No network, no keys.
+    static var voiceRenderFile: String? {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-PTVoiceRender"), i + 1 < args.count else { return nil }
+        return args[i + 1]
+    }
+
+    @MainActor static func voiceRender(_ model: AppModel, file: String) async {
+        let speaker = model.speaker
+        speaker.startForClips()
+        try? await Task.sleep(for: .seconds(1.5))
+        func waitDone() async {
+            for _ in 0..<50 where !speaker.isSpeaking { try? await Task.sleep(for: .milliseconds(20)) }
+            for _ in 0..<1500 where speaker.isSpeaking { try? await Task.sleep(for: .milliseconds(20)) }
+        }
+        if let line = CommonLines.all.first(where: { CommonLines.key($0).hasPrefix("0adc8906") }), let clip = ClipStore.bundledClip(for: line) {
+            speaker.playClip(clip, echo: true)
+            await waitDone()
+        } else { rtLog("VOICERENDER: greeting clip missing") }
+        try? await Task.sleep(for: .seconds(0.8))
+        guard let f = try? AVAudioFile(forReading: URL(fileURLWithPath: file)),
+              let b = AVAudioPCMBuffer(pcmFormat: f.processingFormat, frameCapacity: AVAudioFrameCount(f.length)),
+              (try? f.read(into: b)) != nil, f.processingFormat.sampleRate == Realtime.sampleRate else {
+            rtLog("VOICERENDER: can't read \(file) (24 kHz mono float expected)"); rtLog("VOICERENDER-END"); return
+        }
+        let x = UnsafeBufferPointer(start: b.floatChannelData![0], count: Int(b.frameLength))
+        var pcm = Data(capacity: x.count * 2)
+        for v in x { var s = Int16(max(-1, min(1, v)) * 32767).littleEndian; withUnsafeBytes(of: &s) { pcm.append(contentsOf: $0) } }
+        for start in stride(from: 0, to: pcm.count, by: 2400) {   // 1200 samples = 50 ms per delta
+            speaker.play(pcm.subdata(in: start..<min(start + 2400, pcm.count)))
+            try? await Task.sleep(for: .milliseconds(15))
+        }
+        speaker.endOfLine()
+        await waitDone()
+        try? await Task.sleep(for: .seconds(1.5))   // the mixer tap lags the player
+        rtLog("VOICERENDER-END")
+    }
     /// Round 11: `-PTAutoPlay <seconds>` (with `-PTDemo kitReady`): taps "Let's play!" on the print step after that long.
     static var autoPlay: Double? {
         let args = ProcessInfo.processInfo.arguments

@@ -17,6 +17,8 @@ final class ClipStore: NutmegClipSource {
     /// First play: key → AAC data waiting for Save.
     private var pending: [String: Data] = [:]
     private var decoded: [String: [Float]] = [:]
+    /// Voice pitch build: each clip's measured raw pitch (for its own shift toward the live voice), by key.
+    private var pitches: [String: Double] = [:]
     private let voiceID = VoiceConfig.nutmeg.voiceID
     /// A kept line was stored (counts only).
     var onStored: ((SavedClip) -> Void)?
@@ -39,25 +41,40 @@ final class ClipStore: NutmegClipSource {
         guard let key = bundledCommon[line],
               let url = Bundle.main.url(forResource: "common-\(key)", withExtension: "aac"),
               let samples = decode(url), !samples.isEmpty else { return nil }
-        return NutmegClip(key: key, text: line, samples: samples, common: true)
+        if bundledPitch[key] == nil { bundledPitch[key] = measuredPitch(key, samples) }
+        return NutmegClip(key: key, text: line, samples: samples, common: true, pitchHz: bundledPitch[key])
+    }
+
+    /// The onboarding's bundled clips' pitches, measured once per launch (it plays them with no game loaded).
+    @MainActor private static var bundledPitch: [String: Double] = [:]
+
+    /// A clip's raw median pitch (a few ms), checked against the sane range: logged when outside it (re-record that
+    /// line nearer the live voice; its shift is still clamped to `ClipPitch.maxAdjustSemitones`).
+    nonisolated static func measuredPitch(_ key: String, _ samples: [Float]) -> Double? {
+        let hz = PitchTracker.medianHz(samples)
+        if ClipPitch.check(hz) != .ok {
+            rtLog(String(format: "CLIP pitch %@: %@ %.0f Hz raw (sane %.0f–%.0f)", ClipPitch.check(hz) == .outOfRange ? "OUT OF RANGE" : "unmeasured",
+                         String(key.prefix(8)), hz ?? 0, ClipPitch.saneRange().lowerBound, ClipPitch.saneRange().upperBound))
+        }
+        return hz
     }
 
     // MARK: Modes
 
-    func startFirstPlay() { mode = .firstPlay; pending = [:]; decoded = [:]; index = ClipIndex(commonKeys: Self.bundledCommon) }
+    func startFirstPlay() { mode = .firstPlay; pending = [:]; decoded = [:]; pitches = [:]; index = ClipIndex(commonKeys: Self.bundledCommon) }
     func load(_ game: SavedGame) {
         #if DEBUG
         // `-PTNoClips`: the D1 baseline (every replay line live, nothing recorded), for the cost comparison.
         if ProcessInfo.processInfo.arguments.contains("-PTNoClips") { reset(); rtLog("CLIPS off (-PTNoClips): D1 live-voice baseline"); return }
         #endif
-        mode = .saved(game.id); pending = [:]; decoded = [:]
+        mode = .saved(game.id); pending = [:]; decoded = [:]; pitches = [:]
         index = ClipIndex(clips: game.clips, commonKeys: Self.bundledCommon)
         rtLog("CLIPS loaded: \(game.clips.count) recorded lines, \(Self.bundledCommon.count) bundled")
     }
     /// Leave / New game: an unsaved game's clips are thrown away.
     func reset() {
         if mode == .firstPlay && !pending.isEmpty { rtLog("CLIPS discarded with the unsaved game: \(pending.count)") }
-        mode = .off; pending = [:]; decoded = [:]; index = ClipIndex(commonKeys: Self.bundledCommon)
+        mode = .off; pending = [:]; decoded = [:]; pitches = [:]; index = ClipIndex(commonKeys: Self.bundledCommon)
     }
 
     /// Save at The End: the clips to write with the game.
@@ -74,7 +91,7 @@ final class ClipStore: NutmegClipSource {
         guard mode != .off, let hit = index.hit(for: line) else { return nil }
         switch hit {
         case .game(let c):
-            if let s = decoded[c.key] { return NutmegClip(key: c.key, text: line, samples: s) }
+            if let s = decoded[c.key] { return NutmegClip(key: c.key, text: line, samples: s, pitchHz: pitches[c.key] ?? pitch(c.key, s)) }
             let url: URL?
             if let d = pending[c.key] { url = Self.tempFile(d, key: c.key) }
             else if case .saved(let id) = mode { url = games.clipURL(c, in: id) }
@@ -82,13 +99,20 @@ final class ClipStore: NutmegClipSource {
             guard let url, let s = Self.decode(url) else { rtLog("CLIP decode failed"); return nil }
             if pending[c.key] != nil { try? FileManager.default.removeItem(at: url) }
             decoded[c.key] = s
-            return NutmegClip(key: c.key, text: line, samples: s)
+            return NutmegClip(key: c.key, text: line, samples: s, pitchHz: pitch(c.key, s))
         case .common(let key):
-            if let s = decoded[key] { return NutmegClip(key: key, text: line, samples: s, common: true) }
+            if let s = decoded[key] { return NutmegClip(key: key, text: line, samples: s, common: true, pitchHz: pitch(key, s)) }
             guard let url = Bundle.main.url(forResource: "common-\(key)", withExtension: "aac"), let s = Self.decode(url) else { return nil }
             decoded[key] = s
-            return NutmegClip(key: key, text: line, samples: s, common: true)
+            return NutmegClip(key: key, text: line, samples: s, common: true, pitchHz: pitch(key, s))
         }
+    }
+
+    private func pitch(_ key: String, _ samples: [Float]) -> Double? {
+        if let hz = pitches[key] { return hz }
+        let hz = Self.measuredPitch(key, samples)
+        pitches[key] = hz
+        return hz
     }
 
     // MARK: Recording
@@ -102,7 +126,11 @@ final class ClipStore: NutmegClipSource {
         let clip = SavedClip(key: key, text: line.request.line, kind: line.request.kind.rawValue, role: line.request.role,
                              duration: line.duration, file: SavedGame.clipFile(key))
         Task { @MainActor in
-            guard let data = await Task.detached(priority: .utility, operation: { Self.encodeAAC(pcm) }).value else {
+            // Encoded and measured off the main actor (the pitch is for the clip's own shift on a replay).
+            guard let (data, hz) = await Task.detached(priority: .utility, operation: { () -> (Data, Double?)? in
+                guard let d = Self.encodeAAC(pcm) else { return nil }
+                return (d, Self.measuredPitch(key, ClipAudio.floats(pcm)))
+            }).value else {
                 rtLog("CLIP encode failed"); return
             }
             guard self.mode != .off else { return }
@@ -113,6 +141,7 @@ final class ClipStore: NutmegClipSource {
             }
             self.index.add(clip)
             self.decoded[key] = ClipAudio.floats(pcm)
+            if let hz { self.pitches[key] = hz }
             rtLog(String(format: "CLIP stored (%@, %.1f s, %d KB AAC)%@", clip.kind, clip.duration, data.count / 1024,
                          self.mode == .firstPlay ? " for this game" : " in the saved game"))
             self.onStored?(clip)

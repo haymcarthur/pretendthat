@@ -1,0 +1,9 @@
+Vendored, unmodified, MIT (each folder keeps its LICENSE.txt):
+- signalsmith-stretch/  Signalsmith Stretch 1.4.0 (Signalsmith-Audio/signalsmith-stretch, tag 1.4.0; files taken from
+  main @ 88061fd4, which is 1.4.0 plus one commit that only bumps Linear in CMakeLists.txt). The header's own
+  version constant still reads 1.3.2 upstream.
+- signalsmith-linear/   Signalsmith Linear 0.6.6 (Signalsmith-Audio/linear, tag 0.6.6 @ 7bb1c8f3). Headers only
+  (the xsimd dispatch .cpp and the tests are not vendored).
+Upstream has no Package.swift, so these are vendored rather than a SwiftPM dependency by tag.
+Wrapper: ../SignalsmithShift.cpp (C API in ../include/SignalsmithShift.h). To update: replace the folders from the
+new tags, keep the LICENSE files, run `swift test` in NutmegCore (PitchShiftTests).
