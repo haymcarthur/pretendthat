@@ -69,6 +69,8 @@ struct RootView: View {
                             if model.showingShelf {
                                 ShelfView(model: model).transition(.opacity)
                             }
+                            // Round 33: New game was blocked (no AI consent, or the Free Preview is used up).
+                            if let block = model.kidBlock { KidBlockCard(model: model, block: block).zIndex(5) }
                         }
                         .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: model.showingShelf)
                         .transition(reduceMotion ? .opacity : .identity)
@@ -194,7 +196,7 @@ struct RootView: View {
         }
         .onChange(of: scenePhase) { _, phase in model.scenePhaseChanged(phase) }
         // Round 13: pre-connect the voice session while the start screen shows.
-        .task(id: store.phase == .hello) { if store.phase == .hello { model.preconnect() } }
+        .task(id: store.phase == .hello && model.aiConsent && model.onboarding == nil) { if store.phase == .hello { model.preconnect() } }
         .onChange(of: store.phase) { _, _ in model.updateIdleTimer() }
         .onChange(of: PTChatTabState.cardKey(for: stepTab, phase: store.phase), initial: true) { _, key in
             chatTabs.show(cardKey: key)
@@ -233,12 +235,17 @@ struct RootView: View {
             if let turns = DemoDriver.liveTurns { await DemoDriver.live(model, turns: turns) }
             if DemoDriver.grownUps != nil { try? await Task.sleep(for: .seconds(4)); model.openGrownUps() }   // round D2 shots
             #endif
-            await model.listener.requestAuth()
+            await model.launchOnboardingCheck()   // round 33: the parent onboarding on first launch (asks for the mic itself)
         }
         // Round D2: the Grown-ups corner (gate first). Nutmeg stays quiet.
         .sheet(isPresented: Binding(get: { model.showingGrownUps }, set: { if !$0 { model.closeGrownUps() } })) {
             GrownUpsSheet(model: model)
         }
+        // Round 33: the parent onboarding (first launch; Grown-ups → Replay the intro) and the plans behind the gate.
+        .fullScreenCover(isPresented: Binding(get: { model.onboarding != nil }, set: { if !$0 { model.onboarding = nil } })) {
+            OnboardingView(model: model)
+        }
+        .sheet(isPresented: Binding(get: { model.showingPlans }, set: { model.showingPlans = $0 })) { PlansSheet(model: model) }
         .sheet(isPresented: $showTyping) { PTTypeSheet { text in Task { await model.typed(text) } } }
         // Round 31: the iPad can't listen on the device: a friendly note for a grown-up, then the chat's typing.
         .modifier(SpeechHelpAlert(model: model) { chatOpen = true })

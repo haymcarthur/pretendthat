@@ -71,7 +71,7 @@ final class Listener {
         return (await capture.finish(), held)
     }
 
-    nonisolated private static func speechAuth() async -> SFSpeechRecognizerAuthorizationStatus {
+    nonisolated static func speechAuth() async -> SFSpeechRecognizerAuthorizationStatus {
         await withCheckedContinuation { c in SFSpeechRecognizer.requestAuthorization { c.resume(returning: $0) } }
     }
 

@@ -1,6 +1,7 @@
 import SwiftUI
 import NutmegCore
 import QuartzCore
+import AVFoundation
 
 /// Wires the state machine to Nutmeg's voice, ears and kit art. One per app run. Round D1: only games the kids choose
 /// to save are kept, on this iPad (`SavedGameStore`), and only their game content; nothing about kids.
@@ -52,6 +53,21 @@ final class AppModel {
     var debugLeaveDialog = false
     #endif
     var showingGrownUps = false
+    /// Round 33: the parent onboarding (shown once; replayable from Grown-ups). Device flags only, nothing about kids.
+    @ObservationIgnored let parentSettings = ParentSettings(defaults: UserDefaults.standard)
+    @ObservationIgnored let freePreview = FreePreviewCounter(defaults: UserDefaults.standard)
+    /// The onboarding flow on screen (nil = not showing).
+    var onboarding: OnboardingFlow?
+    /// Mirrors `parentSettings.aiConsent` so views update (the AI partners row, New game).
+    var aiConsent = false
+    /// New game (or a saved game) was blocked: the kid card on the start screen says why (no prices).
+    var kidBlock: NewGameGate?
+    /// The plans screen behind the gate (the Free Preview ran out).
+    var showingPlans = false
+    /// The current plan (StoreKit entitlements; none until products exist).
+    var planStatus: PlanStatus = .none
+    /// Nutmeg's two onboarding lines (bundled clips on a playback-only engine).
+    let onboardingVoice = OnboardingVoice()
     /// The saved game being replayed (its art, for Paper).
     @ObservationIgnored var replayGame: SavedGame?
     /// The replay's voice session is connecting: its lines wait for it (never the device voice).
@@ -172,6 +188,10 @@ final class AppModel {
             Task { await self.reconnectSilently() }
             return true
         }
+        #if DEBUG
+        applyDebugLaunchFlags()   // round 33: before any driver runs
+        #endif
+        aiConsent = parentSettings.aiConsent
         realtime.onCall = { [weak self] name, args in
             guard let self else { return ("ok", true) }
             return await self.handleCall(name: name, arguments: args)
@@ -203,7 +223,8 @@ final class AppModel {
         #if DEBUG
         if DemoDriver.autoStart || DemoDriver.requestedPhase != nil { return }
         #endif
-        guard let auth = realtimeAuth, store.phase == .hello else { return }
+        // Round 33: no AI connection at all before the grown-up's consent (5.1.2(i)).
+        guard let auth = realtimeAuth, store.phase == .hello, aiConsent, onboarding == nil else { return }
         if preparedGames.isEmpty { preparedGames = suggestionMemory.pickGames() }
         // Round 20 (cost): the session instructions are always the same (cached prefix); today's ideas follow as a note.
         realtime.preconnect(auth: auth, config: voiceConfig, instructions: Realtime.instructions)
@@ -229,6 +250,12 @@ final class AppModel {
         if DemoDriver.autoStart { forceConversation = true; store.beginConversation(); return }   // frame strips: no voice
         #endif
         realtime.beginTrace("let's play")
+        onboardingVoice.stop()
+        // Round 33: a NEW game counts toward the Free Preview (replays never do).
+        let used = freePreview.gameStarted(isReplay: false)
+        rtLog("FREE PREVIEW new game started: \(used) used, \(freePreview.remaining) left")
+        // Consent was given later in Grown-ups (the onboarding's mic screen was skipped): the system prompts now.
+        if AVAudioApplication.shared.recordPermission == .undetermined { await listener.requestAuth() }
         store.beginConversation()
         clipStore.startFirstPlay()   // round D3b: her app lines are recorded for this game (kept only if it's saved)
         guard let auth = realtimeAuth else { await store.start(); return }
@@ -249,7 +276,7 @@ final class AppModel {
             realtime.addNote(Realtime.todaysIdeasNote(games))
             realtime.micWanted = true
             gesture(.wave)
-            realtime.kickOff(games: games)
+            openGreeting(games: games)
             startDozeWatch()
         } else {
             await store.start()   // tap screens (and the bundled airplane game if Claude is off too)
@@ -1379,11 +1406,15 @@ final class AppModel {
         refreshShelf()
     }
     func grownUpRows() -> [SavedGameRow] { savedGames.rows() }
-    /// Round 32 stub for the Grown-ups "Replay the intro" row (hidden while `GrownUpsFeatures.replayIntro` is off).
-    /// Round 33 (parent onboarding) wires it: close Grown-ups, then present the onboarding from its first screen.
+    /// Round 33: Grown-ups → "Replay the intro": close Grown-ups, then the onboarding from How it works (the Grown-ups
+    /// gate was just passed, so the flow doesn't gate again).
     func replayParentIntro() {
-        rtLog("grown-ups: replay the intro (stub until round 33's parent onboarding)")
+        rtLog("grown-ups: replay the intro")
         closeGrownUps()
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(450))   // the sheet's dismissal first
+            onboarding = OnboardingFlow(replay: true)
+        }
     }
     /// Deletes a saved game for good (its folder: game.json, art, cover). After the last one, My games goes away.
     func deleteSavedGame(_ id: UUID) {
@@ -1458,6 +1489,9 @@ final class AppModel {
 
     /// A card on the shelf: the replay starts (Pick: how many are playing). No AI calls for content anywhere in it.
     func tapSavedGame(_ g: SavedGame) {
+        // Round 33: a replay is free (never counted) but Nutmeg's live voice still needs the AI consent.
+        if NewGameGate.replay(consent: aiConsent) != .start { kidBlock = .needsConsent; showingShelf = false; return }
+        freePreview.gameStarted(isReplay: true)
         userAction(.openSavedGame)
         Task { await startReplay(g) }
     }
@@ -1571,7 +1605,8 @@ final class AppModel {
         }
         let ok = await realtime.connect(auth: auth, config: voiceConfig, echoCancel: Self.echoCancel, instructions: Realtime.instructions)
         guard ok else { rtLog("COMMON: connect failed"); return }
-        for line in CommonLines.all {
+        // Round 33: only the lines not bundled yet (the earlier clips stay exactly as recorded).
+        for line in CommonLines.all where ClipStore.bundledCommon[line] == nil {
             for attempt in 1...3 where !kept.contains(line) {
                 realtime.say(line, record: true)
                 for _ in 0..<50 where !realtime.isSpeaking { try? await Task.sleep(for: .milliseconds(100)) }

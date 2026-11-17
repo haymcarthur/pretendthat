@@ -454,6 +454,8 @@ struct PTToyChestScene<Nutmeg: View>: View {
     var onMyGames: (() -> Void)? = nil
     /// Round D2: the small "Grown-ups" pill in the top-right corner (always there on the start screen).
     var onGrownUps: (() -> Void)? = nil
+    /// Round 33: asked on the tap, before the exit runs (no AI consent, or the Free Preview used up: false).
+    var canStart: () -> Bool = { true }
     let onStart: () -> Void
     @ViewBuilder var nutmeg: (_ look: PTStartNutmeg) -> Nutmeg
 
@@ -495,7 +497,7 @@ struct PTToyChestScene<Nutmeg: View>: View {
     }
 
     private func play() {
-        guard exitStart == nil else { return }
+        guard exitStart == nil, canStart() else { return }
         if reduceMotion { onStart(); return }
         skipped = true
         exitStart = Date()

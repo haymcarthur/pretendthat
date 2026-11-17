@@ -8,12 +8,14 @@ import Testing
     // MARK: The menu
 
     @Test func menuRowsInOrderWithReplayIntroHidden() {
-        #expect(GrownUpsFeatures.replayIntro == false)
-        #expect(GrownUpsSection.visible() == [.savedGames, .subscription, .restorePurchases, .privacyPolicy,
-                                              .aboutWhatWeSave, .termsOfUse, .help])
+        // Round 33: the intro row is on, and the AI partners row joins the privacy group.
+        #expect(GrownUpsFeatures.replayIntro == true)
+        #expect(GrownUpsSection.visible(replayIntro: false) == [.savedGames, .subscription, .restorePurchases, .aiPartners,
+                                              .privacyPolicy, .aboutWhatWeSave, .termsOfUse, .help])
         #expect(GrownUpsSection.visible(replayIntro: true).last == .replayIntro)
-        #expect(GrownUpsSection.groups() == [[.savedGames], [.subscription, .restorePurchases],
-                                             [.privacyPolicy, .aboutWhatWeSave, .termsOfUse], [.help]])
+        #expect(GrownUpsSection.groups(replayIntro: false) == [[.savedGames], [.subscription, .restorePurchases],
+                                             [.aiPartners, .privacyPolicy, .aboutWhatWeSave, .termsOfUse], [.help]])
+        #expect(GrownUpsSection.groups().last == [.help, .replayIntro])
         #expect(GrownUpsSection.groups(replayIntro: true).last == [.help, .replayIntro])
         for s in GrownUpsSection.allCases {
             #expect(!s.title.isEmpty && !s.subtitle.isEmpty && !s.systemImage.isEmpty)

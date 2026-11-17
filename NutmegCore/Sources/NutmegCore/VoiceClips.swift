@@ -306,7 +306,9 @@ public enum CommonLines {
         ReplayLines.howMany,
         "No problem, we'll pretend!",
         "Almost ready!",
-    ]
+        OnboardingCopy.getAGrownUp,   // round 33: the parent onboarding's two lines (screen 1 and the hand-off)
+        OnboardingCopy.greetKid,
+    ] + GameGreeting.all   // round 33: the New game greetings (first-game intro + short variants)
     /// The bundled clip key (the current voice).
     public static func key(_ line: String) -> String { ClipKey.make(line: line, voiceID: VoiceConfig.nutmeg.voiceID) }
 }
