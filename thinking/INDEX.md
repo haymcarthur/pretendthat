@@ -116,6 +116,8 @@ The map. Read this first, then open only what you need.
 - [Round 31 build: on-device speech (no kid audio leaves the iPad, words name-scrubbed + screened, sent as text; grown-up note + typing when on-device speech is missing), instant mic press (UIKit touch view: 750–850 ms → 12–15 ms), latency and what still needs a real iPad, suggested privacy wording](decisions/2026-11-16-round31-on-device-speech-build.md): Haylee (design), Claude's calls noted
 - [Round 32 build: the Grown-ups menu behind the D2 gate (Saved games with Newest/Name sort, Manage subscription + Restore purchases via StoreKit 2, Privacy policy + Terms in an in-app Safari view, About what we save with round 31 wording, Help & contact + Apple billing link, Replay the intro hidden for round 33)](decisions/2026-11-16-round32-grownups-menu.md): Haylee (spec), Claude's calls noted
 
+- [Round 33 build: first-launch parent onboarding (gate with Nutmeg's clip, how it works, privacy + REQUIRED AI consent with a calm Not now, mic pre-permission + denied note, plans with Free Preview first, hand-off), consent + Free Preview gating of New game, Grown-ups AI partners + Replay the intro, shorter game greeting (14.3 s → 8–9 s), voice-rate guard (sim measured 1.20 before and after)](decisions/2026-11-16-round33-onboarding.md): Haylee (spec), Claude's calls noted
+
 ## Work queue
 - [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–32 (31: on-device speech + instant mic; 32: Grown-ups menu) + C1 + D1 + D2 + D3a + D3b done (round 27's mockups separate); next: D4 iCloud
 
