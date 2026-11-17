@@ -121,7 +121,7 @@ struct StageCameraTests {
         for s in Self.screens {
             let open = PTStageGeometry(size: CGSize(width: s.width - 392, height: s.height), leadingInset: PTStageCamera.chromeLeading,
                                        bottomInset: PTStageCamera.chromeBottom, floor: Self.floor(s), chatOpen: true, referenceSize: s)
-            for preset in [PTStageDirector.Preset.propCardChat, .talk] {
+            for preset in [PTStageDirector.Preset.talk] {   // round 41: propCardChat = the talk framing (below)
                 let f = PTStageDirector.frame(preset, curtainInset: 80, open)
                 let c = PTStageCamera.compose(f, open)
                 if preset == .propCardChat {
@@ -164,10 +164,12 @@ struct StageCameraTests {
                                       kitBeat: .coloring, curtainInset: 80, g).shot == .closeUp)
         #expect(PTStageDirector.frame(phase: .kitReady, conversation: false, conversationShot: .wide, cards: 0, hunt: false,
                                       kitBeat: .lookUp, curtainInset: 80, g).shot == .closeUp)
-        // The pages step reuses the prop-card step's camera exactly (Haylee, round 5).
+        // The pages step reuses the prop-card step's camera exactly (Haylee, round 5); round 41: with the chat panel
+        // open that is the talking close-up (the papers are in the panel).
         for g in Self.geometries() {
             #expect(PTStageDirector.frame(phase: .kitReady, conversation: false, conversationShot: .wide, cards: 0, hunt: false,
-                                          kitBeat: .papers, curtainInset: 80, g) == PTStageDirector.huntFrame(curtainInset: 80, doneStack: false, g))
+                                          kitBeat: .papers, curtainInset: 80, g)
+                    == (g.chatOpen ? PTStageFrame(shot: .closeUp, fitClosed: true) : PTStageDirector.huntFrame(curtainInset: 80, doneStack: false, g)))
         }
     }
 
@@ -213,6 +215,21 @@ struct StagePresetTests {
                     }
                 }
             }
+        }
+    }
+
+    /// Round 41 (Haylee: the iPad zoomed out with the chat panel open during Props): with the panel open every card is
+    /// in the panel, so a card step keeps exactly the talking framing (no zoom-out, no camera move).
+    @Test func chatOpenCardStepsKeepTheTalkingFraming() {
+        for s in StageCameraTests.screens {
+            let open = PTStageGeometry(size: CGSize(width: s.width - 392, height: s.height), leadingInset: PTStageCamera.chromeLeading,
+                                       bottomInset: PTStageCamera.chromeBottom, floor: StageCameraTests.floor(s), chatOpen: true, referenceSize: s)
+            let talk = PTStageCamera.layout(PTStageDirector.frame(.talk, curtainInset: 80, open), open)
+            let card = PTStageCamera.layout(PTStageDirector.frame(.propCardChat, curtainInset: 80, doneStack: true, open), open)
+            #expect(abs(card.k - talk.k) < 0.0001 && abs(card.origin.x - talk.origin.x) < 0.01 && abs(card.origin.y - talk.origin.y) < 0.01)
+            // Bigger than round 40's chat-open hunt (the medium shot scaled to fit left of the panel).
+            let old = PTStageCamera.layout(PTStageFrame(shot: .medium, topReserve: PTStageDirector.thumbRow, fitClosed: true), open)
+            #expect(card.k > old.k * 1.3, "not zoomed in: \(card.k) vs \(old.k)")
         }
     }
 
