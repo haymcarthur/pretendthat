@@ -202,7 +202,7 @@ extension GuideRepair {
         "present", "wrapping", "bucket", "sponge", "soap", "hose", "brush", "comb", "paintbrush", "paint", "easel",
         "leash", "collar", "bone", "carrot", "food", "seed", "flower", "bouquet", "shell", "rock", "stone", "jewel",
         "gem", "treasure", "chest", "coin", "trophy", "medal", "whistle", "drum", "megaphone", "radio", "remote",
-        "seatbelt", "pillowcase", "blanket", "car", "truck", "boat", "rocket", "plane", "train", "bike", "scooter",
+        "seatbelt", "pillowcase", "colander", "wagon", "hoop", "mitt", "mitten", "sneaker", "headband", "chalk", "carton", "blanket", "car", "truck", "boat", "rocket", "plane", "train", "bike", "scooter",
     ]).subtracting(["stamp", "brush", "comb", "whistle", "drum", "card", "treat", "present", "wrapping", "food", "drink",
                    "snack", "string", "bow", "rock", "car", "truck", "boat", "rocket", "plane", "train", "bike", "scooter",
                    "chest", "paint", "scale", "tape"])

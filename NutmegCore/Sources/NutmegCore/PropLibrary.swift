@@ -9,7 +9,17 @@ public enum PropLibrary {
         ("pot", "Pot"), ("towel", "Towel"), ("laundry-basket", "Laundry basket"), ("books", "Books"), ("hat", "Hat"),
         ("bag", "Bag"), ("backpack", "Backpack"), ("toy-car", "Toy car"), ("flashlight", "Flashlight"),
         ("broom", "Toy broom"), ("teddy-bed", "Doll bed"), ("lamp-off", "Lamp (unplugged)"), ("cushion", "Cushion"),
-        ("stool", "Step stool"), ("sheet", "Bedsheet"), ("basket", "Basket"), ("bucket", "Bucket")
+        ("stool", "Step stool"), ("sheet", "Bedsheet"), ("basket", "Basket"), ("bucket", "Bucket"),
+        // Round 30 (Haylee): set 2, 30 more everyday things (crayons, tape and sticky notes are craft items; nothing
+        // here implies cutting).
+        ("paper", "Paper"), ("paper-towel-tube", "Paper towel tube"), ("paper-bag", "Paper bag"), ("egg-carton", "Egg carton"),
+        ("crayons", "Crayons"), ("tape", "Tape"), ("paper-plate", "Paper plate"), ("plastic-container", "Plastic container"),
+        ("measuring-cup", "Measuring cup"), ("colander", "Colander"), ("baking-sheet", "Baking sheet"),
+        ("wooden-spoon", "Wooden spoon"), ("apron", "Apron"), ("oven-mitt", "Oven mitt"), ("ball", "Ball"), ("scarf", "Scarf"),
+        ("sunglasses", "Sunglasses"), ("sneakers", "Sneakers"), ("headband", "Headband"), ("sock", "Sock"),
+        ("mittens", "Mittens"), ("umbrella", "Umbrella (closed)"), ("pillowcase", "Pillowcase"), ("toy-keys", "Toy keys"),
+        ("wagon", "Wagon"), ("jump-rope", "Jump rope"), ("hula-hoop", "Hula hoop"), ("sidewalk-chalk", "Sidewalk chalk"),
+        ("plastic-cups", "Plastic cups"), ("sticky-notes", "Sticky notes")
     ]
     public static let ids: [String] = items.map(\.id)
     public static func name(_ id: String) -> String? { items.first { $0.id == id }?.name }

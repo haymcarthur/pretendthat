@@ -91,7 +91,7 @@ extension Sanitizer {
     ]
 
     /// Kid phrases that look like a blocked word but are fine ("shooting star", "photo shoot").
-    static let allowPhrases = ["shooting star", "shooting stars", "photo shoot", "war of the", "cookie dough"]
+    static let allowPhrases = ["shooting star", "shooting stars", "photo shoot", "war of the", "cookie dough", "oven mitt", "oven mitts"]   // round 30: a prop (a kitchen glove), not the oven
 
     /// The local kid-safety check. nil = fine to use. `needsGrownUp` wins over everything (the kid may be in danger).
     /// Round 20: words that are fine as PRETEND things in the game (a bakery's oven, a play kitchen's stove, a glass
