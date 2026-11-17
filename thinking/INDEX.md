@@ -123,6 +123,7 @@ The map. Read this first, then open only what you need.
 - [Onboarding v2 mockup approved (pages 1–7, one-page How it works)](decisions/2026-11-16-onboarding-v2-approved.md): Haylee
 - [Analytics: TelemetryDeck anonymous counts + Apple App Store analytics](decisions/2026-11-16-analytics-telemetrydeck.md): Haylee
 - [Story opener + setup scene (every prop and printout used on purpose) + clean-up scene](decisions/2026-11-16-story-setup-cleanup-scenes.md): Haylee, Claude's calls noted
+- [Round 36 build: story opener (Nutmeg alone, then the setup opens by itself), setup scene composed per count from item jobs (pages have a purpose; every prop + page used, `SetupCoverage` tested at 1–6; re-ask once, then app repair), clean-up scene, Setup / Clean-up tabs, save schema 3 (v2 replays its 3 scenes), guide 5.6¢ → 7.9¢, about +4¢ realtime per game](decisions/2026-11-16-round36-story-setup-cleanup-build.md): Haylee (design), Claude's calls noted
 
 ## Work queue
 - [Round 34 build: app-written prop lines (first play = replay words, her first-play clips reused, no "Next,"/"still have"), replay hunt = the first play's layout and camera, in-app speech model download (iPadOS 26+, SpeechAnalyzer turn), tasks short on screen + spoken specifics (short/say, GuideRepair), scene opening = setup + cue (~22 s → 5–9 s), whole-row tap + read_job, one-sentence returning greeting (8.8–9.1 s → 5.5–5.7 s)](decisions/2026-11-16-round34.md): Haylee (items), Claude's calls noted
