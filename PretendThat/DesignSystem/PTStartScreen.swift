@@ -187,6 +187,9 @@ struct PTCurtain: View {
     var progress: Double
     /// Round 18: the stage's above-the-floor curtain copy skips the valance (the backdrop already draws it; two read as a doubled valance).
     var showsValance = true
+    /// Round 40 (iPhone): where the open curtains are tied back (y in this view), when the stage asks for a higher tie
+    /// than the usual 45% of the height (Nutmeg shrunk above a card: the tie-backs stay beside her, never behind the card).
+    var tieY: CGFloat? = nil
 
     /// Open-state geometry, so content can stay clear of the curtains: `visible` = how far the open swag reaches in
     /// from the screen edge at the top.
@@ -215,7 +218,7 @@ struct PTCurtain: View {
     static let knot = UnitPoint(x: 0.852, y: 0.270)
 
     private func half(_ s: CGSize, _ m: Metrics) -> some View {
-        let geo = PTCurtainShape.Geometry(size: s, visible: m.visible, progress: progress)
+        let geo = PTCurtainShape.Geometry(size: s, visible: m.visible, progress: progress, tieY: tieY)
         let tie = CGFloat(max(0, (progress - 0.75) / 0.25))
         return ZStack(alignment: .topLeading) {
             PTCurtainShape(geometry: geo).fill(Theme.coral)
@@ -243,7 +246,7 @@ struct PTCurtainShape: Shape {
     struct Geometry {
         let size: CGSize
         let topX, tieX, tieY, bottomX: CGFloat
-        init(size s: CGSize, visible v: CGFloat, progress: Double) {
+        init(size s: CGSize, visible v: CGFloat, progress: Double, tieY openTie: CGFloat? = nil) {
             size = s
             let p = min(max(progress, 0), 1)
             let slide = CGFloat(PTEase.inOutCubic(p))
@@ -253,7 +256,7 @@ struct PTCurtainShape: Shape {
             topX = closed + (v - closed) * slide
             // Round 10 (Haylee): the tie point sits further in (0.2 → 0.34 of the swag) so the whole tassel shows on both sides.
             tieX = closed + (v * 0.34 - closed) * gather
-            tieY = s.height + (s.height * 0.45 - s.height) * gather
+            tieY = s.height + ((openTie ?? s.height * 0.45) - s.height) * gather
             bottomX = closed + (v * 0.26 - closed) * sweep
         }
         /// Inner edge x at height y.
@@ -293,7 +296,7 @@ struct PTCurtainShape: Shape {
 }
 
 /// The scalloped valance art tiled across the top edge.
-private struct PTValance: View {
+struct PTValance: View {
     let height: CGFloat
     var body: some View {
         let tile = height * 550 / 104
