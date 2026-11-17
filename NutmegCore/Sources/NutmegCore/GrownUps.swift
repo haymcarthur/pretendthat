@@ -119,13 +119,14 @@ public struct SeededGenerator: RandomNumberGenerator, Equatable, Sendable {
 /// policy, About what we save, Terms of use, Help & contact, and Replay the intro (hidden until round 33 builds the
 /// parent onboarding).
 public enum GrownUpsSection: String, CaseIterable, Hashable, Sendable {
-    case savedGames, subscription, restorePurchases, privacyPolicy, aboutWhatWeSave, termsOfUse, help, replayIntro
+    case savedGames, subscription, restorePurchases, aiPartners, privacyPolicy, aboutWhatWeSave, termsOfUse, help, replayIntro
 
     public var title: String {
         switch self {
         case .savedGames: "Saved games"
         case .subscription: "Manage subscription"
         case .restorePurchases: "Restore purchases"
+        case .aiPartners: OnboardingCopy.consentRowTitle
         case .privacyPolicy: "Privacy policy"
         case .aboutWhatWeSave: "About what we save"
         case .termsOfUse: "Terms of use"
@@ -140,6 +141,7 @@ public enum GrownUpsSection: String, CaseIterable, Hashable, Sendable {
         case .savedGames: "See, sort and delete the games saved on this iPad"
         case .subscription: "Change or cancel your plan with Apple"
         case .restorePurchases: "Bought a plan before? Bring it to this iPad"
+        case .aiPartners: "Turn Nutmeg's AI partners on or off"
         case .privacyPolicy: "Opens pretendthat.app/privacy"
         case .aboutWhatWeSave: "What stays on this iPad, in plain words"
         case .termsOfUse: "Opens pretendthat.app/terms"
@@ -154,6 +156,7 @@ public enum GrownUpsSection: String, CaseIterable, Hashable, Sendable {
         case .savedGames: "books.vertical.fill"
         case .subscription: "creditcard.fill"
         case .restorePurchases: "arrow.clockwise.circle.fill"
+        case .aiPartners: "sparkles"
         case .privacyPolicy: "hand.raised.fill"
         case .aboutWhatWeSave: "lock.shield.fill"
         case .termsOfUse: "doc.text.fill"
@@ -176,7 +179,7 @@ public enum GrownUpsSection: String, CaseIterable, Hashable, Sendable {
         switch self {
         case .savedGames: 0
         case .subscription, .restorePurchases: 1
-        case .privacyPolicy, .aboutWhatWeSave, .termsOfUse: 2
+        case .aiPartners, .privacyPolicy, .aboutWhatWeSave, .termsOfUse: 2
         case .help, .replayIntro: 3
         }
     }
@@ -194,8 +197,8 @@ public enum GrownUpsSection: String, CaseIterable, Hashable, Sendable {
 }
 
 public enum GrownUpsFeatures {
-    /// Round 33 (parent onboarding) turns this on and fills in `AppModel.replayParentIntro()`. Off: the row is hidden.
-    public static let replayIntro = false
+    /// Round 33 built the parent onboarding: the row shows and replays it (from How it works; the gate was just passed).
+    public static let replayIntro = true
 }
 
 /// The outside pages (all opened behind the gate, in an in-app Safari view).

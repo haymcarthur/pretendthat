@@ -174,6 +174,7 @@ struct GrownUpsDestination: View {
         case .restorePurchases: GURestoreView()
         case .aboutWhatWeSave: GUAboutView()
         case .help: GUHelpView()
+        case .aiPartners: GUAIPartnersView(model: model)
         case .privacyPolicy, .termsOfUse, .replayIntro: EmptyView()   // web rows / the intro never push
         }
     }
@@ -514,6 +515,36 @@ struct GUHelpView: View {
         }
         .listStyle(.insetGrouped)
         .navigationTitle("Help & contact")
+        .guSafari($webPage)
+    }
+}
+
+// MARK: - AI partners (round 33: grant or revoke the consent; a boolean only)
+
+struct GUAIPartnersView: View {
+    let model: AppModel
+    @State private var webPage: GUWebPage?
+    var body: some View {
+        List {
+            Section {
+                Text(OnboardingCopy.consentScreenBody).font(GUType.body).foregroundStyle(Theme.ink).padding(.vertical, 4)
+            }
+            Section {
+                Toggle(isOn: Binding(get: { model.aiConsent }, set: { model.setAIConsent($0) })) {
+                    Text(OnboardingCopy.consentToggle).font(GUType.button)
+                }
+                .tint(Theme.purple)
+            } footer: {
+                Text(model.aiConsent ? OnboardingCopy.consentRowSubtitle(true) : OnboardingCopy.consentOffNote).font(GUType.footnote)
+            }
+            Section {
+                Button { webPage = GUWebPage(url: GrownUpsLinks.privacy) } label: {
+                    Label(OnboardingCopy.privacyLink, systemImage: "safari").font(GUType.button)
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .navigationTitle(OnboardingCopy.consentRowTitle)
         .guSafari($webPage)
     }
 }

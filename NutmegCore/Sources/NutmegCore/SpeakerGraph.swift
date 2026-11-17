@@ -53,6 +53,25 @@ public enum SpeakerGraph {
         }
     }
 
+    /// The mixer → output link's rate and the output hardware's rate, when they differ (she'd be heard at
+    /// 1.20 × link / hardware instead of 1.20). nil when they match or the hardware rate isn't known yet.
+    public static func linkMismatch(_ engine: AVAudioEngine) -> (link: Double, hardware: Double)? {
+        let hw = engine.isInManualRenderingMode ? engine.manualRenderingFormat.sampleRate : engine.outputNode.outputFormat(forBus: 0).sampleRate
+        let link = engine.outputNode.inputFormat(forBus: 0).sampleRate
+        guard hw > 0, link > 0, abs(hw - link) > 1 else { return nil }
+        return (link, hw)
+    }
+
+    /// Re-links mixer → output at the CURRENT hardware rate if it moved since the graph was wired (the mic's input
+    /// starting, a route change or a session change can move it with no configuration-change notification). Returns
+    /// the old link rate when it re-linked.
+    @discardableResult
+    public static func relinkIfNeeded(_ engine: AVAudioEngine, player: AVAudioPlayerNode, pitchUnit: AVAudioUnit?) -> Double? {
+        guard let m = linkMismatch(engine) else { return nil }
+        wire(engine, player: player, pitchUnit: pitchUnit)
+        return m.link
+    }
+
     /// Live audio and live app lines: a PCM16 delta as one float buffer.
     public static func pcm16Buffer(_ data: Data) -> AVAudioPCMBuffer? {
         let frames = data.count / 2

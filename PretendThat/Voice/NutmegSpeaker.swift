@@ -67,6 +67,7 @@ final class NutmegSpeaker {
     @ObservationIgnored private var timeline = SpeakerTimeline(sampleRate: Realtime.sampleRate)
     @ObservationIgnored private var peak: Float = 0
     @ObservationIgnored private var configObserver: NSObjectProtocol?
+    @ObservationIgnored private var routeObserver: NSObjectProtocol?
     @ObservationIgnored private var tailTask: Task<Void, Never>?
     @ObservationIgnored private var analyzer = LipSyncAnalyzer(sampleRate: Realtime.sampleRate)
     @ObservationIgnored private var shaper = MouthShaper()
@@ -124,6 +125,8 @@ final class NutmegSpeaker {
         }
         let session = AVAudioSession.sharedInstance()
         try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothA2DP])
+        // Voice rate: ask for 48 kHz before activating, so the input starting doesn't renegotiate the hardware rate.
+        try? session.setPreferredSampleRate(48_000)
         try session.setActive(true)
 
         let engine = AVAudioEngine()
@@ -154,8 +157,28 @@ final class NutmegSpeaker {
                 self.wireOutput(engine)
                 self.ensureRunning()
                 self.player.play()
+                #if DEBUG
+                self.logFormats("after configuration change")
+                #endif
             }
         }
+        // Voice rate: a route change (headphones, AirPlay, Bluetooth) can change the output rate without a configuration
+        // change on this engine; re-link mixer → output at the new hardware rate.
+        routeObserver = NotificationCenter.default.addObserver(forName: AVAudioSession.routeChangeNotification, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in self?.relinkOutput("route change") }
+        }
+    }
+
+    /// Re-links mixer → output when the hardware rate no longer matches the link (logged). Stops and restarts the engine
+    /// around the re-link; the player's queue is kept (it's called with nothing queued, or on a route change).
+    private func relinkOutput(_ moment: String) {
+        guard let engine, let m = SpeakerGraph.linkMismatch(engine) else { return }
+        let running = engine.isRunning
+        if running { engine.pause() }
+        SpeakerGraph.wire(engine, player: player, pitchUnit: pitchUnit)
+        if running { try? engine.start(); player.play() }
+        rtLog(String(format: "VOICEFMT relinked (%@): link %.0f → hardware %.0f (she'd have been heard at ×%.3f)",
+                     moment, m.link, m.hardware, shape.rate * m.link / m.hardware))
     }
 
     /// Stops the engine (and the mic tap on it) and silences her. Round D3b: while the app holds the engine (a replay),
@@ -169,6 +192,8 @@ final class NutmegSpeaker {
         holdEngine = false
         if let configObserver { NotificationCenter.default.removeObserver(configObserver) }
         configObserver = nil
+        if let routeObserver { NotificationCenter.default.removeObserver(routeObserver) }
+        routeObserver = nil
         if let engine {
             engine.inputNode.removeTap(onBus: 0)
             player.stop()
@@ -179,6 +204,18 @@ final class NutmegSpeaker {
     }
 
     #if DEBUG
+    /// Voice-rate check: the session and hardware rates against the mixer → output link she's played through. If the
+    /// hardware rate moved after the graph was wired, she's heard at 1.20 × link/hardware instead of 1.20.
+    func logFormats(_ moment: String) {
+        guard let engine else { return }
+        let s = AVAudioSession.sharedInstance()
+        let hw = engine.outputNode.outputFormat(forBus: 0).sampleRate, link = engine.outputNode.inputFormat(forBus: 0).sampleRate
+        rtLog(String(format: "VOICEFMT %@: session %.0f, output hw %.0f, mixer→output link %.0f, mixer out %.0f, input %.0f, vp %@ → heard ×%.3f",
+                     moment, s.sampleRate, hw, link, engine.mainMixerNode.outputFormat(forBus: 0).sampleRate,
+                     engine.inputNode.outputFormat(forBus: 0).sampleRate, engine.inputNode.isVoiceProcessingEnabled ? "on" : "off",
+                     shape.rate * (hw > 0 ? link / hw : 1)))
+    }
+
     /// Round 25 (voice check): `-PTTapOut` writes what goes INTO the pitch unit (tmp/voice-in.caf, 24 kHz) and what the
     /// mixer sends to the speaker (tmp/voice-out.caf, hardware rate), to measure the effective rate and pitch.
     nonisolated static func installOutputTaps(_ engine: AVAudioEngine, player: AVAudioPlayerNode, playFormat: AVAudioFormat) {
@@ -223,8 +260,14 @@ final class NutmegSpeaker {
     private func schedule(_ buffer: AVAudioPCMBuffer) {
         // Track when the queued audio will end from the clock, not completion callbacks (an engine
         // reconfiguration can drop scheduled buffers without calling them back).
+        // Voice rate: a line starting with nothing queued re-checks the mixer → output link against the hardware rate
+        // (the mic's input, a route or a session change can move the hardware rate after the graph was wired).
+        if !isSpeaking { relinkOutput("line start") }
         if timeline.willSchedule(frames: Int(buffer.frameLength), now: Date()) {
             isSpeaking = true; peak = 0; onStartedSpeaking?(); rtLog("speaking")
+            #if DEBUG
+            logFormats("speaking")
+            #endif
         }
         queueMouth(buffer)
         player.scheduleBuffer(buffer, completionHandler: nil)

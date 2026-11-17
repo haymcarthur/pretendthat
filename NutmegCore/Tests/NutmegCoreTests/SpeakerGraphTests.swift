@@ -64,6 +64,33 @@ struct SpeakerGraphTests {
         }
     }
 
+    /// Round 33 (Haylee: "her voice sounds changed again"): a link left at an old rate after the hardware rate moved
+    /// (the mic's input starting, a route change) is detected and re-linked, and every path is heard at 1.20 again.
+    /// (An offline engine can't run a live input node, so the "input running" case is modelled as the hardware rate
+    /// moving under an already-wired graph, which is what an input start or route change does to the output.)
+    @Test(arguments: VoiceSource.allCases)
+    func aStaleLinkIsRelinkedAndHeardAtTheVarispeedRate(_ source: VoiceSource) throws {
+        for (stale, hw) in [(44_100.0, 48_000.0), (48_000.0, 44_100.0), (48_000.0, 24_000.0)] {
+            let engine = AVAudioEngine(), player = AVAudioPlayerNode()
+            let pitch = SpeakerGraph.makePitchUnit(.nutmeg)
+            engine.attach(player); if let pitch { engine.attach(pitch) }
+            try engine.enableManualRenderingMode(.offline, format: AVAudioFormat(standardFormatWithSampleRate: hw, channels: 2)!, maximumFrameCount: 4096)
+            SpeakerGraph.wire(engine, player: player, pitchUnit: pitch)
+            // The hardware moved after wiring: the link is stale.
+            engine.connect(engine.mainMixerNode, to: engine.outputNode, format: AVAudioFormat(standardFormatWithSampleRate: stale, channels: 2)!)
+            #expect(SpeakerGraph.linkMismatch(engine)?.link == stale)
+            #expect(SpeakerGraph.relinkIfNeeded(engine, player: player, pitchUnit: pitch) == stale)
+            #expect(SpeakerGraph.linkMismatch(engine) == nil)
+            #expect(SpeakerGraph.relinkIfNeeded(engine, player: player, pitchUnit: pitch) == nil)   // nothing to do twice
+            #expect(engine.outputNode.inputFormat(forBus: 0).sampleRate == hw)
+        }
+        // And the rendered rate after a re-link is 1.20 at each hardware rate.
+        for hw in [48_000.0, 44_100.0] {
+            let r = try render(source, outputRate: hw)
+            #expect(abs(2.0 / r.seconds - 1.20) < 0.03, "\(source) @\(hw): rate \(2.0 / r.seconds)")
+        }
+    }
+
     @Test func theMixerToOutputLinkIsAtTheOutputRate() throws {
         for rate in [44_100.0, 48_000.0] {
             let engine = AVAudioEngine(), player = AVAudioPlayerNode()

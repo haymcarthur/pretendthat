@@ -399,10 +399,17 @@ final class RealtimeSession {
 
     /// Nutmeg speaks first (greeting) without waiting for the kid.
     /// Round 7: today's game ideas go IN the greeting (one response), so the intro bubble carries the suggestions.
-    func kickOff(games: [Suggestion] = []) {
+    /// Round 33: `greetingClip` = the seconds of the greeting clip that just played (the new short opening); nil = the
+    /// old opening (she says hi in her own words). Either way the first spoken response's length is logged.
+    func kickOff(games: [Suggestion] = [], greetingClip: Double? = nil) {
         guard let socket, isLive else { return }
         let ideas = games.isEmpty ? "" : " with today's ideas as open sparks (\"You can pick anything! Maybe \(Suggestions.spoken(games))?\")"
-        socket.send(Realtime.userText("(The kids just opened the app and can hear you now. They talk to you by holding the big red button. In ONE short turn: say hi in your own words, ask what they feel like playing,\(ideas), and tell them to hold the red button and tell you.)"))
+        if let greetingClip {
+            socket.send(Realtime.userText(GameGreeting.kickOffNote(ideas: Suggestions.spoken(Array(games.prefix(2))))))
+        } else {
+            socket.send(Realtime.userText("(The kids just opened the app and can hear you now. They talk to you by holding the big red button. In ONE short turn: say hi in your own words, ask what they feel like playing,\(ideas), and tell them to hold the red button and tell you.)"))
+        }
+        greetingMeasure = (clip: greetingClip ?? 0, bytes: 0)
         gate.newTurn()
         nextResponseNoTools = true   // round 13: the greeting speaks at once (a face-only tool call cost ~1.4 s)
         requestResponse()
@@ -476,6 +483,8 @@ final class RealtimeSession {
     }
     /// Round 13: the next spoken response gets no tools at all (greeting, a tap the app already handled).
     @ObservationIgnored private var nextResponseNoTools = false
+    /// Round 33: the opening's length (clip seconds + the first spoken response's audio bytes), logged once.
+    @ObservationIgnored private var greetingMeasure: (clip: Double, bytes: Int)?
     /// Round 13: latency of the current turn (release / send / tap → first audio heard), DEBUG log only.
     @ObservationIgnored private var trace = LatencyTrace()
     func beginTrace(_ kind: String) { trace.begin(kind) }
@@ -781,6 +790,12 @@ final class RealtimeSession {
             if case .error(let m) = event { rtLog("lines session error (ignored): \(m)"); return }
         }
         #endif
+        if !line, event == .responseDone, let m = greetingMeasure, m.bytes > 0 {
+            greetingMeasure = nil
+            let live = Double(m.bytes) / 2 / Realtime.sampleRate, rate = Realtime.defaultVarispeedRate
+            rtLog(String(format: "GREETING heard %.1f s (clip %.1f s + live %.1f s, at Varispeed %.2f); audio before Varispeed %.1f s",
+                         (m.clip + live) / rate, m.clip / rate, live / rate, rate, m.clip + live))
+        }
         if !line, event == .responseDone, let u = RealtimeUsage.parse(text) {
             usageTotals.add(u)
             rtLog("USAGE #\(usageTotals.responses): \(u.line); session in \(usageTotals.input), cached \(usageTotals.cached) "
@@ -868,6 +883,7 @@ final class RealtimeSession {
             replyBegan()
             thinkingGap = false
             if trace.running && !trace.has("first delta") { trace.mark("first delta") }
+            if greetingMeasure != nil { greetingMeasure?.bytes += data.count }
             speaker.play(data)
         case .transcriptDelta where silentResponse, .transcriptDone where silentResponse:
             break   // the silent tool-first response: its words were never heard, so never in the chat
