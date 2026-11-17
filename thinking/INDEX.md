@@ -141,6 +141,7 @@ The map. Read this first, then open only what you need.
 - [Spike: Claude writes Nutmeg's replies, the mini voice reads them; measure latency and cost on 1–2 games](decisions/2026-11-17-claude-brain-spike.md): Haylee
 - [Signalsmith Stretch +2 semitones on Nutmeg's live voice (Haylee: "sounds perfect"); Stretch + Linear (MIT) go on the team profile](decisions/2026-11-17-signalsmith-pitch.md): Haylee
 - [Grown-up font: Poppins (Bold 700 headings, lighter than ExtraBold) on site, onboarding and Grown-ups; kid screens keep SF Rounded](decisions/2026-11-17-brand-font-poppins.md): Haylee
+- [Setup/clean-up rows are goals ("Get the pet room ready"); her spoken line gives the props + printables; every item used; ~one goal per role](decisions/2026-11-17-setup-rows-as-goals.md): Haylee
 - [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–32 (31: on-device speech + instant mic; 32: Grown-ups menu) + C1 + D1 + D2 + D3a + D3b done (round 27's mockups separate); next: D4 iCloud
 
 ## Research

@@ -295,3 +295,27 @@ Game arc becomes: Print → **story opener** → **setup scene** → 3 play scen
 ## Small fix: writing hand's shadow moves with the hand (queued 2026-11-17, Haylee: only if low risk)
 - In the coloring/writing pose the crayon + `nutmeg-writing-fingers` layer rock around the wrist (NutmegCharacter `crayon(t:px:)`, `writingRock`). The fingers layer includes the dark shadow on her purple shirt, so the shadow moves with the hand and the shirt line misaligns.
 - Fix: move the shadow paths (unchanged) out of nutmeg-writing-fingers.svg into a separate static layer drawn at the same place without the rock. No redrawing, so it stays within the art rule. Check: a still frame (rock 0) is pixel-identical before and after; moving frames keep the shadow fixed. If it can't be done without touching the art itself, stop and report.
+
+## Chat sheet on the iPhone (queued 2026-11-17, Haylee, from her iPhone 18 Pro screenshot)
+- When the chat is open, hide the control pill (repeat / mic / chat). Today it sits on top of the "Type to Nutmeg" field. Closing the chat (the chevron) brings the pill back. Claude's call: hide it, rather than moving it, because typing is the chat's input and the mic is one tap away after closing.
+- The chat becomes a shelf: edge to edge, no side margins, attached to the bottom of the screen (rounded top corners only). It still starts under the X + step rail.
+- Nutmeg's live head in the chat header: crop it to her FACE so her mouth is clearly visible while she talks. The ears can be cut off; the circle can be just her face. Lip sync must stay visible. Apply the same crop wherever this live head appears.
+- Scope: iPhone layout. The iPad chat panel stays as it is unless Haylee says otherwise.
+
+## Setup scene rows: goals, not item lists (queued 2026-11-17, Haylee, after her first iPhone game)
+- What she saw: with 2 players the setup rows were still too granular ("Hang up the sign", "Put out the chart"), and they mentioned only printed things, no household props. With 4 players the rows were bigger ("Set up the tickets and bed"), which is closer, but the labels still read as lists of items.
+- Want: each row is a short GOAL in the game's world, e.g. "Get the pet room ready". The specifics come in Nutmeg's spoken line for that row (the speaker button, or when she reads the checklist): "Get the pet room ready by hanging up the sign and setting up the pet bed."
+- Every household prop AND every printed item must be used on purpose in some row's spoken specifics. This is Haylee's standing rule, and the code check from round 36 must cover props too. A 2-player game must mention its props.
+- Row count: roughly one goal per role. A solo or 2-player game gets a few goal rows, not many small ones. This replaces round 37's max-2-items-per-row and real 2–7 word item labels; labels become goals of 2–6 words.
+- Replays keep the saved rows and recorded lines (replay parity). The same applies to the clean-up scene ("Close up the clinic" plus spoken specifics).
+
+## Bug: replay Pick card cuts off the bottom of the game cover on iPhone (queued 2026-11-17, Haylee)
+- On a replay, the Pick step's cover image (e.g. the sea-clinic scene) is cropped at the bottom in its card on the iPhone. Show the whole cover (fit, or size the card to the cover's aspect ratio). Check the iPad too.
+
+## iPhone stage looks odd when Nutmeg is shrunk (queued 2026-11-17, Haylee, screenshot of a setup scene)
+- What looks off when she shrinks to make room for a card (Claude's read of her screenshot):
+  - Her round platform floats in the middle of the screen.
+  - The sky backdrop ends in a hard line at her feet, with a big flat tan floor below.
+  - The curtain tie-backs peek out halfway down, behind the card's edges.
+- Want: the stage reads as one whole scene at every size. Nutmeg can shrink, but the backdrop, floor, platform and curtains stay composed: the horizon sits where it naturally would, the platform is in scale with her, and the tie-backs are either visible in a sensible spot or hidden, never half-covered.
+- Options for the builder to compare in screenshots: scale the whole stage scene with her (camera zoom-out) rather than shrinking her inside a fixed scene, or have the card cover the lower stage cleanly. iPhone only; iPad unchanged. Show before/after for a setup scene (4 rows), a 2-row scene, the hunt card and The End.

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Poppins Weight Match</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cal+Sans&family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#fffaf3; --ink:#2a1846; --mute:#6b5a85; --coral:#c8452f; --line:#e8dccb; }
+  body { background:var(--bg); color:var(--ink); font:16px/1.45 Poppins, system-ui, sans-serif; margin:0; padding:24px 16px; }
+  main { max-width:1100px; margin:auto; }
+  h1 { font:700 24px/1.2 Poppins; margin:0 0 4px; }
+  p.lead { color:var(--mute); margin:0 0 24px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:16px; }
+  .card { background:#fff; border:2px solid var(--line); border-radius:20px; padding:20px; }
+  .tag { font:600 13px/1.2 Poppins; color:var(--mute); margin-bottom:10px; }
+  .card.ref { border-style:dashed; }
+  .h { font-size:36px; line-height:1.1; letter-spacing:-0.02em; margin:0 0 10px; }
+  .h em { font-style:normal; color:var(--coral); }
+  .body { color:var(--mute); font-weight:400; margin:0; }
+  .cal { font-family:"Cal Sans", sans-serif; font-weight:400; letter-spacing:-0.01em; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Poppins at Cal Sans's thickness</h1>
+  <p class="lead">Same headline, same size. The dashed card is Cal Sans for reference. Pick the Poppins weight whose thickness feels closest.</p>
+  <div class="grid">
+    <div class="card ref"><div class="tag">Reference: Cal Sans</div>
+      <h2 class="h cal">Turn your living room into a <em>pretend-play</em> adventure.</h2>
+      <p class="body">Meet Nutmeg, your pretend-play stage manager.</p></div>
+    <div class="card"><div class="tag">Poppins Medium (500)</div>
+      <h2 class="h" style="font-weight:500">Turn your living room into a <em>pretend-play</em> adventure.</h2>
+      <p class="body">Meet Nutmeg, your pretend-play stage manager.</p></div>
+    <div class="card"><div class="tag">Poppins SemiBold (600)</div>
+      <h2 class="h" style="font-weight:600">Turn your living room into a <em>pretend-play</em> adventure.</h2>
+      <p class="body">Meet Nutmeg, your pretend-play stage manager.</p></div>
+    <div class="card"><div class="tag">Poppins Bold (700)</div>
+      <h2 class="h" style="font-weight:700">Turn your living room into a <em>pretend-play</em> adventure.</h2>
+      <p class="body">Meet Nutmeg, your pretend-play stage manager.</p></div>
+    <div class="card"><div class="tag">Poppins ExtraBold (800), the one that felt too heavy</div>
+      <h2 class="h" style="font-weight:800">Turn your living room into a <em>pretend-play</em> adventure.</h2>
+      <p class="body">Meet Nutmeg, your pretend-play stage manager.</p></div>
+  </div>
+</main>
+</body>
+</html>

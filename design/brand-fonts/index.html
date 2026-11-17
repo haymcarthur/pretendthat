@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Brand Font Sampler</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cal+Sans&family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Lexend:wght@400;500;600;700;800;900&family=Momo+Trust+Display&family=Momo+Trust+Sans:wght@400;500;600;700&family=Nunito:wght@500;600;700;800;900&family=Poppins:wght@400;500;600;700;800;900&family=Tilt+Warp&display=swap" rel="stylesheet">
+<style>
+/* PretendThat brand colors (NutmegCore BrandPalette + site.css). Only the fonts change between candidates. */
+:root{
+  --paper:#FFFBF5; --warm:#FFF7EC; --white:#FFFFFF;
+  --ink:#2A1846; --muted:#6E5D8A; --line:#E8E2F0;
+  --coral:#FF6B5B; --coral-strong:#EE5242; --coral-shade:#C23B2D; --coral-ink:#C2412C;
+  --purple:#5B2A86; --purple-shade:#3F1A60;
+  --yellow:#FFC93C; --yellow-shade:#E0A100;
+  --lime:#8BD346; --lime-shade:#67A82A; --lime-tint:#E3F5D0;
+  --cream:#FFE9CF; --cream-shade:#F2CFA6;
+  --lav:#EFEAF7; --lav-2:#E3D9F3; --sky:#CDEBF5; --pink:#FFD6D0; --mint:#DDF2D6;
+  color-scheme: light;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{overflow-x:hidden}
+body{background:var(--paper);color:var(--ink);font:500 16px/1.55 Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+img{display:block;max-width:100%;height:auto}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+
+/* ---------- page chrome (neutral, Inter) ---------- */
+.top{padding:28px 0 8px}
+.top h1{font:700 26px/1.2 Inter,sans-serif;letter-spacing:-.01em}
+.top p{color:var(--muted);max-width:70ch;margin-top:6px}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:18px 0 6px}
+.chip{font:600 14px/1 Inter,sans-serif;border:2px solid var(--line);background:var(--white);color:var(--ink);border-radius:999px;padding:10px 14px;cursor:pointer}
+.chip[aria-pressed=true]{background:var(--ink);border-color:var(--ink);color:#fff}
+.hint{font-size:13px;color:var(--muted)}
+h2.sec{font:700 13px/1 Inter,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:34px 0 14px}
+
+/* quick compare grid */
+.qgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px}
+.qcard{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;background:var(--white);border:2px solid var(--line);border-radius:22px;padding:20px 20px 24px;position:relative;cursor:pointer;text-align:left;color:inherit;font:inherit}
+.qcard:hover{border-color:var(--lav-2)}
+.qcard .qh{font-family:var(--hf);font-weight:var(--hw);letter-spacing:var(--hls);line-height:var(--hlh);font-size:34px;color:var(--ink);margin:30px 0 10px}
+.qcard .qh em,.hero h3 em{font-style:normal;color:var(--coral-ink);white-space:nowrap}
+.qbtns{display:flex;flex-wrap:wrap;gap:12px}
+.qcard .qb{font-family:var(--bf);font-weight:var(--bw);color:var(--muted);font-size:16px;margin-bottom:18px}
+.tag{position:absolute;top:14px;left:16px;display:flex;gap:8px;align-items:center;font:700 13px/1 Inter,sans-serif}
+.tag .let{min-width:28px;height:28px;border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;font-size:14px}
+.tag .nm{color:var(--muted);font-weight:600}
+.blind .nm:not(.always),.blind .reveal-only{display:none!important}
+.qcard.base{border-style:dashed;background:var(--warm);transform:scale(.92);transform-origin:top left;opacity:.9}
+.qcard.base .let{width:auto;padding:0 10px;border-radius:999px;background:var(--muted)}
+.tab.basetab{border-style:dashed;font-weight:600;color:var(--muted)}
+.licnote{font-size:13px;color:var(--muted);margin-top:8px}
+
+/* tabs */
+.tabs{display:flex;flex-wrap:wrap;gap:8px;position:sticky;top:0;z-index:5;background:var(--paper);padding:12px 0;border-bottom:2px solid var(--line)}
+.tab{font:700 15px/1 Inter,sans-serif;border:2px solid var(--line);background:var(--white);color:var(--ink);border-radius:14px;padding:11px 14px;cursor:pointer;display:flex;gap:8px;align-items:center}
+.tab[aria-selected=true]{background:var(--purple);border-color:var(--purple);color:#fff}
+.tab .nm{font-weight:500;opacity:.85}
+
+/* ---------- the sample (font tokens come from the candidate) ---------- */
+.sample{--hf:Fredoka;--hw:700;--hls:0;--hlh:1.1;--bf:Inter;--bw:400;--bsw:600;--btnw:700;--btnls:0;--btn-pt:0px}
+.H{font-family:var(--hf);font-weight:var(--hw);letter-spacing:var(--hls);line-height:var(--hlh);color:var(--ink)}
+.B{font-family:var(--bf);font-weight:var(--bw)}
+.info{background:var(--white);border:2px solid var(--line);border-radius:18px;padding:16px 20px;margin:20px 0;display:grid;gap:4px;font-size:15px}
+.info b{font-weight:700}
+.info .why{color:var(--muted)}
+.blind .info{display:none}
+.blindnote{display:none;background:var(--lav);border-radius:14px;padding:12px 16px;margin:20px 0;font-size:14px;color:var(--purple)}
+.blind .blindnote{display:block}
+
+/* chunky 3D buttons, identical for every candidate */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;font-family:var(--hf);font-weight:var(--btnw);letter-spacing:var(--btnls);font-size:19px;line-height:1;
+  padding:calc(18px + var(--btn-pt)) 30px calc(18px - var(--btn-pt));border-radius:18px;border:0;cursor:pointer;text-decoration:none;
+  background:var(--coral-strong);color:#fff;box-shadow:0 6px 0 var(--coral-shade);transform:translateY(0);transition:transform .08s,box-shadow .08s;white-space:nowrap}
+.btn:active{transform:translateY(4px);box-shadow:0 2px 0 var(--coral-shade)}
+.btn.out{background:var(--white);color:var(--purple);box-shadow:0 5px 0 var(--line);border:2.5px solid var(--line)}
+.btn.out:active{box-shadow:0 1px 0 var(--line)}
+.btn.wide{width:100%}
+.btn.huge{font-size:34px;padding:calc(26px + var(--btn-pt)) 54px calc(26px - var(--btn-pt));border-radius:28px;box-shadow:0 9px 0 var(--coral-shade)}
+.btn.lime{background:var(--lime);color:var(--ink);box-shadow:0 6px 0 var(--lime-shade)}
+
+/* 1. site hero */
+.hero{position:relative;overflow:hidden;background:var(--paper);border:2px solid var(--line);border-radius:28px;padding:40px 44px 48px}
+.hero .blob{position:absolute;border-radius:50%;pointer-events:none}
+.hero .grid{position:relative;display:grid;grid-template-columns:1.15fr .85fr;gap:30px;align-items:center}
+.eyebrow{display:inline-block;font-family:var(--bf);font-weight:var(--bsw);font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--coral-ink);margin-bottom:14px}
+.hero h3{font-size:clamp(38px,5.4vw,66px);margin-bottom:18px}
+.hero h3 em{font-style:normal;color:var(--coral-ink)}
+.hero .lead{font-size:clamp(17px,1.9vw,20px);color:#4A3F5C;max-width:38ch;margin-bottom:28px}
+.hero .cta{display:flex;flex-wrap:wrap;gap:16px}
+.art{position:relative;display:flex;justify-content:center}
+.art .disc{position:absolute;inset:8% 2% 0;background:var(--lav-2);border-radius:50%}
+.art img{position:relative;width:min(330px,100%)}
+
+/* 2. onboarding iPads */
+.ipads{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+.ipad{background:#1d1530;border-radius:36px;padding:14px}
+.screen{background:var(--paper);border-radius:24px;aspect-ratio:3/4;padding:26px 30px 28px;display:flex;flex-direction:column;overflow:hidden}
+.dots{display:flex;gap:6px;justify-content:flex-end;margin-bottom:14px}
+.dots i{width:9px;height:9px;border-radius:9px;background:#DAD2E6}
+.dots i.on{width:28px;background:var(--purple)}
+.dots i.done{background:#B9A6D3}
+.stagebox{flex:1;min-height:0;background:var(--sky);border-radius:22px;position:relative;display:flex;align-items:flex-end;justify-content:center;overflow:hidden;border-top:22px solid var(--coral)}
+.stagebox::before{content:"";position:absolute;left:0;right:0;top:0;height:10px;background:var(--yellow);border-radius:0 0 50% 50%/0 0 100% 100%}
+.stagebox img{height:88%;width:auto;position:relative}
+.stagebox .floor{position:absolute;bottom:5%;width:46%;height:9%;background:#EAC29A;border-radius:50%}
+.pill{display:inline-block;align-self:flex-start;background:var(--lav);color:var(--purple);font-family:var(--hf);font-weight:var(--btnw);font-size:13px;letter-spacing:.09em;text-transform:uppercase;border-radius:999px;padding:9px 14px;margin:20px 0 12px}
+.ob-title{font-size:46px;margin-bottom:10px}
+.ob-body{font-size:18px;color:var(--muted);font-weight:var(--bsw);margin-bottom:20px;line-height:1.45}
+.how-title{font-size:40px;text-align:center;margin:4px 0 6px}
+.how-lead{text-align:center;color:var(--muted);font-weight:var(--bsw);font-size:16px;margin-bottom:16px}
+.steps{display:grid;grid-template-columns:1fr 1fr;gap:12px;flex:1;min-height:0;margin-bottom:18px}
+.step{background:var(--white);border:2px solid var(--line);border-radius:20px;box-shadow:0 4px 0 var(--line);padding:10px 10px 12px;text-align:center;display:flex;flex-direction:column}
+.step .pic{background:var(--sky);border-radius:14px;flex:1;min-height:60px;position:relative;display:grid;place-items:center}
+.step:nth-child(2) .pic{background:var(--cream)}
+.step:nth-child(3) .pic{background:var(--mint)}
+.step:nth-child(4) .pic{background:var(--pink)}
+.step .pic img{height:62%;width:auto;max-height:90px}
+.step .num{position:absolute;top:7px;left:7px;width:24px;height:24px;border-radius:50%;background:#fff;color:var(--purple);font-family:var(--hf);font-weight:var(--btnw);font-size:14px;display:grid;place-items:center}
+.step h4{font-size:22px;margin:8px 0 2px}
+.step p{font-size:13.5px;color:var(--muted);font-weight:var(--bsw);line-height:1.35}
+
+/* 3. app UI strip */
+.strip{display:grid;grid-template-columns:auto 1fr auto;gap:24px;align-items:center;background:var(--coral);border-radius:28px;padding:30px;position:relative;overflow:hidden}
+.strip::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,rgba(0,0,0,.06) 0 6px,transparent 6px 26px)}
+.strip > *{position:relative}
+.playbox{display:grid;place-items:center;gap:10px}
+.steprail{display:flex;gap:6px;background:#fff;border-radius:999px;padding:8px 14px}
+.steprail span{font-family:var(--hf);font-weight:var(--btnw);font-size:15px;color:#A79DB6;padding:2px 6px}
+.steprail span.on{color:var(--ink)}
+.hunt{background:var(--white);border-radius:26px;padding:22px 24px;display:grid;grid-template-columns:110px 1fr;gap:18px;align-items:center;box-shadow:0 8px 24px rgba(42,24,70,.15)}
+.hunt img{width:110px}
+.hunt .t{font-size:40px;line-height:1}
+.hunt .s{font-size:21px;color:var(--muted);margin-top:4px}
+.hunt .acts{grid-column:1/-1;display:flex;gap:18px;justify-content:center;margin-top:6px}
+.round{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;font:800 30px/1 system-ui;border:0}
+.round.ok{background:var(--lime);box-shadow:0 6px 0 var(--lime-shade);color:var(--ink)}
+.round.no{background:#fff;box-shadow:0 6px 0 var(--line);border:2.5px solid var(--line);color:var(--coral-strong)}
+.badge{background:#fff;width:230px;border-radius:50%/44%;aspect-ratio:1/1.1;border:4px dashed #B9A6D3;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:18px;box-shadow:0 8px 24px rgba(42,24,70,.15);transform:rotate(-3deg)}
+.badge .game{font-family:var(--hf);font-weight:var(--btnw);font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--coral-ink)}
+.badge img{width:44px;margin:6px 0}
+.badge .role{font-size:34px;line-height:1;color:var(--purple)}
+.badge .name{font-family:var(--bf);font-weight:var(--bsw);font-size:14px;color:var(--muted);margin-top:14px;width:80%;border-bottom:2px solid var(--ink);text-align:left;padding-bottom:2px}
+
+
+/* 3. grown-ups section */
+.gu{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+.gucard{background:#F4F2F8;border-radius:28px;padding:20px 18px 22px;border:2px solid var(--line)}
+.gucard:nth-child(2){background:#fff}
+.gu-top{display:flex;justify-content:flex-end}
+.gu-done{font-size:17px;color:var(--purple);background:#fff;border:2px solid var(--line);border-radius:999px;padding:8px 16px;line-height:1}
+.gu-title{font-size:38px;margin:4px 4px 14px}
+.gu-group{background:#fff;border-radius:20px;padding:4px 14px;margin-bottom:12px}
+.gu-row{display:grid;grid-template-columns:40px 1fr 14px;gap:12px;align-items:center;padding:12px 0;border-bottom:1.5px solid var(--line)}
+.gu-row:last-child{border-bottom:0}
+.gu-ic{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;color:#fff;font:700 18px/1 system-ui}
+.gu-ic.sm{width:36px;height:36px}
+.gu-rt{font-size:19px;line-height:1.15}
+.gu-rs{font-size:14.5px;color:var(--muted);line-height:1.35;margin-top:2px}
+.gu-chev{color:#B3AABF;font:600 24px/1 system-ui}
+.gu-lead{font-size:16px;color:var(--ink);margin:0 4px 14px;line-height:1.45}
+.gu-banner{display:grid;grid-template-columns:36px 1fr;gap:12px;align-items:center;background:var(--lav);border-radius:18px;padding:12px 14px;margin-bottom:14px}
+.plan{border:2px solid var(--line);border-radius:20px;padding:14px 16px;margin-bottom:10px}
+.plan.on{border:3px solid var(--purple);background:var(--lav)}
+.plan-h{display:flex;align-items:center;gap:10px}
+.cur{background:var(--yellow);color:var(--ink);font-size:13px;border-radius:999px;padding:4px 10px;line-height:1}
+.radio{margin-left:auto;width:26px;height:26px;border-radius:50%;border:2.5px solid var(--line);display:grid;place-items:center;color:#fff;font:800 14px/1 system-ui}
+.radio.on{background:var(--purple);border-color:var(--purple)}
+.price{font-size:30px;margin:6px 0 2px}
+.plan-a{font-size:15px;color:var(--ink)}
+.kidref{grid-column:1/-1;margin:0;background:#fff;border:2px dashed #B9A6D3;border-radius:22px;padding:14px;display:grid;grid-template-columns:200px 1fr;gap:18px;align-items:start}
+.kidref img{border-radius:14px;width:100%}
+.kparts{display:grid;gap:12px;max-width:560px}
+.kidref figcaption{font:500 14px/1.45 Inter,sans-serif;color:var(--muted)}
+.kidref b{color:var(--ink)}
+
+@media (max-width:640px){.gu{grid-template-columns:1fr}.kidref{grid-template-columns:1fr}.kidref .kfull{width:55%;justify-self:center}.gu-title{font-size:32px}}
+
+@media (max-width:980px){
+  .strip{grid-template-columns:1fr;justify-items:center}
+  .hunt{width:100%;max-width:440px}
+}
+@media (max-width:820px){
+  .ipads{grid-template-columns:1fr}
+  .ipad{max-width:460px;margin:0 auto;width:100%}
+}
+@media (max-width:640px){
+  .wrap{padding:0 16px}
+  .hero{padding:26px 18px 30px}
+  .hero .grid{grid-template-columns:1fr}
+  .art{order:-1}.art img{width:min(200px,60%)}
+  .qgrid{grid-template-columns:1fr}
+  .qcard .qh{font-size:30px}
+  .screen{padding:18px 18px 20px;aspect-ratio:auto}
+  .stagebox{flex:none;height:230px}
+  .steps{flex:none}.step .pic{height:90px;flex:none}
+  .ob-title{font-size:36px}.how-title{font-size:32px}
+  .step h4{font-size:18px}.step p{font-size:12px}
+  .btn.huge{font-size:28px;padding-left:40px;padding-right:40px}
+  .hunt{grid-template-columns:80px 1fr;padding:18px}.hunt img{width:80px}.hunt .t{font-size:32px}
+  .btn{white-space:normal}
+}
+</style>
+</head>
+<body class="blind">
+<div class="wrap">
+  <header class="top">
+    <h1>PretendThat brand font sampler</h1>
+    <p>Five heading fonts Haylee picked for the <b>grown-up-facing</b> side (site, onboarding, Grown-ups section): Momo Trust Display, Cal Sans, Tilt Warp, Poppins, Lexend. Kid screens keep SF Rounded. Same copy, same brand colors, same chunky buttons. Only the fonts change. Start in blind mode, pick the letter you like best by eye, then reveal. Click a card to open its full sample below.</p>
+    <div class="controls">
+      <button class="chip" id="blindBtn" aria-pressed="true">Blind mode: on</button>
+      <button class="chip" id="revealBtn">Reveal names</button>
+      <button class="chip" id="shuffleBtn">Reshuffle letters</button>
+      <span class="hint">Letters are shuffled on each load. "Today" (Fredoka + Inter) is a labeled baseline, not a candidate.</span>
+    </div>
+    <p class="licnote">All five load from Google Fonts and are SIL Open Font License 1.1 (free to embed in the app and use on the web). Momo Trust Display, Cal Sans and Tilt Warp have a single weight, so their body text uses a separate family (named on each card when you reveal).</p>
+  </header>
+
+  <section id="quick">
+    <h2 class="sec">Quick compare: headline, body, button</h2>
+    <div class="qgrid" id="qgrid"></div>
+  </section>
+
+  <h2 class="sec">Full samples</h2>
+  <nav class="tabs" id="tabs" role="tablist" aria-label="Font candidates"></nav>
+  <main id="detail"></main>
+  <div style="height:60px"></div>
+</div>
+
+<template id="sampleTpl">
+  <div class="sample">
+    <div class="info">
+      <div><b data-f="name"></b></div>
+      <div data-f="spec"></div>
+      <div data-f="lic"></div>
+      <div class="why" data-f="why"></div>
+    </div>
+    <div class="blindnote">Blind mode: this is candidate <b data-f="letter"></b>. Reveal names at the top to see the font.</div>
+
+    <h2 class="sec">1 · Site hero</h2>
+    <div class="hero">
+      <div class="blob" style="width:320px;height:320px;background:var(--pink);top:-140px;right:-80px;opacity:.7"></div>
+      <div class="blob" style="width:200px;height:200px;background:var(--sky);bottom:-70px;left:-60px;opacity:.8"></div>
+      <div class="grid">
+        <div>
+          <span class="eyebrow">For iPad · Ages 4–8</span>
+          <h3 class="H">Turn your living room into a <em>pretend-play</em> adventure.</h3>
+          <p class="lead B">Meet Nutmeg, your pretend-play stage manager. She helps kids dream up a pretend game they plan by talking, set up with things from around the house, and play together, off the screen.</p>
+          <div class="cta">
+            <a class="btn" href="#" onclick="return false">Start free</a>
+            <a class="btn out" href="#" onclick="return false">See how it works</a>
+          </div>
+        </div>
+        <div class="art"><div class="disc"></div><img src="img/nutmeg-wave-happy.png" width="510" height="700" alt="Nutmeg waving hello"></div>
+      </div>
+    </div>
+
+    <h2 class="sec">2 · Onboarding (iPad portrait)</h2>
+    <div class="ipads">
+      <div class="ipad"><div class="screen">
+        <div class="stagebox"><div class="floor"></div><img src="img/nutmeg-wave-happy.png" alt=""></div>
+        <div class="dots" style="margin:16px 0 0"><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        <span class="pill">For grown-ups · 1 minute</span>
+        <div class="H ob-title">Hi, grown-up!</div>
+        <p class="B ob-body">This part is for grown-ups. A quick look at how PretendThat works and how we keep it private.</p>
+        <button class="btn wide">Let's get started</button>
+      </div></div>
+      <div class="ipad"><div class="screen">
+        <div class="dots"><i class="done"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="H how-title">How it works</div>
+        <p class="B how-lead">Turn your living room into a pretend-play adventure.</p>
+        <div class="steps">
+          <div class="step"><div class="pic"><span class="num">1</span><img src="img/toy-crown.svg" alt=""></div><h4 class="H">Pick</h4><p class="B">Your child picks a story and a role with Nutmeg.</p></div>
+          <div class="step"><div class="pic"><span class="num">2</span><img src="img/prop-cardboard-box.svg" alt=""></div><h4 class="H">Props</h4><p class="B">Nutmeg finds things you already have at home.</p></div>
+          <div class="step"><div class="pic"><span class="num">3</span><img src="img/prop-crayons.svg" alt=""></div><h4 class="H">Print</h4><p class="B">Print a kit: masks, signs, tickets to color.</p></div>
+          <div class="step"><div class="pic"><span class="num">4</span><img src="img/stage-ticket.svg" alt=""></div><h4 class="H">Play</h4><p class="B">Nutmeg guides each scene, then steps back.</p></div>
+        </div>
+        <button class="btn wide">Next</button>
+      </div></div>
+    </div>
+
+    <h2 class="sec">3 · Grown-ups section (in the app)</h2>
+    <div class="gu">
+      <div class="gucard">
+        <div class="gu-top"><span class="gu-done H">Done</span></div>
+        <div class="H gu-title">Grown-ups</div>
+        <div class="gu-group">
+          <div class="gu-row"><span class="gu-ic" style="background:var(--coral-strong)">▤</span><div><div class="H gu-rt">Saved games</div><div class="B gu-rs">See, sort and delete the games saved on this iPad</div></div><span class="gu-chev">›</span></div>
+        </div>
+        <div class="gu-group">
+          <div class="gu-row"><span class="gu-ic" style="background:var(--purple)">▭</span><div><div class="H gu-rt">Plans</div><div class="B gu-rs">Show Pass, Season Pass and the new shows left</div></div><span class="gu-chev">›</span></div>
+          <div class="gu-row"><span class="gu-ic" style="background:var(--purple)">▬</span><div><div class="H gu-rt">Manage subscription</div><div class="B gu-rs">Change or cancel your plan with Apple</div></div><span class="gu-chev">›</span></div>
+          <div class="gu-row"><span class="gu-ic" style="background:var(--purple)">↻</span><div><div class="H gu-rt">Restore purchases</div><div class="B gu-rs">Bought a plan before? Bring it to this iPad</div></div><span class="gu-chev">›</span></div>
+        </div>
+        <div class="gu-group">
+          <div class="gu-row"><span class="gu-ic" style="background:#A0623A">✦</span><div><div class="H gu-rt">AI partners</div><div class="B gu-rs">Turn Nutmeg's AI partners on or off</div></div><span class="gu-chev">›</span></div>
+        </div>
+      </div>
+      <div class="gucard">
+        <div class="H gu-title" style="margin-top:6px">Plans</div>
+        <p class="B gu-lead">Every plan includes unlimited replays of saved games. Plans are billed by Apple to your Apple ID.</p>
+        <div class="gu-banner"><span class="gu-ic sm" style="background:var(--purple)">▭</span><div><div class="H gu-rt">Your plan: Show Pass</div><div class="B gu-rs">10 of 10 new shows left this month. More new shows arrive Dec 17.</div></div></div>
+        <div class="plan on"><div class="plan-h"><span class="H gu-rt">Show Pass</span><span class="cur H">Current</span><span class="radio on">✓</span></div><div class="H price">$14.99/month</div><div class="B plan-a">10 new shows a month</div><div class="B gu-rs">Replay saved games as often as you like</div></div>
+        <div class="plan"><div class="plan-h"><span class="H gu-rt">Season Pass</span><span class="radio"></span></div><div class="H price">$29.99/month</div><div class="B plan-a">Up to 30 new shows a month</div></div>
+        <button class="btn wide" style="margin-top:14px">Get Season Pass</button>
+      </div>
+      <figure class="kidref">
+        <img class="kfull" src="img/kid-hunt-today.png" alt="Today's kid prop-hunt screen">
+        <div class="kparts">
+          <figcaption><b>Kid screens stay as they are: SF Rounded</b> (real app screenshots, not changing). Look at this next to the grown-up font above and judge whether they feel like one brand.</figcaption>
+          <img src="img/kid-rail.png" alt="Kid step rail: Pick, Props, Print, Play">
+          <img src="img/kid-hunt-card.png" alt="Kid prop card: Tray, the snack cart">
+        </div>
+      </figure>
+    </div>
+  </div>
+</template>
+
+<script>
+const C = [
+  {key:"momo", name:"Momo Trust Display + Momo Trust Sans", hf:"'Momo Trust Display'", hw:400, hls:"-0.01em", hlh:1.08, bf:"'Momo Trust Sans'", bw:500, bsw:600, btnw:400, btnls:"0",
+   spec:"Headings Momo Trust Display (single weight, already heavy) · Body Momo Trust Sans Medium 500/SemiBold 600 (its sibling sans) · Buttons Momo Trust Display",
+   lic:"Both SIL Open Font License 1.1 (Google Fonts, Type Associates, 2025): free for app embedding and web.",
+   why:"Display has only one weight, so the body is its own sibling family, Momo Trust Sans (neutral, not rounded). Wide, soft, friendly display shapes."},
+  {key:"cal", name:"Cal Sans + Nunito", hf:"'Cal Sans'", hw:400, hls:"-0.01em", hlh:1.05, bf:"Nunito", bw:600, bsw:700, btnw:400, btnls:"0.01em",
+   spec:"Headings Cal Sans (single weight, a tight SemiBold-ish display grotesk) · Body Nunito SemiBold/Bold · Buttons Cal Sans",
+   lic:"Both SIL Open Font License 1.1 (Cal Sans: Google Fonts, Cal.com, 2025).",
+   why:"Cal Sans has only one weight, so the body is Nunito, a neutral rounded-ish sans. Crisp startup-landing-page look; not rounded, so it reads more 'tech' than 'toy'."},
+  {key:"tilt", name:"Tilt Warp + Nunito", hf:"'Tilt Warp'", hw:400, hls:"0", hlh:1.08, bf:"Nunito", bw:600, bsw:700, btnw:400, btnls:"0.01em",
+   spec:"Headings Tilt Warp (single weight, very heavy and soft) · Body Nunito SemiBold/Bold · Buttons Tilt Warp",
+   lic:"Both SIL Open Font License 1.1 (Tilt Warp: Google Fonts, Andy Clymer).",
+   why:"Tilt Warp has only one weight, so the body is Nunito, a neutral rounded-ish sans. Chunky, puffy, poster-like; the most 'kids brand' of the five."},
+  {key:"poppins", name:"Poppins ExtraBold + Poppins", hf:"Poppins", hw:800, hls:"-0.03em", hlh:1.06, bf:"Poppins", bw:400, bsw:500, btnw:700, btnls:"0",
+   spec:"Headings Poppins ExtraBold 800, tight tracking · Body Poppins Regular 400/Medium 500 · Buttons Poppins Bold 700",
+   lic:"SIL Open Font License 1.1 (Google Fonts, Indian Type Foundry).",
+   why:"Full weight range, so one family does everything. Clean geometric circles; very common on app landing pages, so a little less distinctive."},
+  {key:"lexend", name:"Lexend ExtraBold + Lexend", hf:"Lexend", hw:800, hls:"-0.03em", hlh:1.06, bf:"Lexend", bw:400, bsw:500, btnw:700, btnls:"0",
+   spec:"Headings Lexend ExtraBold 800, tight tracking · Body Lexend Regular 400/Medium 500 · Buttons Lexend Bold 700",
+   lic:"SIL Open Font License 1.1 (Google Fonts, Bonnie Shaver-Troup and team). Variable font available.",
+   why:"Full weight range, one family. Designed for reading fluency (wider spacing, open shapes); friendly, readable body text for parents and early readers."},
+  {key:"fredoka", base:true, name:"Fredoka + Inter (today)", hf:"Fredoka", hw:700, hls:"-0.005em", hlh:1.08, bf:"Inter", bw:400, bsw:600, btnw:700, btnls:"0",
+   spec:"Headings Fredoka Bold 700 · Body Inter · Buttons Fredoka Bold",
+   lic:"Both SIL Open Font License 1.1.",
+   why:"Baseline only: what the site uses now. Not a candidate."}
+];
+
+const params = new URLSearchParams(location.search);
+let order = [], current = params.get("c") || null;
+
+function shuffle(){
+  order = C.map((c,i)=>i).filter(i=>!C[i].base);
+  for(let i=order.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[order[i],order[j]]=[order[j],order[i]];}
+}
+function letterOf(idx){ return C[idx].base ? "Today" : "ABCDE"[order.indexOf(idx)]; }
+function applyVars(el,c){
+  el.style.setProperty("--hf",c.hf);el.style.setProperty("--hw",c.hw);el.style.setProperty("--hls",c.hls);
+  el.style.setProperty("--hlh",c.hlh);el.style.setProperty("--bf",c.bf);el.style.setProperty("--bw",c.bw);
+  el.style.setProperty("--bsw",c.bsw);el.style.setProperty("--btnw",c.btnw);el.style.setProperty("--btnls",c.btnls);
+  el.style.setProperty("--btn-pt",c.btnpt||"0px");
+}
+function render(){
+  const q=document.getElementById("qgrid"), tabs=document.getElementById("tabs");
+  q.innerHTML=""; tabs.innerHTML="";
+  const base=C.findIndex(c=>c.base);
+  [...order,base].forEach((idx,pos)=>{
+    const c=C[idx], L=c.base?"Today":"ABCDE"[pos];
+    const card=document.createElement("button"); card.className="qcard sample"+(c.base?" base":""); applyVars(card,c);
+    card.innerHTML=`<span class="tag"><span class="let">${L}</span><span class="nm${c.base?" always":""}">${c.base?"Baseline, not a candidate: "+c.name:c.name}</span></span>
+      <div class="qh">Turn your living room into a <em>pretend-play</em> adventure.</div>
+      <p class="qb">Meet Nutmeg, your pretend-play stage manager.</p>
+      <span class="qbtns"><span class="btn">Start free</span><span class="btn out">See pricing</span></span>`;
+    card.onclick=()=>{select(c.key);document.getElementById("tabs").scrollIntoView({behavior:"smooth"});};
+    q.appendChild(card);
+    const t=document.createElement("button"); t.className="tab"; t.setAttribute("role","tab"); t.dataset.key=c.key;
+    t.innerHTML=c.base?`Today <span class="nm always">(baseline)</span>`:`${L}<span class="nm">${c.name}</span>`; if(c.base) t.classList.add("basetab"); t.onclick=()=>select(c.key);
+    tabs.appendChild(t);
+  });
+  select(current || C[order[0]].key);
+}
+function select(key){
+  current=key; const idx=C.findIndex(c=>c.key===key), c=C[idx];
+  document.querySelectorAll(".tab").forEach(t=>t.setAttribute("aria-selected",t.dataset.key===key));
+  const node=document.getElementById("sampleTpl").content.firstElementChild.cloneNode(true);
+  applyVars(node,c);
+  node.querySelector('[data-f=name]').textContent=c.name;
+  node.querySelector('[data-f=spec]').textContent=c.spec;
+  node.querySelector('[data-f=lic]').textContent="License: "+c.lic;
+  node.querySelector('[data-f=why]').textContent=c.why;
+  node.querySelector('[data-f=letter]').textContent=letterOf(idx);
+  const d=document.getElementById("detail"); d.innerHTML=""; d.appendChild(node);
+}
+function setBlind(on){
+  document.body.classList.toggle("blind",on);
+  const b=document.getElementById("blindBtn"); b.setAttribute("aria-pressed",on); b.textContent="Blind mode: "+(on?"on":"off");
+  document.getElementById("revealBtn").textContent=on?"Reveal names":"Hide names";
+}
+document.getElementById("blindBtn").onclick=()=>setBlind(!document.body.classList.contains("blind"));
+document.getElementById("revealBtn").onclick=()=>setBlind(!document.body.classList.contains("blind"));
+document.getElementById("shuffleBtn").onclick=()=>{shuffle();render();};
+
+shuffle();
+if(params.get("names")==="1"){ order=C.map((c,i)=>i).filter(i=>!C[i].base); setBlind(false); }
+if(params.get("only")==="detail") document.getElementById("quick").style.display="none";
+if(params.get("only")==="quick"){ document.getElementById("detail").style.display="none"; document.getElementById("tabs").style.display="none"; }
+render();
+</script>
+</body>
+</html>
