@@ -5,29 +5,30 @@ import QuartzCore
 /// and touch-down → the first captured audio buffer. Thread-safe (the audio tap reports from the audio thread).
 enum MicTiming {
     private static let lock = NSLock()
-    nonisolated(unsafe) private static var touchAt: Date?
     nonisolated(unsafe) private static var touchHost: CFTimeInterval = 0
     nonisolated(unsafe) private static var visibleLogged = false
     nonisolated(unsafe) private static var audioLogged = false
 
-    /// The touch event's own timestamp (DragGesture.Value.time), at the first gesture callback.
+    /// The touch event's own timestamp (DragGesture.Value.time: the UITouch timestamp, seconds of system uptime, on the
+    /// same clock as CACurrentMediaTime), at the first gesture callback.
     static func touchDown(event: Date) {
-        lock.withLock { touchAt = event; touchHost = CACurrentMediaTime(); visibleLogged = false; audioLogged = false }
-        #if DEBUG
-        rtLog(String(format: "MIC touch-down: gesture callback %.1f ms after the touch event", Date().timeIntervalSince(event) * 1000))
-        #endif
+        let now = CACurrentMediaTime()
+        let eventHost = event.timeIntervalSinceReferenceDate
+        let t0 = (now - eventHost >= 0 && now - eventHost < 2) ? eventHost : now
+        lock.withLock { touchHost = t0; visibleLogged = false; audioLogged = false }
+        rtLog(String(format: "MIC touch-down: gesture callback %.1f ms after the touch event", (now - t0) * 1000))
     }
 
     /// The listening look was inserted into the view tree (onAppear), and again after the frame was committed.
     static func visible() {
-        let start: Date? = lock.withLock { () -> Date? in
-            guard let t = touchAt, !visibleLogged else { return nil }
-            visibleLogged = true; return t
+        let start: CFTimeInterval? = lock.withLock { () -> CFTimeInterval? in
+            guard touchHost > 0, !visibleLogged else { return nil }
+            visibleLogged = true; return touchHost
         }
         guard let start else { return }
-        let inserted = Date().timeIntervalSince(start) * 1000
+        let inserted = (CACurrentMediaTime() - start) * 1000
         DispatchQueue.main.async {
-            let committed = Date().timeIntervalSince(start) * 1000
+            let committed = (CACurrentMediaTime() - start) * 1000
             rtLog(String(format: "MIC touch→visible: %.1f ms (view inserted), %.1f ms (frame committed)", inserted, committed))
         }
     }
