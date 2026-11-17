@@ -50,7 +50,14 @@ kids can't read; not Kids Category, Education 4+, US only, AI required with cons
 ## Haylee's to-do (account / store tasks), with the answers to give
 - **Fill the privacy draft:** LLC legal name + mailing address, response time for reports, pick retention option A/B, legal review, then merge + publish.
 - **ZDR:** finish the OpenAI and Anthropic applications; when both are approved, tell Claude to drop the manifest's collected type.
-- **App Store Connect → App Privacy:** Tracking: **No**. Until ZDR: Data collected = **User Content → Other User Content**; use **App Functionality**; linked to the user **No**; used for tracking **No**. Everything else (contact info, identifiers, usage data, diagnostics, audio, purchases) **Not collected**. After ZDR at both: **Data Not Collected**.
+- **App Store Connect → App Privacy** (updated 2026-11-17 for analytics, see [analytics build](2026-11-17-analytics-build.md)):
+  Tracking: **No**. Data collected:
+  - **User Content → Other User Content** (until ZDR): **App Functionality**; linked **No**; tracking **No**.
+  - **Usage Data → Product Interaction** (TelemetryDeck, only if a grown-up turns it on): **Analytics**; linked **No**; tracking **No**.
+  - **Identifiers → Device ID** (the random per-install id TelemetryDeck hashes; declared because the TelemetryDeck SDK's
+    own privacy manifest declares it and the label must match the app's privacy report): **Analytics**; linked **No**; tracking **No**.
+  - Everything else (contact info, user ID, diagnostics, audio, purchases, location) **Not collected**.
+  After ZDR at both: drop Other User Content (Usage Data + Device ID stay while analytics ships).
 - **Age rating questionnaire (→ 4+):** violence, sexual content, profanity, horror, drugs, gambling, contests: **None**. Unrestricted web access: **No**. User-generated content / user-to-user messaging: **No**. Medical/wellness: **No**. AI / generated content: **Yes**, filtered (local filter + OpenAI moderation) with in-app reporting. Parental controls: **Yes** (grown-up gate on settings, links and purchases). Age assurance: **No**. Advertising: **No**.
 - **Category:** Primary **Education** (secondary Entertainment); **not** Made for Kids / Kids Category; no age band.
 - **Availability:** **United States only**.

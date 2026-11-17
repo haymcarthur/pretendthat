@@ -243,6 +243,7 @@ struct PlansSheet: View {
                 Group {
                     if unlocked {
                         PlansContent(model: model, mode: .outOfShows, webPage: $webPage)
+                            .onAppear { Analytics.send(.paywallShown(.showsUsedUp)) }
                     } else {
                         PTGrownUpGate(onPass: { withAnimation(Theme.gentle) { unlocked = true } }).frame(maxWidth: .infinity)
                     }

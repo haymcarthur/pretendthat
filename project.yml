@@ -13,6 +13,11 @@ configFiles:
 packages:
   NutmegCore:
     path: NutmegCore
+  # Anonymous usage counts (decisions/2026-11-17-analytics-build.md). Pinned exactly: 2.14.2 (released 2026-08-01),
+  # the latest stable release; 3.0 is still in beta. App ID: Analytics.xcconfig (empty = off).
+  TelemetryDeck:
+    url: https://github.com/TelemetryDeck/SwiftSDK
+    exactVersion: 2.14.2
 targets:
   PretendThat:
     type: application
@@ -23,6 +28,8 @@ targets:
       - path: PretendThat
     dependencies:
       - package: NutmegCore
+      - package: TelemetryDeck
+        product: TelemetryDeck
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.pretendthat.ios

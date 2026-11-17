@@ -12,6 +12,11 @@
     and voice timing use CACurrentMediaTime / UITouch timestamps to measure time between events inside the app only.
     No file timestamp, disk space or active keyboard APIs are used (re-check before each release; iCloud in D4 may add
     file timestamps, C617.1).
+  - Analytics (2026-11-17, decisions/2026-11-17-analytics-build.md): TelemetryDeck anonymous event counts, OFF until a
+    grown-up turns on "Share anonymous usage counts". Product Interaction (fixed event names + fixed-word parameters:
+    steps, scene numbers, player-count buckets, plan names; never anything about kids) and Device ID (a RANDOM per-install
+    id made by the app, hashed by TelemetryDeck; not identifierForVendor, removed when sharing is turned off). Both not
+    linked to the user, not used for tracking, Analytics purpose only. Matches the TelemetryDeck SDK's own manifest.
 -->
 <plist version="1.0">
 <dict>
@@ -31,6 +36,30 @@
 			<key>NSPrivacyCollectedDataTypePurposes</key>
 			<array>
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeProductInteraction</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeDeviceID</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAnalytics</string>
 			</array>
 		</dict>
 	</array>

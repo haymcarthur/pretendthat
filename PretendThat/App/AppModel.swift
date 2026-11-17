@@ -91,6 +91,12 @@ final class AppModel {
     var kidBlock: NewGameGate?
     /// The plans screen behind the gate (the Free Preview ran out).
     var showingPlans = false
+    /// Anonymous usage counts (2026-11-17-analytics-build.md): this game's steps and scenes, each counted once.
+    @ObservationIgnored var gameStats = AnalyticsGameTracker()
+    /// When the first-launch onboarding opened (for its coarse duration bucket only).
+    @ObservationIgnored var onboardingStartedAt: Date?
+    /// Mirrors the grown-up's "Share anonymous usage counts" switch so the toggles update.
+    var analyticsSharing = Analytics.sharing
     /// The current plan (StoreKit entitlements; none until products exist).
     var planStatus: PlanStatus = .none
     /// Nutmeg's two onboarding lines (bundled clips through her one speaker; round 35 prep).
@@ -121,6 +127,9 @@ final class AppModel {
     var noVoiceSession: Bool { realtime.status != .live && realtime.status != .connecting }
 
     init(info: [String: Any] = Bundle.main.infoDictionary ?? [:]) {
+        // Anonymous usage counts: a no-op without an app ID or until a grown-up turns sharing on. First, so the debug
+        // drivers (which run before the launch check) count too.
+        Analytics.configure(info: info)
         let speaker = NutmegSpeaker()
         self.speaker = speaker
         realtime = RealtimeSession(speaker: speaker)
@@ -297,6 +306,8 @@ final class AppModel {
         }
         // Round 33 / 38: a NEW game counts toward the Free Preview or the plan's month (replays never do).
         countNewShow()
+        gameStats.begin(kind: .new)
+        Analytics.send(.newGameStarted)
         // Consent was given later in Grown-ups (the onboarding's mic screen was skipped): the system prompts now.
         if AVAudioApplication.shared.recordPermission == .undetermined { await listener.requestAuth() }
         store.beginConversation()
@@ -324,6 +335,7 @@ final class AppModel {
             openGreeting(games: games)
             startDozeWatch()
         } else {
+            if let e = gameStats.error(.voiceConnectFailed) { Analytics.send(e) }
             await store.start()   // tap screens (and the bundled airplane game if Claude is off too)
         }
     }
@@ -564,6 +576,7 @@ final class AppModel {
 
     func phaseChanged() {
         watchStory()
+        sendPhaseAnalytics()
         // Round 19: home (the start screen) is always silent.
         if store.phase == .hello {
             if realtime.status != .idle { realtime.disconnect() }
@@ -825,6 +838,7 @@ final class AppModel {
     /// Print (single tap, decisions/2026-11-13-single-tap-print.md): the whole kit as one PDF to the iOS print screen.
     func printKit() {
         let art = printArt   // round 27: the chosen set, for the current player count
+        if let e = gameStats.printed(store.printSet, players: store.playerCount) { Analytics.send(e) }
         rtLog("print: the \(store.printSet.toolValue) set, \(kitPages.count) page(s)")
         let pdf = KitPrinter.pdf(pages: kitPages, art: art.images,
                                  cutouts: Dictionary(uniqueKeysWithValues: (store.kit?.items ?? []).map { ($0.id, art.cutoutImages($0)) }))
@@ -1598,10 +1612,12 @@ final class AppModel {
                 rtLog("SAVE clips: \(recorded.clips.count) recorded lines, \(recorded.data.values.reduce(0) { $0 + $1.count } / 1024) KB AAC")
             } catch {
                 rtLog("save: failed (\(error.localizedDescription))")
+                Analytics.send(.error(.saveFailed))
                 saveState = .failed
                 return
             }
             store.markSaved(game.id)
+            Analytics.send(.gameSaved(PlayersValue(count: store.playerCount), GameCategory.from(title: game.title)))
             saveState = .idle
             refreshShelf()
             rtLog(String(format: "SAVE game saved in %.2f s: %d art files, %d KB on disk, %d on the shelf", Date().timeIntervalSince(started),
@@ -1676,6 +1692,8 @@ final class AppModel {
         // Offline: no connect at all (clips only; a never-said line pauses with the Wi-Fi note).
         replayConnecting = !live && realtimeAuth != nil && network.online
         showingShelf = false
+        gameStats.begin(kind: .replay)
+        Analytics.send(.replayStarted(GameCategory.from(title: g.title)))
         store.loadReplay(g)   // Pick; her greeting: a clip at once, else live once (waits for the session if it's connecting)
         if live {
             realtime.addNote(Realtime.systemNote(replayNote))
@@ -1944,6 +1962,7 @@ final class AppModel {
     func speechUnavailableNow() {
         guard listener.available else { return }
         listener.markUnavailable()
+        Analytics.send(.error(.speechUnavailable))
         if speechModel.offersDownload && !speechModel.state.isReady { speechModel.showingSheet = true; return }   // round 34
         speechHelp = listener.readiness
     }
@@ -1975,5 +1994,25 @@ final class AppModel {
         default:
             await store.kidSaid(text)
         }
+    }
+}
+
+// MARK: - Anonymous usage counts (2026-11-17-analytics-build.md)
+
+extension AppModel {
+    /// The phase changed: each step and scene once per game, The End once (coarse buckets only; the title is reduced to
+    /// a fixed category on the iPad). A fallback to the built-in game counts as "AI unavailable", once per game.
+    func sendPhaseAnalytics() {
+        let kinds = store.kit?.scenes.map(\.arc) ?? []
+        for e in gameStats.phase(store.phase, sceneKinds: kinds, players: store.playerCount, title: store.currentTitle) {
+            Analytics.send(e)
+        }
+        if store.usingFallback, store.phase != .hello, let e = gameStats.error(.aiUnavailable) { Analytics.send(e) }
+    }
+
+    /// The grown-up's switch (onboarding's privacy page, Grown-ups → About what we save).
+    func setAnalyticsSharing(_ on: Bool) {
+        Analytics.setSharing(on)
+        analyticsSharing = Analytics.sharing
     }
 }

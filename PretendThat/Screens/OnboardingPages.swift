@@ -249,6 +249,15 @@ struct OnboardingView: View {
                 .buttonStyle(.plain)
                 .padding(.top, 6 * s)
                 .accessibilityHint("Opens the privacy policy in a browser view")
+                // Anonymous usage counts: one short line, OFF until the grown-up turns it on (2026-11-17-analytics-build.md).
+                Toggle(isOn: Binding(get: { model.analyticsSharing }, set: { model.setAnalyticsSharing($0) })) {
+                    Text(OnboardingCopy.analyticsLine).font(OB.font(17 * s, .bold)).foregroundStyle(Theme.inkMuted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .tint(Theme.purple)
+                .padding(.top, 4 * s)
+                .accessibilityIdentifier("analyticsToggle")
+                .accessibilityHint("Off unless you turn it on. Sends simple counts, never anything about your child.")
             } actions: {
                 OBButton(s: s, label: OnboardingCopy.agree) { go { $0.agree() } }
                     .accessibilityHint("Agrees to send your child's words, with names removed, to OpenAI and Anthropic")

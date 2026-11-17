@@ -173,7 +173,7 @@ struct GrownUpsDestination: View {
         case .plans: GUPlansView(model: model)
         case .subscription: GUSubscriptionView()
         case .restorePurchases: GURestoreView()
-        case .aboutWhatWeSave: GUAboutView()
+        case .aboutWhatWeSave: GUAboutView(model: model)
         case .help: GUHelpView()
         case .aiPartners: GUAIPartnersView(model: model)
         case .reportProblem: GUReportView(model: model)
@@ -196,6 +196,7 @@ struct GUPlansView: View {
         .navigationTitle("Plans")
         .navigationBarTitleDisplayMode(.inline)
         .guSafari($webPage)
+        .onAppear { Analytics.send(.paywallShown(.grownUps)) }
     }
 }
 
@@ -481,8 +482,19 @@ struct GURestoreView: View {
 // MARK: - About what we save
 
 struct GUAboutView: View {
+    let model: AppModel
     var body: some View {
         List {
+            // Anonymous usage counts (2026-11-17-analytics-build.md): OFF until a grown-up turns it on.
+            Section {
+                Toggle(isOn: Binding(get: { model.analyticsSharing }, set: { model.setAnalyticsSharing($0) })) {
+                    Text(GrownUpsCopy.analyticsToggle).font(GUType.button)
+                }
+                .tint(Theme.purple)
+                .accessibilityIdentifier("analyticsToggle")
+            } footer: {
+                Text(GrownUpsCopy.analyticsFooter).font(GUType.footnote)
+            }
             ForEach(GrownUpsCopy.about, id: \.title) { item in
                 Section {
                     VStack(alignment: .leading, spacing: 6) {
