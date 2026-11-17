@@ -324,7 +324,7 @@ extension PTStageCamera {
 /// iPhone (portrait) stage layout: where her box and the content zone go. Pure, so it is unit-tested.
 public enum PTPhoneStage {
     /// The least room she keeps above any content (so she is always on screen while she talks).
-    public static let minNutmeg: CGFloat = 170
+    public static let minNutmeg: CGFloat = 150
     /// The gap between her box and the content zone.
     public static let gap: CGFloat = 8
     /// Splits the free stage (`top`…`bottom`, stage coordinates) into her box and the content zone below it.

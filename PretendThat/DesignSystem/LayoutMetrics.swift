@@ -91,9 +91,8 @@ extension EnvironmentValues {
 
 /// The key window's safe-area insets (full-screen views that ignore the safe area still keep their buttons clear of
 /// the Dynamic Island and the home indicator on the phone).
-enum PTWindow {
-    @MainActor static var safeInsets: UIEdgeInsets {
-        UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-            .flatMap(\.windows).first(where: \.isKeyWindow)?.safeAreaInsets ?? .zero
-    }
+/// (Measured once by RootView from SwiftUI's own layout and injected; reading the UIKit window during a view update
+/// fed back into layout and froze the start screen's intro on the phone.)
+extension EnvironmentValues {
+    @Entry var ptSafeInsets = EdgeInsets()
 }

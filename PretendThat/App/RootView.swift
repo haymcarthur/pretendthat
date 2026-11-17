@@ -40,6 +40,8 @@ struct RootView: View {
     @State private var rootTop: CGFloat = 0
     /// Onboarding v2: "Go to the home page" restarts the start screen's intro (it ran unseen under the onboarding).
     @State private var homeIntroRun = 0
+    /// iPhone version: the safe-area insets (for full-screen layers that ignore the safe area), measured once here.
+    @State private var safeInsets = EdgeInsets()
     /// iPhone version (2026-11-17): the ONE layout decision (`LayoutMetrics`), from the size class: regular = the iPad
     /// (every iPad layout unchanged), compact = the iPhone in portrait (Nutmeg on top, cards below, top bar, sheet chat).
     @Environment(\.horizontalSizeClass) private var horizontalSize
@@ -301,6 +303,8 @@ struct RootView: View {
         .onChange(of: metrics.isPhone, initial: true) { _, phone in model.phoneLayout = phone }
         .onChange(of: phoneCardBelow, initial: true) { _, below in model.phoneCardBelow = below }
         .environment(\.layoutMetrics, metrics)
+        .environment(\.ptSafeInsets, safeInsets)
+        .background { Color.clear.onGeometryChange(for: EdgeInsets.self) { $0.safeAreaInsets } action: { if $0 != safeInsets { safeInsets = $0 } } }
     }
 
     // MARK: iPhone (portrait)

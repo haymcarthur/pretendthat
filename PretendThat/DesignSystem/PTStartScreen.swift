@@ -486,7 +486,7 @@ struct PTToyChestScene<Nutmeg: View>: View {
     private typealias T = PTStartTimeline
     private typealias X = PTStartExit
     /// iPhone version: the window's safe area (this scene ignores it; the phone layout keeps its buttons inside).
-    private var safeArea: UIEdgeInsets { PTWindow.safeInsets }
+    @Environment(\.ptSafeInsets) private var safeArea
 
     var body: some View {
         let paused = (frozenAt != nil || skipped || finished || reduceMotion) && exitStart == nil

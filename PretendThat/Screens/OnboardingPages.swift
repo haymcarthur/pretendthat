@@ -22,6 +22,7 @@ struct OnboardingView: View {
     @Environment(\.openURL) private var openURL
     /// iPhone version: the same pages stacked (the art card over the text), at a phone scale.
     @Environment(\.layoutMetrics) private var metrics
+    @Environment(\.ptSafeInsets) private var safeInsets
 
     private var flow: OnboardingFlow { model.onboarding ?? OnboardingFlow() }
 
@@ -88,7 +89,7 @@ struct OnboardingView: View {
     @ViewBuilder private func howItWorks(_ s: CGFloat) -> some View {
         if metrics.isPhone {
             // iPhone: the four steps in one scrolling column (each card a little shorter), Next at the bottom.
-            let safe = PTWindow.safeInsets
+            let safe = safeInsets
             VStack(spacing: 0) {
                 OBTopBar(s: s, back: backAction, dot: flow.screen.dot)
                     .padding(.horizontal, 20).padding(.top, safe.top + 4)
@@ -573,12 +574,13 @@ struct OBSplit<Art: View, Column: View>: View {
     @ViewBuilder var art: () -> Art
     @ViewBuilder var column: () -> Column
     @Environment(\.layoutMetrics) private var metrics
+    @Environment(\.ptSafeInsets) private var safeInsets
     var body: some View {
         if metrics.isPhone {
             // iPhone (Haylee: stack art over text): the art card on top (laid out at its iPad proportions, then
             // scaled to ~38% of the screen and widened to the screen), the text column scrolling below it.
             GeometryReader { geo in
-                let safe = PTWindow.safeInsets
+                let safe = safeInsets
                 let cardW = geo.size.width - 24
                 let cardH = min(geo.size.height * (geo.size.height < 860 ? 0.33 : 0.37), 360)
                 let natural = 786 * s
@@ -618,6 +620,7 @@ struct OBColumn<Content: View, Actions: View>: View {
     @ViewBuilder var content: () -> Content
     @ViewBuilder var actions: () -> Actions
     @Environment(\.layoutMetrics) private var metrics
+    @Environment(\.ptSafeInsets) private var safeInsets
     var body: some View {
         if metrics.isPhone {
             // iPhone: under the art card, phone margins, the actions above the home indicator.
@@ -629,7 +632,7 @@ struct OBColumn<Content: View, Actions: View>: View {
                 Spacer(minLength: 16)
                 VStack(spacing: 8 * s) { actions() }
             }
-            .padding(.top, 8).padding(.horizontal, 20).padding(.bottom, max(PTWindow.safeInsets.bottom, 12) + 4)
+            .padding(.top, 8).padding(.horizontal, 20).padding(.bottom, max(safeInsets.bottom, 12) + 4)
         } else {
         VStack(alignment: .leading, spacing: 0) {
             OBTopBar(s: s, back: back, dot: dot)
