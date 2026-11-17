@@ -126,10 +126,10 @@ public final class PhaseService: Sendable {
         and household props; at the end they put them away. Items:
         \(list)
         Roles: \(roles).
-        For EACH item write one entry (item = its id): setupSay = an imperative phrase of 5 to 15 words, no role title, \
-        that NAMES the item and gives it a clear purpose in the play space; setupShort = 2 to 5 words naming the item; cleanupSay = how \
-        they tidy or put it back at the end, framed in the story, naming it; cleanupShort = 2 to 5 words naming it; role = the role \
-        it suits best. No quotes. Return ItemJobs.
+        For EACH item write one entry (item = its id): setupSay = an imperative phrase of 5 to 12 words that starts with \
+        a verb, no role title, that NAMES the item and gives it a clear purpose in the play space; cleanupSay = how they \
+        tidy or put it back at the end, framed in the story, starting with a verb and naming it; role = the role it suits \
+        best. No quotes. Return ItemJobs.
         \(Prompts.contextJSON(ctx))
         """
         return try await safe({ try await self.ask(ItemJobs.self, $0, ItemJobs.schema(ids: ids), .low, clean: { $0 }, problem: { _ in nil }) }, user)

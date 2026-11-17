@@ -61,7 +61,10 @@ public enum ContentReport {
     }
 
     static func bookendText(_ b: Bookend) -> String {
-        ([b.title, b.nutmegSays] + b.jobs.map { "\($0.short): \($0.say)" }).filter { !$0.isEmpty }.joined(separator: "\n")
+        // Round 40: goal rows (the goals, then each job's spoken words); older games: "short: say".
+        let goals = RoleID.allCases.compactMap { r in b.goal(r).map { "\(r.rawValue) goal: \($0)" } }
+        let jobs = b.jobs.map { $0.short.isEmpty ? $0.say : "\($0.short): \($0.say)" }
+        return ([b.title, b.nutmegSays] + goals + jobs).filter { !$0.isEmpty }.joined(separator: "\n")
     }
 
     public static func subject(game: String, part: Part) -> String {

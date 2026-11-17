@@ -37,8 +37,9 @@ public struct ItemJobs: Codable, Equatable, Sendable, SafetyText {
             let c = try decoder.container(keyedBy: CodingKeys.self)
             item = try c.decodeIfPresent(String.self, forKey: .item) ?? ""   // the guide's page jobs are keyed by recipe
             role = try c.decodeIfPresent(String.self, forKey: .role) ?? ""
-            setupShort = try c.decode(String.self, forKey: .setupShort); setupSay = try c.decode(String.self, forKey: .setupSay)
-            cleanupShort = try c.decode(String.self, forKey: .cleanupShort); cleanupSay = try c.decode(String.self, forKey: .cleanupSay)
+            // Round 40: the rows show goals, so the jobs no longer carry a short row text (older answers still may).
+            setupShort = try c.decodeIfPresent(String.self, forKey: .setupShort) ?? ""; setupSay = try c.decode(String.self, forKey: .setupSay)
+            cleanupShort = try c.decodeIfPresent(String.self, forKey: .cleanupShort) ?? ""; cleanupSay = try c.decode(String.self, forKey: .cleanupSay)
         }
         var texts: [String] { [setupShort, setupSay, cleanupShort, cleanupSay] }
         /// The two `ItemJob`s for a cover item id ("page:sign" / "prop:bowl").
@@ -54,10 +55,9 @@ public struct ItemJobs: Codable, Equatable, Sendable, SafetyText {
 
     static var jobProps: [String: Any] { [
         "role": Schemas.enumStr(RoleID.allCases.map(\.rawValue)),
-        "setupShort": ["type": "string", "description": "What the setup row SHOWS: 2 to 5 words that name the item, no role title (e.g. Hang up the sign)."],
-        "setupSay": ["type": "string", "description": "The setup job Nutmeg SAYS: an imperative phrase of 5 to 15 words with no role title that NAMES this item and gives it a clear purpose in the play space (e.g. hang the Sunny Bakery sign by the door so customers can find us)."],
-        "cleanupShort": ["type": "string", "description": "What the clean-up row SHOWS: 2 to 5 words that name the item (e.g. Put the bowl away)."],
-        "cleanupSay": ["type": "string", "description": "The clean-up job: an imperative phrase of 5 to 15 words with no role title that names this item and puts it away, framed in the story (e.g. put the mixing bowl back in the kitchen for the night)."],
+        // Round 40: no short row texts (the rows show each role's goal); Nutmeg says these after "…by".
+        "setupSay": ["type": "string", "description": "The setup job Nutmeg SAYS: an imperative phrase of 5 to 12 words that STARTS WITH A VERB (hang, put, set, line up, stack…), no role title, NAMES this item and gives it a clear purpose in the play space (e.g. hang the Sunny Bakery sign by the door)."],
+        "cleanupSay": ["type": "string", "description": "The clean-up job: an imperative phrase of 5 to 12 words that STARTS WITH A VERB, no role title, names this item and puts it away, framed in the story (e.g. put the mixing bowl back in the kitchen)."],
     ] }
     /// The re-ask / weave schema: a list of jobs, `item` one of `ids`.
     public static func schema(ids: [String]) -> [String: Any] {
@@ -124,10 +124,10 @@ public enum GuideWeave {
         for the same role: it still starts with that role's title. These are the SPOKEN tasks: the job plus 1 or 2 concrete ideas, at most 30 words, no quotes or lines \
         to say. Name the prop by what it becomes (never the household item), gentle and kid-safe. \
         ALSO, for EACH prop, write its jobs (one entry per prop, item = the prop id): setupSay = how the kids put it in \
-        place before the play starts so it has a clear purpose in the play space (e.g. "set the treasure chest by the \
-        ship's wheel to hold the gold"), named by what it becomes; setupShort its 2 to 5 word row text naming it; cleanupSay = how \
-        they put the household item back at the end, framed in the story (e.g. "put the box back in the closet so the \
-        ship can rest"); cleanupShort its 2 to 5 word row text naming it; role = the playing role it suits best. No quotes. Return PropWeave \
+        place before the play starts so it has a clear purpose in the play space, starting with a verb (e.g. "set the \
+        treasure chest by the ship's wheel to hold the gold"), named by what it becomes; cleanupSay = how they put the \
+        household item back at the end, framed in the story, starting with a verb (e.g. "put the box back in the closet \
+        so the ship can rest"); role = the playing role it suits best. No quotes. Return PropWeave \
         (scene and step are the numbers above).
         """
     }
@@ -239,12 +239,14 @@ public struct KitScenesSix: Decodable, Sendable, SafetyText {
     }
     public static let count = 3
 
-    struct BookendBody: Decodable { var title: String; var nutmegSays: String }
+    struct BookendBody: Decodable { var title: String; var nutmegSays: String; var goals: [String: String]? }
     /// Round 36: the setup / clean-up scenes and the pages' jobs (keyed by recipe).
     static func bookends(_ c: KeyedDecodingContainer<Key>) -> (setup: Bookend, cleanup: Bookend)? {
         guard let s = try? c.decode(BookendBody.self, forKey: Key(stringValue: "setupScene")),
               let k = try? c.decode(BookendBody.self, forKey: Key(stringValue: "cleanupScene")) else { return nil }
-        var setup = Bookend(title: s.title, nutmegSays: s.nutmegSays), cleanup = Bookend(title: k.title, nutmegSays: k.nutmegSays)
+        // Round 40: a new answer always makes goal rows (missing goals are written by the app, `Bookends.repair`).
+        var setup = Bookend(title: s.title, nutmegSays: s.nutmegSays, goals: s.goals ?? [:])
+        var cleanup = Bookend(title: k.title, nutmegSays: k.nutmegSays, goals: k.goals ?? [:])
         if let pages = try? c.nestedContainer(keyedBy: Key.self, forKey: Key(stringValue: "pageJobs")) {
             for r in KitRecipe.allCases {
                 guard let j = try? pages.decode(ItemJobs.Job.self, forKey: Key(stringValue: r.rawValue)) else { continue }
@@ -307,8 +309,14 @@ public struct KitScenesSix: Decodable, Sendable, SafetyText {
         for i in 1...count { props["scene\(i)"] = ["$ref": "#/$defs/scene"] }
         // Round 36 (Haylee): the story opener, the setup and clean-up scenes, and one job per printed page.
         props["story"] = ["type": "string", "description": "The story Nutmeg tells right after printing, before the setup: 3 or 4 short sentences, about 40 to 55 words (15 seconds): where we are, who the kids are (the R1 role and the crew; name no other role), and what is about to happen. Kid words, exciting, no quotes."]
+        // Round 40 (Haylee): each role's GOAL in the scene (the row shows it; the item jobs are the spoken specifics).
+        var goalProps: [String: Any] = [:]
+        for r in RoleID.allCases { goalProps[r.rawValue] = Schemas.str }
+        var goals = Schemas.obj(goalProps)
+        goals["description"] = "For EACH role R1 to R6, that role's GOAL in this scene: 2 to 6 words in the game's world, an imperative, no role title, no list of items (setup e.g. Get the pet room ready; clean-up e.g. Close up the clinic). Different goals for different roles."
         let bookend: [String: Any] = Schemas.obj(["title": ["type": "string", "description": "2 to 4 words."],
-                                                  "nutmegSays": ["type": "string", "description": "ONE sentence that starts with \"Pretend that\"."]])
+                                                  "nutmegSays": ["type": "string", "description": "ONE sentence that starts with \"Pretend that\"."],
+                                                  "goals": goals])
         props["setupScene"] = ["$ref": "#/$defs/bookend"]
         props["cleanupScene"] = ["$ref": "#/$defs/bookend"]
         var pages: [String: Any] = [:]

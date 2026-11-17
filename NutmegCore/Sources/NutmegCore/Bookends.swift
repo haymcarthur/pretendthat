@@ -44,8 +44,15 @@ public struct Bookend: Codable, Equatable, Sendable {
     public var title: String
     public var nutmegSays: String
     public var jobs: [ItemJob]
-    public init(title: String, nutmegSays: String, jobs: [ItemJob] = []) { self.title = title; self.nutmegSays = nutmegSays; self.jobs = jobs }
-    public static let empty = Bookend(title: "", nutmegSays: "")
+    /// Round 40 (Haylee: rows are goals, not item lists): each ranked role's goal in this scene, in the game's world
+    /// ("Get the pet room ready", "Close up the clinic"), keyed by role ("R1"…"R6"). Non-nil = the rows are GOAL rows
+    /// (`Bookends.goalScene`); nil = a game saved before round 40, composed the round-37 way (replays as it was).
+    public var goals: [String: String]?
+    public init(title: String, nutmegSays: String, jobs: [ItemJob] = [], goals: [String: String]? = nil) {
+        self.title = title; self.nutmegSays = nutmegSays; self.jobs = jobs; self.goals = goals
+    }
+    public static let empty = Bookend(title: "", nutmegSays: "", goals: [:])
+    public func goal(_ r: RoleID) -> String? { goals?[r.rawValue] }
     public func job(_ item: String) -> ItemJob? { jobs.first { $0.item == item } }
     /// Adds or replaces the job for its item.
     public mutating func put(_ j: ItemJob) {
@@ -177,7 +184,8 @@ public enum Bookends {
         let say = j.say.trimmingCharacters(in: .whitespacesAndNewlines)
         let words = say.split(whereSeparator: \.isWhitespace).count
         let shortWords = j.short.split(whereSeparator: \.isWhitespace).count
-        return words >= 2 && words <= maxJobWords && shortWords >= 1 && shortWords <= maxShortWords + 2
+        // Round 40: goal rows don't show a job's short, so a new job may have none (an older job always has one).
+        return words >= 2 && words <= maxJobWords && shortWords <= maxShortWords + 2
             && !say.contains("\"") && mentions(say, item)
     }
 
@@ -220,6 +228,17 @@ public enum Bookends {
         }
         for item in coverItems(items: k.items, props: props) where !isValid(cleanup.job(item.id).map { transformed($0, props: props) }, for: item) {
             cleanup.put(fallbackCleanup(item)); fixed.append("clean-up \(item.id)")
+        }
+        // Round 40: a goal-row kit gets a goal for every role (an older saved game has none and stays as it was).
+        if setup.goals != nil {
+            for r in RoleID.allCases where !isValidGoal(setup.goal(r)) {
+                setup.goals?[r.rawValue] = fallbackGoal(r, cleanup: false, title: setup.title); fixed.append("setup goal \(r.rawValue)")
+            }
+        }
+        if cleanup.goals != nil {
+            for r in RoleID.allCases where !isValidGoal(cleanup.goal(r)) {
+                cleanup.goals?[r.rawValue] = fallbackGoal(r, cleanup: true, title: cleanup.title); fixed.append("clean-up goal \(r.rawValue)")
+            }
         }
         k.setup = setup; k.cleanup = cleanup
         return (k, fixed)
@@ -340,9 +359,15 @@ public enum Bookends {
         if let story = k.story?.trimmingCharacters(in: .whitespacesAndNewlines), !story.isEmpty {
             out.append(Scene(id: "story", owner: .all, title: k.setup?.title ?? "", picture: .point, nutmegSays: story, steps: [], kind: .story))
         }
-        if let s = k.setup { out.append(setupScene(s, kit: k, play: play, roles: roles, players: n, props: props)) }
+        if let s = k.setup {
+            out.append(s.goals != nil ? goalScene(s, kit: k, roles: roles, players: n, props: props, cleanup: false)
+                                      : setupScene(s, kit: k, play: play, roles: roles, players: n, props: props))
+        }
         out += play
-        if let c = k.cleanup { out.append(cleanupScene(c, kit: k, roles: roles, players: n, props: props)) }
+        if let c = k.cleanup {
+            out.append(c.goals != nil ? goalScene(c, kit: k, roles: roles, players: n, props: props, cleanup: true)
+                                      : cleanupScene(c, kit: k, roles: roles, players: n, props: props))
+        }
         return out
     }
 
@@ -550,7 +575,10 @@ public enum Bookends {
     public static func safetyTexts(_ k: Kit) -> [String] {
         var t: [String] = []
         if let s = k.story { t.append(s) }
-        for b in [k.setup, k.cleanup].compactMap({ $0 }) { t += [b.title, b.nutmegSays] + b.jobs.flatMap { [$0.short, $0.say] } }
+        for b in [k.setup, k.cleanup].compactMap({ $0 }) {
+            t += [b.title, b.nutmegSays] + b.jobs.flatMap { [$0.short, $0.say] }
+            t += RoleID.allCases.compactMap { b.goal($0) }
+        }
         return t.filter { !$0.isEmpty }
     }
 }
