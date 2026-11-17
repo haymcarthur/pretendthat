@@ -106,7 +106,7 @@ public enum ReportCopy {
     public static let savedHeader = "Saved games"
     public static let none = "Play or save a game first. Its pages and scenes will show up here."
     public static let noMailTitle = "Email us"
-    public static func noMailBody(_ address: String) -> String { "This iPad has no mail account set up. Copy the report and send it to \(address)." }
+    public static func noMailBody(_ address: String) -> String { "This \(DeviceWord.noun) has no mail account set up. Copy the report and send it to \(address)." }
     public static let copyButton = "Copy the report"
     public static let footer = "We read every report and use it to make Nutmeg better and safer."
 }

@@ -379,7 +379,7 @@ struct PTMicButton: View {
         .animation(Theme.press, value: listening)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(mode == .listening ? "Listening. Let go to send"
-                            : mode == .unavailable ? "Nutmeg can't listen on this iPad yet. Tap for help" : "Hold to talk to Nutmeg")
+                            : mode == .unavailable ? "Nutmeg can't listen on this \(DeviceWord.noun) yet. Tap for help" : "Hold to talk to Nutmeg")
         .accessibilityAddTraits(.isButton)
         .accessibilityAction { mode == .listening ? onRelease() : onPress(CACurrentMediaTime()) }   // VoiceOver: tap to start, tap to send
         .disabled(!enabled)

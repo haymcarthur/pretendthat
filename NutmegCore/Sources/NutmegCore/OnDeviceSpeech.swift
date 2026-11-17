@@ -124,12 +124,12 @@ public enum SpeechReadiness: Equatable, Sendable {
     /// One line for the Grown-ups screen.
     public var status: String {
         switch self {
-        case .ready: return "On: speech is turned into words on this iPad (voices never leave it)"
+        case .ready: return "On: speech is turned into words on this \(DeviceWord.noun) (voices never leave it)"
         case .notAskedYet: return "Off: speech permission not answered yet"
         case .speechDenied: return "Off: speech recognition permission is off"
         case .micDenied: return "Off: microphone permission is off"
-        case .restricted: return "Off: speech recognition is restricted on this iPad"
-        case .onDeviceUnavailable: return "Off: on-device English speech isn't available on this iPad yet"
+        case .restricted: return "Off: speech recognition is restricted on this \(DeviceWord.noun)"
+        case .onDeviceUnavailable: return "Off: on-device English speech isn't available on this \(DeviceWord.noun) yet"
         }
     }
 
@@ -140,15 +140,15 @@ public enum SpeechReadiness: Equatable, Sendable {
         case .ready: return nil
         case .notAskedYet:
             return ("Grown-ups: one quick yes", "Nutmeg needs the microphone and speech recognition to hear your kids. "
-                    + "Their voices are turned into words right on this iPad and never sent anywhere." + typing)
+                    + "Their voices are turned into words right on this \(DeviceWord.noun) and never sent anywhere." + typing)
         case .speechDenied, .micDenied:
             return ("Grown-ups: Nutmeg can't hear yet", "Turn on Microphone and Speech Recognition for PretendThat in "
-                    + "Settings › Privacy & Security. Voices are turned into words right on this iPad and never sent anywhere." + typing)
+                    + "Settings › Privacy & Security. Voices are turned into words right on this \(DeviceWord.noun) and never sent anywhere." + typing)
         case .restricted:
-            return ("Grown-ups: Nutmeg can't hear on this iPad", "Speech recognition is restricted on this iPad (Screen "
+            return ("Grown-ups: Nutmeg can't hear on this \(DeviceWord.noun)", "Speech recognition is restricted on this \(DeviceWord.noun) (Screen "
                     + "Time or a device profile)." + typing)
         case .onDeviceUnavailable:
-            return ("Grown-ups: Nutmeg's ears need a download", "PretendThat only listens on the iPad itself, so it needs "
+            return ("Grown-ups: Nutmeg's ears need a download", "PretendThat only listens on the \(DeviceWord.noun) itself, so it needs "
                     + "Apple's on-device English (US) speech. Turn on Dictation in Settings › General › Keyboard with "
                     + "English (US), stay on Wi-Fi while it downloads, then try again." + typing)
         }

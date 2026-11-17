@@ -236,7 +236,7 @@ public enum PurchaseOutcome: Equatable, Sendable {
         case .pending: "Waiting for approval. If Ask to Buy is on, the family organizer can approve it. The plan starts as soon as it's approved."
         case .cancelled: "No problem. Nothing was bought."
         case .failed(.network): "Couldn't reach the App Store. Check the Wi-Fi and try again."
-        case .failed(.notAvailable): "Purchases aren't available on this iPad right now. Check Screen Time's purchase settings."
+        case .failed(.notAvailable): "Purchases aren't available on this \(DeviceWord.noun) right now. Check Screen Time's purchase settings."
         case .failed(.unverified): "The App Store couldn't confirm that purchase. Nothing was charged here. Try Restore purchases."
         case .failed(.productMissing): "This plan can't be loaded right now. Please try again in a moment."
         case .failed(.other): "Something went wrong. Please try again in a moment."

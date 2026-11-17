@@ -141,13 +141,13 @@ public enum GrownUpsSection: String, CaseIterable, Hashable, Sendable {
     /// The row's second line.
     public var subtitle: String {
         switch self {
-        case .savedGames: "See, sort and delete the games saved on this iPad"
+        case .savedGames: "See, sort and delete the games saved on this \(DeviceWord.noun)"
         case .plans: "Show Pass, Season Pass and the new shows left"
         case .subscription: "Change or cancel your plan with Apple"
-        case .restorePurchases: "Bought a plan before? Bring it to this iPad"
+        case .restorePurchases: "Bought a plan before? Bring it to this \(DeviceWord.noun)"
         case .aiPartners: "Turn Nutmeg's AI partners on or off"
         case .privacyPolicy: "Opens pretendthat.app/privacy"
-        case .aboutWhatWeSave: "What stays on this iPad, in plain words"
+        case .aboutWhatWeSave: "What stays on this \(DeviceWord.noun), in plain words"
         case .termsOfUse: "Opens pretendthat.app/terms"
         case .help: "Get help, and where billing questions go"
         case .reportProblem: "Something odd or not OK in a game? Tell us"
@@ -307,11 +307,11 @@ public enum RestoreOutcome: Equatable, Sendable {
 
     public var message: String {
         switch self {
-        case .restored: "Restored. Your plan is active on this iPad."
+        case .restored: "Restored. Your plan is active on this \(DeviceWord.noun)."
         case .nothingToRestore: "Nothing to restore yet. This Apple ID has no PretendThat purchases."
         case .cancelled: "Restore was cancelled. Nothing changed."
         case .offline: "Couldn't reach the App Store. Check the Wi-Fi and try again."
-        case .unavailable: "The App Store isn't available on this iPad right now. Check Screen Time's purchase settings, then try again."
+        case .unavailable: "The App Store isn't available on this \(DeviceWord.noun) right now. Check Screen Time's purchase settings, then try again."
         case .failed: "Something went wrong. Please try again in a moment."
         }
     }
@@ -333,11 +333,11 @@ public enum GrownUpsCopy {
     /// "Delete Moon Crumbs Bakery? This can't be undone."
     public static func deleteConfirm(_ gameTitle: String) -> String { "\(deleteTitle(gameTitle)) \(deleteMessage)" }
     public static let emptySavedGames = "No saved games yet. Tap the star at the end of a game to keep it here."
-    public static let savedGamesFooter = "Saved on this iPad. Kids can't delete games; only you can, here."
+    public static let savedGamesFooter = "Saved on this \(DeviceWord.noun). Kids can't delete games; only you can, here."
     public static let subscriptionIntro = "PretendThat plans are subscriptions through Apple. To change your plan, see when it renews, or cancel, use Apple's subscription settings. Cancel at least a day before it renews to avoid the next charge."
     public static let manageButton = "Open Apple's subscription settings"
     public static let manageFailed = "Couldn't open Apple's subscription settings here. You can also open Settings, tap your name, then Subscriptions."
-    public static let restoreIntro = "Bought a plan on another iPad, or before reinstalling? Restore it here. It uses the Apple ID signed in on this iPad."
+    public static let restoreIntro = "Bought a plan on another \(DeviceWord.noun), or before reinstalling? Restore it here. It uses the Apple ID signed in on this \(DeviceWord.noun)."
     public static let restoreButton = "Restore purchases"
     public static let restoring = "Checking with the App Store…"
     public static let helpIntro = "Questions, ideas or a problem with a game? Our help page has answers and a way to reach us."
@@ -351,10 +351,10 @@ public enum GrownUpsCopy {
 
     /// About what we save (round 31: kids' voices become words on the iPad and are never sent).
     public static let about: [(title: String, body: String)] = [
-        ("Voices stay on this iPad", "Nutmeg listens only while the mic button is held. Your child's voice is turned into words right on this iPad. The sound of their voice is never sent anywhere and never saved."),
+        ("Voices stay on this \(DeviceWord.noun)", "Nutmeg listens only while the mic button is held. Your child's voice is turned into words right on this \(DeviceWord.noun). The sound of their voice is never sent anywhere and never saved."),
         ("Only words go to our AI partners", "Those words go to our AI partners (OpenAI and Anthropic) so Nutmeg can answer and write the game. Names are removed first, and the words are checked for kid safety."),
         ("Saved games are game content only", "A saved game keeps its title, roles, props, play guide, printable pages and Nutmeg's recorded lines. Nothing about your child: no names, voices or pictures."),
-        ("Saved on this iPad", "Saved games stay on this iPad. We don't have servers that store your games."),
+        ("Saved on this \(DeviceWord.noun)", "Saved games stay on this \(DeviceWord.noun). We don't have servers that store your games."),
         // Round 37 (Anthropic's rule for products used by minors + App Store 1.2 / 5.1.2(i)): say plainly that Nutmeg is AI.
         ("Nutmeg is an AI helper", "Nutmeg is a computer character, not a person. Her words, the story and the printed pages are made by AI and checked for kid safety. The first time your child plays, she tells them she's a pretend helper made by a computer. AI can get things wrong: if something seems off, use Report a problem in Grown-ups."),
         ("No accounts, ads or tracking", "There's nothing to sign up for. PretendThat has no ads and doesn't track you or your child."),

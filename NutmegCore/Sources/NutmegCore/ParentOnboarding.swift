@@ -408,7 +408,7 @@ public enum OnboardingCopy {
     public static let privacyLines: [(symbol: String, text: String)] = [
         ("checkmark", "No accounts, no sign-up."),
         ("checkmark", "Nothing about your kids is saved."),
-        ("checkmark", "Your child's voice turns into words right on this iPad. Audio is never sent."),
+        ("checkmark", "Your child's voice turns into words right on this \(DeviceWord.noun). Audio is never sent."),
         ("checkmark", "Only the words, with names removed, go to our AI partners, OpenAI and Anthropic."),
     ]
     public static let privacyLink = "Read our privacy policy"
@@ -428,7 +428,7 @@ public enum OnboardingCopy {
     // 5 (v2)
     public static let micTitle = "Hold to talk"
     public static let micBody = "Nutmeg listens while your child holds the mic button. Let go, and she stops listening."
-    public static let micFine = "Next, your iPad will ask to use the microphone."
+    public static let micFine = "Next, your \(DeviceWord.noun) will ask to use the microphone."
     public static let micContinue = "Continue"
     public static let micDeniedTitle = "No problem. Kids can type instead."
     public static let micDeniedBody = "To turn the mic on later, open Settings → Apps → PretendThat and switch on Microphone and Speech Recognition."
@@ -481,7 +481,7 @@ public enum OnboardingCopy {
 
     // 7 (v2)
     public static let handOffEyebrow = "All set"
-    public static let handOffTitle = "Hand the iPad to your child"
+    public static let handOffTitle = "Hand the \(DeviceWord.noun) to your child"
     public static let handOffBody = "Nutmeg will take it from here."
     public static let startFirstGame = "Start our first game"
     public static let goHome = "Go to the home page"
@@ -494,7 +494,7 @@ public enum OnboardingCopy {
     // The Grown-ups row
     public static let consentRowTitle = "AI partners"
     public static func consentRowSubtitle(_ on: Bool) -> String { on ? "On: Nutmeg can talk and make games" : "Off: turn on so Nutmeg can play" }
-    public static let consentScreenBody = "Nutmeg uses our AI partners, OpenAI and Anthropic, to listen, talk and make each game. Your child's voice is turned into words on this iPad and never sent. Only those words, with names removed, are sent so Nutmeg can answer. PretendThat needs this to work."
+    public static let consentScreenBody = "Nutmeg uses our AI partners, OpenAI and Anthropic, to listen, talk and make each game. Your child's voice is turned into words on this \(DeviceWord.noun) and never sent. Only those words, with names removed, are sent so Nutmeg can answer. PretendThat needs this to work."
     public static let consentToggle = "Allow AI partners"
     public static let consentOffNote = "While this is off, New game explains that PretendThat needs it."
 }
