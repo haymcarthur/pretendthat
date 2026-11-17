@@ -174,9 +174,10 @@ struct ComponentGallery: View {
                 }
                 section("PTMicButton: push-to-talk (idle / listening / disabled while connecting); hold the first one") {
                     HStack(spacing: Theme.Space.xl) {
-                        PTMicButton(mode: listening ? .listening : .idle, onPress: { listening = true }, onRelease: { listening = false })
+                        PTMicButton(mode: listening ? .listening : .idle, onPress: { _ in listening = true }, onRelease: { listening = false })
                         PTMicButton(mode: .listening)
                         PTMicButton(mode: .disabled)
+                        PTMicButton(mode: .unavailable)
                     }
                     .padding(Theme.Space.l)
                 }

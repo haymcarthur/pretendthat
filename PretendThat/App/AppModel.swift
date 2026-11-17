@@ -1,5 +1,6 @@
 import SwiftUI
 import NutmegCore
+import QuartzCore
 
 /// Wires the state machine to Nutmeg's voice, ears and kit art. One per app run. Round D1: only games the kids choose
 /// to save are kept, on this iPad (`SavedGameStore`), and only their game content; nothing about kids.
@@ -122,6 +123,13 @@ final class AppModel {
         realtime.onPropLine = { [weak self] in self?.revealFirstProp() ?? "" }
         realtime.onSilentPassDone = { [weak self] in self?.noteAfterSilentPass() }
         realtime.onKidTranscript = { [weak self] text in self?.spokenSafetyCheck(text) }
+        // Round 31: a spoken turn's words (on-device, name-scrubbed) go through the same gate as a typed turn: the local
+        // filter first, moderation in parallel with her reply. Then ONE text item.
+        realtime.onSpokenWords = { [weak self] text in Task { await self?.typed(text, kind: .spoken) } }
+        // Round 31: on-device speech turned out to be missing (a recognition error said so): typing, with the note.
+        let markOff: @Sendable () -> Void = { [weak self] in Task { @MainActor in self?.speechUnavailableNow() } }
+        realtime.capture.onUnavailable = markOff
+        listener.capture.onUnavailable = markOff
         // Round D3b: her app lines that passed the transcript gate are kept with the game (unsaved: until Save).
         realtime.onRecorded = { [weak self] line in
             guard let self else { return }
@@ -419,12 +427,18 @@ final class AppModel {
         store.newGame()
     }
 
-    /// Typed fallback goes into the live conversation when there is one.
-    func typed(_ text: String) async {
-        realtime.beginTrace("typed")   // round 21: the trace starts at the send itself (the safety check included)
+    /// Round 31: where a kid's words came from (both are text by the time they get here).
+    enum KidWords { case typed, spoken }
+
+    /// Typed fallback goes into the live conversation when there is one. Round 31: a SPOKEN turn's words (heard on the
+    /// iPad, name-scrubbed) come through here too, so they get exactly the typed turn's safety gate.
+    func typed(_ text: String, kind: KidWords = .typed) async {
+        // Round 21: the trace starts at the send itself (the safety check included). A spoken turn's trace started at
+        // the release (the on-device words are part of its latency).
+        if kind == .typed { realtime.beginTrace("typed") } else { realtime.markTrace("scrubbed") }
         wakeUp()
         // Round 20: the kid's own turn stops anything she's saying or about to say (cheers, repeats, deferred lines).
-        if realtime.isLive && store.phase != .makingKit { userAction(.typedTurn) }
+        if realtime.isLive && store.phase != .makingKit { userAction(kind == .typed ? .typedTurn : .micPressed) }
         let live = realtime.isLive && store.phase != .makingKit
         // Round 19: typed kid text is checked BEFORE it goes anywhere. Round 21: the local filter is instant and still
         // blocks first; moderation runs in parallel with her reply (a late flag takes the turn back and steers).
@@ -435,7 +449,7 @@ final class AppModel {
         if live {
             let itemID = "kid_" + UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(24).lowercased()
             if let t = screened.ticket { screenedTurns[t.id] = (text, itemID) }
-            realtime.sendText(text, itemID: itemID)   // planning, the print step and play
+            realtime.sendText(text, itemID: itemID, kind: kind == .typed ? "typed" : "voice")   // planning, print, play
             return
         }
         // Not sent to the voice model: wait for moderation before anything uses it (Claude, the kit).
@@ -1224,7 +1238,7 @@ final class AppModel {
             realtime.suspend()
             voice.stop()
             scribble.setPlaying(false, ducked: false)
-            if listener.isListening { Task { _ = await listener.stopListening() } }
+            if listener.isListening { Task { _ = await listener.stopListening() } }   // round 31: words dropped, not sent
             // In-flight kit requests (Claude kit, page art) get time to finish; failures are retried on return.
             if store.phase == .makingKit || (store.phase == .kitReady && (!kitFinal || store.guidePending)) { beginKitBackgroundTask() }
         case .active:
@@ -1687,34 +1701,55 @@ final class AppModel {
 
     // MARK: Push-to-talk (decisions/2026-11-13-push-to-talk.md)
 
-    /// The red mic in the control pill. Live conversation: stream to Realtime while held. Without one (tap fallback):
-    /// the on-device listener, same hold gesture.
-    enum MicState { case idle, listening, disabled }
+    /// The red mic in the control pill. Round 31: held → the iPad listens (on-device words only); released → the
+    /// words go to the live conversation as text (or, with no session, through `handleSpeech`). `unavailable`: the iPad
+    /// can't listen on the device (permission, or no on-device English speech): a press shows the grown-up note and
+    /// typing takes over. Never any audio fallback.
+    enum MicState { case idle, listening, disabled, unavailable }
     var micState: MicState {
+        if realtime.status == .connecting { return .disabled }
         if realtime.isLive {
             // Round 7: never disabled in a live session (only while connecting): print step and play take voice too.
+            if !listener.available { return .unavailable }
             return realtime.kidIsTalking ? .listening : .idle
         }
-        if realtime.status == .connecting { return .disabled }
-        guard listener.available, store.phase != .hello else { return .disabled }
+        guard store.phase != .hello else { return .disabled }
+        guard listener.available else { return .unavailable }
         return listener.isListening ? .listening : .idle
     }
-    func talkPressed() {
+    /// Round 31: the grown-up note to show (the mic was pressed while the iPad can't listen on the device).
+    var speechHelp: SpeechReadiness?
+    func talkPressed(touchHost: Double = CACurrentMediaTime()) {
         wakeUp()
-        if realtime.isLive { userAction(.micPressed) }
-        if realtime.isLive { realtime.beginTalk() } else if listener.available { micPressed() }
+        guard listener.available else {
+            speechHelp = listener.readiness   // a friendly note for a grown-up, then typing
+            rtLog("mic: can't listen on this iPad (\(listener.readiness)): grown-up note + typing")
+            return
+        }
+        let t0 = CACurrentMediaTime()
+        if realtime.isLive { userAction(.micPressed); realtime.beginTalk(touchHost: touchHost) }
+        else { micPressed(touchHost: touchHost) }
+        rtLog(String(format: "MIC press work on the main thread: %.1f ms", (CACurrentMediaTime() - t0) * 1000))
     }
     func talkReleased() {
         if realtime.isLive { realtime.endTalk() } else if listener.isListening { micReleased() }
     }
 
-    func micPressed() { listener.startListening(stopping: voice) }
+    /// Round 31: recognition said on-device speech isn't there after all (the asset went missing): the mic switches to
+    /// its unavailable look and the next press shows the note. The turn in progress sends nothing.
+    func speechUnavailableNow() {
+        guard listener.available else { return }
+        listener.markUnavailable()
+        speechHelp = listener.readiness
+    }
+
+    func micPressed(touchHost: Double = CACurrentMediaTime()) { listener.startListening(stopping: voice, touchHost: touchHost) }
 
     func micReleased() {
         Task {
-            let text = await listener.stopListening()
-            guard !text.isEmpty else { return }
-            await handleSpeech(text)
+            let (words, held) = await listener.stopListening()
+            guard case .send(let text) = SpokenTurn.decide(words: words, held: held, quickReplyOnly: false) else { return }
+            await typed(text, kind: .spoken)
         }
     }
 
