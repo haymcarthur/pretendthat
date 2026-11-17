@@ -74,3 +74,6 @@
 ## Not verified
 - Listening by ear, and on the iPad.
 - A full live game with the new rule that drops out-of-band game takes (unit-tested in `ClipPitch.keeps`, not run live).
+
+## Haylee listened (2026-11-17)
+- On her iPad/simulator: "Sounds right". The voice pitch work is final.
