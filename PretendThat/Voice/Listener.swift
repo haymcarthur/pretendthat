@@ -23,6 +23,10 @@ final class Listener {
     @ObservationIgnored private var heldSince: Date?
 
     func requestAuth() async {
+        #if DEBUG
+        // `-PTSkipAuth`: screenshot runs on fresh simulators never raise the system speech / mic prompts.
+        if ProcessInfo.processInfo.arguments.contains("-PTSkipAuth") { refresh(); return }
+        #endif
         let speech = await Self.speechAuth()
         let mic = await AVAudioApplication.requestRecordPermission()
         refresh(speech: speech, mic: mic)
