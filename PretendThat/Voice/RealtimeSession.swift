@@ -823,7 +823,11 @@ final class RealtimeSession {
             case .transcriptDone(let t): recorder.transcript(responseID: id, t)
             case .responseDone:
                 switch recorder.done(responseID: id, status: Realtime.responseStatus(text)) {
-                case .kept(let line): onRecorded?(line)
+                case .kept(let line):
+                    // Round 34: line lengths for the scene-opening and prop-line measurements (heard = ÷ Varispeed).
+                    rtLog(String(format: "CLIP kept %.1f s (heard %.1f s) [%@]: %@", line.duration, line.duration / VoiceConfig.nutmeg.playbackRate,
+                                 line.request.kind.rawValue, String(line.request.line.prefix(70))))
+                    onRecorded?(line)
                 case .rejected(let why): rtLog("CLIP rejected (\(why.rawValue))"); onRecordRejected?(why)
                 case .notTracked: break
                 }

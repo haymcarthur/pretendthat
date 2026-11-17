@@ -1763,6 +1763,15 @@ final class AppModel {
         let key = store.replayCurrentProp.map { $0.id + ($0.libraryID ?? "") }
         if store.isReplay, let key, key != lastReplayCardKey { pointAtCard() }
         lastReplayCardKey = key
+        // Round 34: the first prop line follows the count line as its own line (its first-play clip plays again).
+        if let next = store.takeReplayFollowUp() {
+            Task { @MainActor in
+                for _ in 0..<60 where !isSpeaking { try? await Task.sleep(for: .milliseconds(50)) }   // the count line starts (≤ 3 s)
+                for _ in 0..<400 where isSpeaking { try? await Task.sleep(for: .milliseconds(50)) }   // and ends (≤ 20 s)
+                guard store.replayHuntActive else { return }
+                speak(next)
+            }
+        }
         guard store.isReplay, realtime.isLive else { return }
         let props = store.props?.props ?? [], card = store.replayCurrentProp
         let n = card.flatMap { c in props.firstIndex { $0.id == c.id } }.map { $0 + 1 } ?? 0

@@ -84,7 +84,7 @@ import Testing
         store.loadReplay(g)
         store.replayPick(2)
         let list = g.props.map(\.replayProp)
-        #expect(store.nutmegLine.hasSuffix(PropLines.line(for: list, index: 0) ?? "#"))
+        #expect(store.takeReplayFollowUp() == PropLines.line(for: list, index: 0))   // its own line, after the count
         store.replayHunt(found: true)
         #expect(store.nutmegLine == PropLines.line(for: list, index: 1))
         #expect(!store.nutmegLine.contains("still have") && !store.nutmegLine.hasPrefix("Next"))

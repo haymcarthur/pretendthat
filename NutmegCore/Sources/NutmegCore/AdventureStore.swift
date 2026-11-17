@@ -434,8 +434,15 @@ public final class AdventureStore {
         playerCount = max(1, min(n, Players.max))
         resetPlayProgress()
         let count = PlayCast.countChangeLine(roles: plan?.roles ?? [], players: playerCount)
-        say(count + " " + startReplayHunt())
+        // Round 34: the first prop line is its own line (the app says it right after the count), so the first play's
+        // recorded clip of it plays again.
+        let first = startReplayHunt()
+        say(count)
+        replayFollowUp = first
     }
+    /// Round 34: a line the app says right after the current one (the replay's first prop line after the count).
+    @ObservationIgnored public var replayFollowUp: String?
+    public func takeReplayFollowUp() -> String? { defer { replayFollowUp = nil }; return replayFollowUp }
 
     /// Round 26: Props on a replay works like the first play's hunt: the saved props one card at a time, from the
     /// first (all unchecked, the first play's pretend undone). Returns the line to say.

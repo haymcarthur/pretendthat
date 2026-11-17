@@ -159,6 +159,9 @@ public final class ClaudeClient: LLM {
         guard let text = blocks.last(where: { $0["type"] as? String == "text" })?["text"] as? String else {
             throw ClaudeError.decoding("no text block")
         }
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-PTLogGuide"), ClaudeRouting.call == .guide { NSLog("[CLAUDE] guide answer: %@", String(text.prefix(1500))) }
+        #endif
         do { return try JSONDecoder().decode(T.self, from: Data(text.utf8)) }
         catch { throw ClaudeError.decoding(String(describing: error)) }
     }

@@ -119,6 +119,7 @@ The map. Read this first, then open only what you need.
 - [Round 33 build: first-launch parent onboarding (gate with Nutmeg's clip, how it works, privacy + REQUIRED AI consent with a calm Not now, mic pre-permission + denied note, plans with Free Preview first, hand-off), consent + Free Preview gating of New game, Grown-ups AI partners + Replay the intro, shorter game greeting (14.3 s → 8–9 s), voice-rate guard (sim measured 1.20 before and after)](decisions/2026-11-16-round33-onboarding.md): Haylee (spec), Claude's calls noted
 
 ## Work queue
+- [Round 34 build: app-written prop lines (first play = replay words, her first-play clips reused, no "Next,"/"still have"), replay hunt = the first play's layout and camera, in-app speech model download (iPadOS 26+, SpeechAnalyzer turn), tasks short on screen + spoken specifics (short/say, GuideRepair), scene opening = setup + cue (~22 s → 5–9 s), whole-row tap + read_job, one-sentence returning greeting (8.8–9.1 s → 5.5–5.7 s)](decisions/2026-11-16-round34.md): Haylee (items), Claude's calls noted
 - [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–32 (31: on-device speech + instant mic; 32: Grown-ups menu) + C1 + D1 + D2 + D3a + D3b done (round 27's mockups separate); next: D4 iCloud
 
 ## Research

@@ -15,9 +15,12 @@ public enum HandOffLines {
     /// Round 34 (Haylee): ONLY the setup and the cue ("Tap your speaker when you're ready to hear your job!"); each kid
     /// taps their own row for their job (`task`). The old full read-out is `PlayCast.sceneSpeech`.
     public static func sceneOpen(_ scene: Scene, first: Bool = false) -> String {
+        if legacyFullOpen { return PlayCast.sceneSpeech(scene) + (first ? " " + nextSceneHowTo : "") }
         let setup = PlayCast.endSentence(scene.nutmegSays.trimmingCharacters(in: .whitespacesAndNewlines))
         return [setup, taskCue, first ? nextSceneHowTo : ""].filter { !$0.isEmpty }.joined(separator: " ")
     }
+    /// DEBUG measurement only (`-PTOldSceneOpen`): the round 29 opening that read every task, for the before/after.
+    nonisolated(unsafe) public static var legacyFullOpen = false
     public static let nextSceneHowTo = "Tap the green play button for the next scene!"
 
     /// Round 29: a row's 🔊 reads just that role's task, word for word.

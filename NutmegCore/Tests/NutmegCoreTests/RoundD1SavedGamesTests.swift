@@ -164,8 +164,10 @@ struct RoundD1SavedGamesTests {
         #expect(store.kit?.scenes.count == store.fullKit?.scenes.count && store.kit?.scenes.allSatisfy { $0.steps.count == 3 } == true)   // round 29: a row per role
         let props = g.props.map(\.replayProp)
         #expect(store.replayHuntActive && store.replayCurrentProp?.id == props[0].id && store.foundProps.isEmpty)
-        #expect(store.nutmegLine.hasPrefix("Three friends!") && store.nutmegLine.contains(ReplayLines.propAsk(props[0], n: 1)))
-        #expect(store.nutmegLine.contains(PropLines.howTo))
+        // Round 34: the count line, then the first prop line as its own line (so its first-play clip plays again).
+        #expect(store.nutmegLine.hasPrefix("Three friends!") && !store.nutmegLine.contains("First,"))
+        let next = store.takeReplayFollowUp() ?? ""
+        #expect(next.hasPrefix(ReplayLines.propAsk(props[0], n: 1)) && next.contains(PropLines.howTo))
         #expect(ReplayLines.tools(.props) == ["mark_found", "skip_prop", "swap_prop", "go_to_step", "just_talk"])
         // Walk the cards: "found it" by voice for every card but the plate; the plate: ✗ → the saved alternate (the
         // card changes, same question), ✗ again → pretend ("the pretend …" in its steps).
