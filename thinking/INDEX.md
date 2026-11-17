@@ -106,11 +106,14 @@ The map. Read this first, then open only what you need.
 
 - [Round 27: every kit page in both styles (13 images/game, +$0.15, all drawn by Print, 0 × 429), both sets on Print (stacked, chosen one highlighted; tap or "color" / "we'll color them" via choose_print_set; the printer prints the chosen set), a text-free square cover per game on the shelf and in Grown-ups (fallback: the color sign)](decisions/2026-11-16-round27-both-styles-covers.md): Haylee (Claude's calls noted)
 
+- [Round 28: customers are roles too (R2 = the customer counterpart), one role per checklist (4 scenes × 2 steps per role, a hand-off + own checklist per role per scene, no Everyone steps), real props only (GuideRepair turns any other object into a pretend action), scribble waits for the writing pose, colored badge on the hand-off card, back to Print shows the pages at once, game locked after the yes (back to Pick asks the count), cover on a replay's Pick, honest microphone text](decisions/2026-11-16-round28-roles-handoff-nav.md): Haylee (Claude's calls noted)
+
 ## Work queue
 - [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–27 + C1 + D1 + D2 + D3a + D3b done (round 27's mockups separate); next: D4 iCloud
 
 ## Research
 - [Cost per game (2026-11-15)](research/2026-11-15-cost-per-game.md): about $1.60/game, OpenAI voice is the biggest share; levers ranked
+- [Parent onboarding + plans (2026-11-16)](research/2026-11-16-onboarding-research.md): how kids' apps onboard parents, Apple's Kids/paywall/permission rules, a proposed 6-screen flow, 5 decisions for Haylee
 - [Competitor analysis](research/competitor-analysis.md): competitors, white space, novelty angles, pricing
 - [Name check: Boxley](research/name-check-boxley.md): why Boxley is out
 
