@@ -137,7 +137,10 @@ final class RealtimeSession {
     @ObservationIgnored private var gate = ResponseGate()
     private var responseActive: Bool { gate.active }
     @ObservationIgnored private var receiveTask: Task<Void, Never>?
-    @ObservationIgnored private var awaitingReply = false
+    /// Round 39: her reply to the kid's turn is still due (`ReplyWait`: cleared when her audio starts OR when a response
+    /// ends with nothing more requested, e.g. a tool-only "found it" pass where the app says the next prop line).
+    @ObservationIgnored private var replyWait = ReplyWait()
+    private var awaitingReply: Bool { replyWait.due }
     @ObservationIgnored private var gapTask: Task<Void, Never>?
     @ObservationIgnored private var expressionTask: Task<Void, Never>?
     /// The model chose a face this turn (blips never override it).
@@ -387,7 +390,7 @@ final class RealtimeSession {
         kidIsTalking = false
         holdStartedAt = nil; releaseTask?.cancel(); releaseTask = nil; audioItemID = nil; audioItemStart = nil; dropAudio = false
         silenceTask?.cancel(); huntMode = false; beatTask?.cancel(); beatTask = nil; beatRunning = false; propsPlanned = false; lastBeatAt = .distantPast
-        gapTask?.cancel(); expressionTask?.cancel(); expression = nil; thinkingGap = false; awaitingReply = false
+        gapTask?.cancel(); expressionTask?.cancel(); expression = nil; thinkingGap = false; replyWait.reset()
         reminderPending = false; reminderPlaying = false; propLinePending = false; echoPending = false; echoActive = false
         forcedTools = nil; silentAllowed = nil; silentPending = false; silentResponse = false; silentItems = []; quickReplyOnly = false
         speech = SpeechStop(); cancelThrough = 0; createdSeen = 0
@@ -671,7 +674,7 @@ final class RealtimeSession {
         gate.newTurn()
         if let override { forcedTools = override } else { forcedTools = onKidTurnTools?() }
         if override == nil, forcedTools == nil, let note = onPostPlanningTurn?() { socket?.send(Realtime.systemNote(note)) }
-        awaitingReply = true; replyStarted = false
+        replyWait.kidTurnEnded(); replyStarted = false
         nudgesThisTurn = 0; reasks = 0; silenceTask?.cancel()
         modelChoseExpression = false
         expressionTask?.cancel(); expression = nil
@@ -685,7 +688,7 @@ final class RealtimeSession {
     private func replyBegan() {
         guard !replyStarted else { return }
         replyStarted = true
-        awaitingReply = false; gapTask?.cancel(); thinkingGap = false
+        replyWait.replyBegan(); gapTask?.cancel(); thinkingGap = false
     }
 
     private func setExpression(_ e: NutmegExpression, seconds: Double?, fromModel: Bool) {
@@ -835,6 +838,8 @@ final class RealtimeSession {
         }
         if event == .responseDone { speech.done(id) }
         await handle(event)
+        // Round 39: a response ended and nothing more was asked for: no reply is coming this turn (isBusy goes false).
+        if event == .responseDone, !line { replyWait.responseDone(gateActive: gate.active) }
     }
 
     /// Round 19 (Haylee): the kid moved on (a tap that advances or changes the screen). Her current speech stops at once:
