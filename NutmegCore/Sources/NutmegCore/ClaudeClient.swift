@@ -8,6 +8,47 @@ public struct JSONSchema: @unchecked Sendable {
 
 public enum Effort: String, Sendable { case low, medium }
 
+/// Cost v3 (2026-11-16): which Claude call this is, so a DEBUG experiment can route chosen calls to a cheaper model
+/// and the usage log can say which call spent what (numbers only). Release builds always use `ClaudeConfig.model`.
+public enum ClaudeCall: String, Sendable, CaseIterable {
+    case ideas, plan, props, kit, pages, guide, weave, turn, help
+}
+
+public enum ClaudeRouting {
+    /// Set by PhaseService around each call.
+    @TaskLocal public static var call: ClaudeCall?
+    #if DEBUG
+    /// DEBUG only: `-PTClaudeModels "guide=claude-sonnet-5-5,weave=claude-haiku-5-5"` (launch argument) or the
+    /// `PT_CLAUDE_MODELS` environment variable (live tests). `all=<model>` routes every call. Personal keys only:
+    /// the relay's allow-list (relay/src/index.ts CLAUDE_MODELS) only has claude-opus-5-5.
+    public static let overrides: [ClaudeCall: String] = {
+        let a = ProcessInfo.processInfo.arguments
+        var spec = ProcessInfo.processInfo.environment["PT_CLAUDE_MODELS"] ?? ""
+        if let i = a.firstIndex(of: "-PTClaudeModels"), i + 1 < a.count { spec = a[i + 1] }
+        return parse(spec)
+    }()
+    #endif
+    public static func parse(_ spec: String) -> [ClaudeCall: String] {
+        var out: [ClaudeCall: String] = [:]
+        for part in spec.split(separator: ",") {
+            let kv = part.split(separator: "=", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
+            guard kv.count == 2, !kv[1].isEmpty else { continue }
+            if kv[0] == "all" { ClaudeCall.allCases.forEach { out[$0] = kv[1] } }
+            else if let c = ClaudeCall(rawValue: kv[0]) { out[c] = kv[1] }
+        }
+        return out
+    }
+    /// The model for the current call.
+    public static func model(default base: String) -> String {
+        #if DEBUG
+        if let c = call, let m = overrides[c] { return m }
+        #endif
+        return base
+    }
+    /// Haiku 5.5 has no server-side refusal fallback (claude-api skill, 2026-11-03), so the fallback beta is left off.
+    public static func supportsFallbacks(_ model: String) -> Bool { !model.contains("haiku") }
+}
+
 public enum ClaudeError: Error, Equatable {
     case refusal, truncated, http(Int), decoding(String), transport, notConfigured
 }
@@ -77,16 +118,18 @@ public final class ClaudeClient: LLM {
         req.timeoutInterval = 90  // live kit calls took 15–25 s; leave room for a slow day
         req.setValue("application/json", forHTTPHeaderField: "content-type")
         req.setValue(Self.apiVersion, forHTTPHeaderField: "anthropic-version")
-        req.setValue(Self.fallbackBeta, forHTTPHeaderField: "anthropic-beta")
+        let model = ClaudeRouting.model(default: config.model)
+        let fallbacks = ClaudeRouting.supportsFallbacks(model)
+        if fallbacks { req.setValue(Self.fallbackBeta, forHTTPHeaderField: "anthropic-beta") }
         // No temperature (400 on 2026-10-21), no thinking config (Opus 5.5 is adaptive), no prefill.
-        let body: [String: Any] = [
-            "model": config.model,
+        var body: [String: Any] = [
+            "model": model,
             "max_tokens": 16000,
             "system": system,
             "messages": [["role": "user", "content": user]],
-            "output_config": ["effort": effort.rawValue, "format": ["type": "json_schema", "schema": schema.value]],
-            "fallbacks": "default"
+            "output_config": ["effort": effort.rawValue, "format": ["type": "json_schema", "schema": schema.value]]
         ]
+        if fallbacks { body["fallbacks"] = "default" }
         req.httpBody = try JSONSerialization.data(withJSONObject: body, options: [.sortedKeys])
         return req
     }
@@ -107,7 +150,7 @@ public final class ClaudeClient: LLM {
         if let u = obj["usage"] as? [String: Any] {
             ClaudeUsageMeter.shared.record(input: u["input_tokens"] as? Int ?? 0, output: u["output_tokens"] as? Int ?? 0)
             #if DEBUG   // cost v2 (2026-11-16): cache counts and effort too (numbers only, never content)
-            NSLog("[CLAUDE] usage detail: effort=%@ cache_read=%d cache_write=%d model=%@", effort.rawValue,
+            NSLog("[CLAUDE] usage detail: call=%@ effort=%@ cache_read=%d cache_write=%d model=%@", ClaudeRouting.call?.rawValue ?? "?", effort.rawValue,
                   u["cache_read_input_tokens"] as? Int ?? 0, u["cache_creation_input_tokens"] as? Int ?? 0, obj["model"] as? String ?? "?")
             #endif
         }

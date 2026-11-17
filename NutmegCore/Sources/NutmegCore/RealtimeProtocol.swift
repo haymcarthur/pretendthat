@@ -462,6 +462,21 @@ public enum Realtime {
                       // cached prefix; the line goes in as the only input item.
                       "input": [(systemNote(sayExactlyInstructions(line))["item"] as? [String: Any]) ?? [:]] as [Any]] as [String: Any]]
     }
+    /// Cost v3 (DEBUG `-PTMiniLines`): the instructions of the separate fixed-lines session.
+    public static let lineSessionInstructions = "You are Nutmeg, a little stage-manager mouse (she/her) in a pretend-play "
+        + "app for kids ages 4 to 8. Your voice: \(voiceStyle) You only ever say the exact line you are given, word for "
+        + "word, and nothing else: no greetings, no extra words, no sound effects."
+    /// The model of the fixed-lines session (DEBUG `-PTMiniLines [model]`, default the mini realtime model); nil = off.
+    public static let lineModel: String? = {
+        #if DEBUG
+        let a = ProcessInfo.processInfo.arguments
+        guard let i = a.firstIndex(of: "-PTMiniLines") else { return nil }
+        if i + 1 < a.count, !a[i + 1].hasPrefix("-") { return a[i + 1] }
+        return "gpt-realtime-2.1-mini"
+        #else
+        return nil
+        #endif
+    }()
     public static func sayExactlyInstructions(_ line: String) -> String {
         "You are Nutmeg, a little stage-manager mouse (she/her). Your voice: \(voiceStyle) Say exactly this line, word for "
             + "word, and nothing else; never add sound effects or words like giggle: \"\(line)\""

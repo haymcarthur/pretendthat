@@ -22,3 +22,5 @@
 - **2026-11-14: focus (coloring) face eyes.** Haylee is regenerating these with the eyes-on-green method (see decisions/2026-11-14-face-art-method.md). They get swapped in after round 15.
 
 - **2026-11-16: App Store compliance questions** (from research/2026-11-16-app-store-compliance.md §3): apply for OpenAI + Anthropic zero data retention now? Kids Category or a general Family category? Age band 6–8 or 5 and under? Launch countries (US only)? Individual seller or an LLC? Nutmeg's "I'm a computer helper" disclosure wording? What happens if a parent declines AI consent? Raise the relay cap and per-IP limits for the review window?
+
+- **2026-11-16: cost v3 (research/2026-11-16-cost-per-game-v3.md §8).** Does the mini voice (design/voice-ab/, 8 pairs) sound like the same Nutmeg? OK to move the play guide + weave to Sonnet 5.5 (relay allow-list)? Plan limits: 8 / 12 now, or 10 / 15 after both changes?
