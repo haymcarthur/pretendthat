@@ -7,8 +7,8 @@ import SignalsmithShift
 // The shift runs on the 24 kHz audio BEFORE the player (NutmegSpeaker.schedule), so the lip-sync analyzer and the
 // speaker timeline see exactly what is heard, and Varispeed stays the graph's one unit.
 // - Live lines: one streaming shifter (`VoicePitchShifter`), flushed at the end of each line and reset on a barge-in.
-// - Clips (bundled and recorded, stored before Varispeed AND before the shift) get their OWN shift toward the live
-//   voice's pitch (`ClipPitch`), so a clip is never raised twice and the bright greeting clip lands near the live voice.
+// - Clips (bundled and recorded, stored before Varispeed AND before the shift) get exactly the live processing
+//   (`ClipPitch.plan`, voice clips match): +2, never twice. Takes outside the live band are re-recorded, not corrected.
 
 /// The pitch raise's settings (part of `VoiceConfig`). `semitones == 0` means no processing at all (live or clips).
 public struct PitchShift: Equatable, Sendable, CustomStringConvertible {
@@ -43,55 +43,57 @@ extension Realtime {
     public static let defaultPitchShiftSemitones: Double = 2
 }
 
-/// How a clip is brought to the live voice's pitch (clips are stored before the shift, so they never get the live +2
-/// on top of their own pitch).
+/// Clips get EXACTLY the live voice's processing (voice clips match, decisions/2026-11-17-voice-clips-match.md):
+/// every clip is a raw coral take of an app line (stored before the shift and before Varispeed), just like a live line,
+/// so it gets the same plain +2 and nothing else. No per-clip shift, no formant matching: a take that's too bright or
+/// too low is RE-RECORDED, not pitch-corrected (the per-clip moves of up to ±5 st, with formants placed separately,
+/// made the clips sound processed next to her live lines).
+/// The pitch check keeps takes in the live voice's band:
+/// - `matchRange` (±2.5 st around the live median, ≈ 230–307 Hz raw): every bundled clip; `-PTRecordCommon` re-takes a
+///   line outside it.
+/// - `keepRange` (±4 st, ≈ 211–335 Hz raw): a line recorded during a game outside it isn't kept, so a replay says it
+///   live again (and keeps that take if it's in range).
 public enum ClipPitch {
     /// The live voice's typical RAW median F0 (coral, full model, before any processing), measured with
     /// `PitchTracker` on the eight A/B v2 full-model captures: 243, 234, 276, 386, 249, 280, 262, 270 Hz → median 266
-    /// (the drift recording's live lines were 245–287 raw).
+    /// (the drift recording's live lines were 245–287 raw). Clips are checked against this raw pitch.
     public static let liveRawMedianHz = 266.0
-    /// The most a clip is moved either way (beyond this the shift itself would be the problem: re-record the clip).
-    public static let maxAdjustSemitones = 6.0
-    /// The "sane range" check is half a semitone inside the clamp, so a flagged clip is flagged before it's clamped.
-    public static let saneSemitones = 5.5
-    /// Below this the clip's shift counts as "the same as live" (no separate formant handling).
-    public static let sameAsLiveSemitones = 0.25
+    /// Bundled clips (and the re-take check when recording them).
+    public static let matchSemitones = 2.5
+    /// Lines recorded during a game.
+    public static let keepSemitones = 4.0
 
-    /// The raw pitch a clip should have after its shift: the live voice after the raise.
-    public static func targetHz(_ shift: PitchShift) -> Double { liveRawMedianHz * pow(2, shift.semitones / 12) }
-
-    /// Raw clip pitches within `saneSemitones` of the target (the "sane range" every bundled clip is checked against,
-    /// and recorded clips are logged against). At +2: ≈ 217–410 Hz. (The bundled clips measure 224–395 Hz.)
-    public static func saneRange(_ shift: PitchShift = PitchShift()) -> ClosedRange<Double> {
-        let t = targetHz(shift)
-        return (t * pow(2, -saneSemitones / 12))...(t * pow(2, saneSemitones / 12))
+    static func range(_ st: Double) -> ClosedRange<Double> {
+        (liveRawMedianHz * pow(2, -st / 12))...(liveRawMedianHz * pow(2, st / 12))
     }
+    /// ≈ 230–307 Hz raw.
+    public static var matchRange: ClosedRange<Double> { range(matchSemitones) }
+    /// ≈ 211–335 Hz raw.
+    public static var keepRange: ClosedRange<Double> { range(keepSemitones) }
 
     public enum Check: Equatable, Sendable { case ok, outOfRange, unmeasured }
-    public static func check(_ hz: Double?, shift: PitchShift = PitchShift()) -> Check {
+    public static func check(_ hz: Double?, in range: ClosedRange<Double> = matchRange) -> Check {
         guard let hz, hz > 0 else { return .unmeasured }
-        return saneRange(shift).contains(hz) ? .ok : .outOfRange
+        return range.contains(hz) ? .ok : .outOfRange
+    }
+    /// A line recorded during a game is kept unless its take is outside `keepRange` (an unmeasured short line is kept).
+    public static func keeps(_ hz: Double?) -> Bool { check(hz, in: keepRange) != .outOfRange }
+    /// How far a take is from the live median, in semitones (picks the best of several takes).
+    public static func distance(_ hz: Double?) -> Double {
+        guard let hz, hz > 0 else { return .infinity }
+        return abs(12 * log2(hz / liveRawMedianHz))
     }
 
-    /// One clip's shift: pitch semitones (toward the target, clamped) and the formant setting. Off when the live shift
-    /// is off (0 = no processing anywhere). An unmeasured clip gets the live shift (it's treated like a live take).
-    /// `matchLiveFormants` [Claude's call]: a clip moved by a different amount than the live voice gets its formants
-    /// placed where the live voice's are (+2 with Haylee's plain shift), so a lowered bright clip doesn't turn darker
-    /// than her live voice; false = plain shift (formants follow the clip's own pitch move).
+    /// A clip's processing: the live voice's (pitch + formant setting). Off when the live shift is off.
     public struct Plan: Equatable, Sendable {
         public var semitones: Double
         public var formantSemitones: Double?
         public var isOn: Bool { abs(semitones) > 0.001 || formantSemitones.map { abs($0) > 0.001 } ?? false }
     }
 
-    public static func plan(clipHz: Double?, shift: PitchShift, matchLiveFormants: Bool = true) -> Plan {
+    public static func plan(_ shift: PitchShift) -> Plan {
         guard shift.isOn else { return Plan(semitones: 0, formantSemitones: nil) }
-        guard let hz = clipHz, hz > 0 else { return Plan(semitones: shift.semitones, formantSemitones: shift.liveFormantSemitones) }
-        let raw = 12 * log2(targetHz(shift) / hz)
-        let st = min(max(raw, -maxAdjustSemitones), maxAdjustSemitones)
-        if shift.preserveFormants { return Plan(semitones: st, formantSemitones: 0) }
-        if !matchLiveFormants || abs(st - shift.semitones) < sameAsLiveSemitones { return Plan(semitones: st, formantSemitones: nil) }
-        return Plan(semitones: st, formantSemitones: shift.semitones)
+        return Plan(semitones: shift.semitones, formantSemitones: shift.liveFormantSemitones)
     }
 }
 

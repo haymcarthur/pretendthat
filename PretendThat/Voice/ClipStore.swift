@@ -48,13 +48,14 @@ final class ClipStore: NutmegClipSource {
     /// The onboarding's bundled clips' pitches, measured once per launch (it plays them with no game loaded).
     @MainActor private static var bundledPitch: [String: Double] = [:]
 
-    /// A clip's raw median pitch (a few ms), checked against the sane range: logged when outside it (re-record that
-    /// line nearer the live voice; its shift is still clamped to `ClipPitch.maxAdjustSemitones`).
+    /// A clip's raw median pitch (a few ms), checked against the live band (`ClipPitch.keepRange`): logged when outside
+    /// it. Clips all get the live processing; the pitch is for the check (and the log), never a per-clip shift.
     nonisolated static func measuredPitch(_ key: String, _ samples: [Float]) -> Double? {
         let hz = PitchTracker.medianHz(samples)
-        if ClipPitch.check(hz) != .ok {
-            rtLog(String(format: "CLIP pitch %@: %@ %.0f Hz raw (sane %.0f–%.0f)", ClipPitch.check(hz) == .outOfRange ? "OUT OF RANGE" : "unmeasured",
-                         String(key.prefix(8)), hz ?? 0, ClipPitch.saneRange().lowerBound, ClipPitch.saneRange().upperBound))
+        let r = ClipPitch.keepRange
+        if ClipPitch.check(hz, in: r) != .ok {
+            rtLog(String(format: "CLIP pitch %@: %@ %.0f Hz raw (live band %.0f–%.0f)", ClipPitch.check(hz, in: r) == .outOfRange ? "OUT OF RANGE" : "unmeasured",
+                         String(key.prefix(8)), hz ?? 0, r.lowerBound, r.upperBound))
         }
         return hz
     }
@@ -126,13 +127,17 @@ final class ClipStore: NutmegClipSource {
         let clip = SavedClip(key: key, text: line.request.line, kind: line.request.kind.rawValue, role: line.request.role,
                              duration: line.duration, file: SavedGame.clipFile(key))
         Task { @MainActor in
-            // Encoded and measured off the main actor (the pitch is for the clip's own shift on a replay).
-            guard let (data, hz) = await Task.detached(priority: .utility, operation: { () -> (Data, Double?)? in
+            // Measured and encoded off the main actor. Voice clips match: a take outside the live band isn't kept (a
+            // replay says the line live again and keeps that take if it's in range): re-recorded, never pitch-corrected.
+            guard let (data, hz) = await Task.detached(priority: .utility, operation: { () -> (Data?, Double?)? in
+                let hz = Self.measuredPitch(key, ClipAudio.floats(pcm))
+                guard ClipPitch.keeps(hz) else { return (nil, hz) }
                 guard let d = Self.encodeAAC(pcm) else { return nil }
-                return (d, Self.measuredPitch(key, ClipAudio.floats(pcm)))
+                return (d, hz)
             }).value else {
                 rtLog("CLIP encode failed"); return
             }
+            guard let data else { rtLog(String(format: "CLIP not kept: take outside the live band (%.0f Hz raw)", hz ?? 0)); return }
             guard self.mode != .off else { return }
             switch self.mode {
             case .firstPlay: self.pending[key] = data

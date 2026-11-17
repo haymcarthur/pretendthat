@@ -1758,35 +1758,68 @@ final class AppModel {
     #if DEBUG
     /// Round D3b (§D4.6): records the bundled common lines in her real Realtime voice, through the same recorder and
     /// transcript gate, into Documents/CommonClips/common-<key>.aac (copied into the app bundle by hand). Never TTS.
+    /// Voice clips match (2026-11-17): `-PTRecordCommon all` re-records EVERY bundled line (otherwise only the missing
+    /// ones). Each take's raw pitch is checked against `ClipPitch.matchRange` (the live voice's band); a line outside it
+    /// is taken again (at most 3 takes), and the take nearest the live median is written. Clips get exactly the live
+    /// processing in the app, so an off take is re-recorded here, never pitch-corrected.
     func debugRecordCommonLines() async {
         guard let auth = realtimeAuth else { rtLog("COMMON: no voice auth"); return }
+        let args = ProcessInfo.processInfo.arguments
+        let all = args.contains("all")
+        // `-PTRecordCommon redo`: only the bundled lines whose take is outside the band, up to 5 takes each.
+        let redo = args.contains("redo")
+        let maxTakes = redo ? 5 : 3
+        func bundledOutOfBand(_ line: String) -> Bool {
+            guard let key = ClipStore.bundledCommon[line], let url = Bundle.main.url(forResource: "common-\(key)", withExtension: "aac"),
+                  let s = ClipStore.decode(url) else { return true }
+            return ClipPitch.check(PitchTracker.medianHz(s)) != .ok
+        }
         let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("CommonClips", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        var kept = Set<String>()
+        var best: [String: (hz: Double?, pcm: Data, duration: Double)] = [:]
+        var lastTake: [String: Double?] = [:]
         realtime.onRecorded = { line in
-            let key = CommonLines.key(line.request.line)
-            let pcm = line.pcm16
-            Task.detached {
-                guard let data = ClipStore.encodeAAC(pcm) else { return }
-                try? data.write(to: dir.appendingPathComponent("common-\(key).aac"))
-                rtLog(String(format: "COMMON kept %@ (%.1f s, %d KB)", String(key.prefix(8)), line.duration, data.count / 1024))
+            let hz = PitchTracker.medianHz(ClipAudio.floats(line.pcm16))
+            Task { @MainActor in
+                let text = line.request.line
+                lastTake[text] = hz
+                if best[text].map({ ClipPitch.distance(hz) < ClipPitch.distance($0.hz) }) ?? true {
+                    best[text] = (hz, line.pcm16, line.duration)
+                }
             }
-            Task { @MainActor in kept.insert(line.request.line) }
         }
         let ok = await realtime.connect(auth: auth, config: voiceConfig, echoCancel: Self.echoCancel, instructions: Realtime.instructions)
         guard ok else { rtLog("COMMON: connect failed"); return }
-        // Round 33: only the lines not bundled yet (the earlier clips stay exactly as recorded).
-        for line in CommonLines.all where ClipStore.bundledCommon[line] == nil {
-            for attempt in 1...3 where !kept.contains(line) {
+        var takes = 0
+        for line in CommonLines.all where all || ClipStore.bundledCommon[line] == nil || (redo && bundledOutOfBand(line)) {
+            let n = CommonLines.all.firstIndex(of: line)! + 1
+            for attempt in 1...maxTakes {
+                lastTake[line] = nil
                 realtime.say(line, record: true)
+                takes += 1
                 for _ in 0..<50 where !realtime.isSpeaking { try? await Task.sleep(for: .milliseconds(100)) }
                 for _ in 0..<300 where realtime.isSpeaking || realtime.isBusy { try? await Task.sleep(for: .milliseconds(100)) }
                 try? await Task.sleep(for: .seconds(1.5))
-                rtLog("COMMON line \(CommonLines.all.firstIndex(of: line)! + 1)/\(CommonLines.all.count) attempt \(attempt): \(kept.contains(line) ? "kept" : "not kept")")
+                let kept = lastTake[line] != nil
+                let hz = lastTake[line] ?? nil
+                let inBand = ClipPitch.check(hz) == .ok
+                rtLog(String(format: "COMMON line %d/%d take %d: %@ %.0f Hz raw (band %.0f–%.0f)%@", n, CommonLines.all.count, attempt,
+                             kept ? "kept by the gate," : "NOT kept by the gate", hz ?? 0, ClipPitch.matchRange.lowerBound,
+                             ClipPitch.matchRange.upperBound, kept ? (inBand ? " in band" : " OUT OF BAND, take again") : ""))
+                if kept && inBand { break }
             }
         }
         try? await Task.sleep(for: .seconds(2))
-        rtLog("COMMON done: \(kept.count)/\(CommonLines.all.count) kept in \(dir.path)")
+        for (text, b) in best {
+            let key = CommonLines.key(text)
+            guard let data = ClipStore.encodeAAC(b.pcm) else { rtLog("COMMON encode failed \(key.prefix(8))"); continue }
+            try? data.write(to: dir.appendingPathComponent("common-\(key).aac"))
+            rtLog(String(format: "COMMON wrote %@ (%.1f s, %d KB, %.0f Hz raw, %@)", String(key.prefix(8)), b.duration, data.count / 1024,
+                         b.hz ?? 0, ClipPitch.check(b.hz) == .ok ? "in band" : "best of 3, OUT OF BAND"))
+        }
+        let u = realtime.usageTotals
+        rtLog(String(format: "COMMON done: %d/%d written, %d takes, usage %d responses, out audio %d tokens ≈ $%.4f, in %@",
+                     best.count, CommonLines.all.count, takes, u.responses, u.outAudio, u.dollars, dir.path))
         realtime.disconnect()
     }
     #endif

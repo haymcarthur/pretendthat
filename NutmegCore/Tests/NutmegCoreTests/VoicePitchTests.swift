@@ -4,7 +4,7 @@ import Testing
 @testable import NutmegCore
 
 /// Voice pitch build (decisions/2026-11-17-voice-pitch-build.md): Signalsmith Stretch +2 semitones on the live voice,
-/// per-clip adjustment toward the live voice, the config, and the pitch check on every bundled clip.
+/// clips get the same processing (voice clips match), the config, and the pitch check on every bundled clip.
 @Suite struct VoicePitchTests {
     static let sr = Realtime.sampleRate
 
@@ -40,9 +40,7 @@ import Testing
         #expect(!PitchShift.off.isOn && PitchShift.off.description == "off")
         #expect(!PitchShift(semitones: 0, preserveFormants: true).isOn)
         // Clips aren't processed either.
-        for hz in [nil, 200.0, 300, 389] {
-            #expect(!ClipPitch.plan(clipHz: hz, shift: .off).isOn)
-        }
+        #expect(!ClipPitch.plan(.off).isOn)
         // The voice ID (clip keys) doesn't depend on the shift: bundled clips keep their keys.
         #expect(VoiceConfig(pitchShift: .off).voiceID == VoiceConfig.nutmeg.voiceID)
     }
@@ -59,35 +57,28 @@ import Testing
 
     // MARK: Clip adjustment math
 
-    @Test func clipsAreMovedToTheLiveVoiceAfterTheRaise() {
-        let shift = PitchShift()
-        let target = ClipPitch.targetHz(shift)
-        #expect(abs(target - 266 * pow(2, 2.0 / 12)) < 0.01)   // ≈ 298.6 Hz raw
-        // A clip at the live voice's raw pitch gets the same +2 as live (plain, no formant handling).
-        let live = ClipPitch.plan(clipHz: 266, shift: shift)
-        #expect(abs(live.semitones - 2) < 0.01 && live.formantSemitones == nil)
-        // A clip already at the target isn't moved.
-        #expect(abs(ClipPitch.plan(clipHz: target, shift: shift).semitones) < 0.01)
-        // The bright greeting clip (0adc8906, ~389 Hz raw) comes DOWN to the live voice, formants placed like live's.
-        let greet = ClipPitch.plan(clipHz: 389, shift: shift)
-        #expect(abs(greet.semitones - 12 * log2(target / 389)) < 0.01 && greet.semitones < -4)
-        #expect(greet.formantSemitones == 2)
-        #expect(ClipPitch.plan(clipHz: 389, shift: shift, matchLiveFormants: false).formantSemitones == nil)
-        // Clamped both ways.
-        #expect(ClipPitch.plan(clipHz: 600, shift: shift).semitones == -ClipPitch.maxAdjustSemitones)
-        #expect(ClipPitch.plan(clipHz: 120, shift: shift).semitones == ClipPitch.maxAdjustSemitones)
-        // Unmeasured: treated like a live take.
-        #expect(ClipPitch.plan(clipHz: nil, shift: shift) == ClipPitch.Plan(semitones: 2, formantSemitones: nil))
-        // Formants kept (if the setting ever flips): clips keep theirs too.
-        #expect(ClipPitch.plan(clipHz: 389, shift: PitchShift(semitones: 2, preserveFormants: true)).formantSemitones == 0)
+    @Test func clipsGetExactlyTheLiveProcessing() {
+        // Voice clips match (2026-11-17): every clip, whatever its own pitch, gets the live +2 plain, nothing else.
+        let live = ClipPitch.plan(PitchShift())
+        #expect(live == ClipPitch.Plan(semitones: 2, formantSemitones: nil))
+        #expect(VoicePitchShifter(live, playbackRate: 1.2).semitones == 2)
+        // Formants kept (if the setting ever flips): clips follow the live setting.
+        #expect(ClipPitch.plan(PitchShift(semitones: 2, preserveFormants: true)).formantSemitones == 0)
     }
 
-    @Test func theSaneRangeIsFiveAndAHalfSemitonesAroundTheTarget() {
-        let r = ClipPitch.saneRange()
-        #expect(abs(r.lowerBound - 217.4) < 0.5 && abs(r.upperBound - 410.2) < 0.5)
-        #expect(ClipPitch.check(389) == .ok && ClipPitch.check(300) == .ok)
-        #expect(ClipPitch.check(430) == .outOfRange && ClipPitch.check(205) == .outOfRange)
+    @Test func thePitchBandsSitAroundTheLiveVoice() {
+        let m = ClipPitch.matchRange, k = ClipPitch.keepRange
+        #expect(abs(m.lowerBound - 230.2) < 0.5 && abs(m.upperBound - 307.3) < 0.5, "\(m)")
+        #expect(abs(k.lowerBound - 211.1) < 0.5 && abs(k.upperBound - 335.1) < 0.5, "\(k)")
+        #expect(ClipPitch.check(266) == .ok && ClipPitch.check(300) == .ok)
+        // The old bright greeting takes (376, 395 Hz raw) and the low "saved game" take (224) are out: re-record them.
+        #expect(ClipPitch.check(376) == .outOfRange && ClipPitch.check(395) == .outOfRange && ClipPitch.check(224) == .outOfRange)
         #expect(ClipPitch.check(nil) == .unmeasured && ClipPitch.check(0) == .unmeasured)
+        // A game take is kept inside ±4 st (or unmeasured), dropped outside it (a replay says it live again).
+        #expect(ClipPitch.keeps(266) && ClipPitch.keeps(320) && ClipPitch.keeps(nil))
+        #expect(!ClipPitch.keeps(386) && !ClipPitch.keeps(200))
+        #expect(ClipPitch.distance(266) == 0 && ClipPitch.distance(nil) == .infinity)
+        #expect(ClipPitch.distance(290) < ClipPitch.distance(240))
     }
 
     // MARK: Pitch tracker
@@ -210,7 +201,7 @@ import Testing
     @Test func theLiveVoiceIsHeardAtTheRateAndTwoSemitonesUp() throws {
         let x = Self.tone(220)
         let flat = try Self.renderThroughGraph(x, plan: nil)
-        let up = try Self.renderThroughGraph(x, plan: ClipPitch.plan(clipHz: nil, shift: PitchShift()))
+        let up = try Self.renderThroughGraph(x, plan: ClipPitch.plan(PitchShift()))
         func span(_ y: [Float]) -> (Double, Double) {
             let f = y.firstIndex { abs($0) > 0.05 }!, l = y.lastIndex { abs($0) > 0.05 }!
             var zc = 0; var prev = y[f]
@@ -240,29 +231,25 @@ import Testing
         return Array(UnsafeBufferPointer(start: b.floatChannelData![0] + skip, count: n - skip))
     }
 
-    /// Every bundled clip's raw pitch is in the range its adjustment can bring to the live voice. A future clip outside
-    /// it fails here: re-record it nearer the live voice (decisions/2026-11-17-voice-pitch-build.md).
-    @Test func everyBundledClipIsInTheSanePitchRange() throws {
+    /// Every bundled clip's raw pitch is in the live voice's band (clips get exactly the live +2, so a take outside it
+    /// would be heard brighter or lower than her live lines). A future clip outside it fails here: re-record it with
+    /// `-PTRecordCommon all` (decisions/2026-11-17-voice-clips-match.md).
+    @Test func everyBundledClipIsInTheLiveBand() throws {
         let files = try FileManager.default.contentsOfDirectory(at: Self.commonClips, includingPropertiesForKeys: nil)
             .filter { $0.pathExtension == "aac" }
         #expect(files.count == CommonLines.all.count)
         for f in files {
             let hz = PitchTracker.medianHz(try Self.decodeAAC(f))
-            #expect(ClipPitch.check(hz) == .ok, "\(f.lastPathComponent): \(hz ?? 0) Hz raw, sane \(ClipPitch.saneRange())")
+            #expect(ClipPitch.check(hz) == .ok, "\(f.lastPathComponent): \(hz ?? 0) Hz raw, live band \(ClipPitch.matchRange)")
         }
     }
 
-    /// The bright greeting clip ends up close to the live voice after the raise (not higher), measured.
-    @Test func theGreetingClipLandsOnTheLiveVoice() throws {
+    /// The greeting clip (the first thing a New game says) is heard within a semitone or so of a live line through
+    /// the app's chain, with the same processing (the seam Haylee heard).
+    @Test func theGreetingClipSoundsLikeTheLiveVoice() throws {
         let url = Self.commonClips.appendingPathComponent("common-0adc890610789fbdb033ec1173261358.aac")
-        let x = try Self.decodeAAC(url)
-        let before = try #require(PitchTracker.medianHz(x))
-        #expect(before > 360)   // the bright one
-        let plan = ClipPitch.plan(clipHz: before, shift: PitchShift())
-        let y = VoicePitchShifter.shiftAll(x, semitones: plan.semitones, formantSemitones: plan.formantSemitones)
-        let after = try #require(PitchTracker.medianHz(y))
-        let target = ClipPitch.targetHz(PitchShift())
-        #expect(abs(12 * log2(after / target)) < 0.75, "greeting \(before) → \(after) Hz raw, live target \(target)")
+        let hz = try #require(PitchTracker.medianHz(try Self.decodeAAC(url)))
+        #expect(abs(12 * log2(hz / ClipPitch.liveRawMedianHz)) < ClipPitch.matchSemitones, "greeting \(hz) Hz raw")
     }
 
     // MARK: Offline renders for the listening page (only with PT_RENDER_DIR set; no API, no simulator)
@@ -284,7 +271,7 @@ import Testing
                 x = Array(UnsafeBufferPointer(start: b.floatChannelData![0], count: Int(b.frameLength)))
             }
             let hz = PitchTracker.medianHz(x)
-            let plan = isClip ? ClipPitch.plan(clipHz: hz, shift: PitchShift()) : ClipPitch.plan(clipHz: nil, shift: PitchShift())
+            let plan = ClipPitch.plan(PitchShift())   // clips and live lines alike
             let name = url.deletingPathExtension().lastPathComponent
             for (tag, p) in [("today", nil as ClipPitch.Plan?), ("new", plan)] {
                 let y = try Self.renderThroughGraph(x, plan: p, chunk: isClip ? 2400 : 1200)
@@ -293,11 +280,6 @@ import Testing
             if env["PT_RENDER_RAW"] != nil {   // the shifter's own 24 kHz output (before Varispeed), for A/B checks
                 let y = VoicePitchShifter.shiftAll(x, semitones: plan.semitones, formantSemitones: plan.formantSemitones, chunk: 1200)
                 try y.withUnsafeBufferPointer { Data(buffer: $0) }.write(to: URL(fileURLWithPath: dir).appendingPathComponent("\(name)-shift24.f32"))
-            }
-            if isClip {
-                let alt = ClipPitch.plan(clipHz: hz, shift: PitchShift(), matchLiveFormants: false)
-                let y = try Self.renderThroughGraph(x, plan: alt)
-                try y.withUnsafeBufferPointer { Data(buffer: $0) }.write(to: URL(fileURLWithPath: dir).appendingPathComponent("\(name)-plain.f32"))
             }
             print(String(format: "RENDER %@ raw %.1f Hz plan %+.2f st formant %@", name, hz ?? 0, plan.semitones, plan.formantSemitones.map { String(format: "%+.1f", $0) } ?? "follows"))
         }

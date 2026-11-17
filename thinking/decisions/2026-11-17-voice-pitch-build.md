@@ -6,6 +6,8 @@
   and Signalsmith Linear (both MIT). See decisions/2026-11-17-signalsmith-pitch.md.
 - **Built by:** Claude, on branch `worktree-agent-a392bcdc3a1dce04f`. **Listen:** [design/voice-pitch-build/index.html](../../design/voice-pitch-build/index.html).
 - **Still to do:** Haylee listens on the iPad before it's final.
+- **Superseded for clips** by [voice clips match](2026-11-17-voice-clips-match.md): clips now get exactly the live +2
+  (the per-clip shift and formant matching below are gone) and the bundled clips were re-recorded.
 
 ## Libraries (for the Code Camp team profile)
 | Library | Version | License | Where |
