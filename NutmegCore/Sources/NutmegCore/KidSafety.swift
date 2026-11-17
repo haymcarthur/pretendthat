@@ -195,7 +195,7 @@ extension GamePlan: SafetyText {
 extension Props: SafetyText { public var safetyTexts: [String] { [nutmegSays] + props.flatMap { [$0.householdItem, $0.becomes, $0.reason ?? ""] } } }
 extension Kit: SafetyText {
     public var safetyTexts: [String] {
-        [nutmegSays] + items.flatMap { [$0.title] + $0.lines } + scenes.flatMap { [$0.title, $0.nutmegSays] + $0.steps.map(\.text) }
+        [nutmegSays] + items.flatMap { [$0.title] + $0.lines } + scenes.flatMap { [$0.title, $0.nutmegSays] + $0.steps.flatMap { [$0.text] + ($0.short.map { [$0] } ?? []) } }
     }
 }
 extension NutmegTurn: SafetyText { public var safetyTexts: [String] { [nutmegSays] + choices.map(\.label) } }

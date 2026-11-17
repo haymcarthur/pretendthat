@@ -123,6 +123,7 @@ The map. Read this first, then open only what you need.
 - [Story opener + setup scene (every prop and printout used on purpose) + clean-up scene](decisions/2026-11-16-story-setup-cleanup-scenes.md): Haylee, Claude's calls noted
 
 ## Work queue
+- [Round 34 build: app-written prop lines (first play = replay words, her first-play clips reused, no "Next,"/"still have"), replay hunt = the first play's layout and camera, in-app speech model download (iPadOS 26+, SpeechAnalyzer turn), tasks short on screen + spoken specifics (short/say, GuideRepair), scene opening = setup + cue (~22 s → 5–9 s), whole-row tap + read_job, one-sentence returning greeting (8.8–9.1 s → 5.5–5.7 s)](decisions/2026-11-16-round34.md): Haylee (items), Claude's calls noted
 - [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–32 (31: on-device speech + instant mic; 32: Grown-ups menu) + C1 + D1 + D2 + D3a + D3b done (round 27's mockups separate); next: D4 iCloud
 
 ## Research

@@ -116,6 +116,9 @@ enum DemoDriver {
     }
 
     @MainActor static func live(_ model: AppModel, turns: [String]) async {
+        // Round 34: `-PTOldSceneOpen` = the round 29 opening that read every task (the before measurement).
+        if ProcessInfo.processInfo.arguments.contains("-PTOldSceneOpen") { HandOffLines.legacyFullOpen = true }
+        if ProcessInfo.processInfo.arguments.contains("-PTSpeechModelSheet") { await model.refreshSpeechModel() }   // round 34 shots
         // Round 31: the mic's on-device readiness first (spoken turns need it; RootView asks after the driver).
         if turns.contains(where: { $0.hasPrefix("#heard ") || $0.hasPrefix("#speak ") }) { await model.listener.requestAuth() }
         // Round 13: "-PTLetsPlayAfter N": sit on the start screen N s (the socket pre-connects), then tap Let's play!.
@@ -280,6 +283,13 @@ enum DemoDriver {
                 model.tapSavedGame(model.shelfGames[n])
                 for _ in 0..<150 where !(model.store.isReplay && (model.realtime.isLive || !model.hasRealtime || !model.network.online)) { try? await Task.sleep(for: .milliseconds(100)) }
                 rtLog("REPLAY: phase=\(model.store.phase) live=\(model.realtime.isLive)")
+                continue
+            }
+            // Round 34: "#replaytitle TEXT": the saved game whose title contains TEXT.
+            if turn.hasPrefix("#replaytitle "), let g = model.shelfGames.first(where: { $0.title.localizedCaseInsensitiveContains(String(turn.dropFirst(13))) }) {
+                model.tapSavedGame(g)
+                for _ in 0..<150 where !(model.store.isReplay && (model.realtime.isLive || !model.hasRealtime || !model.network.online)) { try? await Task.sleep(for: .milliseconds(100)) }
+                rtLog("REPLAY \(g.title): phase=\(model.store.phase) live=\(model.realtime.isLive)")
                 continue
             }
             if turn.hasPrefix("#count "), let n = Int(turn.dropFirst(7)) { model.replayPick(n); continue }

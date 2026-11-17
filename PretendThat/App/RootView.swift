@@ -249,6 +249,10 @@ struct RootView: View {
         .sheet(isPresented: $showTyping) { PTTypeSheet { text in Task { await model.typed(text) } } }
         // Round 31: the iPad can't listen on the device: a friendly note for a grown-up, then the chat's typing.
         .modifier(SpeechHelpAlert(model: model) { chatOpen = true })
+        // Round 34: the in-app speech model download (iPadOS 26+), a grown-up sheet.
+        .sheet(isPresented: Binding(get: { model.speechModel.showingSheet }, set: { model.speechModel.showingSheet = $0 })) {
+            SpeechModelSheet(installer: model.speechModel, onType: { model.speechModel.showingSheet = false; chatOpen = true })
+        }
         .preferredColorScheme(.light)
         .statusBarHidden()
     }
@@ -278,6 +282,11 @@ struct RootView: View {
                     PTPresentedCards(items: stageItems, nutmeg: L, size: g.size, onTapItem: { silentTap($0) },
                                      onHunt: { _, found in model.huntReply(found: found) })
                 }
+            } else if replayHuntOnStage {
+                // Round 34 (Haylee: replays look identical to new games): the replay's Props is the first play's hunt
+                // layout: the same active card (component, place, size, ✓ / ✗), the same done stack, the same camera.
+                PTPropHuntStage(items: propListItems, geometry: g, nutmeg: L, curtainInset: curtainInset(g), namespace: huntSpace,
+                                onHunt: { _, found in model.replayHunt(found: found) })
             } else {
                 classicContent(g, L)
             }
@@ -300,7 +309,7 @@ struct RootView: View {
     }
     private func directorFrame(_ g: PTStageGeometry) -> PTStageFrame {
         return PTStageDirector.frame(phase: store.phase, conversation: model.inConversation, conversationShot: shot,
-                              cards: stageItems.count, hunt: huntOnStage, kitBeat: model.kitBeat,
+                              cards: stageItems.count, hunt: huntOnStage || replayHuntOnStage, kitBeat: model.kitBeat,
                               curtainInset: curtainInset(g), writing: model.isWriting, g)
     }
 
@@ -330,7 +339,7 @@ struct RootView: View {
                 let answered = store.foundProps.contains(p.id) || p.isSkipped
                 let current = p.id == store.replayCurrentProp?.id
                 guard answered || current else { return nil }
-                let art = p.libraryID.flatMap { UIImage(named: PropLibrary.asset($0)) }
+                let art = p.libraryID.flatMap { UIImage(named: PropLibrary.asset($0)) } ?? model.stickers.art(.prop, p.householdItem)
                 return PTStageItem(id: "prop-\(p.id)", title: p.householdItem, subtitle: p.becomes, image: art,
                                    tint: Theme.playerColor(i), flipKey: p.libraryID ?? p.householdItem, isPretend: p.isSkipped,
                                    chip: p.isSkipped ? .pretend : (store.foundProps.contains(p.id) ? .found : (p.swapped == true ? .swapped : .none)),
@@ -388,6 +397,8 @@ struct RootView: View {
 
     /// The prop hunt layout is on stage (the camera has moved to the hunt's medium shot).
     private var huntOnStage: Bool { model.inConversation && store.huntActive && shot == .medium }
+    /// Round 34: a replay's hunt uses the same stage layout and camera as the first play's.
+    private var replayHuntOnStage: Bool { store.isReplay && store.replayHuntActive }
 
     /// How far the tied-back curtain reaches in around card height.
     private func curtainInset(_ g: PTStageGeometry) -> CGFloat { PTCurtain.metrics(g.size).visible * 0.55 }
@@ -512,7 +523,8 @@ struct RootView: View {
         // Round D1: a replay's Pick and Props (round 26: the first play's flows; its Print is the first play's KitView).
         // Round 30: chat open, a replay's cover and props are in the panel's step tab (the stage hides the duplicate).
         case .players: if store.isReplay { if !(chatOpen && chromeVisible) { ReplayPickView(model: model) } } else { PlayersView(model: model) }
-        case .props: if store.isReplay { if !(chatOpen && chromeVisible) { ReplayPropsView(model: model) } } else { PropsView(model: model) }
+        // Round 34: a replay's hunt is drawn by the stage overlay (`PTPropHuntStage`), exactly like a first play's.
+        case .props: if store.isReplay { EmptyView() } else { PropsView(model: model) }
         case .makingKit, .kitReady: KitView(model: model, clipboard: clipboard, chatOpen: chatOpen && chromeVisible, preview: $kitPreview,
                                             onCelebrate: { celebrate() })
         case .scene(let i): if !(chatOpen && chromeVisible) { SceneView(model: model, index: i, width: width, maxHeight: height) }   // chat open: pinned in the panel

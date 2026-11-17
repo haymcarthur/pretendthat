@@ -23,7 +23,7 @@ func liveGuidePrefetchTimings() async throws {
     print("LIVEGUIDE early guide \(String(format: "%.1f", Date().timeIntervalSince(t))) s, \(kit.scenes.count) scenes, steps \(kit.scenes.map(\.steps.count)), gaps: \(Validate.scenes(kit.scenes, roles: 6)?.message ?? "none")")
     for (i, sc) in kit.scenes.enumerated() {
         print("LIVEGUIDE scene \(i + 1) \"\(sc.title)\": \(sc.nutmegSays)")
-        for st in sc.steps { print("LIVEGUIDE   \(st.role.rawValue): \(st.text)") }
+        for st in sc.steps { print("LIVEGUIDE   \(st.role.rawValue): [\(st.short ?? "-")] \(st.text)") }
     }
     let all = [Prop(id: "cardboard-box", householdItem: "Cardboard box", becomes: "the treasure chest", forRole: .all, safetyOK: true, libraryID: "cardboard-box"),
                Prop(id: "towel", householdItem: "Towel", becomes: "the pirate cape", forRole: .R1, safetyOK: true, libraryID: "towel"),

@@ -201,7 +201,7 @@ final class FakeDefaults: OnboardingDefaults {
             let p = GameGreeting.pick(hasPlayedBefore: true, lastShort: last, using: &rng)
             #expect(p.shortIndex != nil && p.shortIndex != last)
             #expect(!p.line.contains("Nutmeg") && !p.line.contains("computer") && !p.line.contains("I'm"))
-            #expect(p.line.split(separator: " ").count <= 6)
+            #expect(p.line.split(separator: " ").count <= 8 && p.line.contains("What should we play"))   // round 34: one sentence + the question
             last = p.shortIndex
         }
     }

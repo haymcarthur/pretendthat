@@ -186,6 +186,8 @@ final class RealtimeSession {
             guard self.propLinePending, self.isLive else { return }
             self.propLinePending = false
             let note = self.onPropLine?() ?? ""
+            // Round 34: an empty note = the app said the first prop line itself (nothing to ask her for).
+            if note.isEmpty { rtLog("prop line: card shown, the app says the first prop line"); return }
             rtLog("prop line: card shown, asking for the first prop line")
             self.chat.breakTurn()   // the prop line comes after a pause: its own bubble
             if !note.isEmpty { self.socket?.send(Realtime.systemNote(note)) }
@@ -401,11 +403,12 @@ final class RealtimeSession {
     /// Round 7: today's game ideas go IN the greeting (one response), so the intro bubble carries the suggestions.
     /// Round 33: `greetingClip` = the seconds of the greeting clip that just played (the new short opening); nil = the
     /// old opening (she says hi in her own words). Either way the first spoken response's length is logged.
-    func kickOff(games: [Suggestion] = [], greetingClip: Double? = nil) {
+    func kickOff(games: [Suggestion] = [], greetingClip: Double? = nil, returning: Bool = false) {
         guard let socket, isLive else { return }
         let ideas = games.isEmpty ? "" : " with today's ideas as open sparks (\"You can pick anything! Maybe \(Suggestions.spoken(games))?\")"
         if let greetingClip {
-            socket.send(Realtime.userText(GameGreeting.kickOffNote(ideas: Suggestions.spoken(Array(games.prefix(2))))))
+            // Round 34: a returning greeting clip already asked the question: she only offers two ideas.
+            socket.send(Realtime.userText(GameGreeting.kickOffNote(ideas: Suggestions.spoken(Array(games.prefix(2))), returning: returning)))
         } else {
             socket.send(Realtime.userText("(The kids just opened the app and can hear you now. They talk to you by holding the big red button. In ONE short turn: say hi in your own words, ask what they feel like playing,\(ideas), and tell them to hold the red button and tell you.)"))
         }
@@ -820,7 +823,11 @@ final class RealtimeSession {
             case .transcriptDone(let t): recorder.transcript(responseID: id, t)
             case .responseDone:
                 switch recorder.done(responseID: id, status: Realtime.responseStatus(text)) {
-                case .kept(let line): onRecorded?(line)
+                case .kept(let line):
+                    // Round 34: line lengths for the scene-opening and prop-line measurements (heard = ÷ Varispeed).
+                    rtLog(String(format: "CLIP kept %.1f s (heard %.1f s) [%@]: %@", line.duration, line.duration / VoiceConfig.nutmeg.playbackRate,
+                                 line.request.kind.rawValue, String(line.request.line.prefix(70))))
+                    onRecorded?(line)
                 case .rejected(let why): rtLog("CLIP rejected (\(why.rawValue))"); onRecordRejected?(why)
                 case .notTracked: break
                 }

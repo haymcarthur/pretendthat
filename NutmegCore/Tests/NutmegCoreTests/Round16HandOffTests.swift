@@ -25,7 +25,8 @@ private func clean(_ line: String) {
     let sc = Scene(id: "s1", owner: .all, title: "Open", picture: .point, nutmegSays: "Pretend that the café just opened",
                    steps: [Step(picture: .point, text: "Waiter, take the Customer's order", role: .R1),
                            Step(picture: .point, text: "Customer, order from the menu!", role: .R2)])
-    #expect(HandOffLines.sceneOpen(sc) == "Pretend that the café just opened. Waiter, take the Customer's order. Customer, order from the menu!")
+    // Round 34 (Haylee): the setup and the cue only; each kid taps their row for their job.
+    #expect(HandOffLines.sceneOpen(sc) == "Pretend that the café just opened. Tap your speaker when you're ready to hear your job!")
     #expect(HandOffLines.sceneOpen(sc, first: true).hasSuffix("Tap the green play button for the next scene!"))
     #expect(HandOffLines.task(sc.steps[0]) == "Waiter, take the Customer's order.")
     clean(HandOffLines.sceneOpen(sc, first: true))

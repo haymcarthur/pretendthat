@@ -110,26 +110,45 @@ struct PTTaskRow<Picture: View>: View {
     let onSpeak: () -> Void
     @ViewBuilder var picture: Picture
 
+    /// Round 34 (Haylee): the WHOLE row is one button (picture, text or 🔊 all play the role's spoken task), with a
+    /// pressed state; the 🔊 stays as the visual cue. One accessibility element ("Hear the Pet Trainer's job").
     var body: some View {
-        HStack(spacing: padding < Theme.Space.s ? Theme.Space.s : Theme.Space.m) {
-            picture
-            Text(text)
-                .font(Theme.bodyFont(fontSize)).foregroundStyle(Theme.ink).multilineTextAlignment(.leading)
-                .minimumScaleFactor(min(1, 17 / fontSize))
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .leading)   // the text takes all the room between picture and 🔊
-            Button(action: onSpeak) {
+        Button(action: onSpeak) {
+            HStack(spacing: padding < Theme.Space.s ? Theme.Space.s : Theme.Space.m) {
+                picture
+                Text(text)
+                    .font(Theme.bodyFont(fontSize)).foregroundStyle(Theme.ink).multilineTextAlignment(.leading)
+                    .minimumScaleFactor(min(1, 17 / fontSize))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)   // the text takes all the room between picture and 🔊
                 Image(systemName: "speaker.wave.2.fill")
                     .font(.system(size: 24, weight: .bold)).foregroundStyle(Theme.ink)
                     .frame(width: 56, height: 56)
                     .background(Circle().fill(Theme.chipGray))
                     .overlay(Circle().strokeBorder(tint, lineWidth: 3))
-                    .contentShape(Circle())
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel(speakLabel)
+            .ptCard(fill: Theme.white, edge: tint, padding: padding)
+            .contentShape(Rectangle())
         }
-        .ptCard(fill: Theme.white, edge: tint, padding: padding)
+        .buttonStyle(PTRowPressStyle(tint: tint))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(speakLabel)
+        .accessibilityHint(text)
+        .accessibilityAddTraits(.isButton)
+    }
+}
+
+/// Round 34: the pressed look for a whole-card tap target (a scene row, a Print set card): it sinks a little and
+/// takes a light wash of its color, so a kid sees the tap landed anywhere on it.
+struct PTRowPressStyle: ButtonStyle {
+    var tint: Color = Theme.coral
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .overlay(RoundedRectangle(cornerRadius: Theme.smallRadius + 4).fill(tint.opacity(configuration.isPressed ? 0.14 : 0)).allowsHitTesting(false))
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.97 : 1)
+            .offset(y: configuration.isPressed ? 2 : 0)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }
 

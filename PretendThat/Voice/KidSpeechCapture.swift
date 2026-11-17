@@ -43,11 +43,19 @@ final class KidSpeechCapture: @unchecked Sendable {
     /// A recognition error that says on-device speech can't run here (the app falls back to typing).
     var onUnavailable: (@Sendable () -> Void)?
 
-    var isCapturing: Bool { lock.withLock { request != nil } }
+    var isCapturing: Bool { lock.withLock { request != nil || turnAppend != nil } }
+
+    /// Round 34: iPadOS 26's SpeechAnalyzer turn (the in-app downloaded model), used when SFSpeechRecognizer can't
+    /// recognize on the device but the model the app downloaded is installed (`SpeechModelInstaller`).
+    nonisolated(unsafe) static var useAnalyzer = false
+    private var turnAppend: (@Sendable (AVAudioPCMBuffer) -> Void)?
+    private var turnFinish: (@Sendable () async -> String)?
+    private var turnCancel: (@Sendable () -> Void)?
 
     /// Audio thread: one tap chunk. Captured for the turn while a request is open, else kept briefly for the pre-roll.
     func push(_ buffer: AVAudioPCMBuffer, host: Double?) {
         let h = host ?? CACurrentMediaTime()
+        if let f = lock.withLock({ fileOverride == nil ? turnAppend : nil }) { f(buffer); MicTiming.captured(bufferHost: h); return }
         let req: SFSpeechAudioBufferRecognitionRequest? = lock.withLock {
             if let request { return fileOverride == nil ? request : nil }
             guard let copy = buffer.copy() as? AVAudioPCMBuffer else { return nil }
@@ -60,6 +68,7 @@ final class KidSpeechCapture: @unchecked Sendable {
 
     /// Touch-down: start a fresh on-device request with the chunks from just before the touch.
     func begin(touchHost: Double) {
+        if Self.useAnalyzer, #available(iOS 26, *) { beginAnalyzer(touchHost: touchHost); return }
         guard let recognizer else { onUnavailable?(); return }
         let req = SFSpeechAudioBufferRecognitionRequest()
         req.requiresOnDeviceRecognition = true   // never Apple's servers, never anyone's
@@ -93,6 +102,23 @@ final class KidSpeechCapture: @unchecked Sendable {
         }
     }
 
+    /// Round 34: the same turn through SpeechAnalyzer (pre-roll included), on the iPad only.
+    @available(iOS 26, *)
+    private func beginAnalyzer(touchHost: Double) {
+        let turn = AnalyzerTurn()
+        let (pre, file): ([(buffer: AVAudioPCMBuffer, host: Double)], [AVAudioPCMBuffer]?) = lock.withLock {
+            turnCancel?()
+            task?.cancel(); task = nil; request = nil
+            turnAppend = { turn.append($0) }; turnFinish = { await turn.finish() }; turnCancel = { turn.cancel() }
+            words = ""; final = false; failed = nil
+            let pre = ring.filter { $0.host >= touchHost - Self.preRollSeconds }
+            ring = []
+            return (pre, fileOverride)
+        }
+        if let file { for b in file { turn.append(b) } } else { for p in pre { turn.append(p.buffer) } }
+        rtLog("speech: analyzer turn (in-app model)")
+    }
+
     private func update(text: String?, isFinal: Bool, error: Error?) {
         var unavailable = false
         let wake: [CheckedContinuation<Void, Never>] = lock.withLock {
@@ -121,6 +147,23 @@ final class KidSpeechCapture: @unchecked Sendable {
             return words
         }
         #endif
+        if let fin = lock.withLock({ turnFinish }) {
+            // Round 34: the SpeechAnalyzer turn, bounded like the older path.
+            let words: String = await withTaskGroup(of: String?.self) { group in
+                group.addTask { await fin() }
+                group.addTask { try? await Task.sleep(for: timeout + .milliseconds(500)); return nil }
+                let first = await group.next() ?? nil
+                group.cancelAll()
+                return first ?? ""
+            }
+            let cancel: (@Sendable () -> Void)? = lock.withLock {
+                let c = turnCancel
+                turnAppend = nil; turnFinish = nil; turnCancel = nil; ring = []
+                return c
+            }
+            if words.isEmpty { cancel?() }
+            return words
+        }
         guard let req = lock.withLock({ request }) else { return "" }
         req.endAudio()
         await withTaskGroup(of: Void.self) { group in
@@ -152,6 +195,7 @@ final class KidSpeechCapture: @unchecked Sendable {
     func cancel() {
         let w: [CheckedContinuation<Void, Never>] = lock.withLock {
             task?.cancel(); task = nil; request?.endAudio(); request = nil; words = ""; ring = []
+            turnCancel?(); turnAppend = nil; turnFinish = nil; turnCancel = nil
             let w = waiters; waiters = []; return w
         }
         w.forEach { $0.resume() }

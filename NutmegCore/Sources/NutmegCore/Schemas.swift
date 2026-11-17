@@ -50,7 +50,7 @@ public enum Schemas {
              // Round 29 (ensemble scenes): no scene owner and no pictures (the rows show each role's character);
              // every task belongs to one role, or is the scene's solo task.
              "scenes": nonEmpty(obj(["id": str, "title": str, "nutmegSays": str,
-                                "steps": nonEmpty(obj(["text": str,
+                                "steps": nonEmpty(obj(["text": ["type": "string", "description": "What Nutmeg SAYS for this task (round 34: the role title, the job, then 1 or 2 concrete ideas with their props or pages)."], "short": ["type": "string", "description": "What the row SHOWS: 3 to 7 words, broad, no role title."],
                                                        "role": ["type": "string", "enum": roleIDs + ["solo"],
                                                                 "description": "Who this task is for (its text calls that role by its title): ONE task per role R1 to R6 per scene, plus one solo task (one kid playing alone as R1)."]]))]))])
     }

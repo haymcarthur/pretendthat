@@ -59,8 +59,10 @@ public enum GuideRepair {
         out = noScriptedLines(out)
         // 4. Every prop in the tasks.
         out = weave(out, roles: roles, props: props)
-        // 5. Round 28: only objects the kids really have.
-        return realProps(out, roles: roles, props: props, items: items)
+        // 5. Round 28: only objects the kids really have (round 34: in the shown and the spoken text).
+        out = realProps(out, roles: roles, props: props, items: items)
+        // 6. Round 34: a short, broad shown text for every task (3–7 words, no role title).
+        return shortTasks(out, roles: roles)
     }
 
     /// Whether a step already uses this prop (its picture, or its words name what it becomes or the item).
@@ -169,7 +171,7 @@ extension GuideRepair {
     public static func noScriptedLines(_ scenes: [Scene]) -> [Scene] {
         scenes.map { sc in
             var sc = sc
-            sc.steps = sc.steps.map { var st = $0; st.text = unscripted(st.text); return st }
+            sc.steps = sc.steps.map { var st = $0; st.mapTexts(unscripted); return st }
             return sc
         }
     }
@@ -263,12 +265,17 @@ extension GuideRepair {
     /// picture that doesn't show a missing thing. A step that names only real things comes back unchanged.
     public static func realStep(_ step: Step, allowed: Set<String>, allowedPropIDs: Set<String>, roles: [Role]) -> Step {
         var st = step
-        for w in missingObjects(st.text, allowed: allowed, roles: roles) {
-            // The word as written (singular or plural), not already after "pretend".
-            let forms = [w, w + "s", w + "es", w.hasSuffix("y") ? String(w.dropLast()) + "ies" : w].map(NSRegularExpression.escapedPattern(for:))
-            let pattern = #"(?i)(?<![\p{L}-])(?<!pretend )("# + forms.joined(separator: "|") + #")(?![\p{L}-])"#
-            st.text = st.text.replacingOccurrences(of: pattern, with: "pretend $1", options: .regularExpression)
+        func pretendMissing(_ text: String) -> String {
+            var t = text
+            for w in missingObjects(t, allowed: allowed, roles: roles) {
+                // The word as written (singular or plural), not already after "pretend".
+                let forms = [w, w + "s", w + "es", w.hasSuffix("y") ? String(w.dropLast()) + "ies" : w].map(NSRegularExpression.escapedPattern(for:))
+                let pattern = #"(?i)(?<![\p{L}-])(?<!pretend )("# + forms.joined(separator: "|") + #")(?![\p{L}-])"#
+                t = t.replacingOccurrences(of: pattern, with: "pretend $1", options: .regularExpression)
+            }
+            return t
         }
+        st.mapTexts(pretendMissing)   // round 34: the shown and the spoken text
         switch st.picture.kind {
         case .prop:
             let id = st.picture.id.replacingOccurrences(of: "prop:", with: "")

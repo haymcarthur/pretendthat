@@ -396,11 +396,13 @@ public enum OnboardingCopy {
 public enum GameGreeting {
     /// Kept short: the hand-off already said "your pretend-play stage manager"; this keeps the AI disclosure.
     public static let firstIntro = "Hi! I'm Nutmeg, a pretend helper made by a computer!"
+    /// Round 34 (Haylee: the later-game greeting was still 8.8–9.1 s): ONE short sentence with the game question in
+    /// it, no re-introduction; her live turn then only offers two of today's ideas.
     public static let short = [
-        "Hi again, friends!",
-        "Welcome back to the stage!",
-        "Ooh, time for a new show!",
-        "Hooray, you're back!",
+        "Hi again! What should we play today?",
+        "Welcome back! What should we play today?",
+        "Yay, you're back! What should we play?",
+        "Hooray, a new show! What should we play?",
     ]
     public static var all: [String] { [firstIntro] + short }
 
@@ -430,7 +432,13 @@ public enum GameGreeting {
 
     /// Her live turn after the greeting clip: the game question only (no hi, no name, no introduction), with two of
     /// today's ideas. `ideas` = e.g. "a pizza shop or a castle" ("" = none).
-    public static func kickOffNote(ideas: String) -> String {
+    public static func kickOffNote(ideas: String, returning: Bool = false) -> String {
+        if returning {
+            // Round 34: the greeting clip already asked "What should we play?": only the two ideas, one short line.
+            let example = ideas.isEmpty ? "Tell me anything!" : "Maybe \(ideas)?"
+            return "(The kids just opened the app and can hear you now. You ALREADY said hi AND asked what to play, out "
+                + "loud, so do NOT greet them, ask again, say your name or introduce yourself. Say ONLY this, word for word: \"\(example)\")"
+        }
         let example = ideas.isEmpty ? "What should we play? Hold the red button and tell me!"
             : "What should we play? Maybe \(ideas)? Hold the red button and tell me!"
         return "(The kids just opened the app and can hear you now. You ALREADY said hi out loud, so do NOT greet them, say "

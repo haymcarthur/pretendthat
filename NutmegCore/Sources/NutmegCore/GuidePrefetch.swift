@@ -33,7 +33,7 @@ public enum GuideWeave {
     /// Tasks a prop may take over (round 29: 1 or 2 role tasks in different scenes, plus a solo task).
     public static let maxUsesPerProp = 3
     /// A rewritten task longer than this is dropped (round 29: the tasks are one sentence of at most about 20 words).
-    public static let maxWords = 26
+    public static let maxWords = 40   // round 34: the spoken task has the job plus 1–2 concrete ideas
 
     public static func schema(propIDs: [String]) -> [String: Any] {
         Schemas.obj(["uses": Schemas.arr(Schemas.obj(["propID": Schemas.enumStr(propIDs.isEmpty ? ["none"] : propIDs),
@@ -70,7 +70,7 @@ public enum GuideWeave {
         does with the other roles (e.g. "Waiter, carry the Customer's order on the serving tray!"). Pick tasks of the \
         roles that are playing (\(playing)) and spread the props over them: first a playing role with no (taken) task \
         yet, then the prop's own role. Never pick a task marked (taken), and at most one prop per task. Keep the task \
-        for the same role: it still starts with that role's title. One sentence, at most 20 words, no quotes or lines \
+        for the same role: it still starts with that role's title. These are the SPOKEN tasks: the job plus 1 or 2 concrete ideas, at most 30 words, no quotes or lines \
         to say. Name the prop by what it becomes (never the household item), gentle and kid-safe. Return PropWeave \
         (scene and step are the numbers above).
         """
@@ -113,7 +113,7 @@ public enum GuideWeave {
             let lib = p.libraryID ?? p.id
             if p.isSkipped {
                 let label = KitDraft.cutoutLabel(becomes: p.becomes)
-                st.text = pretend(st.text, item: u.item, becomes: u.becomes, label: label)
+                st.mapTexts { pretend($0, item: u.item, becomes: u.becomes, label: label) }   // round 34: shown + spoken
                 if let n = cutLines.firstIndex(where: { $0.caseInsensitiveCompare(label) == .orderedSame }) {
                     st.picture = .kit("cutout:\(n)")
                 } else {
@@ -124,10 +124,10 @@ public enum GuideWeave {
                 // household item itself gets the new one ("the snack bowl" stays, "the bowl" → "the cup").
                 if p.householdItem.caseInsensitiveCompare(u.item) != .orderedSame,
                    !PlayCast.names(st.text, KitDraft.cutoutLabel(becomes: u.becomes)) {
-                    st.text = replacing(st.text, phrase: u.item, with: p.householdItem.lowercased())
+                    st.mapTexts { replacing($0, phrase: u.item, with: p.householdItem.lowercased()) }
                 }
                 if p.becomes.caseInsensitiveCompare(u.becomes) != .orderedSame {
-                    st.text = replacing(st.text, phrase: KitDraft.cutoutLabel(becomes: u.becomes), with: KitDraft.cutoutLabel(becomes: p.becomes))
+                    st.mapTexts { replacing($0, phrase: KitDraft.cutoutLabel(becomes: u.becomes), with: KitDraft.cutoutLabel(becomes: p.becomes)) }
                 }
                 st.picture = PropFit.fits(itemID: lib, becomes: p.becomes) ? .prop(lib) : .point
             }
@@ -182,12 +182,19 @@ public struct KitScenesSix: Decodable, Sendable, SafetyText {
         init(stringValue: String) { self.stringValue = stringValue }
         init?(intValue: Int) { nil }
     }
+    /// Round 34: a task's two texts.
+    struct TwoTexts: Decodable { var short: String; var say: String }
     struct SceneBody: Decodable {
         var scene: Scene
         init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: Key.self)
+            // Round 34: each task is {short, say} (shown, spoken); a plain string (older answers) is the spoken text.
             let steps = try KitScenesSix.taskKeys.compactMap { k -> Step? in
-                guard let t = try c.decodeIfPresent(String.self, forKey: Key(stringValue: k.key)) else { return nil }
+                let key = Key(stringValue: k.key)
+                if let two = try? c.decodeIfPresent(TwoTexts.self, forKey: key) {
+                    return Step(picture: .point, text: two.say, role: k.role, short: two.short)
+                }
+                guard let t = try c.decodeIfPresent(String.self, forKey: key) else { return nil }
                 return Step(picture: .point, text: t, role: k.role)
             }
             scene = Scene(id: "", owner: .all, title: try c.decode(String.self, forKey: Key(stringValue: "title")),
@@ -206,10 +213,14 @@ public struct KitScenesSix: Decodable, Sendable, SafetyText {
 
     public static func schema() -> [String: Any] {
         var sceneProps: [String: Any] = ["title": Schemas.str, "nutmegSays": Schemas.str]
+        // Round 34 (Haylee): every task has two texts: `short` (shown on the row) and `say` (spoken by its 🔊).
         for k in taskKeys {
-            sceneProps[k.key] = ["type": "string", "description": k.role == .solo
+            var task = Schemas.obj(["short": ["type": "string", "description": "What the row SHOWS: 3 to 7 words, broad, no role title, no end punctuation (e.g. Get the pet ready to go home)."],
+                                    "say": ["type": "string", "description": "What Nutmeg SAYS for it: starts with the role's title, the same job, then 1 or 2 concrete example ideas with their props or printed pages (e.g. Pet Trainer, it's time to get the pet ready to go home! You could write its name on the Pet Visit Pass and hand over the leash.)."]])
+            task["description"] = k.role == .solo
                 ? "The task for ONE kid playing alone as R1: a slightly bigger version of R1's task in this scene."
-                : "The \(k.role.rawValue) role's ONE task in this scene (starts with that role's title)."]
+                : "The \(k.role.rawValue) role's ONE task in this scene."
+            sceneProps[k.key] = task
         }
         var props: [String: Any] = [:]
         for i in 1...count { props["scene\(i)"] = ["$ref": "#/$defs/scene"] }
@@ -218,5 +229,5 @@ public struct KitScenesSix: Decodable, Sendable, SafetyText {
         o["$defs"] = ["scene": Schemas.obj(sceneProps)]
         return o
     }
-    public var safetyTexts: [String] { [nutmegSays] + scenes.flatMap { [$0.title, $0.nutmegSays] + $0.steps.map(\.text) } }
+    public var safetyTexts: [String] { [nutmegSays] + scenes.flatMap { [$0.title, $0.nutmegSays] + $0.steps.flatMap { [$0.text] + ($0.short.map { [$0] } ?? []) } } }
 }

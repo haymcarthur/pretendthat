@@ -87,7 +87,8 @@ import Testing
         // Round 28: the cakes are on the printed cut-outs, so every object named is real.
         var items = Fallback.airplane.kit.items
         if let c = items.firstIndex(where: { $0.recipe == .cutouts }) { items[c].lines.append("Cakes") }
-        #expect(GuideRepair.repair(scenes, roles: Self.roles, props: Self.props, title: "Magic Bakery", items: items) == scenes)
+        // Round 34: the repair adds the short shown text; everything else is unchanged.
+        #expect(GuideRepair.repair(scenes, roles: Self.roles, props: Self.props, title: "Magic Bakery", items: items) == GuideRepair.shortTasks(scenes, roles: Self.roles))
     }
 
     @Test func aSkippedPropIsWovenInAsPretend() {

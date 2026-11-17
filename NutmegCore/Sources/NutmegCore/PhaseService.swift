@@ -125,7 +125,7 @@ public final class PhaseService: Sendable {
     /// Guide prefetch: the final guide's text (after the hunt's skips and swaps were applied) passes the kid-safety
     /// check before it's shown.
     public func guideIsSafe(_ scenes: [Scene]) async -> Bool {
-        await safety.check(scenes.flatMap { [$0.title, $0.nutmegSays] + $0.steps.map(\.text) }, pretend: true) == nil
+        await safety.check(scenes.flatMap { [$0.title, $0.nutmegSays] + $0.steps.flatMap { [$0.text] + ($0.short.map { [$0] } ?? []) } }, pretend: true) == nil
     }
 
     /// One call, sanitized. If the answer is under the spec's minimums (e.g. 1 scene), ask once more with a

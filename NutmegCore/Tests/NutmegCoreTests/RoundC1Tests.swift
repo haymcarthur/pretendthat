@@ -22,7 +22,7 @@ struct RoundC1Tests {
         // Strict objects: every task property is required (round 29: no pictures).
         let steps = (((Schemas.kitScenes()["properties"] as! [String: Any])["scenes"] as! [String: Any])["items"] as! [String: Any])
         let step = ((steps["properties"] as! [String: Any])["steps"] as! [String: Any])["items"] as! [String: Any]
-        #expect(Set(step["required"] as! [String]) == ["role", "text"])
+        #expect(Set(step["required"] as! [String]) == ["role", "text", "short"])   // round 34: spoken + shown
     }
 
     @Test func promptsAskForSixRankedRolesAndATaskPerRole() {
