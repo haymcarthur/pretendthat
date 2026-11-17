@@ -36,3 +36,32 @@
 - **2026-11-17 (round 40): checklist rows and goal rows.** (a) Rows: keep the shipped soft tinted pill (no rings), or switch to the thin-outline alternative (rows/sheet-rows-*.png in /tmp/pt-round40; one-line change, `PTRowLook.current`)? (b) The rows have no checked / done state since round 29 (no checkboxes); want one back (e.g. the row fills with its color and a white ✓ replaces the 🔊)? (c) Goal rows: a 2-player game can now show up to 4 rows (2 per kid, at most 3 items a row); is that "a few", or should 2 players stay at exactly one row each (longer spoken lines)?
 
 - **2026-11-17 (rounds 41–42).** (a) iPad with the chat CLOSED during Props, Print and the scenes: she keeps the medium shot beside the card (a close-up next to the card would make her head smaller); should the card sit over her lower body instead so she stays in the talking close-up? (b) The leave dialog after the kit still shows the little card-onto-shelf picture (no words, nothing said): keep it, or remove it with the bookshelf moment? (c) Odd but allowed prop uses like "stuffed animal → the pet drying cloth" (seen live): add a "cloth" rule (soft or sheet things only)? (d) Round 40's (a)/(b) were answered (soft rows, no done state); round 39's (a) and (b) are done (round 41 shadow layer, round 42 End clip; the shelf line is gone).
+
+## Status check (2026-11-17 evening, Claude): what's resolved vs still open
+**Resolved today:**
+- **App Store compliance:** not the Kids Category; Education 4+; US only. **No ZDR** (Haylee: only text, never audio, goes to AI; the policy keeps "may keep up to 30 days").
+- **Cost v3:** mini voice approved for scripted lines (default in round 44); Sonnet 5.5 for the play guide + weave approved (default in round 44).
+- **Yearly intro:** $99.99 / $199.99 for the first year (decisions/2026-11-17-yearly-intro-sonnet.md).
+- **Analytics:** always on, no switch anywhere (decisions/2026-11-17-onboarding-v3-feedback.md).
+- **Nutmeg's speed/pitch:** 1.20 + Signalsmith plain +2; clips get the same processing (voice-clips-match).
+- **Round 39–42 questions:**
+  - writing hand fixed (crayon shadow layer);
+  - no done state on rows; tinted rows kept;
+  - no bookshelf moment;
+  - leave-dialog picture removed (round 44);
+  - chat open = no card on stage (round 44);
+  - prop audit → round 43.
+- **The TelemetryDeck app ID** is set in Analytics.xcconfig. The relay was redeployed (version 8ed4aa7c, SHOW_LIMITS off).
+
+**Still open (Haylee):**
+- **Privacy policy facts:** legal business name + mailing address; how long support emails/reports are kept; keep or drop "iCloud syncing later"; a legal (COPPA) look before launch.
+- **App Store Connect setup:** agreements/bank/tax, 4 subscriptions + intro offers, App Privacy label, age rating, review notes, sandbox tester (decisions/2026-11-17-storekit-subscriptions.md, 2026-11-17-setup-rows-and-compliance.md).
+- **Plan sizes:** re-measure the cost per game after rounds 43–45 (mini voice + Sonnet + printables), then confirm 10 / 30 a month. At ~$1.10 a game, 30 a month loses money; after the cuts it may not.
+- **Team profile:** paste thinking/team-profile-libraries.md into the Code Camp profile.
+
+**Still to build (app):**
+- Round 43, building: prop audit fixes, hard no-repeat rule, prop shortlist for variety.
+- Round 44: onboarding v3, show→game, no usage switch, chat/leave-dialog fixes, yearly intro, mini voice + Sonnet defaults.
+- Round 45: the printables overhaul, then refresh the site's print fan.
+
+**Ideas parked:** mini voice for the whole conversation; voice-light replays for families without a plan; iCloud sync; Season Pass extras.

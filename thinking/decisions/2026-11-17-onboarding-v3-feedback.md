@@ -27,3 +27,6 @@
 
 ## Approved (Haylee, 2026-11-17)
 - Onboarding v3 (6 pages, design/mockups/onboarding-v3/) is APPROVED with one change: the Season Pass says "30 new games a month" (no "Up to"), matching "10 new games a month". The same goes in the app's plan screens and on the site.
+
+## Follow-up 3 (Haylee, 2026-11-17)
+- The saved-games explanation is now: "Each new game is a fresh story and printable kit made just for your kids. Every game saves itself, so they can play it again as many times as they like, free." Use this on onboarding page 5 too, replacing "Saved games are free to play again." (Shorten for the page if it doesn't fit without scrolling, keeping "saves itself" + "play again free".)

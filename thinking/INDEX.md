@@ -183,6 +183,7 @@ The map. Read this first, then open only what you need.
 - [Later and stretch ideas](ideas/later-ideas.md): photo scan, accounts, cloud voice, B2B, pricing
 - [Save the current game to disk](ideas/save-game-to-disk.md): stretch, only if time (Haylee)
 - [Try the mini voice for her whole conversation](ideas/2026-11-17-mini-voice-full-conversation.md): low priority test, biggest cost lever (Haylee)
+- [Voice-light replays for families without a plan](ideas/2026-11-17-replay-cost-cap.md): only if cancelled-plan replay costs get out of hand (Haylee)
 
 ## Open
 - [Open questions](open-questions.md): keys/credits, relay, domain, font, shared-simulator testing, wave art leftovers
