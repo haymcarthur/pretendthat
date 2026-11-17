@@ -16,10 +16,14 @@ Updated as each step finishes. Newest at the bottom.
 
 - **Round 37 merged + pushed** (491 tests pass). Setup/clean-up rows: a role can have several short rows (max 2 items each, real 2–7 word labels, never "and more"); solo gets ~4 rows. Compliance: privacy manifest, the encryption answer, Grown-ups → Report a problem (email with only the game title and that text; nothing on kid screens), "Nutmeg is an AI helper" in About. Privacy policy additions drafted on branch `privacy-additions` in the site repo (NOT published; fill the bracketed bits). Your App Store Connect answers: decisions/2026-11-17-setup-rows-and-compliance.md.
 
+- **StoreKit subscriptions merged + pushed** (501 tests). Show Pass and Season Pass, monthly + yearly, one group; 12-month intro prices on monthly. Free Preview = 2 new shows; Show Pass 10/month; Season Pass 30/month; replays always free. Kids see "That's all the new shows for now! Ask a grown-up"; the plans/paywall are behind the gate (except onboarding page 6). Restore, Manage, Ask to Buy, refunds handled. Tested with a local StoreKit file (screens: /tmp/pt-round38/). Relay show-count code is written but off until you deploy it. The blue "C" on rows was just a test game with images turned off, not a bug. Your App Store Connect checklist: decisions/2026-11-17-storekit-subscriptions.md.
+
 ## In progress
-- Step 6: StoreKit subscriptions (real products with a local test file, show allowances, paywall, restore) + relay show-count code for you to deploy. Also checking whether the blue "C" letter on scene rows in one test (instead of the character art) is a bug.
+- Step 7: TelemetryDeck anonymous analytics (ready for your app ID).
 
 ## Needs you in the morning
+- **Yearly plans question:** the yearly plans have no intro offer, so during the first year the monthly intro price is cheaper than yearly. Add an intro offer to yearly, or hide yearly during the intro year?
+- **Kid "ask a grown-up" card** is text only; kids can't read. Want Nutmeg to say it (she'd need to be visible), or a picture?
 - **Listen to the voice A/B:** open design/voice-ab-v2/index.html (8 pairs, A/B hidden, reveal key at the bottom). Both are coral at 1.20 (server confirmed the voice; rate measured ×1.19–1.20). Note: on 3 lines the mini sounded flatter/lower in pitch. If it passes, I flip the mini on.
 - **Redeploy the relay** (it now allows Sonnet 5.5 and the mini voice): `cd relay && npx wrangler deploy`.
 - Try round 34 on the iPad: the speech model download, the new prop lines and the short greeting.
