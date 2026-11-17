@@ -182,65 +182,50 @@ extension AppModel {
     }
 }
 
-/// Round 33: Nutmeg's two onboarding lines, from her bundled recorded clips (never TTS), on a playback-only engine: no
-/// microphone input is touched, so nothing asks for the mic before the pre-permission screen. Same Varispeed shape.
+/// Round 33: Nutmeg's two onboarding lines, from her bundled recorded clips (never TTS).
+/// Round 35 prep (Haylee heard her sound different during onboarding on the iPad): the clips now play through her ONE
+/// speaker (`NutmegSpeaker.playClip`: the game's session setup, the same engine and Varispeed 1.20 graph, the re-link
+/// guards and lip sync), not a separate `.playback` engine. Before the mic is allowed the speaker starts output-only,
+/// so nothing asks for the microphone before the Mic page. This is only a thin wrapper the onboarding views watch.
 @Observable @MainActor
 final class OnboardingVoice {
-    private(set) var speaking = false
-    private(set) var level: Float = 0
-    @ObservationIgnored private var engine: AVAudioEngine?
+    @ObservationIgnored private let speaker: NutmegSpeaker
+    /// One of the onboarding's clips is what the speaker is playing.
+    private(set) var playing = false
     @ObservationIgnored private var task: Task<Void, Never>?
+
+    init(speaker: NutmegSpeaker) { self.speaker = speaker }
+
+    var speaking: Bool { playing && speaker.isSpeaking }
+    var level: Float { playing ? speaker.level : 0 }
 
     func play(_ line: String) {
         stop()
-        guard let key = ClipStore.bundledCommon[line],
-              let url = Bundle.main.url(forResource: "common-\(key)", withExtension: "aac"),
-              let samples = ClipStore.decode(url), !samples.isEmpty else {
+        guard let clip = ClipStore.bundledClip(for: line) else {
             rtLog("ONBOARDING clip missing for \"\(line.prefix(24))…\": she stays quiet (never TTS)")
             return
         }
-        do {
-            let session = AVAudioSession.sharedInstance()
-            if session.category != .playAndRecord { try session.setCategory(.playback, mode: .spokenAudio) }
-            try session.setActive(true)
-            let engine = AVAudioEngine()
-            let player = AVAudioPlayerNode()
-            let pitch = SpeakerGraph.makePitchUnit(.nutmeg)
-            engine.attach(player)
-            if let pitch { engine.attach(pitch) }
-            SpeakerGraph.wire(engine, player: player, pitchUnit: pitch)
-            engine.prepare()
-            try engine.start()
-            for b in SpeakerGraph.clipBuffers(samples) { player.scheduleBuffer(b) }
-            player.play()
-            self.engine = engine
-        } catch {
-            rtLog("ONBOARDING clip engine failed: \(error.localizedDescription)")
-            return
-        }
-        let rate = VoiceConfig.nutmeg.playbackRate
-        let step = 0.05, chunk = Int(Realtime.sampleRate * step)
-        let envelope: [Float] = stride(from: 0, to: samples.count, by: chunk).map { i in
-            let s = samples[i..<min(i + chunk, samples.count)]
-            return min(sqrt(s.reduce(0) { $0 + $1 * $1 } / Float(max(s.count, 1))) * 5, 1)
-        }
-        rtLog(String(format: "ONBOARDING clip play (%.1f s heard)", Double(samples.count) / Realtime.sampleRate / rate))
-        speaking = true
+        speaker.startForClips()
+        guard speaker.isRunning else { rtLog("ONBOARDING: speaker didn't start; she stays quiet"); return }
+        speaker.playClip(clip, echo: true)   // echo: no chat bubble (there is no conversation yet)
+        playing = true
+        rtLog(String(format: "ONBOARDING clip play through the speaker (%.1f s heard at ×%.2f)",
+                     Double(clip.samples.count) / Realtime.sampleRate / VoiceConfig.nutmeg.playbackRate, VoiceConfig.nutmeg.playbackRate))
+        #if DEBUG
+        speaker.logFormats("onboarding")
+        rtLog("ONBOARDING mic permission after play: \(AVAudioApplication.shared.recordPermission == .undetermined ? "not asked" : "\(AVAudioApplication.shared.recordPermission.rawValue)") (speaker input \(speaker.inputEnabled ? "on" : "off"))")
+        #endif
         task = Task { @MainActor [weak self] in
-            for e in envelope {
-                guard !Task.isCancelled else { return }
-                self?.level = e
-                try? await Task.sleep(for: .seconds(step / rate))
-            }
-            try? await Task.sleep(for: .milliseconds(300))
+            try? await Task.sleep(for: .milliseconds(200))
+            while let self, self.speaker.isSpeaking, !Task.isCancelled { try? await Task.sleep(for: .milliseconds(50)) }
             guard !Task.isCancelled else { return }
-            self?.stop()
+            self?.playing = false
         }
     }
 
     func stop() {
         task?.cancel(); task = nil
-        engine?.stop(); engine = nil
-        speaking = false; level = 0
+        if playing && speaker.isSpeaking { speaker.cancel() }
+        playing = false
     }
 }

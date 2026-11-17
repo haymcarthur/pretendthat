@@ -49,8 +49,8 @@ final class Listener {
 
     // MARK: No live session (the tap fallback): its own engine, the same on-device capture
 
-    func startListening(stopping voice: NutmegVoice, touchHost: Double) {
-        voice.stop()   // Nutmeg never hears herself
+    /// The caller silences her speaker first (Nutmeg never hears herself).
+    func startListening(touchHost: Double) {
         guard available, !isListening else { return }
         AudioSessionSetup.activate()
         let input = engine.inputNode

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import worker, { CLAUDE_MODELS, IMAGE_MODELS, MAX_TOKENS, MODERATION_MODEL, REALTIME_MODEL, sameToken, type Env } from "../src/index";
+import worker, { CLAUDE_MODELS, IMAGE_MODELS, MAX_TOKENS, MODERATION_MODEL, REALTIME_MODEL, REALTIME_MODELS, sameToken, type Env } from "../src/index";
 
 // Fake values only. No real keys anywhere in this repo.
 const TOKEN = "test-app-token";
@@ -117,6 +117,13 @@ describe("POST /v1/messages", () => {
     expect(sent().body.max_tokens).toBe(MAX_TOKENS);
   });
 
+  it("serves Sonnet 5.5 for the guide and the weave (round 35 prep)", async () => {
+    expect(CLAUDE_MODELS).toEqual(["claude-opus-5-5", "claude-sonnet-5-5"]);
+    const r = await worker.fetch(post("/v1/messages", { model: "claude-sonnet-5-5", max_tokens: 1000, messages: [] }), makeEnv());
+    expect(r.status).toBe(200);
+    expect(sent().body.model).toBe("claude-sonnet-5-5");
+  });
+
   it("refuses other models", async () => {
     const r = await worker.fetch(post("/v1/messages", { model: "claude-some-other-model" }), makeEnv());
     expect(r.status).toBe(400);
@@ -190,6 +197,15 @@ describe("POST /v1/realtime/client_secrets", () => {
     expect(s.body.session).toEqual({ type: "realtime", model: REALTIME_MODEL });
     expect(s.body.expires_after.anchor).toBe("created_at");
     expect(s.body.expires_after.seconds).toBeLessThanOrEqual(600);
+  });
+
+  it("mints a mini-model secret when the app asks for the scripted-lines session (round 35 prep)", async () => {
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ value: "ek_mini", expires_at: 1 }), { status: 200 }));
+    const r = await worker.fetch(post("/v1/realtime/client_secrets", { model: "gpt-realtime-2.1-mini" }), makeEnv());
+    expect(r.status).toBe(200);
+    expect(await r.json()).toEqual({ value: "ek_mini", expires_at: 1, model: "gpt-realtime-2.1-mini" });
+    expect(sent().body.session).toEqual({ type: "realtime", model: "gpt-realtime-2.1-mini" });
+    expect(REALTIME_MODELS).toEqual(["gpt-realtime-2.1", "gpt-realtime-2.1-mini"]);
   });
 
   it("accepts an empty body", async () => {

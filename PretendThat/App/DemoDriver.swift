@@ -130,6 +130,14 @@ enum DemoDriver {
         // Round D1: "-PTStayHome": stay on the start screen (the socket pre-connects) for the My games / replay turns.
         // Round D3b: "-PTRecordCommon": record the bundled common lines in her real Realtime voice, then stop.
         if args.contains("-PTRecordCommon") { await model.debugRecordCommonLines(); rtLog("DRIVER-END"); return }
+        // Round 35 prep: "-PTVoiceAB" (+ -PTMiniLines YES): the A/B v2 lines on both models through the real speaker.
+        if args.contains("-PTVoiceAB") { await model.debugVoiceAB(); rtLog("DRIVER-END"); return }
+        // Round 35 prep: "-PTOnboardingClipFirst": an onboarding clip on the speaker first (output-only with
+        // -PTClipsOutputOnly), then the game connects on the same speaker (the hand-over adds the mic input).
+        if args.contains("-PTOnboardingClipFirst") {
+            model.onboardingVoice.play(OnboardingCopy.greetKid)
+            try? await Task.sleep(for: .seconds(9))
+        }
         if args.contains("-PTStayHome") { model.preconnect() } else { await model.startConversation() }
         for raw in turns {
             // Round 15: a leading "!" sends the turn right away (a quick tap while she's still talking).

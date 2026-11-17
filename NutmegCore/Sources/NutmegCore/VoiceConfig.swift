@@ -29,15 +29,6 @@ public struct VoiceConfig: Equatable, Sendable, CustomStringConvertible {
         Realtime.sessionUpdate(voice: voice, speed: apiSpeed, instructions: instructions)
     }
 
-    /// Cost v3 (2026-11-16, DEBUG experiment `-PTMiniLines`): a second session that only speaks the app's fixed lines
-    /// (`sayExactly`) on a cheaper model. Same voice, server speed and output format as the conversation, the same voice
-    /// style (each `sayExactly` carries it too); short instructions and no tools, since it never converses.
-    public func lineSessionUpdate() -> [String: Any] {
-        var e = Realtime.sessionUpdate(voice: voice, speed: apiSpeed, instructions: Realtime.lineSessionInstructions)
-        if var s = e["session"] as? [String: Any] { s["tools"] = [Any](); s["tool_choice"] = "none"; e["session"] = s }
-        return e
-    }
-
     public var description: String {
         "voice \(voice), method \(method.rawValue), rate \(rate), cents \(cents), api speed \(apiSpeed)"
     }

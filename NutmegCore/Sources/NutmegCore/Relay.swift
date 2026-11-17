@@ -41,11 +41,12 @@ public enum RealtimeAuth: Sendable, Equatable {
 
     /// The Bearer value for one WebSocket connect. Relay mode fetches a fresh secret every time (each first connect,
     /// pre-connect, silent reconnect and voice audition), since a secret is only good for starting a session.
-    public func bearer(transport: HTTPTransport = URLSessionTransport()) async throws -> String {
+    /// Round 35 prep: `model` = the session's model (the scripted-lines session asks for a mini-model secret).
+    public func bearer(model: String = Realtime.model, transport: HTTPTransport = URLSessionTransport()) async throws -> String {
         switch self {
         case .direct(let key): return key
         case .relay(let relay):
-            let (data, http) = try await transport.send(RealtimeSecret.request(relay: relay))
+            let (data, http) = try await transport.send(RealtimeSecret.request(relay: relay, model: model))
             return try RealtimeSecret.decode(data: data, status: http.statusCode)
         }
     }
@@ -54,13 +55,13 @@ public enum RealtimeAuth: Sendable, Equatable {
 /// POST {relay}/v1/realtime/client_secrets → `{"value": "ek_…", "expires_at": …}` (the relay calls OpenAI's GA
 /// `POST /v1/realtime/client_secrets` with the app's model and returns only the secret).
 public enum RealtimeSecret {
-    public static func request(relay: RelayConfig) -> URLRequest {
+    public static func request(relay: RelayConfig, model: String = Realtime.model) -> URLRequest {
         var req = URLRequest(url: relay.url.appendingPathComponent("v1/realtime/client_secrets"))
         req.httpMethod = "POST"
         req.timeoutInterval = 15
         req.setValue("application/json", forHTTPHeaderField: "content-type")
         req.setValue(relay.token, forHTTPHeaderField: RelayConfig.tokenHeader)
-        req.httpBody = Data(#"{"model":"\#(Realtime.model)"}"#.utf8)
+        req.httpBody = Data(#"{"model":"\#(model)"}"#.utf8)
         return req
     }
 

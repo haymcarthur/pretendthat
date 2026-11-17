@@ -33,6 +33,15 @@ final class ClipStore: NutmegClipSource {
         return out
     }()
 
+    /// Round 35 prep: a bundled common line as a clip with no game loaded (the onboarding), for the speaker's one
+    /// playback path. nil when the line isn't bundled (she stays quiet; never TTS).
+    static func bundledClip(for line: String) -> NutmegClip? {
+        guard let key = bundledCommon[line],
+              let url = Bundle.main.url(forResource: "common-\(key)", withExtension: "aac"),
+              let samples = decode(url), !samples.isEmpty else { return nil }
+        return NutmegClip(key: key, text: line, samples: samples, common: true)
+    }
+
     // MARK: Modes
 
     func startFirstPlay() { mode = .firstPlay; pending = [:]; decoded = [:]; index = ClipIndex(commonKeys: Self.bundledCommon) }
