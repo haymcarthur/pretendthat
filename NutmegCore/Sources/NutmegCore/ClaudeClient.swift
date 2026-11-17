@@ -38,12 +38,13 @@ public enum ClaudeRouting {
         }
         return out
     }
-    /// The model for the current call.
+    /// The model for the current call: a DEBUG override, else round 35's Sonnet flag (guide + weave, default off),
+    /// else the configured model (Opus 5.5).
     public static func model(default base: String) -> String {
         #if DEBUG
         if let c = call, let m = overrides[c] { return m }
         #endif
-        return base
+        return flagged(call, base: base, sonnetOn: CostFlags.sonnetGuide)
     }
     /// Haiku 5.5 has no server-side refusal fallback (claude-api skill, 2026-11-03), so the fallback beta is left off.
     public static func supportsFallbacks(_ model: String) -> Bool { !model.contains("haiku") }
@@ -102,7 +103,7 @@ public final class ClaudeClient: LLM {
         self.config = config; self.transport = transport
     }
 
-    func makeRequest(system: String, user: String, schema: JSONSchema, effort: Effort) throws -> URLRequest {
+    func makeRequest(system: String, user: String, schema: JSONSchema, effort: Effort, model forced: String? = nil) throws -> URLRequest {
         let base: URL
         var req: URLRequest
         switch config.mode {
@@ -118,7 +119,7 @@ public final class ClaudeClient: LLM {
         req.timeoutInterval = 90  // live kit calls took 15–25 s; leave room for a slow day
         req.setValue("application/json", forHTTPHeaderField: "content-type")
         req.setValue(Self.apiVersion, forHTTPHeaderField: "anthropic-version")
-        let model = ClaudeRouting.model(default: config.model)
+        let model = forced ?? ClaudeRouting.model(default: config.model)
         let fallbacks = ClaudeRouting.supportsFallbacks(model)
         if fallbacks { req.setValue(Self.fallbackBeta, forHTTPHeaderField: "anthropic-beta") }
         // No temperature (400 on 2026-10-21), no thinking config (Opus 5.5 is adaptive), no prefill.
@@ -137,8 +138,16 @@ public final class ClaudeClient: LLM {
     public func structured<T: Decodable & Sendable>(_ type: T.Type, system: String, user: String, schema: JSONSchema, effort: Effort) async throws -> T {
         let req = try makeRequest(system: system, user: user, schema: schema, effort: effort)
         AICallLog.record(.claude)   // round D1: counted (numbers only) so a replay can be shown to make no content calls
-        let data: Data, http: HTTPURLResponse
+        var data: Data, http: HTTPURLResponse
         do { (data, http) = try await transport.send(req) } catch let e as ClaudeError { throw e } catch { throw ClaudeError.transport }
+        // Round 35 prep: a flagged model the relay doesn't allow yet (400 model_not_allowed before Haylee redeploys)
+        // falls back to the configured model once, so turning the flag on can never break a game.
+        let routed = ClaudeRouting.model(default: config.model)
+        if http.statusCode == 400, routed != config.model {
+            NSLog("[CLAUDE] %@ refused (400): retrying on %@", routed, config.model)
+            let retry = try makeRequest(system: system, user: user, schema: schema, effort: effort, model: config.model)
+            do { (data, http) = try await transport.send(retry) } catch let e as ClaudeError { throw e } catch { throw ClaudeError.transport }
+        }
         guard (200..<300).contains(http.statusCode) else { throw ClaudeError.http(http.statusCode) }
         guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw ClaudeError.decoding("response not JSON") }
         switch obj["stop_reason"] as? String {

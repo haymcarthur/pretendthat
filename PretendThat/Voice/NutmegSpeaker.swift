@@ -39,8 +39,11 @@ final class NutmegSpeaker {
     var hasAudioQueued: Bool { isSpeaking || !mouthQueue.isEmpty }
     /// The engine is running (audio arriving without it is dropped).
     var isRunning: Bool { engine != nil }
-    /// The input node of the shared engine (DEBUG log only).
-    var inputNode: AVAudioInputNode? { engine?.inputNode }
+    /// The input node of the shared engine (DEBUG log only). nil on an output-only engine (never created there).
+    var inputNode: AVAudioInputNode? { inputEnabled ? engine?.inputNode : nil }
+    /// Round 35 prep: the engine was started WITH the mic's input node. The output-only start (onboarding clips before
+    /// the Mic page) never touches `inputNode`, so iOS never asks for the microphone there.
+    private(set) var inputEnabled = false
 
     /// She started speaking (the first buffer of a line).
     @ObservationIgnored var onStartedSpeaking: (@MainActor () -> Void)?
@@ -107,43 +110,64 @@ final class NutmegSpeaker {
     }
 
     /// Round D3b: the engine for clips with no live session (a replay starting or offline). Same output chain.
+    /// Round 35 prep: also the onboarding's clips (one playback path for every Nutmeg sound). Until the microphone is
+    /// allowed the engine starts OUTPUT-ONLY (same session, same graph, never touches the input node, so nothing asks
+    /// for the mic before the Mic page); the live session's `start` adds the input later.
     func startForClips() {
         guard engine == nil else { ensureRunning(); return }
-        do { try start(echoCancel: false) { _ in } ; rtLog("speaker: engine started for clips") }
+        var withInput = AVAudioApplication.shared.recordPermission == .granted
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-PTClipsOutputOnly") { withInput = false }   // test the hand-over
+        #endif
+        do { try start(echoCancel: false, withInput: withInput) { _ in } ; rtLog("speaker: engine started for clips\(withInput ? "" : " (output only)")") }
         catch { rtLog("speaker: clip engine failed: \(error.localizedDescription)") }
     }
 
     /// Starts the audio session and the engine. `installInput` is the mic's tap on the shared engine's input node.
-    func start(echoCancel: Bool, installInput: (AVAudioInputNode) -> Void) throws {
+    /// `withInput: false` (clips before the mic is allowed): the same session and output chain, no input node.
+    func start(echoCancel: Bool, withInput: Bool = true, installInput: (AVAudioInputNode) -> Void) throws {
         if let engine {
             // Round D3b: the engine is already running (clips on a replay): the session only adds its mic tap, so a
             // clip playing while the voice connects isn't cut.
-            engine.inputNode.removeTap(onBus: 0)
-            installInput(engine.inputNode)
-            ensureRunning()
-            return
+            if inputEnabled {
+                engine.inputNode.removeTap(onBus: 0)
+                installInput(engine.inputNode)
+                ensureRunning()
+                return
+            }
+            guard withInput else { ensureRunning(); return }
+            // Round 35 prep: an output-only engine (onboarding) gets the input by starting over with it (same session).
+            let hold = holdEngine
+            shutdown()
+            holdEngine = hold
+            rtLog("speaker: output-only engine restarted with the mic input")
         }
+        // Round 35 prep: the ONE session setup (playAndRecord / default / speaker + A2DP, 48 kHz preferred before
+        // activating, so the input starting doesn't renegotiate the hardware rate).
+        try NutmegAudioSession.nutmeg.apply()
         let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothA2DP])
-        // Voice rate: ask for 48 kHz before activating, so the input starting doesn't renegotiate the hardware rate.
-        try? session.setPreferredSampleRate(48_000)
-        try session.setActive(true)
 
         let engine = AVAudioEngine()
-        let input = engine.inputNode
-        // Echo cancellation is off (round 20: fixed default): voice processing also degrades the output path. The mic gate
-        // keeps Nutmeg from hearing herself either way.
-        if echoCancel { try? input.setVoiceProcessingEnabled(true) }
         player = AVAudioPlayerNode()
         pitchUnit = makePitchUnit()
         engine.attach(player)
         if let pitchUnit { engine.attach(pitchUnit) }
-        wireOutput(engine)
+        if withInput {
+            let input = engine.inputNode   // withInput: the mic's node (an output-only start never creates it)
+            // Echo cancellation is off (round 20: fixed default): voice processing also degrades the output path. The
+            // mic gate keeps Nutmeg from hearing herself either way.
+            if echoCancel { try? input.setVoiceProcessingEnabled(true) }
+            wireOutput(engine)
+            installInput(input)
+        } else {
+            wireOutput(engine)
+        }
+        inputEnabled = withInput
         engine.mainMixerNode.outputVolume = 1   // unity gain: PCM16 → float is already within ±1, no clipping
-        installInput(input)
         #if DEBUG
-        rtLog("AUDIOFMT session \(session.sampleRate) Hz; output hw \(engine.outputNode.outputFormat(forBus: 0).sampleRate), output in \(engine.outputNode.inputFormat(forBus: 0).sampleRate), mixer out \(engine.mainMixerNode.outputFormat(forBus: 0).sampleRate), input hw \(input.inputFormat(forBus: 0).sampleRate) / \(input.outputFormat(forBus: 0).sampleRate)")
+        rtLog("AUDIOFMT session \(session.category.rawValue)/\(session.mode.rawValue) \(session.sampleRate) Hz (shared setup: \(NutmegAudioSession.nutmeg.isCurrent)); output hw \(engine.outputNode.outputFormat(forBus: 0).sampleRate), output in \(engine.outputNode.inputFormat(forBus: 0).sampleRate), mixer out \(engine.mainMixerNode.outputFormat(forBus: 0).sampleRate), input \(withInput ? "on" : "off (output only)")")
         Self.installOutputTaps(engine, player: player, playFormat: playFormat)
+        ABCapture.shared.install(engine, player: player, playFormat: playFormat)
         #endif
         engine.prepare()
         try engine.start()
@@ -184,7 +208,10 @@ final class NutmegSpeaker {
     /// Stops the engine (and the mic tap on it) and silences her. Round D3b: while the app holds the engine (a replay),
     /// the session's stop only releases the mic tap; `shutdown()` stops it for good.
     func stop() {
-        if holdEngine, let engine { engine.inputNode.removeTap(onBus: 0); return }
+        if holdEngine, let engine {
+            if inputEnabled { engine.inputNode.removeTap(onBus: 0) }
+            return
+        }
         shutdown()
     }
 
@@ -195,11 +222,12 @@ final class NutmegSpeaker {
         if let routeObserver { NotificationCenter.default.removeObserver(routeObserver) }
         routeObserver = nil
         if let engine {
-            engine.inputNode.removeTap(onBus: 0)
+            if inputEnabled { engine.inputNode.removeTap(onBus: 0) }
             player.stop()
             engine.stop()
         }
         engine = nil
+        inputEnabled = false
         silence()
     }
 
@@ -210,10 +238,11 @@ final class NutmegSpeaker {
         guard let engine else { return }
         let s = AVAudioSession.sharedInstance()
         let hw = engine.outputNode.outputFormat(forBus: 0).sampleRate, link = engine.outputNode.inputFormat(forBus: 0).sampleRate
-        rtLog(String(format: "VOICEFMT %@: session %.0f, output hw %.0f, mixer→output link %.0f, mixer out %.0f, input %.0f, vp %@ → heard ×%.3f",
-                     moment, s.sampleRate, hw, link, engine.mainMixerNode.outputFormat(forBus: 0).sampleRate,
-                     engine.inputNode.outputFormat(forBus: 0).sampleRate, engine.inputNode.isVoiceProcessingEnabled ? "on" : "off",
-                     shape.rate * (hw > 0 ? link / hw : 1)))
+        let inputRate = inputEnabled ? engine.inputNode.outputFormat(forBus: 0).sampleRate : 0
+        let vp = inputEnabled && engine.inputNode.isVoiceProcessingEnabled
+        rtLog(String(format: "VOICEFMT %@: session %@/%@ %.0f, output hw %.0f, mixer→output link %.0f, mixer out %.0f, input %.0f, vp %@ → heard ×%.3f",
+                     moment, s.category.rawValue, s.mode.rawValue, s.sampleRate, hw, link, engine.mainMixerNode.outputFormat(forBus: 0).sampleRate,
+                     inputRate, vp ? "on" : "off", shape.rate * (hw > 0 ? link / hw : 1)))
     }
 
     /// Round 25 (voice check): `-PTTapOut` writes what goes INTO the pitch unit (tmp/voice-in.caf, 24 kHz) and what the

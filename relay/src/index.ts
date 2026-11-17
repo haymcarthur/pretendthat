@@ -17,10 +17,14 @@ export interface Env {
 }
 
 /** Models the app uses (NutmegCore ClaudeClient / ImageClient / RealtimeProtocol). Anything else is refused. */
-export const CLAUDE_MODELS = ["claude-opus-5-5"];
+/** Round 35 prep: claude-sonnet-5-5 for the play guide and the per-prop weave (app flag PTSonnetGuide, off by default). */
+export const CLAUDE_MODELS = ["claude-opus-5-5", "claude-sonnet-5-5"];
 export const MAX_TOKENS = 16000;
 export const IMAGE_MODELS = ["gpt-image-2.6-flare", "gpt-image-2.5-flare", "gpt-image-2"];
 export const REALTIME_MODEL = "gpt-realtime-2.1";
+/** Round 35 prep: the mini model for the scripted-lines session (app flag PTMiniLines, off by default). The app names
+ *  the model in the body; anything not listed here gets REALTIME_MODEL. */
+export const REALTIME_MODELS = [REALTIME_MODEL, "gpt-realtime-2.1-mini"];
 /** An ephemeral secret only has to start a session (the app connects right after fetching it). */
 export const REALTIME_SECRET_SECONDS = 120;
 /** Round 19: kid-safety checks. The model is forced; inputs are short text only (no images). */
@@ -127,22 +131,35 @@ async function moderations(req: Request, env: Env): Promise<Response> {
   }));
 }
 
-/** Mints a short-lived Realtime client secret for the app's model. The app's body is ignored: the model is fixed
- *  here, and the app configures voice and instructions itself with session.update once connected. */
-async function realtimeSecret(env: Env): Promise<Response> {
+/** The session model the app asked for, if it's one of REALTIME_MODELS; otherwise REALTIME_MODEL. Only `model` is
+ *  read from the body (an empty or bad body is fine). */
+export async function realtimeModel(req: Request): Promise<string> {
+  try {
+    const text = await req.text();
+    if (text.length > 1024) return REALTIME_MODEL;
+    const body = JSON.parse(text);
+    if (body && typeof body.model === "string" && REALTIME_MODELS.includes(body.model)) return body.model;
+  } catch {}
+  return REALTIME_MODEL;
+}
+
+/** Mints a short-lived Realtime client secret for one of the app's models. The app configures voice and instructions
+ *  itself with session.update once connected. */
+async function realtimeSecret(req: Request, env: Env): Promise<Response> {
+  const model = await realtimeModel(req);
   const upstream = await fetch(OPENAI_CLIENT_SECRETS_URL, {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${env.OPENAI_API_KEY}` },
     body: JSON.stringify({
       expires_after: { anchor: "created_at", seconds: REALTIME_SECRET_SECONDS },
-      session: { type: "realtime", model: REALTIME_MODEL },
+      session: { type: "realtime", model },
     }),
   });
   if (!upstream.ok) return passThrough(upstream);
   const data = (await upstream.json().catch(() => null)) as { value?: unknown; expires_at?: unknown } | null;
   if (!data || typeof data.value !== "string") return error(502, "bad_upstream", "OpenAI returned no client secret.");
   // Only the secret and its expiry go back to the app, never the session echo.
-  return json(200, { value: data.value, expires_at: data.expires_at ?? null, model: REALTIME_MODEL });
+  return json(200, { value: data.value, expires_at: data.expires_at ?? null, model });
 }
 
 type Route = { handler: (req: Request, env: Env) => Promise<Response>; limiter: keyof Pick<Env, "CLAUDE_LIMIT" | "IMAGE_LIMIT" | "REALTIME_LIMIT" | "MODERATION_LIMIT"> };
@@ -150,7 +167,7 @@ type Route = { handler: (req: Request, env: Env) => Promise<Response>; limiter: 
 const ROUTES: Record<string, Route> = {
   "/v1/messages": { handler: claude, limiter: "CLAUDE_LIMIT" },
   "/v1/images/generations": { handler: images, limiter: "IMAGE_LIMIT" },
-  "/v1/realtime/client_secrets": { handler: (_req, env) => realtimeSecret(env), limiter: "REALTIME_LIMIT" },
+  "/v1/realtime/client_secrets": { handler: realtimeSecret, limiter: "REALTIME_LIMIT" },
   "/v1/moderations": { handler: moderations, limiter: "MODERATION_LIMIT" },
 };
 

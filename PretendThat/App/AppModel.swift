@@ -9,7 +9,6 @@ import Speech
 @Observable @MainActor
 final class AppModel {
     let store: AdventureStore
-    let voice = NutmegVoice()
     let listener = Listener()
     /// Round 34: Apple's on-device English speech model, downloaded in the app on iPadOS 26+.
     let speechModel = SpeechModelInstaller()
@@ -54,7 +53,7 @@ final class AppModel {
     /// The writing moment's quiet scribble loop (round 5).
     @ObservationIgnored let scribble = ScribbleSound()
     /// Realtime auth: a personal OPENAI_API_KEY (dev mode) or the shared relay's ephemeral secrets.
-    @ObservationIgnored private let realtimeAuth: RealtimeAuth?
+    @ObservationIgnored let realtimeAuth: RealtimeAuth?
     /// Only the IDs of last session's suggested games/themes (UserDefaults), so the next session differs. Nothing about kids.
     @ObservationIgnored private let suggestionMemory = SuggestionMemory()
     /// Round D1: saved games, on this iPad only (Application Support/SavedGames; iCloud is round D4).
@@ -82,8 +81,8 @@ final class AppModel {
     var showingPlans = false
     /// The current plan (StoreKit entitlements; none until products exist).
     var planStatus: PlanStatus = .none
-    /// Nutmeg's two onboarding lines (bundled clips on a playback-only engine).
-    let onboardingVoice = OnboardingVoice()
+    /// Nutmeg's two onboarding lines (bundled clips through her one speaker; round 35 prep).
+    let onboardingVoice: OnboardingVoice
     /// The saved game being replayed (its art, for Paper).
     @ObservationIgnored var replayGame: SavedGame?
     /// The replay's voice session is connecting: its lines wait for it (never the device voice).
@@ -115,6 +114,7 @@ final class AppModel {
         realtime = RealtimeSession(speaker: speaker)
         clipStore = ClipStore(games: savedGames)
         speaker.clips = clipStore
+        onboardingVoice = OnboardingVoice(speaker: speaker)
         let config = ClaudeConfig.from(info: info)
         // Round 19: kid text and generated text are checked locally and with OpenAI moderation (fails safe to local).
         let moderation = ModerationClient.from(info: info)
@@ -350,7 +350,6 @@ final class AppModel {
         guard action.stopsSpeech else { return }
         repeatTask?.cancel(); repeatTask = nil
         deferredLine = nil
-        voice.stop()
         realtime.stopSpeaking(action.rawValue)
     }
 
@@ -464,7 +463,6 @@ final class AppModel {
         kitReadySaid = false; deferredLine = nil; doze.wake(); dozeStage = .awake; wokePop = false; endKitBackgroundTask()
         huntStartedAt = nil; printReachedAt = nil
         shownProps = 0; beat = .none; kitBeatTask?.cancel(); kitBeat = .coloring; papersShown = false; kitWriting = false; kitWritingTask?.cancel(); kitWritingTask = nil
-        voice.stop()
         resetArt()
         stickers.reset()
         gate.reset(); safeSnap = nil; screenedTurns = [:]
@@ -528,7 +526,7 @@ final class AppModel {
         // Round 19: home (the start screen) is always silent.
         if store.phase == .hello {
             if realtime.status != .idle { realtime.disconnect() }
-            voice.stop(); repeatTask?.cancel(); deferredLine = nil
+            repeatTask?.cancel(); deferredLine = nil
         }
         // Round 7 (Haylee): the mic only looks disabled while connecting. Kit making: pressable, "Almost ready!" at most.
         realtime.micWanted = true
@@ -737,7 +735,7 @@ final class AppModel {
             // Round D3b: Repeat replays the clip (her recorded voice), or says it live; never the device voice on a replay.
             if realtime.isLive || clipStore.has(line) { speaker.say(line, echo: true, replay: store.isReplay) }
             else if store.isReplay { owe(line) }
-            else if !(hasRealtime && gameVoice != nil && Self.wasLive(store.phase)) { Task { await voice.say(line) } }
+            else { rtLog("repeat: no clip and no live voice: she stays quiet (never the system voice)") }
         }
     }
     @ObservationIgnored private var kitWait: Task<Void, Never>?
@@ -1014,7 +1012,6 @@ final class AppModel {
         if listener.isListening { return .listening }
         // Kit: she colors until every page is final (the papers wait for it, no-text-overlays.md).
         if store.isWorking { return .thinking }
-        if voice.isSpeaking { return .talking }
         if store.lastError != nil { return .oops }
         switch store.phase {
         case .makingKit: return .thinking
@@ -1222,8 +1219,8 @@ final class AppModel {
         }
     }
 
-    /// Nutmeg's voice for app-written lines. With a live Realtime session she keeps her conversation voice;
-    /// during planning she speaks for herself, so app lines are skipped there.
+    /// Nutmeg's voice for app-written lines: her recorded clip, else her live Realtime voice, else nothing (round 35
+    /// prep: never the system voice). During planning she speaks for herself, so app lines are skipped there.
     func speak(_ text: String, deferIfAway: Bool = false) {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         speaker.remember(text)   // whitespace-only lines aren't remembered
@@ -1263,8 +1260,9 @@ final class AppModel {
             Task { await reconnectSilently() }
             return
         }
-        rtLog("AVSpeech fallback (no Realtime session): \(text.prefix(40))")
-        Task { await voice.say(text) }
+        // Round 35 prep (Haylee): never the system voice. No clip and no live voice: she says nothing (the line stays
+        // in her memory for Repeat once the voice is back).
+        rtLog("no clip and no live voice: she stays quiet (never TTS): \(text.prefix(40))")
     }
 
     // MARK: Sleepy Nutmeg (round 9, Haylee)
@@ -1337,7 +1335,6 @@ final class AppModel {
         case .background:
             rtLog("scene: background (phase \(store.phase), step \(store.planningStep))")
             realtime.suspend()
-            voice.stop()
             scribble.setPlaying(false, ducked: false)
             if listener.isListening { Task { _ = await listener.stopListening() } }   // round 31: words dropped, not sent
             // In-flight kit requests (Claude kit, page art) get time to finish; failures are retried on return.
@@ -1823,10 +1820,10 @@ final class AppModel {
 
     /// Round D3b: her speaker plays (live audio, or a clip with no session): its lip sync and speaking state.
     private var speakerVoice: Bool { realtime.isLive || speaker.isRunning }
-    var mouthLevel: Float { speakerVoice ? speaker.level : voice.level }
+    var mouthLevel: Float { speaker.level }
     /// The live voice's lip-synced mouth (nil: fall back to the amplitude mouth from `mouthLevel`).
     var mouthShape: NutmegMouth? { speakerVoice ? NutmegMouth(rawValue: speaker.mouth.rawValue) : nil }
-    var isSpeaking: Bool { speakerVoice ? speaker.isSpeaking : voice.isSpeaking }
+    var isSpeaking: Bool { speaker.isSpeaking }
 
     // MARK: Push-to-talk (decisions/2026-11-13-push-to-talk.md)
 
@@ -1879,7 +1876,10 @@ final class AppModel {
         speechHelp = listener.readiness
     }
 
-    func micPressed(touchHost: Double = CACurrentMediaTime()) { listener.startListening(stopping: voice, touchHost: touchHost) }
+    func micPressed(touchHost: Double = CACurrentMediaTime()) {
+        if speaker.isSpeaking { speaker.cancel() }   // Nutmeg never hears herself
+        listener.startListening(touchHost: touchHost)
+    }
 
     func micReleased() {
         Task {

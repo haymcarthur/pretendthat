@@ -305,7 +305,7 @@ final class RealtimeSession {
             // Relay mode: a fresh ephemeral secret for every connect (first, silent reconnect).
             guard let bearer = try? await auth.bearer() else { return fail("Couldn't get a voice session from the relay") }
             socket = Self.openSocket(bearer: bearer)
-            socket.send(config.sessionUpdate(instructions: instructions))
+            socket.send(VoiceSessionPlan.conversation(config, instructions: instructions).sessionUpdate)
             ready = await Self.waitReady(socket)
         }
         self.socket = socket
@@ -323,9 +323,7 @@ final class RealtimeSession {
             for await text in socket.messages { await self?.receive(text) }
             await self?.socketClosed()
         }
-        #if DEBUG
-        await openLineSocket(auth: auth, config: config)
-        #endif
+        await openLineSocket(auth: auth, config: config, instructions: instructions)   // round 35 prep: flag, default off
         updateGate()
         return true
     }
@@ -351,7 +349,7 @@ final class RealtimeSession {
                 self?.preparing = nil; rtLog("pre-connect: no voice session from the relay"); return
             }
             let socket = Self.openSocket(bearer: bearer)
-            socket.send(config.sessionUpdate(instructions: instructions))
+            socket.send(VoiceSessionPlan.conversation(config, instructions: instructions).sessionUpdate)
             let ok = await Self.waitReady(socket)
             guard let self else { socket.close(); return }
             self.preparing = nil
@@ -382,9 +380,7 @@ final class RealtimeSession {
     func disconnect() {
         receiveTask?.cancel(); receiveTask = nil
         socket?.close(); socket = nil
-        #if DEBUG
         lineTask?.cancel(); lineTask = nil; lineSocket?.close(); lineSocket = nil
-        #endif
         stopAudio()
         suspended = false; socketDropped = false; reminderAwaitingEnd = false; reminderDoneAt = nil
         pendingOutputs = []; gate = ResponseGate()   // (the speaker was cleared by stopAudio)
@@ -561,9 +557,7 @@ final class RealtimeSession {
     private func interrupt(sendCancel: Bool = true) {
         if sendCancel && responseActive {
             socket?.send(Realtime.responseCancel); rtLog("ptt: response.cancel")
-            #if DEBUG
             lineSocket?.send(Realtime.responseCancel)
-            #endif
         }
         if let id = audioItemID, let start = audioItemStart {
             let ms = speaker.heardMs(itemStart: start)
@@ -742,35 +736,42 @@ final class RealtimeSession {
     @ObservationIgnored private var createdSeen = 0
     @ObservationIgnored private var stopAt = Date.distantPast
 
-    #if DEBUG
-    // MARK: Cost v3 experiment: the app's fixed lines on a cheaper model (`-PTMiniLines [model]`, personal keys only)
+    // MARK: Scripted lines on the mini model (cost v3; round 35 prep: behind `CostFlags.miniLines`, default OFF)
+    // Both sockets are configured from ONE `VoiceSessionPlan` (the same VoiceConfig and instructions: identical
+    // session.update, only the model differs) and both play through the one `NutmegSpeaker` (Varispeed 1.20).
     @ObservationIgnored private var lineSocket: RealtimeSocket?
     @ObservationIgnored private var lineTask: Task<Void, Never>?
     /// Counts of the fixed-lines session (numbers only).
     @ObservationIgnored private(set) var lineUsageTotals = RealtimeUsageTotals()
+    /// The scripted-lines session is up (lines go to the mini model).
+    var linesOnMini: Bool { lineSocket != nil && lineSocket?.firstError == nil }
+    #if DEBUG
+    /// A/B v2 driver (`-PTVoiceAB`): send the next app lines to the conversation session even with the mini one up.
+    @ObservationIgnored var debugLinesOnMain = false
+    #endif
 
-    private func openLineSocket(auth: RealtimeAuth, config: VoiceConfig) async {
-        guard let model = Realtime.lineModel else { return }
+    private func openLineSocket(auth: RealtimeAuth, config: VoiceConfig, instructions: String) async {
+        guard let plan = VoiceSessionPlan.lines(config, instructions: instructions) else { return }
         lineTask?.cancel(); lineSocket?.close(); lineSocket = nil
-        guard let bearer = try? await auth.bearer() else { rtLog("lines: no bearer"); return }
-        var req = URLRequest(url: Realtime.url(model: model))
+        guard let bearer = try? await auth.bearer(model: plan.model) else { rtLog("lines: no bearer for \(plan.model)"); return }
+        var req = URLRequest(url: plan.url)
         req.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
         let s = RealtimeSocket(request: req)
-        s.send(config.lineSessionUpdate())
-        guard await Self.waitReady(s) else { rtLog("lines: \(model) not ready (\(s.firstError ?? "-")), app lines stay on the main session"); s.close(); return }
+        s.send(plan.sessionUpdate)
+        guard await Self.waitReady(s) else { rtLog("lines: \(plan.model) not ready (\(s.firstError ?? "-")), app lines stay on the main session"); s.close(); return }
         lineSocket = s
-        rtLog("lines: fixed app lines go to \(model) (separate session)")
+        rtLog("lines: fixed app lines go to \(plan.model) (separate session, same voice config: \(plan.config))")
         lineTask = Task { [weak self] in
             for await text in s.messages { await self?.receive(text, line: true) }
         }
     }
-    #endif
 
-    /// Where a fixed app line (`sayExactly`) is sent: the main session, or (DEBUG experiment) the fixed-lines session.
+    /// Where a fixed app line (`sayExactly`) is sent: the main session, or (mini flag on) the fixed-lines session.
     private func lineTarget(_ main: RealtimeSocket) -> RealtimeSocket {
         #if DEBUG
-        if let lineSocket, lineSocket.firstError == nil { return lineSocket }
+        if debugLinesOnMain { return main }
         #endif
+        if let lineSocket, lineSocket.firstError == nil { return lineSocket }
         return main
     }
 
@@ -780,7 +781,6 @@ final class RealtimeSession {
     private func receive(_ text: String, line: Bool = false) async {
         let id = Realtime.responseID(text)
         let event = Realtime.parse(text)
-        #if DEBUG
         if line {
             // Cost v3: the fixed-lines session's counts are kept apart; its responses never count toward the main
             // socket's response.create bookkeeping (createdSeen / cancelThrough).
@@ -792,7 +792,6 @@ final class RealtimeSession {
             if case .sessionReady = event { return }
             if case .error(let m) = event { rtLog("lines session error (ignored): \(m)"); return }
         }
-        #endif
         if !line, event == .responseDone, let m = greetingMeasure, m.bytes > 0 {
             greetingMeasure = nil
             let live = Double(m.bytes) / 2 / Realtime.sampleRate, rate = Realtime.defaultVarispeedRate
@@ -852,9 +851,7 @@ final class RealtimeSession {
         recorder.cancel(ids)   // round D3b: a cut line is never saved
         for id in ids {
             socket.send(Realtime.responseCancel(id: id))
-            #if DEBUG
             lineSocket?.send(Realtime.responseCancel(id: id))
-            #endif
         }
         cancelThrough = socket.createsSent
         stopAt = Date()
@@ -1151,7 +1148,10 @@ final class RealtimeSocket: @unchecked Sendable {
                 }
                 if let text {
                     let event = Realtime.parse(text)
-                    if event == .sessionReady { self.resolveReady(true) }
+                    if event == .sessionReady {
+                        self.resolveReady(true)
+                        rtLog("SESSION ready: \(Realtime.sessionEcho(text))")   // round 35 prep: model + voice the server confirmed
+                    }
                     if case .error(let m) = event, !self.isReady { self.noteError(m) }
                     self.continuation.yield(text)
                 }
