@@ -1,6 +1,6 @@
 # Code Camp team profile: libraries and services (keep current)
 
-Last updated 2026-11-17. Paste into the team profile.
+Last updated 2026-11-17. **No longer needed:** Code Camp is finished (Haylee). Kept only as a list of what the app uses.
 
 **App (iPad + iPhone, Swift/SwiftUI)**
 - SwiftUI, AVFoundation / AVAudioEngine, Speech (on-device recognition), StoreKit 2 + StoreKitTest: Apple

@@ -154,7 +154,7 @@ The map. Read this first, then open only what you need.
 - [Yearly intro: $99.99 / $199.99 first year; Sonnet 5.5 becomes the default play guide + weave](decisions/2026-11-17-yearly-intro-sonnet.md): Haylee
 - [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–32 (31: on-device speech + instant mic; 32: Grown-ups menu) + C1 + D1 + D2 + D3a + D3b done (round 27's mockups separate); next: D4 iCloud
 
-- [Team profile: libraries and services list](team-profile-libraries.md): paste into the Code Camp team profile; keep current
+- [Libraries and services list](team-profile-libraries.md): what the app uses (Code Camp is finished; no team-profile task)
 
 ## Research
 - [Cost per game (2026-11-15)](research/2026-11-15-cost-per-game.md): about $1.60/game, OpenAI voice is the biggest share; levers ranked

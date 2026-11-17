@@ -57,7 +57,6 @@
 - **Privacy policy facts:** legal business name + mailing address; how long support emails/reports are kept; keep or drop "iCloud syncing later"; a legal (COPPA) look before launch.
 - **App Store Connect setup:** agreements/bank/tax, 4 subscriptions + intro offers, App Privacy label, age rating, review notes, sandbox tester (decisions/2026-11-17-storekit-subscriptions.md, 2026-11-17-setup-rows-and-compliance.md).
 - **Plan sizes:** re-measure the cost per game after rounds 43–45 (mini voice + Sonnet + printables), then confirm 10 / 30 a month. At ~$1.10 a game, 30 a month loses money; after the cuts it may not.
-- **Team profile:** paste thinking/team-profile-libraries.md into the Code Camp profile.
 
 **Still to build (app):**
 - Round 43, building: prop audit fixes, hard no-repeat rule, prop shortlist for variety.

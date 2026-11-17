@@ -2,7 +2,7 @@
 
 **What it is:** an iPad app (Swift/SwiftUI) for kids ages 4–8. A voice-first stage-manager mouse mascot named **Nutmeg** (a girl, she/her) takes kids from "I'm bored" through roles, household props, an AI-generated printable kit, and a scene-by-scene play guide, then steps back so play happens off the screen. App name: **PretendThat**.
 
-**Competition:** Southern Utah Code Camp 2026, solo (Haylee). **Code freeze: Sat Nov 14, 7:59:59 AM.** Judged equally (20% each) on Technical Expertise, Completeness, Aesthetics, Commercial Viability, and Novelty/Innovation. All libraries and services must be listed on the team profile.
+**Competition:** Southern Utah Code Camp 2026, solo (Haylee). **Code freeze: Sat Nov 14, 7:59:59 AM.** Code Camp is finished (Haylee, 2026-11-17): no more team-profile or competition tasks.
 
 **Key docs:** [design spec](docs/superpowers/specs/2026-11-13-pretendthat-design.md) · [build plan](docs/superpowers/plans/2026-11-13-pretendthat-plan.md) · [thinking index](thinking/INDEX.md)
 
