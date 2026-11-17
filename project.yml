@@ -8,8 +8,8 @@ configs:
   Debug: debug
   Release: release
 configFiles:
-  Debug: Relay.xcconfig
-  Release: Relay.xcconfig
+  Debug: Debug.xcconfig
+  Release: Release.xcconfig
 packages:
   NutmegCore:
     path: NutmegCore
@@ -32,6 +32,13 @@ targets:
         SWIFT_STRICT_CONCURRENCY: complete
         CODE_SIGN_STYLE: Automatic
         GENERATE_INFOPLIST_FILE: NO
+    postBuildScripts:
+      - name: Release key check
+        script: '"${SRCROOT}/tools/check-release-keys.sh"'
+        inputFiles:
+          - $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
+          - $(SRCROOT)/tools/check-release-keys.sh
+        basedOnDependencyAnalysis: false
 schemes:
   PretendThat:
     build:

@@ -10,6 +10,5 @@
 RELAY_HOST = pretendthat-relay.pretendthat.workers.dev
 RELAY_TOKEN = BT9jhDKOezuNUTP4695NTKfV02yHOht1
 
-// Optional, git-ignored personal keys (dev mode). Anything set there overrides the lines above, and personal keys
-// win over the relay. A fresh clone builds without it.
-#include? "Secrets.xcconfig"
+// This file holds ONLY the relay. Debug.xcconfig adds the optional personal keys (git-ignored Secrets.xcconfig);
+// Release.xcconfig never does, so personal keys can't ship in a release build.

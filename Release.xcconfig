@@ -1,0 +1,7 @@
+// Release builds (TestFlight / App Store): the shared relay ONLY. Never include Secrets.xcconfig here:
+// personal OpenAI/Anthropic keys would ship inside the app and bypass the relay.
+// The "Release key check" build phase (tools/check-release-keys.sh) fails the build if either key ends up
+// non-empty in the built Info.plist.
+#include "Relay.xcconfig"
+ANTHROPIC_API_KEY =
+OPENAI_API_KEY =
