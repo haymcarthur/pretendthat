@@ -18,12 +18,17 @@ Updated as each step finishes. Newest at the bottom.
 
 - **StoreKit subscriptions merged + pushed** (501 tests). Show Pass and Season Pass, monthly + yearly, one group; 12-month intro prices on monthly. Free Preview = 2 new shows; Show Pass 10/month; Season Pass 30/month; replays always free. Kids see "That's all the new shows for now! Ask a grown-up"; the plans/paywall are behind the gate (except onboarding page 6). Restore, Manage, Ask to Buy, refunds handled. Tested with a local StoreKit file (screens: /tmp/pt-round38/). Relay show-count code is written but off until you deploy it. The blue "C" on rows was just a test game with images turned off, not a bug. Your App Store Connect checklist: decisions/2026-11-17-storekit-subscriptions.md.
 
-## In progress
-- Step 7: TelemetryDeck anonymous analytics (ready for your app ID).
+- **Analytics merged + pushed** (510 tests). TelemetryDeck 2.14.2; 17 fixed events with fixed-word parameters only (game title becomes 1 of 8 categories on the iPad, never sent); random per-install ID, deleted when sharing is turned off. My call: "Share anonymous usage counts" is OFF until a grown-up turns it on (COPPA), on onboarding's privacy page and in Grown-ups. Event list: decisions/2026-11-17-analytics-build.md.
+
+- **iPhone version merged + pushed** (all core tests pass; installed on your iPad and simulator). One universal app, iPhone portrait only. On the phone Nutmeg stands on top with cards below, grows to fill the stage when nothing is below her, and holds her clipboard instead of pointing. Text says "this iPhone" on a phone. My call: the chat sheet covers her, so her small talking head sits in its header (she's always visible when she speaks). Fixed a phone-only freeze on the start screen's closed curtains. Checked: 37 screens on two phones (iPhone 17e + a large one), a full real game and a replay on both, onboarding + StoreKit UI tests; the iPad's 37 screens are unchanged apart from Nutmeg's breathing. Known: a setup/clean-up scene with 5+ rows scrolls on the small 17e. Screens: /tmp/pt-iphone/contact-sheet.jpg. Details: decisions/2026-11-17-iphone-build.md.
+
+## All 8 overnight steps are done.
 
 ## Needs you in the morning
+- **TelemetryDeck:** make a free account, create an app, paste its app ID into `Analytics.xcconfig` (`TELEMETRYDECK_APP_ID`). Also add TelemetryDeck to the Code Camp team profile's library list.
 - **Yearly plans question:** the yearly plans have no intro offer, so during the first year the monthly intro price is cheaper than yearly. Add an intro offer to yearly, or hide yearly during the intro year?
 - **Kid "ask a grown-up" card** is text only; kids can't read. Want Nutmeg to say it (she'd need to be visible), or a picture?
 - **Listen to the voice A/B:** open design/voice-ab-v2/index.html (8 pairs, A/B hidden, reveal key at the bottom). Both are coral at 1.20 (server confirmed the voice; rate measured ×1.19–1.20). Note: on 3 lines the mini sounded flatter/lower in pitch. If it passes, I flip the mini on.
 - **Redeploy the relay** (it now allows Sonnet 5.5 and the mini voice): `cd relay && npx wrangler deploy`.
+- **Try the iPhone version:** in Xcode pick an iPhone simulator (or your phone) and run.
 - Try round 34 on the iPad: the speech model download, the new prop lines and the short greeting.
