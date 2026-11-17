@@ -13,7 +13,7 @@ extension AppModel {
         let args = ProcessInfo.processInfo.arguments
         if args.contains("-PTOnboarding") { return false }
         return DemoDriver.requestedPhase != nil || DemoDriver.liveTurns != nil || DemoDriver.grownUps != nil || DemoDriver.autoStart
-            || DemoDriver.startFreeze != nil
+            || DemoDriver.startFreeze != nil || DemoDriver.voiceRenderFile != nil
         #else
         return false
         #endif

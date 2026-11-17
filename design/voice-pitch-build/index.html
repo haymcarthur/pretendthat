@@ -1,0 +1,73 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nutmeg's new voice</title>
+<style>
+:root{--bg:#fffaf3;--fg:#2a1846;--mute:#6b5a85;--line:#e8dccb;--acc:#5b2a91;--tag:#fff1c9;--tagfg:#6a4a00;--tag2:#e7f3e3;--tag2fg:#24561b;--card:#fff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1b1424;--fg:#f3ecff;--mute:#b9a9d4;--line:#3a2d4d;--acc:#c9a6ff;--tag:#3d3216;--tagfg:#ffd97a;--tag2:#1e3a1b;--tag2fg:#a9e59c;--card:#241b30}}
+:root[data-theme="dark"]{--bg:#1b1424;--fg:#f3ecff;--mute:#b9a9d4;--line:#3a2d4d;--acc:#c9a6ff;--tag:#3d3216;--tagfg:#ffd97a;--tag2:#1e3a1b;--tag2fg:#a9e59c;--card:#241b30}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.45 -apple-system,system-ui,sans-serif;margin:0 auto;padding:24px 16px 48px;max-width:860px}
+h1{margin:0 0 6px;font-size:28px} h2{margin:32px 0 4px;font-size:20px} p{color:var(--mute);margin:6px 0 12px}
+.rows{border-top:1px solid var(--line)}
+.row{display:flex;align-items:center;gap:12px;padding:10px 4px;border-bottom:1px solid var(--line)}
+.lab{flex:0 0 300px;min-width:0} .num{font-size:18px;font-weight:700}
+.sub{font-size:13px;color:var(--mute)}
+.tag{display:inline-block;font-size:12px;font-weight:600;background:var(--tag);color:var(--tagfg);border-radius:6px;padding:1px 7px;margin-left:6px;vertical-align:2px}
+.tag.good{background:var(--tag2);color:var(--tag2fg)}
+audio{flex:1;min-width:0;height:40px}
+.box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:14px 0}
+.box p{margin:6px 0;color:var(--fg)}
+.ref{background:var(--card);border:2px solid var(--acc);border-radius:12px;padding:6px 12px;margin:10px 0}
+.ref .row{border:0}
+table{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:6px 6px;border-bottom:1px solid var(--line);vertical-align:top} th{color:var(--mute);font-weight:600}
+.scroll{overflow-x:auto;max-width:100%}
+@media (max-width:600px){.row{flex-wrap:wrap}.lab{flex:1 0 100%}audio{flex:1 0 100%}}
+</style></head><body>
+<h1>Nutmeg's new voice</h1>
+<p>The plain +2 you picked, now built into the app. These are the app's own output, not a mock-up.</p>
+<div class="box">
+<p><b>How to listen.</b> Play <b>Today</b>, then <b>New</b>. Each one is the greeting clip, then a live line, in the order a game starts. Two things to check: does the live line sound like the plain +2 you picked? And does the greeting now sound like the same mouse as the live line (not higher)?</p>
+<p>The top two were recorded from the app itself on the PT-R15 simulator, through Nutmeg's real speaker. The live line is a saved capture of her voice fed in as if it were streaming, so no game was played and nothing was spent. Please also listen on the iPad before it's final.</p>
+</div>
+
+<h2>The app, today vs new</h2>
+<p>Greeting clip "Welcome back! What should we play today?", then the live line "The End" (line 07 from the tests).</p>
+<div class="rows">
+<div class="row"><div class="lab"><span class="num">Today</span><div class="sub">Speed 1.20 only. Greeting 465 Hz, live line 316 Hz: the clip is 6.7 semitones above her live voice.</div></div><audio controls preload="none" src="app-today.m4a"></audio></div>
+<div class="row"><div class="lab"><span class="num">New</span><span class="tag good">built</span><div class="sub">Live line: speed 1.20 + Signalsmith +2. Greeting brought down to meet her. Greeting 368 Hz, live line 353 Hz: 0.7 semitones apart.</div></div><audio controls preload="none" src="app-new.m4a"></audio></div>
+</div>
+
+<h2>Check it against the one you picked</h2>
+<div class="ref"><div class="row"><div class="lab"><span class="num">The plain +2 you picked</span><div class="sub">Line 07 from pitch test 2 (level-matched there, so it may sound a little louder or quieter). The live line in "New" should sound the same.</div></div><audio controls preload="none" src="ref-07-plain2.m4a"></audio></div></div>
+
+<h2>The greeting clip, two ways</h2>
+<p>A clip is stored before any processing, so it gets its own shift, not the live +2 on top. This bright clip needs about −4 semitones to meet her live voice. I picked the first one; the second is the simpler shift. Tell me if you prefer it.</p>
+<div class="rows">
+<div class="row"><div class="lab"><span class="num">Down to her pitch, her vowels kept like live</span><span class="tag good">built</span><div class="sub">The pitch moves to her live voice and the vowel color sits where the live +2 puts it. Closest to the live lines on my timbre measure.</div></div><audio controls preload="none" src="greeting-new.m4a"></audio></div>
+<div class="row"><div class="lab"><span class="num">Down to her pitch, plain</span><div class="sub">The vowels move down with the pitch. It may sound a little darker or bigger than her live voice.</div></div><audio controls preload="none" src="greeting-plain.m4a"></audio></div>
+</div>
+
+<h2>More live lines (offline, same chain)</h2>
+<p>These went through the app's own code (shifter, then player, then speed 1.20), rendered offline on the Mac. They weren't recorded from the simulator.</p>
+<div class="rows">
+<div class="row"><div class="lab"><span class="num">02 prop line, today</span></div><audio controls preload="none" src="02-today.m4a"></audio></div>
+<div class="row"><div class="lab"><span class="num">02 prop line, new</span></div><audio controls preload="none" src="02-new.m4a"></audio></div>
+<div class="row"><div class="lab"><span class="num">06 question, today</span></div><audio controls preload="none" src="06-today.m4a"></audio></div>
+<div class="row"><div class="lab"><span class="num">06 question, new</span></div><audio controls preload="none" src="06-new.m4a"></audio></div>
+<div class="row"><div class="lab"><span class="num">08 nothing heard, today</span></div><audio controls preload="none" src="08-today.m4a"></audio></div>
+<div class="row"><div class="lab"><span class="num">08 nothing heard, new</span></div><audio controls preload="none" src="08-new.m4a"></audio></div>
+</div>
+
+<h2>Measurements</h2>
+<p>Pitch is the middle of her pitch as heard. Pulse sharpness is the "tunnel" measure from pitch test 2: lower is more blurred, and natural speech is about 4.8 to 5.0.</p>
+<div class="scroll"><table>
+<tr><th>What</th><th>Pitch heard</th><th>Pulse sharpness</th></tr>
+<tr><td>Line 07, today (app)</td><td>316 Hz</td><td>4.95</td></tr>
+<tr><td>Line 07, new (app)</td><td>353 Hz</td><td>3.64</td></tr>
+<tr><td>Line 07, the plain +2 you picked</td><td>355 Hz</td><td>3.64</td></tr>
+<tr><td>Lines 02 / 06 / 08, new (offline) vs your pick</td><td>339 / 382 / 366 vs 338 / 380 / 365</td><td>3.68 / 3.59 / 3.64 vs 3.71 / 3.61 / 3.63</td></tr>
+<tr><td>Greeting clip, today → new (app)</td><td>465 → 368 Hz</td><td>4.41 → 3.76</td></tr>
+</table></div>
+<p>One small difference from your pick: the new version measures a little less breathy (less noise between the harmonics). Natural speech at the same pitch sits between the two. Your pick processed the sound after the speed-up; the app processes it before, so the mouth and timing stay in sync. If New sounds a bit "cleaner" or buzzier than your pick, tell me.</p>
+<p>She now starts about 60 ms later on each live line (40 to 60 ms measured on the simulator). Clips start with no extra wait.</p>
+</body></html>
