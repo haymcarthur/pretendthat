@@ -98,8 +98,9 @@ struct PTShelfMomentView: View {
 /// Where the round-39 overlays sit on the stage: in the card zone, never over Nutmeg (iPad landscape: the right side;
 /// iPad portrait and iPhone: the lower part, below her).
 struct PTStageCardZone {
-    static func center(in size: CGSize, isPhone: Bool) -> CGPoint {
-        if isPhone { return CGPoint(x: size.width / 2, y: size.height * 0.7) }
+    /// `low`: the conversation close-up on iPhone (she fills the screen), so the card sits lower, under her chin.
+    static func center(in size: CGSize, isPhone: Bool, low: Bool = false) -> CGPoint {
+        if isPhone { return CGPoint(x: size.width / 2, y: size.height * (low ? 0.76 : 0.6)) }
         if size.width > size.height { return CGPoint(x: size.width * 0.75, y: size.height * 0.56) }
         return CGPoint(x: size.width / 2, y: size.height * 0.74)
     }
@@ -161,7 +162,7 @@ struct PTSoundsLikeCard: View {
             .ptPanel(radius: 32)
             .scaleEffect(shown ? 1 : 0.85)
             .opacity(shown ? 1 : 0)
-            .position(PTStageCardZone.center(in: geo.size, isPhone: metrics.isPhone))
+            .position(PTStageCardZone.center(in: geo.size, isPhone: metrics.isPhone, low: true))
         }
         .onAppear { withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) { shown = true } }
     }

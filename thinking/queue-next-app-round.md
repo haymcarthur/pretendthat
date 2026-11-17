@@ -264,7 +264,7 @@ Game arc becomes: Print → **story opener** → **setup scene** → 3 play scen
 - Cost estimate: +$0.05–0.10 per new game (3 extra voiced lines; guide tokens < 1¢); replays ~free. Re-measure after.
 - Marketing: "it even helps them clean up" for the App Store page / site (draft, don't publish).
 
-## Auto-save round (queued 2026-11-17, Haylee: auto-save for everyone, experience approved, NO cap on saved games)
+## Auto-save round (queued 2026-11-17, Haylee: auto-save for everyone, experience approved, NO cap on saved games): DONE in round 39 (see [decision](decisions/2026-11-17-round39.md))
 - Count the show when the kit is made, not at Let's play! (decisions/2026-11-17-autosave-and-count-at-kit.md).
 - Save every new game automatically when the kit is made; update the save as play goes (recorded lines, cover).
 - No Save button anywhere and no "save?" question on leaving.
@@ -285,13 +285,13 @@ Game arc becomes: Print → **story opener** → **setup scene** → 3 play scen
 - Render reference: design/voice-pitch-test-2/ (plain Signalsmith +2). Research: research/2026-11-17-voice-pitch-test-2.md.
 - Testing: no live games needed beyond one at most (CLAUDE.md rule 7); compare the offline render against the in-app output. Haylee listens on the iPad before it's final.
 
-## Bug: 10-second pause after "found it" (queued 2026-11-17, Haylee: fix it)
+## Bug: 10-second pause after "found it" (queued 2026-11-17, Haylee: fix it): FIXED in round 39
 - After a spoken or typed "found it", the next prop line waits about 10–11 s. Cause (from the Claude-brain spike): `sayAppPropLine` waits up to 10 s while the session is busy, and the busy state stays on after a tool-first pass with no spoken follow-up. Card taps don't hit it. Seen in every recent log. Details: research/2026-11-17-claude-brain-spike.md.
 
-## Brand round (queued 2026-11-17, Haylee): Poppins on the grown-up side
+## Brand round (queued 2026-11-17, Haylee): Poppins on the grown-up side: APP PART DONE in round 39 (the site is still to do)
 - App: bundle Poppins (OFL; ship the license text); onboarding + Grown-ups use Poppins (headings SemiBold 600 with tight letter spacing, body Regular/Medium) with Dynamic Type; kid screens unchanged. Credit in About.
 - Site (separate repo /Users/haymcarthur/pretendthat-site): rebuild with Tailwind + a component kit, Poppins, layout from Haylee's Figma examples (illustrated hero with phone, colored story bands, 3-up cards, FAQ, big closing CTA, chunky footer). Decision: decisions/2026-11-17-brand-font-poppins.md; sampler: design/brand-fonts/.
 
-## Small fix: writing hand's shadow moves with the hand (queued 2026-11-17, Haylee: only if low risk)
+## Small fix: writing hand's shadow moves with the hand (queued 2026-11-17, Haylee: only if low risk): SKIPPED in round 39 (the shadow is in the body art, not the fingers layer; see the decision)
 - In the coloring/writing pose the crayon + `nutmeg-writing-fingers` layer rock around the wrist (NutmegCharacter `crayon(t:px:)`, `writingRock`). The fingers layer includes the dark shadow on her purple shirt, so the shadow moves with the hand and the shirt line misaligns.
 - Fix: move the shadow paths (unchanged) out of nutmeg-writing-fingers.svg into a separate static layer drawn at the same place without the rock. No redrawing, so it stays within the art rule. Check: a still frame (rock 0) is pixel-identical before and after; moving frames keep the shadow fixed. If it can't be done without touching the art itself, stop and report.
