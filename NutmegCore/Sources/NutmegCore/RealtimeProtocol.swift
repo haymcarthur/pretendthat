@@ -266,12 +266,10 @@ public enum Realtime {
                 "output_modalities": ["audio"],
                 "audio": [
                     "input": [
+                        // Round 31 (decisions/2026-11-16-on-device-speech.md): NO kid audio is ever sent. The kid's
+                        // words are transcribed on the iPad and arrive as text items (`kidSpokenTurn`), so there is no
+                        // server transcription and no server VAD (nothing would ever reach either).
                         "format": ["type": "audio/pcm", "rate": Int(sampleRate)],
-                        "noise_reduction": ["type": "far_field"],
-                        // Live transcript for the chat panel (shown in memory only, never stored).
-                        "transcription": ["model": "gpt-4o-mini-transcribe", "language": "en"],
-                        // Push-to-talk (decisions/2026-11-13-push-to-talk.md): no server VAD. The app streams audio
-                        // only while the mic button is held, then commits the buffer and asks for a reply itself.
                         "turn_detection": NSNull()
                     ] as [String: Any],
                     "output": [
@@ -368,9 +366,10 @@ public enum Realtime {
 
     // MARK: Client events
 
-    public static func appendAudio(_ pcm16: Data) -> [String: Any] {
-        ["type": "input_audio_buffer.append", "audio": pcm16.base64EncodedString()]
-    }
+    /// Round 31: a SPOKEN kid turn, transcribed on the iPad and name-scrubbed (`NameScrubber`): exactly one text item,
+    /// the same shape as a typed turn. The app then asks for her reply (`response.create`, the usual tool-first rules).
+    /// There is deliberately no client event that carries audio in this protocol (no `input_audio_buffer.*`).
+    public static func kidSpokenTurn(_ text: String, id: String? = nil) -> [[String: Any]] { [userText(text, id: id)] }
     public static func userText(_ text: String, id: String? = nil) -> [String: Any] {
         var item: [String: Any] = ["type": "message", "role": "user", "content": [["type": "input_text", "text": text]]]
         if let id { item["id"] = id }   // round 21: a client id, so a late moderation flag can delete it
@@ -444,19 +443,16 @@ public enum Realtime {
         ["type": "conversation.item.create",
          "item": ["type": "message", "role": "system", "content": [["type": "input_text", "text": text]]] as [String: Any]]
     }
-    // Push-to-talk (decisions/2026-11-13-push-to-talk.md): hold → append, release → commit + response.create,
-    // a too-short hold → clear. Pressing while she talks → cancel + truncate what wasn't heard.
-    /// Drops whatever audio was appended since the last commit (a hold too short to be speech).
-    public static var inputClear: [String: Any] { ["type": "input_audio_buffer.clear"] }
-    /// Turns the appended audio into a user message (the kid's held turn).
-    public static var inputCommit: [String: Any] { ["type": "input_audio_buffer.commit"] }
+    // Push-to-talk (decisions/2026-11-13-push-to-talk.md; round 31): hold → the iPad listens (on-device speech), release
+    // → the words as a text item + response.create, a too-short hold → nothing. Pressing while she talks → cancel +
+    // truncate what wasn't heard.
     /// Stops the response that is being generated (the kid pressed the mic while she talked).
     public static var responseCancel: [String: Any] { ["type": "response.cancel"] }
     /// Cuts her interrupted audio item at what the kid actually heard, so the model knows where she stopped.
     public static func truncate(itemID: String, audioEndMs: Int) -> [String: Any] {
         ["type": "conversation.item.truncate", "item_id": itemID, "content_index": 0, "audio_end_ms": max(0, audioEndMs)]
     }
-    /// A hold shorter than this is a tap, not speech: clear the buffer and send nothing.
+    /// A hold shorter than this is a tap, not speech: nothing is sent.
     public static let minHoldSeconds = 0.3
     public static func sayExactly(_ line: String) -> [String: Any] {
         ["type": "response.create",
@@ -657,7 +653,7 @@ public enum PlanningCall: Equatable, Sendable {
 }
 
 /// The chat panel's transcript (in memory only; PretendThat stores nothing). Every turn in order: the kid's typed
-/// messages the moment they're sent, the kid's SPOKEN turns when Realtime's input transcription completes, and
+/// messages the moment they're sent, the kid's SPOKEN turns (round 31: the on-device words, name-scrubbed, as sent), and
 /// Nutmeg's replies streamed from the audio-transcript deltas, finalized by the done event.
 public struct RealtimeTranscript: Equatable, Sendable {
     public struct Line: Identifiable, Equatable, Sendable {

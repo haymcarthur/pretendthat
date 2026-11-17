@@ -5,11 +5,13 @@ import NutmegCore
 
 /// Hands-free voice conversation with Nutmeg over OpenAI's Realtime API (decisions D1, D2, D7).
 /// WebSocket (URLSessionWebSocketTask) + AVAudioEngine, no third-party code.
-/// - Mic (push-to-talk, decisions/2026-11-13-push-to-talk.md): input node → 24 kHz PCM16 mono →
-///   `input_audio_buffer.append`, ONLY while the kid holds the red mic button (`beginTalk` / `endTalk`). Release →
-///   `input_audio_buffer.commit` + `response.create`; a hold under `Realtime.minHoldSeconds` → `input_audio_buffer.clear`.
-///   Pressing while Nutmeg talks interrupts her: `response.cancel`, playback stops, and her item is truncated at what
-///   was actually heard. No server VAD, so background chatter never reaches the model or the transcript.
+/// - Mic (push-to-talk, decisions/2026-11-13-push-to-talk.md; round 31, decisions/2026-11-16-on-device-speech.md): the
+///   kid's audio NEVER leaves the iPad. The input node feeds `KidSpeechCapture` (pre-warmed for the whole game); while
+///   the red mic is held (`beginTalk` / `endTalk`) it is turned into words ON THE DEVICE (Apple Speech, on-device only).
+///   Release → the final words, the audio dropped at once → names scrubbed + the safety gate (`onSpokenWords`, the app)
+///   → ONE text item + `response.create`. A hold under `Realtime.minHoldSeconds` sends nothing. Pressing while Nutmeg
+///   talks interrupts her: `response.cancel`, playback stops, and her item is truncated at what was actually heard.
+///   No audio-upload client event exists any more, and the session asks for no server transcription.
 /// - Speaker (round D3a): playing her voice lives in `NutmegSpeaker` (owned by `AppModel`, shared engine): PCM16
 ///   deltas → player node → pitch unit (Varispeed 1.20) → mixer, the lip sync (`LipSyncAnalyzer` + `MouthShaper`,
 ///   each window stamped with when it leaves the speaker), the speaking state and the barge-in clear. This session
@@ -125,7 +127,11 @@ final class RealtimeSession {
     }
 
     @ObservationIgnored private var socket: RealtimeSocket?
-    @ObservationIgnored private let mic = MicPump()
+    /// Round 31: the on-device speech capture fed by the shared engine's input (words only ever leave it).
+    @ObservationIgnored let capture = KidSpeechCapture()
+    /// Round 31: the words of a finished hold (on-device, name-scrubbed): the app screens them and sends them with
+    /// `sendText(_:itemID:kind:)` ("voice"). nil = sent straight away (tests).
+    @ObservationIgnored var onSpokenWords: (@MainActor (String) -> Void)?
     @ObservationIgnored private var pendingOutputs: [(String, String)] = []
     /// Exactly one spoken reply per kid turn, never two responses at once (NutmegCore `ResponseGate`, round 6).
     @ObservationIgnored private var gate = ResponseGate()
@@ -220,9 +226,9 @@ final class RealtimeSession {
         guard status == .live || status == .connecting, !suspended else { return }
         suspended = true
         if holdStartedAt != nil {
-            socket?.send(Realtime.inputClear)
+            capture.cancel()   // round 31: the words and the audio are dropped, nothing sent
             holdStartedAt = nil; kidIsTalking = false; releaseTask?.cancel(); releaseTask = nil
-            rtLog("background: hold ended, input cleared")
+            rtLog("background: hold ended, nothing sent")
         }
         if responseActive || isSpeaking { interrupt() }
         silenceTask?.cancel(); gapTask?.cancel(); thinkingGap = false
@@ -260,7 +266,7 @@ final class RealtimeSession {
     }
 
     private func stopAudio() {
-        mic.stop()
+        capture.cancel(); capture.clearPreRoll()
         speaker.stop()   // the engine, the mic tap on it, the player, the mouth and the speaking state
     }
     /// A response is running, a writing beat is on, or her reply is still due (live-test driver waits on this).
@@ -396,18 +402,19 @@ final class RealtimeSession {
         requestResponse()
     }
 
-    /// Typed turn (keyboard fallback, simulator, demo safety).
-    func sendText(_ text: String, itemID: String? = nil) {
+    /// Typed turn (keyboard fallback, simulator, demo safety), or round 31's SPOKEN turn (`kind` "voice": the words the
+    /// iPad heard, name-scrubbed and screened). Both are one text item.
+    func sendText(_ text: String, itemID: String? = nil, kind: String = "typed") {
         guard let socket, isLive, micWanted else { return }
-        trace.beginOrKeep("typed")
+        trace.beginOrKeep(kind)
         // Round 20 (Haylee): a typed turn stops her at once, like the mic (greeting, replies, app lines).
         if SpeechStop.kidTurnStops(responseActive: responseActive, playing: speaker.hasAudioQueued, inFlight: speech.active) {
             stopSpeaking("typed turn")
         }
-        socket.send(Realtime.userText(text, id: itemID))
+        for e in kind == "voice" ? Realtime.kidSpokenTurn(text, id: itemID) : [Realtime.userText(text, id: itemID)] { socket.send(e) }
         chat.kidTyped(text)
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("-PTLive") { rtLog("KID: \(text)") }
+        if ProcessInfo.processInfo.arguments.contains("-PTLive") { rtLog("KID (\(kind)): \(text)") }
         #endif
         kidTurnEnded()
         requestResponse()
@@ -471,9 +478,11 @@ final class RealtimeSession {
 
     // MARK: Push-to-talk
 
-    /// The kid pressed the mic button: interrupt her if she's talking, then stream the mic until release.
-    func beginTalk() {
-        guard isLive, micWanted, holdStartedAt == nil else { return }
+    /// The kid pressed the mic button: interrupt her if she's talking, then listen ON THE iPAD until release.
+    /// `touchHost`: the touch's own timestamp, so the capture keeps the audio from that moment (the pre-roll).
+    func beginTalk(touchHost: Double = CACurrentMediaTime()) {
+        guard isLive, micWanted else { return }
+        guard holdStartedAt == nil else { rtLog("ptt: pressed while the last turn is still being finished (ignored)"); return }
         releaseTask?.cancel(); releaseTask = nil
         if SpeechStop.kidTurnStops(responseActive: responseActive, playing: speaker.hasAudioQueued, inFlight: speech.active) {
             stopSpeaking("mic pressed")
@@ -482,41 +491,51 @@ final class RealtimeSession {
         reminderDoneAt = nil
         holdStartedAt = Date()
         kidIsTalking = true
-        rtLog("ptt: hold")
+        capture.begin(touchHost: touchHost)
+        rtLog("ptt: hold (on-device listening)")
         updateGate()
     }
 
-    /// The kid let go: a short tail keeps the last word, then commit + reply; a tap-length hold sends nothing.
+    /// The kid let go: a short tail keeps the last word, then the iPad finishes the words (the audio is dropped), and
+    /// only the words go on (`onSpokenWords`: scrubbed + screened by the app, then `sendText(kind: "voice")`).
+    /// A tap-length hold sends nothing.
     func endTalk() {
-        guard let started = holdStartedAt else { return }
+        guard let started = holdStartedAt, releaseTask == nil else { return }
         let held = Date().timeIntervalSince(started)
         kidIsTalking = false
         trace.begin("voice")
         releaseTask = Task { [weak self] in
-            try? await Task.sleep(for: .milliseconds(120))   // the mic tap delivers ~50 ms chunks: catch the last one
+            try? await Task.sleep(for: .milliseconds(80))   // the mic tap delivers ~50 ms chunks: catch the last one
             guard let self, !Task.isCancelled else { return }
+            let quick = self.quickReplyOnly
+            let words: String
+            if held < Realtime.minHoldSeconds || quick {
+                self.capture.cancel(); words = ""
+            } else {
+                self.thinkingGap = true   // she's working on it from the release (the words, then her reply)
+                words = await self.capture.finish()
+                self.trace.mark("words")
+            }
             self.holdStartedAt = nil
             self.updateGate()
             self.releaseTask = nil
-            guard let socket = self.socket, self.isLive else { return }
-            if self.quickReplyOnly {
-                // Kit being made: nothing to plan; one tiny line at most.
-                socket.send(Realtime.inputClear)
-                if !self.isSpeaking { self.say("Almost ready!") }
-                rtLog("ptt: kit making, cleared + Almost ready")
-                return
-            }
-            if held < Realtime.minHoldSeconds {
-                socket.send(Realtime.inputClear)
-                rtLog("ptt: too short (\(String(format: "%.2f", held)) s), cleared")
+            guard self.isLive, !Task.isCancelled else { self.thinkingGap = false; return }
+            switch SpokenTurn.decide(words: words, held: held, quickReplyOnly: quick) {
+            case .tooShort:
+                rtLog("ptt: too short (\(String(format: "%.2f", held)) s), nothing sent")
                 self.startSilenceTimer()
-                return
+            case .almostReady:
+                if !self.isSpeaking { self.say("Almost ready!") }
+                rtLog("ptt: kit making, nothing sent + Almost ready")
+            case .nothingHeard(let hint):
+                self.thinkingGap = false
+                rtLog("ptt: nothing heard (\(String(format: "%.2f", held)) s), nothing sent\(hint ? ", one hint line" : "")")
+                if hint { self.say(SpokenTurn.didntCatch) }
+                self.startSilenceTimer()
+            case .send(let text):
+                rtLog("ptt: words ready (\(String(format: "%.2f", held)) s hold), audio dropped, sending text")
+                if let handle = self.onSpokenWords { handle(text) } else { self.sendText(text, kind: "voice") }
             }
-            socket.send(Realtime.inputCommit)
-            self.trace.mark("commit")
-            rtLog("ptt: commit (\(String(format: "%.2f", held)) s) + response.create")
-            self.kidTurnEnded()
-            self.requestResponse()
         }
     }
 
@@ -613,18 +632,17 @@ final class RealtimeSession {
     // MARK: Audio
 
     private func startAudio(echoCancel: Bool) throws {
-        try speaker.start(echoCancel: echoCancel) { [mic, socket] input in
+        try speaker.start(echoCancel: echoCancel) { [capture] input in
             let inFormat = input.outputFormat(forBus: 0)
             if inFormat.sampleRate > 0 && inFormat.channelCount > 0 {
-                mic.configure(from: inFormat, socket: socket)
-                Self.installMicTap(on: input, format: inFormat, pump: mic)
+                Self.installMicTap(on: input, format: inFormat, capture: capture)
             }
         }
     }
 
     private func updateGate() {
-        // Push-to-talk: the mic only streams while the button is held (plus the short release tail).
-        mic.open = isLive && micWanted && holdStartedAt != nil
+        // Round 31: nothing to gate on the way out (no audio is ever sent). A hold that outlives the session ends here.
+        if !(isLive && micWanted), holdStartedAt != nil, releaseTask == nil { capture.cancel() }
     }
 
     // MARK: Expressions (decisions/conversation-camera-and-expressions.md)
@@ -965,55 +983,15 @@ final class RealtimeSession {
 
     // MARK: Off-main helpers
 
-    nonisolated private static func installMicTap(on input: AVAudioInputNode, format: AVAudioFormat, pump: MicPump) {
-        input.installTap(onBus: 0, bufferSize: 2400, format: format) { buffer, _ in pump.push(buffer) }
+    nonisolated private static func installMicTap(on input: AVAudioInputNode, format: AVAudioFormat, capture: KidSpeechCapture) {
+        input.installTap(onBus: 0, bufferSize: 2400, format: format) { buffer, when in
+            capture.push(buffer, host: when.isHostTimeValid ? AVAudioTime.seconds(forHostTime: when.hostTime) : nil)
+        }
     }
 }
 
 /// Round D3a: her fixed app lines go out as `sayExactly` (the speaker's live voice).
 extension RealtimeSession: NutmegLiveVoice {}
-
-/// Converts mic buffers to 24 kHz mono PCM16 and sends them while the gate is open. Runs on the audio thread.
-final class MicPump: @unchecked Sendable {
-    private let lock = NSLock()
-    private var _open = false
-    private var converter: AVAudioConverter?
-    private weak var socket: RealtimeSocket?
-    private let outFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: Realtime.sampleRate, channels: 1, interleaved: true)!
-
-    var open: Bool {
-        get { lock.withLock { _open } }
-        set { lock.withLock { _open = newValue } }
-    }
-
-    func configure(from format: AVAudioFormat, socket: RealtimeSocket?) {
-        lock.withLock {
-            converter = AVAudioConverter(from: format, to: outFormat)
-            self.socket = socket
-        }
-    }
-
-    func stop() { lock.withLock { _open = false; converter = nil; socket = nil } }
-
-    func push(_ buffer: AVAudioPCMBuffer) {
-        let (isOpen, converter, socket) = lock.withLock { (_open, self.converter, self.socket) }
-        guard isOpen, let converter, let socket else { return }
-        let ratio = outFormat.sampleRate / buffer.format.sampleRate
-        let capacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio + 64)
-        guard let out = AVAudioPCMBuffer(pcmFormat: outFormat, frameCapacity: capacity) else { return }
-        var fed = false
-        var error: NSError?
-        converter.convert(to: out, error: &error) { _, status in
-            if fed { status.pointee = .noDataNow; return nil }
-            fed = true
-            status.pointee = .haveData
-            return buffer
-        }
-        guard error == nil, out.frameLength > 0, let ch = out.int16ChannelData?[0] else { return }
-        let data = Data(bytes: ch, count: Int(out.frameLength) * 2)
-        socket.send(Realtime.appendAudio(data))
-    }
-}
 
 /// Thin thread-safe wrapper around URLSessionWebSocketTask: JSON out, text messages in as an AsyncStream.
 final class RealtimeSocket: @unchecked Sendable {

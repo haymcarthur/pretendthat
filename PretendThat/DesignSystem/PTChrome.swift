@@ -186,7 +186,7 @@ struct PTControlBar: View {
     var mic: PTMicButton.Mode
     var canRepeat: Bool = true
     var onChat: () -> Void
-    var onMicPress: () -> Void = {}
+    var onMicPress: (Double) -> Void = { _ in }
     var onMicRelease: () -> Void = {}
     var onRepeat: () -> Void
 

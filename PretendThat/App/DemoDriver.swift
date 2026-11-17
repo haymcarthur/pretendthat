@@ -1,5 +1,7 @@
 #if DEBUG
 import Foundation
+import AVFoundation
+import QuartzCore
 import UIKit
 import NutmegCore
 
@@ -87,7 +89,30 @@ enum DemoDriver {
         return args.indices.filter { args[$0] == "-PTSay" && $0 + 1 < args.count }.map { args[$0 + 1] }
     }
 
+    /// Round 31: on-device recognition of every .wav in `dir` through the app's own capture (the same on-device
+    /// request), as if each were held for its length then released. Logs what was heard, what would be sent (scrubbed)
+    /// and release → words. Nothing is sent anywhere.
+    @MainActor static func speechBench(dir: String) async {
+        let files = ((try? FileManager.default.contentsOfDirectory(atPath: dir)) ?? []).filter { $0.hasSuffix(".wav") }.sorted()
+        rtLog("BENCH \(files.count) files, on-device supported: \(KidSpeechCapture.onDeviceSupported)")
+        for f in files {
+            let url = URL(fileURLWithPath: dir).appendingPathComponent(f)
+            let seconds = (try? AVAudioFile(forReading: url)).map { Double($0.length) / $0.fileFormat.sampleRate } ?? 1
+            let capture = KidSpeechCapture()
+            capture.debugUseFile(url)
+            capture.begin(touchHost: CACurrentMediaTime())
+            try? await Task.sleep(for: .seconds(seconds))
+            let t0 = CACurrentMediaTime()
+            let heard = await capture.finish()
+            let ms = (CACurrentMediaTime() - t0) * 1000
+            rtLog(String(format: "BENCH %@ | heard: \"%@\" | sent: \"%@\" | release→words %.0f ms", f, heard, NameScrubber.scrub(heard), ms))
+        }
+        rtLog("BENCH-END")
+    }
+
     @MainActor static func live(_ model: AppModel, turns: [String]) async {
+        // Round 31: the mic's on-device readiness first (spoken turns need it; RootView asks after the driver).
+        if turns.contains(where: { $0.hasPrefix("#heard ") || $0.hasPrefix("#speak ") }) { await model.listener.requestAuth() }
         // Round 13: "-PTLetsPlayAfter N": sit on the start screen N s (the socket pre-connects), then tap Let's play!.
         let args = ProcessInfo.processInfo.arguments
         if let i = args.firstIndex(of: "-PTLetsPlayAfter"), i + 1 < args.count, let secs = Double(args[i + 1]) {
@@ -130,6 +155,34 @@ enum DemoDriver {
             // Round 13 taps: "#found" / "#missing" (prop card buttons), "#play" (print step Let's play!). Round 29:
             // "#next" (the green ▶ Next scene), "#task N" (row N's 🔊). Timed like real taps.
             // Round 26: on a replay the same card buttons answer the replay's one-card hunt.
+            // Round 31: "#speak /path/phrase.wav": a SPOKEN turn. The mic is pressed (the same talkPressed path), the
+            // recorded phrase stands in for the mic audio for as long as it lasts, then the mic is released: on-device
+            // words → name scrub → safety gate → one text item. "#bench /dir": on-device words for every .wav in a
+            // folder (accuracy + release → words time), no session needed.
+            if turn.hasPrefix("#speak ") {
+                let url = URL(fileURLWithPath: String(turn.dropFirst(7)))
+                let seconds = (try? AVAudioFile(forReading: url)).map { Double($0.length) / $0.fileFormat.sampleRate } ?? 1
+                model.realtime.capture.debugUseFile(url)
+                model.listener.capture.debugUseFile(url)
+                model.talkPressed(touchHost: CACurrentMediaTime())
+                try? await Task.sleep(for: .seconds(max(0.5, seconds)))
+                model.talkReleased()
+                try? await Task.sleep(for: .milliseconds(100))
+                model.realtime.capture.debugUseFile(nil)
+                model.listener.capture.debugUseFile(nil)
+                continue
+            }
+            // Round 31: "#heard WORDS": a real press + hold + release on the live session, with WORDS standing in for the
+            // on-device recognizer's output (the simulator's speech model can't load). Everything after the words is real.
+            if turn.hasPrefix("#heard ") {
+                let words = String(turn.dropFirst(7))
+                model.realtime.capture.debugUseWords(words)
+                model.talkPressed(touchHost: CACurrentMediaTime())
+                try? await Task.sleep(for: .seconds(1.2))
+                model.talkReleased()
+                continue
+            }
+            if turn.hasPrefix("#bench ") { await speechBench(dir: String(turn.dropFirst(7))); continue }
             if turn == "#found" || turn == "#missing" {
                 if model.store.isReplay { model.replayHunt(found: turn == "#found") } else { model.huntReply(found: turn == "#found") }
                 continue

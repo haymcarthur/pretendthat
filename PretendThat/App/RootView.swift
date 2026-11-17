@@ -122,7 +122,7 @@ struct RootView: View {
                     .ignoresSafeArea(.keyboard)
                 PTControlBar(chatOpen: chatOpen, mic: micMode, canRepeat: model.repeatTarget.isAvailable,
                              onChat: { chatOpen.toggle() },
-                             onMicPress: { model.talkPressed() },
+                             onMicPress: { model.talkPressed(touchHost: $0) },
                              onMicRelease: { model.talkReleased() },
                              onRepeat: { model.repeatTapped() })
                     .padding(.bottom, Theme.Space.m)
@@ -240,6 +240,8 @@ struct RootView: View {
             GrownUpsSheet(model: model)
         }
         .sheet(isPresented: $showTyping) { PTTypeSheet { text in Task { await model.typed(text) } } }
+        // Round 31: the iPad can't listen on the device: a friendly note for a grown-up, then the chat's typing.
+        .modifier(SpeechHelpAlert(model: model) { chatOpen = true })
         .preferredColorScheme(.light)
         .statusBarHidden()
     }
@@ -538,7 +540,7 @@ struct RootView: View {
     }
 
     private var micMode: PTMicButton.Mode {
-        switch model.micState { case .idle: .idle; case .listening: .listening; case .disabled: .disabled }
+        switch model.micState { case .idle: .idle; case .listening: .listening; case .disabled: .disabled; case .unavailable: .unavailable }
     }
 
     /// Step rail and control pill show from the first step on (not on Hello).
@@ -557,3 +559,19 @@ struct RootView: View {
 }
 
 extension String { var nilIfEmpty: String? { isEmpty ? nil : self } }
+
+/// Round 31: the iPad can't listen on the device (permission, or no on-device English speech): a friendly note for a
+/// grown-up, with "Type instead" opening the chat's text field. Never an audio fallback.
+struct SpeechHelpAlert: ViewModifier {
+    @Bindable var model: AppModel
+    var onType: () -> Void
+    private var prompt: (title: String, message: String)? { model.speechHelp?.grownUpPrompt }
+    func body(content: Content) -> some View {
+        content.alert(prompt?.title ?? "", isPresented: Binding(get: { prompt != nil }, set: { if !$0 { model.speechHelp = nil } })) {
+            Button("Type instead") { model.speechHelp = nil; onType() }
+            Button("OK", role: .cancel) { model.speechHelp = nil }
+        } message: {
+            Text(prompt?.message ?? "")
+        }
+    }
+}

@@ -1,4 +1,6 @@
 import SwiftUI
+import UIKit
+import QuartzCore
 import NutmegCore
 
 /// A plain themed container.
@@ -304,24 +306,30 @@ struct PTReplayButton: View {
 }
 
 /// The big red push-to-talk mic (decisions/2026-11-13-push-to-talk.md), center of the control pill.
-/// The whole circle is one press-and-hold target (DragGesture, minimumDistance 0): press → `onPress` with a haptic,
-/// release (or the gesture being cancelled) → `onRelease`. `@GestureState` resets on its own, so a cancelled touch
-/// always releases. Listening: it sinks a little and a red ring pulses. Disabled (connecting, after planning): gray.
+/// Round 31 (Haylee: "the recording state shows late"): measured, the old DragGesture(minimumDistance: 0) only fired
+/// ~0.75–0.85 s after the touch (at about the release on a short press). Now a UIKit touch view (`PTPressSurface`) takes
+/// the touch itself: on touch-down the listening look is set at once (optimistic, no model round trip) with a light
+/// haptic, and `onPress` gets the touch's own timestamp so the capture keeps the audio from that moment (the pre-warmed
+/// input's pre-roll). The model's work runs just after that frame. Release or a cancelled touch → `onRelease`.
+/// Listening: it sinks a little and a red ring pulses. Disabled (connecting): gray. Unavailable (round 31: on-device
+/// speech is off): a slashed mic that still takes a press, which shows the grown-up note and typing.
 struct PTMicButton: View {
-    enum Mode: Equatable { case idle, listening, disabled }
+    enum Mode: Equatable { case idle, listening, disabled, unavailable }
     var mode: Mode
     var size: CGFloat = 92
-    var onPress: () -> Void = {}
+    var onPress: (Double) -> Void = { _ in }
     var onRelease: () -> Void = {}
-    @GestureState private var pressing = false
+    @State private var pressing = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var enabled: Bool { mode != .disabled }
-    private var listening: Bool { enabled && (mode == .listening || pressing) }
+    private var canListen: Bool { mode == .idle || mode == .listening }
+    private var listening: Bool { canListen && (mode == .listening || pressing) }
 
     var body: some View {
         ZStack {
             if listening {
+                Color.clear.frame(width: 1, height: 1).onAppear { MicTiming.visible() }   // round 31: press timing
                 if reduceMotion {
                     Circle().strokeBorder(Theme.micRed.opacity(0.5), lineWidth: 5).padding(-9)
                 } else {
@@ -337,29 +345,94 @@ struct PTMicButton: View {
                     }
                 }
             }
-            Circle().fill(enabled ? Theme.micRed : Theme.disabled)
+            Circle().fill(canListen ? Theme.micRed : Theme.disabled)
             Circle().strokeBorder(Theme.white.opacity(listening ? 0.9 : 0), lineWidth: 3).padding(5)
-            Image(systemName: listening ? "waveform" : "mic.fill")
+            Image(systemName: mode == .unavailable ? "mic.slash.fill" : listening ? "waveform" : "mic.fill")
                 .font(.system(size: size * 0.4, weight: .semibold))
-                .foregroundStyle(enabled ? Theme.white : Theme.disabledInk)
+                .foregroundStyle(canListen ? Theme.white : Theme.disabledInk)
                 .contentTransition(.symbolEffect(.replace))
                 .symbolEffect(.variableColor.iterative, isActive: listening && !reduceMotion)
         }
         .frame(width: size, height: size)
         .scaleEffect(listening ? 0.92 : 1)
         .shadow(color: Theme.panelShadow, radius: 8, y: 3)
-        .contentShape(Circle())
-        .gesture(DragGesture(minimumDistance: 0).updating($pressing) { _, state, _ in state = true },
-                 including: enabled ? .all : .none)
-        .onChange(of: pressing) { _, isDown in isDown ? onPress() : onRelease() }
-        .sensoryFeedback(.impact(weight: .medium), trigger: pressing) { _, new in new }
-        .sensoryFeedback(.impact(weight: .light, intensity: 0.6), trigger: pressing) { old, new in old && !new }
+        .overlay(PTPressSurface(enabled: enabled, haptic: canListen, onDown: down, onUp: up).accessibilityHidden(true))
         .animation(Theme.press, value: listening)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(mode == .listening ? "Listening. Let go to send" : "Hold to talk to Nutmeg")
+        .accessibilityLabel(mode == .listening ? "Listening. Let go to send"
+                            : mode == .unavailable ? "Nutmeg can't listen on this iPad yet. Tap for help" : "Hold to talk to Nutmeg")
         .accessibilityAddTraits(.isButton)
-        .accessibilityAction { mode == .listening ? onRelease() : onPress() }   // VoiceOver: tap to start, tap to send
+        .accessibilityAction { mode == .listening ? onRelease() : onPress(CACurrentMediaTime()) }   // VoiceOver: tap to start, tap to send
         .disabled(!enabled)
+        .onChange(of: mode) { _, m in if m == .disabled && pressing { pressing = false } }
+    }
+
+    private func down(_ touchHost: Double) {
+        MicTiming.touchDown(host: touchHost)
+        pressing = true   // the listening look, this frame
+        // The model's work (stop her, start the turn) runs right after this frame is on screen; the capture still
+        // starts from the touch (its timestamp).
+        NextFrame.after { _ in onPress(touchHost) }   // the next display refresh: the listening look is up
+    }
+
+    private func up() {
+        let wasPressing = pressing
+        pressing = false
+        NextFrame.after { _ in if wasPressing { onRelease() } }   // after the press (same order)
+    }
+}
+
+/// Round 31: a plain UIKit view that reports touch-down the moment UIKit delivers it (with the touch's own timestamp)
+/// and touch-up / cancel, plus a pre-warmed light haptic on touch-down. Round hit area (the mic circle).
+struct PTPressSurface: UIViewRepresentable {
+    var enabled: Bool
+    var haptic: Bool = true
+    var onDown: (Double) -> Void
+    var onUp: () -> Void
+
+    func makeUIView(context: Context) -> PressView { PressView() }
+    func updateUIView(_ view: PressView, context: Context) {
+        view.enabled = enabled; view.haptic = haptic; view.onDown = onDown; view.onUp = onUp
+        if !enabled { view.release() }
+    }
+
+    final class PressView: UIView {
+        var enabled = true
+        var haptic = true
+        var onDown: ((Double) -> Void)?
+        var onUp: (() -> Void)?
+        private var down = false
+        private let generator = UIImpactFeedbackGenerator(style: .light)
+
+        override init(frame: CGRect) {
+            super.init(frame: frame)
+            backgroundColor = .clear
+            isMultipleTouchEnabled = false
+            isAccessibilityElement = false
+        }
+        required init?(coder: NSCoder) { fatalError() }
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            if window == nil { release() } else { generator.prepare() }
+        }
+        override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+            let r = min(bounds.width, bounds.height) / 2
+            return hypot(point.x - bounds.midX, point.y - bounds.midY) <= r
+        }
+        override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+            guard enabled, !down, let t = touches.first else { return }
+            down = true
+            if haptic { generator.impactOccurred(); generator.prepare() }
+            onDown?(t.timestamp)
+        }
+        override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) { release() }
+        override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) { release() }
+        func release() {
+            guard down else { return }
+            down = false
+            onUp?()
+        }
     }
 }
 

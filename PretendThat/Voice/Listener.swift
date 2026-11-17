@@ -1,117 +1,83 @@
 import AVFoundation
 import Observation
 import Speech
+import NutmegCore
 
-/// Hold-to-talk, on-device speech-to-text. Kids' audio never leaves the iPad.
+/// Round 31 (decisions/2026-11-16-on-device-speech.md): whether the iPad can listen ON THE DEVICE, and the hold-to-talk
+/// path for when there's no live voice session. Kids' audio never leaves the iPad: recognition is on-device only
+/// (`KidSpeechCapture`), and when that isn't possible the mic shows a grown-up note and typing takes over. There is no
+/// server fallback of any kind (the old DEBUG simulator use of Apple's server recognizer is gone).
 @Observable @MainActor
 final class Listener {
-    private(set) var transcript = ""
     private(set) var isListening = false
-    /// False when permission is denied or recognition isn't usable (choices and typing still work).
-    private(set) var available = false
-    /// Why the mic is off, or which recognizer it uses, in words for the Grown-ups screen.
-    private(set) var status = "Checking..."
-    /// True only in a DEBUG simulator build where on-device recognition is missing: Apple's server
-    /// recognizer is used instead so the demo mic works. Never true on a real iPad.
-    private(set) var usesServerRecognition = false
+    /// On-device listening is possible (permission given, English (US) on-device speech present).
+    var available: Bool { readiness.canListen }
+    private(set) var readiness: SpeechReadiness = .notAskedYet
+    /// Why the mic is off, or that it's on, in words for the Grown-ups screen.
+    var status: String { readiness.status }
 
     @ObservationIgnored private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
     @ObservationIgnored private let engine = AVAudioEngine()
-    @ObservationIgnored private var request: SFSpeechAudioBufferRecognitionRequest?
-    @ObservationIgnored private var task: SFSpeechRecognitionTask?
-    @ObservationIgnored private var isFinal = false
+    /// The no-session path's own capture (the live session's capture rides on the speaker's engine).
+    @ObservationIgnored let capture = KidSpeechCapture()
+    @ObservationIgnored private var heldSince: Date?
 
     func requestAuth() async {
         let speech = await Self.speechAuth()
         let mic = await AVAudioApplication.requestRecordPermission()
-        let decision = Self.decide(speech: speech, mic: mic, recognizerExists: recognizer != nil,
-                                   recognizerAvailable: recognizer?.isAvailable ?? false,
-                                   onDevice: recognizer?.supportsOnDeviceRecognition ?? false,
-                                   allowServerFallback: Self.isDebugSimulator)
-        available = decision.available
-        usesServerRecognition = decision.server
-        status = decision.status
+        refresh(speech: speech, mic: mic)
     }
 
-    /// Simulators report no on-device speech model, so on-device-only recognition is never available there.
-    static var isDebugSimulator: Bool {
-        #if DEBUG && targetEnvironment(simulator)
-        true
-        #else
-        false
-        #endif
-    }
-
-    /// Pure decision so each case is easy to reason about (see thinking/decisions/mic-simulator-fallback.md).
-    nonisolated static func decide(speech: SFSpeechRecognizerAuthorizationStatus, mic: Bool, recognizerExists: Bool,
-                                   recognizerAvailable: Bool, onDevice: Bool, allowServerFallback: Bool)
-        -> (available: Bool, server: Bool, status: String) {
-        switch speech {
-        case .denied: return (false, false, "Off: speech permission denied (Settings > Privacy > Speech Recognition)")
-        case .restricted: return (false, false, "Off: speech recognition is restricted on this iPad")
-        case .notDetermined: return (false, false, "Off: speech permission not answered yet")
-        case .authorized: break
-        @unknown default: return (false, false, "Off: unknown speech permission")
+    /// Re-reads the state without asking (or marks on-device speech missing after a recognition error said so).
+    func refresh(speech: SFSpeechRecognizerAuthorizationStatus = SFSpeechRecognizer.authorizationStatus(),
+                 mic: Bool = AVAudioApplication.shared.recordPermission == .granted, forceUnavailable: Bool = false) {
+        let permission: SpeechReadiness.Permission = switch speech {
+        case .authorized: .authorized
+        case .denied: .denied
+        case .restricted: .restricted
+        default: .notDetermined
         }
-        guard mic else { return (false, false, "Off: microphone permission denied") }
-        guard recognizerExists else { return (false, false, "Off: no English speech recognizer") }
-        if onDevice { return (true, false, "On-device ✓ (audio never leaves the iPad)") }
-        if allowServerFallback && recognizerAvailable {
-            return (true, true, "Simulator demo: Apple server speech (no on-device model in the simulator)")
-        }
-        return (false, false, "Off: on-device speech isn't supported here. Typing works instead.")
+        readiness = forceUnavailable ? .onDeviceUnavailable
+            : SpeechReadiness.decide(speech: permission, mic: mic, recognizerExists: recognizer != nil,
+                                     supportsOnDevice: recognizer?.supportsOnDeviceRecognition ?? false)
+        rtLog("speech: \(readiness) (on-device supported: \(recognizer?.supportsOnDeviceRecognition ?? false))")
     }
 
-    func startListening(stopping voice: NutmegVoice) {
+    /// A recognition error said on-device speech can't run (asset missing): typing from now on, with the note.
+    func markUnavailable() { if readiness != .onDeviceUnavailable { refresh(forceUnavailable: true) } }
+
+    // MARK: No live session (the tap fallback): its own engine, the same on-device capture
+
+    func startListening(stopping voice: NutmegVoice, touchHost: Double) {
         voice.stop()   // Nutmeg never hears herself
-        guard available, !isListening, let recognizer else { return }
-        transcript = ""; isFinal = false
+        guard available, !isListening else { return }
         AudioSessionSetup.activate()
-        let req = SFSpeechAudioBufferRecognitionRequest()
-        req.requiresOnDeviceRecognition = !usesServerRecognition
-        req.shouldReportPartialResults = true
-        request = req
         let input = engine.inputNode
-        Self.installInputTap(on: input, request: req)
+        Self.installInputTap(on: input, capture: capture)
         engine.prepare()
         do { try engine.start() } catch { input.removeTap(onBus: 0); return }
+        capture.begin(touchHost: touchHost)
+        heldSince = Date()
         isListening = true
-        task = Self.recognize(recognizer, req) { [weak self] text, final in
-            Task { @MainActor in
-                guard let self else { return }
-                if let text { self.transcript = text }
-                if final { self.isFinal = true }
-            }
-        }
     }
 
-    /// Stops listening and returns the final text ("" if nothing was heard).
-    func stopListening() async -> String {
-        guard isListening else { return "" }
+    /// Stops listening and returns the final words ("" if nothing was heard). The audio is gone after this.
+    func stopListening() async -> (words: String, held: Double) {
+        guard isListening else { return ("", 0) }
         isListening = false
+        let held = heldSince.map { Date().timeIntervalSince($0) } ?? 0
         engine.stop()
         engine.inputNode.removeTap(onBus: 0)
-        request?.endAudio()
-        for _ in 0..<12 where !isFinal { try? await Task.sleep(for: .milliseconds(60)) }
-        task?.cancel(); task = nil; request = nil
-        return transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (await capture.finish(), held)
     }
 
     nonisolated private static func speechAuth() async -> SFSpeechRecognizerAuthorizationStatus {
         await withCheckedContinuation { c in SFSpeechRecognizer.requestAuthorization { c.resume(returning: $0) } }
     }
 
-    nonisolated private static func installInputTap(on input: AVAudioInputNode, request: SFSpeechAudioBufferRecognitionRequest) {
-        let req = UncheckedSendable(request)
-        input.installTap(onBus: 0, bufferSize: 1024, format: input.outputFormat(forBus: 0)) { buffer, _ in
-            req.value.append(buffer)
-        }
-    }
-
-    nonisolated private static func recognize(_ r: SFSpeechRecognizer, _ req: SFSpeechAudioBufferRecognitionRequest,
-                                              update: @escaping @Sendable (String?, Bool) -> Void) -> SFSpeechRecognitionTask {
-        r.recognitionTask(with: req) { result, error in
-            update(result?.bestTranscription.formattedString, (result?.isFinal ?? false) || error != nil)
+    nonisolated private static func installInputTap(on input: AVAudioInputNode, capture: KidSpeechCapture) {
+        input.installTap(onBus: 0, bufferSize: 2400, format: input.outputFormat(forBus: 0)) { buffer, when in
+            capture.push(buffer, host: when.isHostTimeValid ? AVAudioTime.seconds(forHostTime: when.hostTime) : nil)
         }
     }
 }
