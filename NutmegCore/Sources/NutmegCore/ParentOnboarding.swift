@@ -412,6 +412,8 @@ public enum OnboardingCopy {
         ("checkmark", "Only the words, with names removed, go to our AI partners, OpenAI and Anthropic."),
     ]
     public static let privacyLink = "Read our privacy policy"
+    /// The one short line on the privacy page (a switch, OFF until the grown-up turns it on).
+    public static let analyticsLine = "Share anonymous usage counts (never anything about your child)"
     public static let consentAsk = "PretendThat uses AI to talk with your child and make each game. Is that OK?"
     public static let agree = "I agree, let's play"
     public static let notNow = "Not now"

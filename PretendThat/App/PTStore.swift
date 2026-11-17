@@ -86,6 +86,15 @@ final class PTPurchases {
 
     /// Buy a plan. Shows Apple's purchase sheet; pending (Ask to Buy) arrives later through `Transaction.updates`.
     func purchase(_ productID: String) async -> PurchaseOutcome {
+        // Anonymous counts: the plan name and period only (fixed words), then the outcome's category.
+        let plan = PlanValue(productID: productID), period = PeriodValue(productID: productID)
+        Analytics.send(.purchaseStarted(plan, period))
+        let outcome = await purchaseNow(productID)
+        Analytics.send(.purchaseFinished(plan, period, PurchaseResultValue(outcome)))
+        return outcome
+    }
+
+    private func purchaseNow(_ productID: String) async -> PurchaseOutcome {
         guard AppStore.canMakePayments else { return .failed(.notAvailable) }
         if products[productID] == nil { await loadProducts() }
         guard let product = products[productID] else { return .failed(.productMissing) }
@@ -203,6 +212,12 @@ enum PTStore {
 
     /// `AppStore.sync()` (may ask the grown-up to sign in to their Apple ID), then the entitlement count.
     static func restore() async -> RestoreOutcome {
+        let outcome = await restoreNow()
+        Analytics.send(.restoreFinished(RestoreResultValue(outcome)))
+        return outcome
+    }
+
+    private static func restoreNow() async -> RestoreOutcome {
         guard AppStore.canMakePayments else { return .after(.failure(.notAvailable)) }
         do {
             try await AppStore.sync()

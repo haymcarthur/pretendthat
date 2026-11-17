@@ -29,5 +29,6 @@
 	<key>RELAY_HOST</key><string>$(RELAY_HOST)</string>
 	<key>RELAY_TOKEN</key><string>$(RELAY_TOKEN)</string>
 	<key>RELAY_SHOW_LIMITS</key><string>$(RELAY_SHOW_LIMITS)</string>
+	<key>TelemetryDeckAppID</key><string>$(TELEMETRYDECK_APP_ID)</string>
 </dict>
 </plist>

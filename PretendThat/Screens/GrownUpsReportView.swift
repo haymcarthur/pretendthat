@@ -56,6 +56,7 @@ struct GUReportView: View {
     }
 
     private func load() {
+        Analytics.send(.reportProblemOpened)
         model.refreshShelf()
         var out: [ContentReport.Game] = []
         if let last = model.lastPlayedReport { out.append(last) }

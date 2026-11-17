@@ -345,6 +345,9 @@ public enum GrownUpsCopy {
     public static let billingNote = "Billing and refunds go through Apple."
     public static let billingLink = "Report a purchase problem to Apple"
     public static let webFailed = "This page couldn't be opened."
+    /// Anonymous usage counts (2026-11-17-analytics-build.md): the grown-up's switch, OFF until they turn it on.
+    public static let analyticsToggle = "Share anonymous usage counts"
+    public static let analyticsFooter = "Off unless you turn it on. It sends simple counts, like \"a game reached Print\" or \"a plan was bought\", to help us improve PretendThat. Never names, voices, words or anything about your child. No ads, no tracking."
 
     /// About what we save (round 31: kids' voices become words on the iPad and are never sent).
     public static let about: [(title: String, body: String)] = [

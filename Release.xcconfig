@@ -3,5 +3,6 @@
 // The "Release key check" build phase (tools/check-release-keys.sh) fails the build if either key ends up
 // non-empty in the built Info.plist.
 #include "Relay.xcconfig"
+#include "Analytics.xcconfig"
 ANTHROPIC_API_KEY =
 OPENAI_API_KEY =

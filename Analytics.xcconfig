@@ -1,0 +1,8 @@
+// Anonymous usage counts (TelemetryDeck; decisions/2026-11-17-analytics-build.md). Committed on purpose: the app ID is
+// not a secret (it ships inside every build), like the relay token.
+//
+// Paste the TelemetryDeck app ID below (TelemetryDeck dashboard → the app → its "App ID", a UUID) and rebuild.
+// No `xcodegen generate` needed. EMPTY = analytics off in every build (no SDK start, nothing sent).
+// Even with an ID, nothing is sent until a grown-up turns on "Share anonymous usage counts" (onboarding's privacy page
+// or Grown-ups → About what we save). Debug builds send in TelemetryDeck's Test mode; Release builds send live.
+TELEMETRYDECK_APP_ID =

@@ -1,4 +1,5 @@
 // Debug builds: the shared relay plus optional, git-ignored personal keys (dev mode). Anything set in
 // Secrets.xcconfig overrides Relay.xcconfig, and personal keys win over the relay. A fresh clone builds without it.
 #include "Relay.xcconfig"
+#include "Analytics.xcconfig"
 #include? "Secrets.xcconfig"

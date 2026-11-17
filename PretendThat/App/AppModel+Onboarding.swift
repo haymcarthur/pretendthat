@@ -47,6 +47,7 @@ extension AppModel {
         let args = ProcessInfo.processInfo.arguments
         #endif
         aiConsent = parentSettings.aiConsent
+        analyticsSharing = Analytics.sharing   // (Analytics.configure ran in init)
         // Round 38: StoreKit: the updates listener, the products and the current entitlement.
         purchases.onChange = { [weak self] in
             guard let self else { return }
@@ -81,6 +82,8 @@ extension AppModel {
             }
             #endif
             onboarding = flow
+            onboardingStartedAt = Date()
+            Analytics.send(.onboardingPageReached(OnboardingPageValue(flow.screen)))
             return
         }
         if aiConsent { await listener.requestAuth() } else { listener.refresh() }
@@ -114,9 +117,18 @@ extension AppModel {
     func onboardingUpdate(_ change: (inout OnboardingFlow) -> Void) {
         guard var f = onboarding else { return }
         let before = f.screen
+        let consentBefore = f.consent
         change(&f)
         onboarding = f
         if f.screen != before { rtLog("ONBOARDING \(before.rawValue) → \(f.screen.rawValue)") }
+        if !f.isReplay {   // a Grown-ups "Replay the intro" isn't counted
+            if f.screen != before, !f.finished {
+                Analytics.send(.onboardingPageReached(OnboardingPageValue(f.screen)))
+                if f.screen == .plans { Analytics.send(.paywallShown(.onboarding)) }
+            }
+            if let c = f.consent, c != consentBefore { Analytics.send(.consentAnswered(c ? .yes : .no)) }
+            if f.finished, let exit = f.exit { sendOnboardingFinished(exit) }
+        }
         if f.finished { finishOnboarding(f) } else { parentSettings.saveProgress(f) }
     }
 
@@ -127,6 +139,7 @@ extension AppModel {
         listener.refresh(speech: speech, mic: micOK)
         let granted = micOK && speech == .authorized
         rtLog("ONBOARDING mic: \(micOK ? "granted" : "denied"), speech: \(speech == .authorized ? "granted" : "denied")")
+        if onboarding?.isReplay == false { Analytics.send(.micAnswered(granted ? .yes : .no)) }
         // Round 34 (Haylee): start the on-device speech model download quietly now, so it's usually ready before the
         // first press (iPadOS 26+; already installed or older OS: nothing happens).
         if granted {
@@ -145,12 +158,19 @@ extension AppModel {
     func onboardingStartFirstGame() {
         guard var f = onboarding, f.screen == .handOff, !f.finished else { return }
         f.startFirstGame()
+        if !f.isReplay { sendOnboardingFinished(.firstGame) }
         parentSettings.finish(f)
         aiConsent = parentSettings.aiConsent
         rtLog("ONBOARDING finished (\(f.isReplay ? "replay" : "first launch")) → first game, AI consent \(aiConsent)")
         guard canStartNewGame() else { onboarding = nil; return }
         onboarding = f   // finished: RootView keeps it on screen until the stage takes over
         Task { @MainActor in await startConversation() }
+    }
+
+    private func sendOnboardingFinished(_ exit: OnboardingExit) {
+        let seconds = onboardingStartedAt.map { Date().timeIntervalSince($0) } ?? 0
+        Analytics.send(.onboardingFinished(OnboardingExitValue(exit), DurationValue(seconds: seconds)))
+        onboardingStartedAt = nil
     }
 
     private func finishOnboarding(_ f: OnboardingFlow) {
