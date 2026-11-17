@@ -17,7 +17,7 @@ struct GrownUpsSheet: View {
     @State private var path: [GrownUpsSection] = {
         #if DEBUG
         if let s = DemoDriver.grownUps {
-            if s == "confirm" { return [.savedGames] }
+            if ["confirm", "checked", "search", "lastPlayed", "deleteAll"].contains(s) { return [.savedGames] }
             if let section = GrownUpsSection(rawValue: s), section.webPage == nil { return [section] }
         }
         #endif
@@ -58,12 +58,15 @@ struct GUPageSizing: ViewModifier {
 // MARK: - Type (Dynamic Type text styles in the app's rounded face; grown-up screens scale with the system size)
 
 enum GUType {
-    static let rowTitle = Font.system(.title3, design: .rounded, weight: .bold)
-    static let rowSubtitle = Font.system(.subheadline, design: .rounded, weight: .medium)
-    static let headline = Font.system(.headline, design: .rounded, weight: .heavy)
-    static let body = Font.system(.body, design: .rounded, weight: .medium)
-    static let footnote = Font.system(.footnote, design: .rounded, weight: .medium)
-    static let button = Font.system(.headline, design: .rounded, weight: .bold)
+    // Round 39: Poppins on the grown-up side (headings SemiBold 600, body Regular / Medium), Dynamic Type relative.
+    static let rowTitle = GrownUpFont.heading(20, relativeTo: .title3)
+    static let rowSubtitle = GrownUpFont.font(.regular, size: 15, relativeTo: .subheadline)
+    static let headline = GrownUpFont.heading(17, relativeTo: .headline)
+    static let body = GrownUpFont.font(.regular, size: 17, relativeTo: .body)
+    static let footnote = GrownUpFont.font(.regular, size: 13, relativeTo: .footnote)
+    static let button = GrownUpFont.heading(17, relativeTo: .headline)
+    /// About -0.02em on a heading.
+    static let rowTitleKerning = GrownUpFont.headingKerning(20)
 }
 
 /// One outside page to show in the in-app Safari view.
@@ -138,7 +141,7 @@ struct GUMenuRow: View {
                 .background(RoundedRectangle(cornerRadius: iconSize * 0.25, style: .continuous).fill(color))
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
-                Text(section.title).font(GUType.rowTitle).foregroundStyle(Theme.ink)
+                Text(section.title).font(GUType.rowTitle).kerning(GUType.rowTitleKerning).foregroundStyle(Theme.ink)
                 Text(section.subtitle).font(GUType.rowSubtitle).foregroundStyle(Theme.inkMuted)
             }
             Spacer(minLength: Theme.Space.xs)
@@ -205,53 +208,73 @@ struct GUPlansView: View {
 struct GUSavedGamesView: View {
     let model: AppModel
     @State private var rows: [SavedGameRow] = []
-    @State private var pendingDelete: SavedGameRow?
+    /// Round 39 (Haylee): the checkboxes are always there (no Select button): check games, then Delete (one confirm).
+    @State private var checked: Set<UUID> = []
+    @State private var confirmDelete: [SavedGameRow] = []
+    @State private var query = ""
     @AppStorage("grownUps.savedGamesSort") private var sortRaw = SavedGameSort.newest.rawValue
 
     private var sort: SavedGameSort { SavedGameSort(rawValue: sortRaw) ?? .newest }
-    private var sorted: [SavedGameRow] { sort.apply(rows) }
+    private var shown: [SavedGameRow] { SavedGameSearch.filter(sort.apply(rows), query: query) }
+    private var checkedRows: [SavedGameRow] { sort.apply(rows).filter { checked.contains($0.id) } }
 
     var body: some View {
         List {
+            if rows.count > 1 {
+                Section {
+                    Picker("Sort by", selection: $sortRaw) {
+                        ForEach(SavedGameSort.allCases) { Text($0.label).tag($0.rawValue) }
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityLabel("Sort saved games")
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
+                } header: {
+                    Text(summary).font(GUType.footnote).textCase(nil)
+                }
+            }
             Section {
                 if rows.isEmpty {
                     Text(GrownUpsCopy.emptySavedGames).font(GUType.body).foregroundStyle(Theme.inkMuted)
                         .padding(.vertical, Theme.Space.xs)
+                } else if shown.isEmpty {
+                    Text(GrownUpsCopy.noSearchResults(query)).font(GUType.body).foregroundStyle(Theme.inkMuted)
+                        .padding(.vertical, Theme.Space.xs)
                 }
-                ForEach(sorted) { row in
-                    GUSavedGameRow(row: row, game: model.shelfGames.first { $0.id == row.id }, model: model) {
-                        pendingDelete = row
-                    }
+                ForEach(shown) { row in
+                    GUSavedGameRow(row: row, game: model.shelfGames.first { $0.id == row.id }, model: model,
+                                   checked: checked.contains(row.id)) { toggle(row) }
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button(role: .destructive) { pendingDelete = row } label: { Label("Delete", systemImage: "trash") }
+                        Button(role: .destructive) { confirmDelete = [row] } label: { Label("Delete", systemImage: "trash") }
                     }
-                }
-            } header: {
-                if rows.count > 1 {
-                    HStack {
-                        Text(summary).font(GUType.footnote).textCase(nil)
-                        Spacer()
-                        Picker("Sort by", selection: $sortRaw) {
-                            ForEach(SavedGameSort.allCases) { Text($0.label).tag($0.rawValue) }
-                        }
-                        .pickerStyle(.segmented)
-                        .frame(maxWidth: 220)
-                        .accessibilityLabel("Sort saved games")
-                    }
-                    .padding(.bottom, 4)
                 }
             } footer: {
                 if !rows.isEmpty { Text(GrownUpsCopy.savedGamesFooter).font(GUType.footnote) }
             }
         }
         .listStyle(.insetGrouped)
+        .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search saved games")
         .navigationTitle("Saved games")
-        .alert(pendingDelete.map { GrownUpsCopy.deleteTitle($0.title) } ?? "",
-               isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
-               presenting: pendingDelete) { row in
-            Button("Delete", role: .destructive) { delete(row) }
-            Button("Cancel", role: .cancel) { pendingDelete = nil }
-        } message: { _ in
+        .safeAreaInset(edge: .bottom) {
+            if !rows.isEmpty {
+                Button(role: .destructive) { confirmDelete = checkedRows } label: {
+                    Label(checked.isEmpty ? "Delete" : "Delete (\(checked.count))", systemImage: "trash")
+                        .font(GUType.button)
+                        .frame(maxWidth: .infinity, minHeight: 50)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Theme.coralStrong)
+                .disabled(checked.isEmpty)
+                .padding(.horizontal, Theme.Space.m).padding(.vertical, Theme.Space.s)
+                .background(.bar)
+                .accessibilityIdentifier("savedGames.delete")
+            }
+        }
+        .alert(GrownUpsCopy.deleteTitle(for: confirmDelete.map(\.title)),
+               isPresented: Binding(get: { !confirmDelete.isEmpty }, set: { if !$0 { confirmDelete = [] } })) {
+            Button("Delete", role: .destructive) { delete(confirmDelete) }
+            Button("Cancel", role: .cancel) { confirmDelete = [] }
+        } message: {
             Text(GrownUpsCopy.deleteMessage)
         }
         .onAppear(perform: reload)
@@ -263,29 +286,43 @@ struct GUSavedGamesView: View {
         return "\(rows.count) games · \(total)"
     }
 
+    private func toggle(_ row: SavedGameRow) {
+        if checked.contains(row.id) { checked.remove(row.id) } else { checked.insert(row.id) }
+    }
+
     private func reload() {
         model.refreshShelf()
         rows = model.grownUpRows()
+        checked.formIntersection(rows.map(\.id))
     }
 
-    private func delete(_ row: SavedGameRow) {
-        pendingDelete = nil
+    private func delete(_ list: [SavedGameRow]) {
+        confirmDelete = []
         withAnimation(Theme.gentle) {
-            model.deleteSavedGame(row.id)
+            for row in list { model.deleteSavedGame(row.id); checked.remove(row.id) }
             rows = model.grownUpRows()
         }
     }
 
-    /// DEBUG screenshots: -PTGrownUps confirm (the confirm for the first game) / deleteAll (delete every game, close).
+    /// DEBUG screenshots: -PTGrownUps confirm (two games checked, the confirm) / checked (two checked) / search (a
+    /// query) / deleteAll (check every game, delete, close).
     private func runDemo() async {
         #if DEBUG
         switch DemoDriver.grownUps {
-        case "confirm":
+        case "confirm", "checked":
             try? await Task.sleep(for: .seconds(1))
-            pendingDelete = sorted.first
+            for r in shown.prefix(2) { checked.insert(r.id) }
+            if DemoDriver.grownUps == "confirm" { try? await Task.sleep(for: .seconds(0.5)); confirmDelete = checkedRows }
+        case "search":
+            try? await Task.sleep(for: .seconds(1))
+            query = "moon"
+        case "lastPlayed":
+            sortRaw = SavedGameSort.lastPlayed.rawValue
         case "deleteAll":
             try? await Task.sleep(for: .seconds(1.5))
-            for row in rows { delete(row); try? await Task.sleep(for: .milliseconds(600)) }
+            checked = Set(rows.map(\.id))
+            try? await Task.sleep(for: .seconds(0.6))
+            delete(checkedRows)
             try? await Task.sleep(for: .seconds(1))
             rtLog("GROWNUPS: deleted all, left=\(model.grownUpRows().count) myGamesButton=\(!model.shelfGames.isEmpty)")
             model.closeGrownUps()
@@ -299,34 +336,40 @@ struct GUSavedGameRow: View {
     let row: SavedGameRow
     let game: SavedGame?
     let model: AppModel
-    let onDelete: () -> Void
+    let checked: Bool
+    let onToggle: () -> Void
     @Environment(\.dynamicTypeSize) private var typeSize
     @ScaledMetric(relativeTo: .body) private var thumbWidth: CGFloat = 132
 
     var body: some View {
         let layout = typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: Theme.Space.s))
                                                   : AnyLayout(HStackLayout(spacing: Theme.Space.m))
-        HStack(alignment: .center, spacing: Theme.Space.s) {
-            layout {
-                thumbnail
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(row.title).font(GUType.rowTitle).foregroundStyle(Theme.ink).lineLimit(3)
-                    Text("Saved \(row.dateText())").font(GUType.rowSubtitle).foregroundStyle(Theme.inkMuted)
-                    Text(row.sizeText).font(GUType.rowSubtitle).foregroundStyle(Theme.inkMuted)
-                }
-            }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel(row.accessibilityLabel)
-            .accessibilityAction(named: "Delete") { onDelete() }
-            Spacer(minLength: Theme.Space.xs)
-            Button(action: onDelete) {
-                Image(systemName: "trash").font(.system(.title3, weight: .semibold)).foregroundStyle(Theme.coralStrong)
+        Button(action: onToggle) {
+            HStack(alignment: .center, spacing: Theme.Space.s) {
+                Image(systemName: checked ? "checkmark.circle.fill" : "circle")
+                    .font(.system(.title2, weight: .semibold))
+                    .foregroundStyle(checked ? Theme.coralStrong : Theme.inkMuted)
                     .frame(minWidth: 44, minHeight: 44)
+                layout {
+                    thumbnail
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(row.title).font(GUType.rowTitle).kerning(GUType.rowTitleKerning).foregroundStyle(Theme.ink).lineLimit(3)
+                        Text("Saved \(row.dateText())").font(GUType.rowSubtitle).foregroundStyle(Theme.inkMuted)
+                        Text(row.sizeText).font(GUType.rowSubtitle).foregroundStyle(Theme.inkMuted)
+                    }
+                }
+                Spacer(minLength: 0)
             }
-            .buttonStyle(.borderless)
-            .accessibilityLabel("Delete \(row.title)")
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .padding(.vertical, 6)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(row.accessibilityLabel)
+        .accessibilityValue(checked ? "Checked" : "Not checked")
+        .accessibilityAddTraits(checked ? [.isButton, .isSelected] : .isButton)
+        .accessibilityHint("Check it to delete")
+        .accessibilityIdentifier("savedGames.row")
     }
 
     /// A wide 3:2 cover (the square cover art fills it, centered), else the prop stickers.
@@ -521,7 +564,13 @@ struct GUAboutView: View {
                 DisclosureGroup {
                     Text(GrownUpsCopy.mitLicense).font(GUType.footnote).foregroundStyle(Theme.inkMuted).padding(.vertical, 4)
                 } label: {
-                    Text("MIT License").font(GUType.button)
+                    Text(GrownUpsCopy.mitLicenseName).font(GUType.button)
+                }
+                // Round 39: the Poppins license, the file that ships with the font.
+                DisclosureGroup {
+                    Text(Self.oflText).font(GUType.footnote).foregroundStyle(Theme.inkMuted).padding(.vertical, 4)
+                } label: {
+                    Text(GrownUpsCopy.oflLicenseName).font(GUType.button)
                 }
             } header: {
                 Text(GrownUpsCopy.creditsTitle).accessibilityAddTraits(.isHeader)
@@ -532,6 +581,10 @@ struct GUAboutView: View {
         .listStyle(.insetGrouped)
         .navigationTitle("About what we save")
     }
+
+    /// The SIL Open Font License text bundled with Poppins (Fonts/Poppins-OFL.txt).
+    static let oflText: String = Bundle.main.url(forResource: "Poppins-OFL", withExtension: "txt")
+        .flatMap { try? String(contentsOf: $0, encoding: .utf8) } ?? "SIL Open Font License 1.1: openfontlicense.org"
 }
 
 // MARK: - Help & contact

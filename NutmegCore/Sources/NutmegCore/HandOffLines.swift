@@ -30,10 +30,10 @@ public enum HandOffLines {
         return ".!?".contains(last) ? t : t + "."
     }
 
-    /// The End. Round 26 (Haylee's button audit): two icon buttons, a star (save it, then home) and a house (home without
-    /// saving); a replay is already saved, so only the house.
+    /// The End. Round 39 (Haylee, auto-save): no star any more. Every game is already on the bookshelf, so The End has
+    /// Play it again (the arrow) and the house, and she mentions the bookshelf. The same words for a new game and a
+    /// replay (one bundled clip; `replay` is kept for the callers).
     public static func end(replay: Bool = false) -> String {
-        replay ? "The end! What a show! Take a bow! Tap the house to go home!"
-            : "The end! What a show! Take a bow! Tap the star to save it, or the house to go home!"
+        "The end! What a show! Take a bow! It's on your bookshelf. Tap the arrow to play again, or the house to go home!"
     }
 }

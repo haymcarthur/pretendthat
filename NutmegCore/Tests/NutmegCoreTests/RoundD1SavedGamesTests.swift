@@ -61,7 +61,7 @@ struct RoundD1SavedGamesTests {
         // A half-written folder is never listed.
         try FileManager.default.createDirectory(at: root.appendingPathComponent(UUID().uuidString + ".tmp"), withIntermediateDirectories: true)
         let list = store.list()
-        #expect(list.map(\.title) == ["Pirates on the Moon", "Airplane to the Beach"])
+        #expect(list.map(\.title) == ["Pirates on the Moon", "Airplane to the Beach"])   // (never replayed: newest first)
         #expect(list[1].art == ["img:sign"] && list[1].cover == "cover.jpg" && list[0].cover == nil)
         #expect(store.art(for: list[1]) == ["img:sign": Data([1, 2, 3])])
         #expect(store.cover(for: list[1]) == Data([9]) && store.cover(for: list[0]) == nil)
@@ -112,21 +112,25 @@ struct RoundD1SavedGamesTests {
 
     // MARK: Save at The End
 
-    @Test func onlyAFinishedFirstPlayCanBeSavedOnce() async {
+    /// Round 39: a first play can be saved from the moment its kit is made (auto-save), never a replay.
+    @Test func onlyAFirstPlayWithItsKitCanBeSaved() async {
         let store = AdventureStore(service: nil)
-        #expect(!store.canSave)
+        #expect(!store.canAutoSave)
         store.loadReplay(fixture())
         store.replayPick(2); store.replayAllFound(); store.beginPlay()
         await finishPlay(store)
-        #expect(store.phase == .end && !store.canSave)   // a replay is already saved
+        #expect(store.phase == .end && !store.canAutoSave)   // a replay is already saved
         // A first play (bundled game) at The End: saveable, once.
         let first = AdventureStore(service: nil)
         await first.start(); await first.chooseGame("Airplane"); first.setPlayerCount(2)
-        await first.confirmPlayers(); await first.confirmRoles(); await first.confirmProps()
+        await first.confirmPlayers(); await first.confirmRoles()
+        #expect(!first.canAutoSave)   // no kit yet: nothing saved, nothing counted
+        await first.confirmProps()
+        #expect(first.phase == .kitReady && first.canAutoSave)
         first.beginPlay(); await finishPlay(first)
-        #expect(first.phase == .end && first.canSave)
+        #expect(first.phase == .end && first.canAutoSave)   // kept up to date to The End
         first.markSaved(UUID())
-        #expect(!first.canSave)
+        #expect(first.savedAs != nil)
         first.newGame()
         #expect(first.savedAs == nil && !first.isReplay)
     }

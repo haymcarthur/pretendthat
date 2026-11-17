@@ -120,7 +120,7 @@ public enum ArtKey {
 }
 
 extension AdventureStore {
-    /// The game as it can be saved (The End of a first play), or nil. Built ONLY from game content: the current title,
+    /// The game as it can be saved (round 39: from the moment the kit is made, kept up to date), or nil. Built ONLY from game content: the current title,
     /// the 6 ranked roles, the props, the kit for 6, and the color choice. Never the count,
     /// the chat, kid text or anything else the store holds in memory.
     public func savedGame(id: UUID = UUID(), now: Date = Date(), art: [String], cover: String?,
@@ -188,14 +188,15 @@ public final class SavedGameStore: @unchecked Sendable {
         #endif
     }
 
-    /// Every fully saved game, newest first (Haylee: the shelf is newest first).
+    /// Every fully saved game. Round 39 (Claude's suggestion, Haylee may veto): most recently PLAYED first (a new game's
+    /// lastPlayedAt is its save time; a replay touches it), so favorites stay up front; ties newest first.
     public func list() -> [SavedGame] {
         lock.withLock {
             guard let dirs = try? fm.contentsOfDirectory(at: root, includingPropertiesForKeys: nil) else { return [] }
             return dirs.filter { !$0.lastPathComponent.hasSuffix(".tmp") }
                 .compactMap { try? Data(contentsOf: $0.appendingPathComponent("game.json")) }
                 .compactMap { try? SavedGame.decode($0) }
-                .sorted { $0.createdAt > $1.createdAt }
+                .sorted { $0.lastPlayedAt != $1.lastPlayedAt ? $0.lastPlayedAt > $1.lastPlayedAt : $0.createdAt > $1.createdAt }
         }
     }
 
@@ -226,6 +227,49 @@ public final class SavedGameStore: @unchecked Sendable {
             guard let d = try? Data(contentsOf: json), var g = try? SavedGame.decode(d) else { return }
             g.lastPlayedAt = date
             if let data = try? SavedGame.encoder().encode(g) { try? write(data, to: json) }
+        }
+    }
+
+    /// Round 39: the auto-save keeps the game up to date as play goes (the kit remade, new page art, the cover once it's
+    /// drawn). Content fields come from `game`; the clips already recorded with it, `createdAt` and `lastPlayedAt` are
+    /// kept (read under the lock, so a clip added meanwhile is never lost); art files are written for the keys given;
+    /// `keep` = every art key the game has now (files for other keys are removed). A game not saved yet is written
+    /// fresh. Returns false on a write error.
+    @discardableResult
+    public func update(_ game: SavedGame, art: [String: Data], keep: Set<String>, cover: Data?) -> Bool {
+        let fresh: Bool = lock.withLock {
+            let json = folder(game.id).appendingPathComponent("game.json")
+            return (try? Data(contentsOf: json)).flatMap { try? SavedGame.decode($0) } == nil
+        }
+        if fresh {
+            let a = art.filter { keep.contains($0.key) }
+            return (try? save(game, art: a, cover: cover)) != nil
+        }
+        return lock.withLock {
+            let dir = folder(game.id)
+            let json = dir.appendingPathComponent("game.json")
+            guard let d = try? Data(contentsOf: json), let old = try? SavedGame.decode(d) else { return false }
+            do {
+                var g = game
+                g.schemaVersion = SavedGame.currentSchema
+                g.createdAt = old.createdAt
+                g.lastPlayedAt = old.lastPlayedAt
+                g.clips = old.clips
+                let artDir = dir.appendingPathComponent("art", isDirectory: true)
+                try fm.createDirectory(at: artDir, withIntermediateDirectories: true)
+                for (key, data) in art where keep.contains(key) { try write(data, to: artDir.appendingPathComponent(ArtKey.fileName(key))) }
+                let have = Set(old.art).union(art.keys)
+                for gone in have.subtracting(keep) { try? fm.removeItem(at: artDir.appendingPathComponent(ArtKey.fileName(gone))) }
+                g.art = have.intersection(keep).sorted()
+                if let cover {
+                    try write(cover, to: dir.appendingPathComponent("cover.jpg"))
+                    g.cover = "cover.jpg"
+                } else {
+                    g.cover = old.cover
+                }
+                try write(SavedGame.encoder().encode(g), to: json)
+                return true
+            } catch { return false }
         }
     }
 
