@@ -151,6 +151,37 @@ import Testing
                 == "get the pet room ready! The sign goes up, then set up the pet bed")
     }
 
+    /// The live 2-player game (round 40): the AI gave the first role 5 items, one 16-second line. A row with more than 3
+    /// items now splits while its role has room; the new row takes a free role's goal (never a duplicate label).
+    @Test func aLongRowSplitsIntoAFewGoalRows() {
+        var k = a.kit
+        let jobs = k.setup!.jobs.map { var j = $0; j.role = j.item == "page:menu" ? .R2 : .R1; return j }
+        k.setup?.jobs = jobs
+        for n in [1, 2] {
+            let v = view(k, n)
+            let setup = v[1]
+            let items = Bookends.setupItems(items: k.items, props: props)
+            var jobs: [String: ItemJob] = [:]
+            for it in items { jobs[it.id] = k.setup?.job(it.id) }
+            let plan = Bookends.goalAssignment(items: items, jobs: jobs, roles: roles, players: n)
+            #expect(plan.allSatisfy { $0.items.count <= Bookends.maxItemsPerGoalRow }, "n=\(n) \(plan.map(\.items))")
+            #expect(Set(plan.flatMap(\.items)) == Set(items.map(\.id)) && plan.flatMap(\.items).count == items.count)
+            let labels = setup.steps.compactMap(\.short)
+            #expect(Set(labels).count == labels.count, "n=\(n) duplicate goal \(labels)")
+            let perRole = Dictionary(grouping: setup.steps, by: \.role).mapValues(\.count)
+            #expect(perRole.values.allSatisfy { $0 <= Bookends.goalRowsPerRole(players: n) }, "n=\(n) \(perRole)")
+            #expect(SetupCoverage.setupMissing(v, items: Bookends.coverItems(items: k.items, props: props)).isEmpty)
+        }
+        let two = view(k, 2)[1].steps
+        #expect(two.filter { $0.role == SceneOwner(.R1) }.count == 2, "\(two.map(\.text))")
+    }
+
+    @Test func secondActionsAfterAndBecomeIngToo() {
+        #expect(Gerund.phrase("count the Paw Bucks and stack them up") == "counting the Paw Bucks and stacking them up")
+        #expect(Gerund.phrase("sit the patient pet by the desk") == "sitting the patient pet by the desk")
+        #expect(Gerund.phrase("put the cups and stack by the sink") == "putting the cups and stack by the sink")
+    }
+
     @Test func goalsAreTwoToSixWords() {
         #expect(Bookends.isValidGoal("Get the pet room ready"))
         #expect(!Bookends.isValidGoal("Ready"))

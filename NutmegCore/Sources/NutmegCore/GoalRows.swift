@@ -12,6 +12,7 @@ import Foundation
 // - Items are grouped by the role they suit. A playing role's row is its own goal + its group. A group whose role isn't
 //   playing becomes an extra row (its goal) for a playing role that still has room (solo 3 rows, 2 players 2 each,
 //   3+ players 1 each) when it has at least 2 items, else it joins the row with the fewest items.
+// - A row with more than 3 items splits in two while its role has room (the moved items take a free role's goal).
 // - A playing role with nothing to do takes one item from the busiest row (never a row's last item).
 
 extension Bookends {
@@ -21,6 +22,9 @@ extension Bookends {
     }
     public static let minGoalWords = 2
     public static let maxGoalWords = 6
+    /// A goal row names at most this many items when its role may have another row (live 2-player game: one row of 5
+    /// items was a 16-second line).
+    public static let maxItemsPerGoalRow = 3
 
     /// A usable goal: 2 to 6 words, no quotes.
     public static func isValidGoal(_ g: String?) -> Bool {
@@ -79,6 +83,36 @@ extension Bookends {
             }
         }
         for id in loose { let i = leastRow(); rows[i].items.append(id) }
+        // A row with more than `maxItemsPerGoalRow` items splits in two while its role has room (a solo kid or 2 players:
+        // a few goal rows, each line short enough to listen to). The items that suit another role move (else the last
+        // ones), and the new row takes the goal of a role no row uses yet (the one those items suit, when it's free).
+        func pref(_ id: String) -> RoleID? { jobs[id]?.role ?? items.first { $0.id == id }?.prop?.forRole.role }
+        // Fair shares first: while one kid has 3+ more items than another, the busiest row hands one over (an item that
+        // suits another role first, else its last) to the least busy kid's smallest row.
+        for _ in 0..<items.count {
+            guard let most = playing.max(by: { load($0.id) < load($1.id) }), let least = playing.min(by: { load($0.id) < load($1.id) }),
+                  load(most.id) - load(least.id) > 2,
+                  let from = rows.indices.filter({ rows[$0].role == most.id && rows[$0].items.count > 1 }).max(by: { rows[$0].items.count < rows[$1].items.count }),
+                  let to = rows.indices.filter({ rows[$0].role == least.id }).min(by: { rows[$0].items.count < rows[$1].items.count }) else { break }
+            let k = rows[from].items.lastIndex { pref($0) != rows[from].goalOf } ?? rows[from].items.count - 1
+            rows[to].items.append(rows[from].items.remove(at: k))
+        }
+        while let i = rows.indices.filter({ rows[$0].items.count > maxItemsPerGoalRow && rowsOf(rows[$0].role) < cap })
+                .max(by: { rows[$0].items.count < rows[$1].items.count }) {
+            let row = rows[i]
+            let own = row.items.filter { pref($0) == row.goalOf }, other = row.items.filter { pref($0) != row.goalOf }
+            let ordered = own + other
+            // Even rows: as many parts as the role has room for (and the items need), this row keeps the first part.
+            let parts = min(cap - rowsOf(row.role) + 1, Int((Double(ordered.count) / Double(maxItemsPerGoalRow)).rounded(.up)))
+            let keep = Int((Double(ordered.count) / Double(max(2, parts))).rounded(.up))
+            let moved = Array(ordered[keep...])
+            let used = Set(rows.map(\.goalOf))
+            let suited = moved.compactMap(pref).filter { !used.contains($0) }
+            let free = RoleID.allCases.filter { !used.contains($0) && !playingIDs.contains($0) } + RoleID.allCases.filter { !used.contains($0) }
+            guard let goal = suited.first ?? free.first else { break }
+            rows[i].items = Array(ordered[..<keep])
+            rows.insert(GoalRow(role: row.role, goalOf: goal, items: moved), at: i + 1)
+        }
         // A playing role with nothing to do takes one item from the busiest row that has more than one.
         for i in rows.indices where rows[i].items.isEmpty {
             guard let from = rows.indices.filter({ rows[$0].items.count > 1 }).max(by: { rows[$0].items.count < rows[$1].items.count }) else { break }
@@ -149,6 +183,8 @@ public enum Gerund {
         "straighten", "sweep", "take", "tape", "tidy", "tie", "tuck", "turn", "unpack", "wave", "wipe", "wrap", "write",
         "zip", "hop", "lift", "lower", "raise", "ready", "rinse", "scoop", "seat", "serve", "slip", "smooth", "snap",
         "steer", "stock", "stretch", "swap", "toss", "tow", "unfold", "unroll", "wash", "fasten", "feed", "fly", "drive",
+        "sit", "greet", "welcome", "ring", "sprinkle", "water", "brush", "comb", "lead", "walk", "cuddle",
+        "trade", "buy", "sell", "fetch", "stamp", "sign", "hug", "prepare", "practice", "rearrange",
     ]
     /// Verbs that may follow "and" inside a job ("write your name and keep it ready"); nouns that are also verbs
     /// ("stack", "pile", "post"…) are left out so "the cups and stack" can't turn into "stacking".
@@ -179,6 +215,11 @@ public enum Gerund {
         return v + "ing"
     }
 
+    /// After "and", any known verb followed by one of these words is a second action ("count the bucks and stack them
+    /// up"), never a noun ("the cups and stack").
+    static let objectStarts: Set<String> = ["them", "it", "the", "a", "an", "your", "their", "its", "his", "her", "up", "away",
+                                            "out", "back", "all", "every", "each", "everything", "on", "in", "down", "over", "into"]
+
     /// The whole phrase with its leading verb (and any verb right after "and"/", then") in the -ing form, or nil if it
     /// doesn't start with a verb the app knows.
     public static func phrase(_ s: String) -> String? {
@@ -188,7 +229,9 @@ public enum Gerund {
         for i in words.indices.dropFirst() where i > 0 {
             let prev = words[i - 1].lowercased()
             guard prev == "and" || prev == "then" else { continue }
-            if andVerbs.contains(words[i].lowercased()) { words[i] = ing(words[i]) }
+            let w = words[i].lowercased()
+            let next = words.indices.contains(i + 1) ? words[i + 1].lowercased() : ""
+            if andVerbs.contains(w) || (verbs.contains(w) && objectStarts.contains(next)) { words[i] = ing(words[i]) }
         }
         return words.joined(separator: " ")
     }
