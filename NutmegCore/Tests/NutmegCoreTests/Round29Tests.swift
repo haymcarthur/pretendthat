@@ -137,7 +137,7 @@ import Testing
         let calls = llm.calls
         for n in [1, 6, 4] {
             store.changePlayerCount(n)
-            #expect(store.kit?.scenes.filter { $0.arc != .story }.allSatisfy { $0.steps.count == n } == true)
+            #expect(store.kit?.scenes.filter { $0.arc == .play }.allSatisfy { $0.steps.count == n } == true)
         }
         #expect(llm.calls == calls)
         store.beginPlay()
@@ -168,7 +168,7 @@ import Testing
         let store = AdventureStore(service: nil)
         store.loadReplay(back)
         store.replayPick(4)
-        #expect(store.kit?.playScenes.count == 3 && store.kit?.scenes.filter { $0.arc != .story }.allSatisfy { $0.steps.count == 4 } == true)
+        #expect(store.kit?.playScenes.count == 3 && store.kit?.scenes.filter { $0.arc == .play }.allSatisfy { $0.steps.count == 4 } == true)
         #expect(store.kit?.playScenes.map(\.title) == a.kit.scenes.map(\.title))
         while store.replayHuntActive {
             let id = store.replayCurrentProp!.id

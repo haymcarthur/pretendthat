@@ -86,7 +86,7 @@ func walk(_ store: AdventureStore) async -> [Phase] {
     await store.confirmProps()
     #expect(store.usingFallback)
     #expect(store.phase == .kitReady)
-    #expect(store.kit?.scenes.filter { $0.arc != .story }.allSatisfy { $0.steps.count == 2 && !$0.steps.contains { $0.role == .R3 } } == true)
+    #expect(store.kit?.scenes.filter { $0.arc == .play }.allSatisfy { $0.steps.count == 2 && !$0.steps.contains { $0.role == .R3 } } == true)
 }
 
 @Test @MainActor func newGameClearsEverything() async {

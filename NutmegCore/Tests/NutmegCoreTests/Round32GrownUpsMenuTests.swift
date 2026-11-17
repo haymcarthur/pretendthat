@@ -11,12 +11,12 @@ import Testing
         // Round 33: the intro row is on, and the AI partners row joins the privacy group.
         #expect(GrownUpsFeatures.replayIntro == true)
         #expect(GrownUpsSection.visible(replayIntro: false) == [.savedGames, .subscription, .restorePurchases, .aiPartners,
-                                              .privacyPolicy, .aboutWhatWeSave, .termsOfUse, .help])
+                                              .privacyPolicy, .aboutWhatWeSave, .termsOfUse, .help, .reportProblem])
         #expect(GrownUpsSection.visible(replayIntro: true).last == .replayIntro)
         #expect(GrownUpsSection.groups(replayIntro: false) == [[.savedGames], [.subscription, .restorePurchases],
-                                             [.aiPartners, .privacyPolicy, .aboutWhatWeSave, .termsOfUse], [.help]])
-        #expect(GrownUpsSection.groups().last == [.help, .replayIntro])
-        #expect(GrownUpsSection.groups(replayIntro: true).last == [.help, .replayIntro])
+                                             [.aiPartners, .privacyPolicy, .aboutWhatWeSave, .termsOfUse], [.help, .reportProblem]])
+        #expect(GrownUpsSection.groups().last == [.help, .reportProblem, .replayIntro])   // round 37: Report a problem
+        #expect(GrownUpsSection.groups(replayIntro: true).last == [.help, .reportProblem, .replayIntro])
         for s in GrownUpsSection.allCases {
             #expect(!s.title.isEmpty && !s.subtitle.isEmpty && !s.systemImage.isEmpty)
         }

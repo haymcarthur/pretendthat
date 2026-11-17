@@ -119,7 +119,8 @@ public struct SeededGenerator: RandomNumberGenerator, Equatable, Sendable {
 /// policy, About what we save, Terms of use, Help & contact, and Replay the intro (hidden until round 33 builds the
 /// parent onboarding).
 public enum GrownUpsSection: String, CaseIterable, Hashable, Sendable {
-    case savedGames, subscription, restorePurchases, aiPartners, privacyPolicy, aboutWhatWeSave, termsOfUse, help, replayIntro
+    // Round 37: reportProblem (App Store 1.2: report AI-made content), in the help group.
+    case savedGames, subscription, restorePurchases, aiPartners, privacyPolicy, aboutWhatWeSave, termsOfUse, help, reportProblem, replayIntro
 
     public var title: String {
         switch self {
@@ -131,6 +132,7 @@ public enum GrownUpsSection: String, CaseIterable, Hashable, Sendable {
         case .aboutWhatWeSave: "About what we save"
         case .termsOfUse: "Terms of use"
         case .help: "Help & contact"
+        case .reportProblem: "Report a problem"
         case .replayIntro: "Replay the intro"
         }
     }
@@ -146,6 +148,7 @@ public enum GrownUpsSection: String, CaseIterable, Hashable, Sendable {
         case .aboutWhatWeSave: "What stays on this iPad, in plain words"
         case .termsOfUse: "Opens pretendthat.app/terms"
         case .help: "Get help, and where billing questions go"
+        case .reportProblem: "Something odd or not OK in a game? Tell us"
         case .replayIntro: "Watch the grown-ups introduction again"
         }
     }
@@ -161,6 +164,7 @@ public enum GrownUpsSection: String, CaseIterable, Hashable, Sendable {
         case .aboutWhatWeSave: "lock.shield.fill"
         case .termsOfUse: "doc.text.fill"
         case .help: "questionmark.circle.fill"
+        case .reportProblem: "flag.fill"
         case .replayIntro: "play.rectangle.fill"
         }
     }
@@ -180,7 +184,7 @@ public enum GrownUpsSection: String, CaseIterable, Hashable, Sendable {
         case .savedGames: 0
         case .subscription, .restorePurchases: 1
         case .aiPartners, .privacyPolicy, .aboutWhatWeSave, .termsOfUse: 2
-        case .help, .replayIntro: 3
+        case .help, .reportProblem, .replayIntro: 3
         }
     }
 
@@ -341,6 +345,8 @@ public enum GrownUpsCopy {
         ("Only words go to our AI partners", "Those words go to our AI partners (OpenAI and Anthropic) so Nutmeg can answer and write the game. Names are removed first, and the words are checked for kid safety."),
         ("Saved games are game content only", "A saved game keeps its title, roles, props, play guide, printable pages and Nutmeg's recorded lines. Nothing about your child: no names, voices or pictures."),
         ("Saved on this iPad", "Saved games stay on this iPad. We don't have servers that store your games."),
+        // Round 37 (Anthropic's rule for products used by minors + App Store 1.2 / 5.1.2(i)): say plainly that Nutmeg is AI.
+        ("Nutmeg is an AI helper", "Nutmeg is a computer character, not a person. Her words, the story and the printed pages are made by AI and checked for kid safety. The first time your child plays, she tells them she's a pretend helper made by a computer. AI can get things wrong: if something seems off, use Report a problem in Grown-ups."),
         ("No accounts, ads or tracking", "There's nothing to sign up for. PretendThat has no ads and doesn't track you or your child."),
         ("You're in charge", "Delete any game in Saved games. Unsaved games are gone when you leave them."),
     ]

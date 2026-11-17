@@ -19,6 +19,7 @@ targets:
     platform: iOS
     deploymentTarget: "17.0"
     sources:
+      # Includes PretendThat/Resources/PrivacyInfo.xcprivacy (round 37), which xcodegen puts in the Resources phase.
       - path: PretendThat
     dependencies:
       - package: NutmegCore

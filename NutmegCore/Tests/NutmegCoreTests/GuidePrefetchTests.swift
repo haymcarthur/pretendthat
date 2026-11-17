@@ -132,7 +132,7 @@ import Testing
         // Round 29: the playing roles are Captain + the customer counterpart (Passenger); every scene shows both rows.
         #expect(store.playingRoles.map(\.roleName) == ["Captain", "Passenger"])
         #expect(store.kit?.playScenes.count == 3)
-        #expect(store.kit?.scenes.filter { $0.arc != .story }.allSatisfy { $0.steps.map(\.role) == [.R1, .R2] } == true)
+        #expect(store.kit?.scenes.filter { $0.arc == .play }.allSatisfy { $0.steps.map(\.role) == [.R1, .R2] } == true)
     }
 
     @Test func aCorrectionRestartsTheGuide() async {

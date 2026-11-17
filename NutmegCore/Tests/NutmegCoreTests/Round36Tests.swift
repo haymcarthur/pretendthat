@@ -23,16 +23,20 @@ import Testing
             let missing = SetupCoverage.missing(view.scenes, items: all, roles: roles)
             #expect(missing.isEmpty, "n=\(n): \(SetupCoverage.log(view.scenes, items: all, roles: roles))")
             let setup = view.scenes[1]
-            #expect(setup.steps.count == n && setup.steps.map(\.role) == RoleID.allCases.prefix(n).map { SceneOwner($0) })
+            // Round 37: every playing role has at least one row, in role order; a role may have several rows.
+            var seenRoles: [SceneOwner] = []
+            for st in setup.steps where seenRoles.last != st.role { seenRoles.append(st.role) }
+            #expect(seenRoles == RoleID.allCases.prefix(n).map { SceneOwner($0) }, "n=\(n)")
             #expect(setup.nutmegSays.hasPrefix("Pretend that") && setup.nutmegSays.contains("badge"))
             for st in setup.steps {
                 let name = roles[st.role.role!.index].roleName
                 #expect(st.text.hasPrefix(name + ", ") && st.text.hasSuffix("!"), "\(st.text)")
-                #expect((st.short ?? "").split(separator: " ").count <= 8 && !(st.short ?? "").isEmpty, "\(st.short ?? "-")")
+                let w = (st.short ?? "").split(separator: " ").count
+                #expect(w >= 2 && w <= 7 && !(st.short ?? "").contains("and more"), "\(st.short ?? "-")")
             }
             // Clean-up: every playing role has a job, and every real prop goes back.
             let clean = view.scenes[5]
-            #expect(clean.steps.count == n && PretendLine.has(clean.nutmegSays))
+            #expect(Set(clean.steps.map(\.role)).count == n && PretendLine.has(clean.nutmegSays))
             for it in all where it.prop != nil {
                 #expect(clean.steps.contains { Bookends.mentions($0.text, it) }, "n=\(n) \(it.id) not put away")
             }
@@ -49,6 +53,8 @@ import Testing
             let plan = Bookends.setupAssignment(items: all, jobs: jobs, play: PlayCast.kit(a.kit, roles: roles, players: n).playScenes, roles: roles, players: n)
             #expect(plan.allSatisfy { !$0.items.isEmpty })                 // one task per role, never empty
             #expect(plan.allSatisfy { $0.items.count <= 3 }, "\(plan.map(\.items))")
+            // Round 37: whatever a role gets, no ROW names more than 2 items.
+            #expect(plan.allSatisfy { Bookends.rows($0.items, players: n).allSatisfy { $0.count <= 2 } })
             let fits = all.count <= 2 * n
             if fits { #expect(plan.flatMap(\.items).count == all.count) }  // everything is set up when it fits
         }
@@ -168,7 +174,8 @@ import Testing
         #expect(!(store.sceneLine(2) ?? "").contains(HandOffLines.nextSceneHowTo))   // only the first scene with rows
         // read_job works in the setup scene too.
         store.debugSetPhase(.scene(1))
-        #expect(await store.apply(.readJob("Passenger")).contains("Say nothing") && store.lastReadJobRow == 1)
+        let passengerRow = store.kit!.scenes[1].steps.firstIndex { $0.role == SceneOwner(.R2) }   // round 37: a role may have 2+ rows
+        #expect(await store.apply(.readJob("Passenger")).contains("Say nothing") && store.lastReadJobRow == passengerRow)
         // The story has no step tab and uses the talking close-up.
         #expect(PTStepTab.forPhase(.scene(0), replay: false, propsShown: 0, papersOut: false, arc: .story) == nil && PTStepTab.forPhase(.scene(5), replay: false, propsShown: 0, papersOut: false, arc: .cleanup) == .cleanup)
         #expect(PTStepTab.forPhase(.scene(1), replay: false, propsShown: 0, papersOut: false, arc: .setup) == .setup && PTChatTabState.cardKey(for: .setup, phase: .scene(1)) == "scene-1")

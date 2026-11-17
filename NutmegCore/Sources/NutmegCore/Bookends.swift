@@ -68,9 +68,32 @@ public struct CoverItem: Equatable, Sendable {
 }
 
 public enum Bookends {
-    /// Setup rows aim for this many items per role (Claude's call: one easy task; two items when there are more items
-    /// than roles; a solo kid three). An item no play task names may push a role one past it.
-    public static func setupTarget(players n: Int) -> Int { PlayCast.players(n) == 1 ? 3 : 2 }
+    /// Setup aims for this many items per role (Claude's call: two items when there are more items than roles; a solo
+    /// kid four, one a row). An item no play task names may push a role past it.
+    public static func setupTarget(players n: Int) -> Int { PlayCast.players(n) == 1 ? 4 : 2 }
+    /// Round 37 (Haylee: tasks are short and broad, kids can't read): a row names at most this many items...
+    public static let maxItemsPerRow = 2
+    /// ...and its short label is 2 to 7 words that name its item(s) (never "… and more").
+    public static let maxRowShortWords = 7
+    /// How many rows a role may get in the setup / clean-up scene before its items pair up (a solo kid 4; the scene
+    /// stays at about 6 rows in all). A role with more items than `rows × 2` gets more rows (never 3 items in a row).
+    public static func rowsPerRole(players n: Int) -> Int {
+        let p = PlayCast.players(n)
+        return p == 1 ? 4 : max(1, 6 / p)
+    }
+    /// A role's items split into rows: one item a row while they fit in `rowsPerRole`, else pairs (first rows first),
+    /// never more than `maxItemsPerRow` in a row. Item order is kept.
+    public static func rows(_ ids: [String], players n: Int) -> [[String]] {
+        guard !ids.isEmpty else { return [] }
+        let count = min(ids.count, max(rowsPerRole(players: n), Int((Double(ids.count) / Double(maxItemsPerRow)).rounded(.up))))
+        let pairs = ids.count - count   // rows that take two items
+        var out: [[String]] = [], i = 0
+        for r in 0..<count {
+            let take = r < pairs ? 2 : 1
+            out.append(Array(ids[i..<min(ids.count, i + take)])); i += take
+        }
+        return out
+    }
     /// A job's spoken phrase: at most this many words (a quick setup action).
     public static let maxJobWords = 22
     public static let maxShortWords = 6
@@ -370,9 +393,15 @@ public enum Bookends {
             jobs[it.id] = isValid(j, for: it) ? j : fallbackSetup(it)
         }
         let plan = setupAssignment(items: items, jobs: jobs, play: play, roles: roles, players: n)
-        let steps = plan.map { row -> Step in
-            let js = row.items.compactMap { jobs[$0] }
-            return task(js, role: row.role, roles: roles, players: n, filler: "check that everything is ready and give a big thumbs up")
+        let byID = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
+        // Round 37: a role with several items gets several rows (at most 2 items a row), each with its own label.
+        let steps = plan.flatMap { group -> [Step] in
+            let filler = "check that everything is ready and give a big thumbs up"
+            let rs = rows(group.items, players: n)
+            if rs.isEmpty { return [task([], items: [], role: group.role, roles: roles, players: n, verb: "Thumbs up", filler: filler)] }
+            return rs.map { ids in
+                task(ids.compactMap { jobs[$0] }, items: ids.compactMap { byID[$0] }, role: group.role, roles: roles, players: n, verb: "Set up", filler: filler)
+            }
         }
         let line = PlayCast.sceneLine(b.nutmegSays, roles: roles, players: n)
         return Scene(id: "setup", owner: .all, title: PlayCast.unname(b.title, roles: roles, players: PlayCast.players(n), title: true),
@@ -413,34 +442,85 @@ public enum Bookends {
             jobs[it.id] = isValid(j, for: it) ? j : fallbackCleanup(it)
         }
         let plan = cleanupAssignment(items: items, jobs: jobs, roles: roles, players: n)
-        let steps = plan.map { row in
-            task(row.items.compactMap { jobs[$0] }, role: row.role, roles: roles, players: n, filler: "give everyone a big high five for a great show")
+        let byID = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
+        let steps = plan.flatMap { group -> [Step] in
+            let filler = "give everyone a big high five for a great show"
+            let rs = rows(group.items, players: n)
+            if rs.isEmpty { return [task([], items: [], role: group.role, roles: roles, players: n, verb: "High fives", filler: filler)] }
+            return rs.map { ids in
+                task(ids.compactMap { jobs[$0] }, items: ids.compactMap { byID[$0] }, role: group.role, roles: roles, players: n,
+                     verb: "Put away", filler: filler, cleanup: true)
+            }
         }
         let line = PlayCast.sceneLine(b.nutmegSays, roles: roles, players: n)
         return Scene(id: "cleanup", owner: .all, title: PlayCast.unname(b.title, roles: roles, players: PlayCast.players(n), title: true),
                      picture: .point, nutmegSays: line, steps: steps, kind: .cleanup)
     }
 
-    /// One role's row from its item jobs: "Head Baker, hang the sign by the door and put the mixing bowl on the counter!"
-    static func task(_ jobs: [ItemJob], role: Role, roles: [Role], players n: Int, filler: String) -> Step {
+    /// One row from its item jobs (round 37: at most 2): "Head Baker, hang the sign by the door, then set the mixing bowl
+    /// on the counter!" Its short label names its item(s) in 2 to 7 words (`rowShort`).
+    static func task(_ jobs: [ItemJob], items: [CoverItem], role: Role, roles: [Role], players n: Int, verb: String,
+                     filler: String, cleanup: Bool = false) -> Step {
         let phrases = jobs.map { trimEnd($0.say) }.filter { !$0.isEmpty }.map(PlayCast.lowerFirst)
         let says = phrases.isEmpty ? [filler] : phrases
-        // "A, then B" / "A, B, then C" (phrases often contain "and" themselves); more than 3 (a solo kid with many
-        // items) goes on in a second sentence.
-        let text = says.count <= 3 ? "\(role.roleName), \(steps(says))!"
-            : "\(role.roleName), \(steps(Array(says.prefix(3))))! After that, \(steps(Array(says.dropFirst(3))))!"
-        let shorts = jobs.map { trimEnd($0.short) }.filter { !$0.isEmpty }
-        var short: String
-        let joined = list(shorts.enumerated().map { $0.offset == 0 ? capFirst($0.element) : PlayCast.lowerFirst($0.element) })
-        if shorts.isEmpty { short = capFirst(says[0].split(separator: " ").prefix(5).joined(separator: " ")) }
-        else if joined.split(separator: " ").count <= 8 { short = joined }
-        else { short = capFirst(shorts[0]) + " and more" }
+        let text = "\(role.roleName), \(steps(says))!"   // "A, then B" (phrases often contain "and" themselves)
+        var short = jobs.isEmpty || items.isEmpty ? verb : rowShort(jobs, items: items, verb: verb, cleanup: cleanup)
         // Roles that aren't playing become "a friend" (a solo kid's jobs are left as written, like the solo play task:
         // they may speak of pretend passengers).
         let n = PlayCast.players(n)
         if n > 1 { short = PlayCast.unname(short, roles: roles, players: n) }
         let say = n > 1 ? PlayCast.unname(text, roles: roles, players: n) : text
         return Step(picture: .point, text: say, role: SceneOwner(role.id), short: short)
+    }
+
+    /// Whether a row's short label is usable for its items: 2 to 7 words, names every one of them, never "and more".
+    public static func isValidRowShort(_ short: String, items: [CoverItem]) -> Bool {
+        let words = short.split(whereSeparator: \.isWhitespace).count
+        return words >= 2 && words <= maxRowShortWords && !short.lowercased().contains("and more")
+            && !items.isEmpty && items.allSatisfy { mentions(short, $0) }
+    }
+
+    /// The word(s) a row label uses for an item: the page's kind ("sign", "money"); a prop by what it becomes at setup
+    /// and by the household item at clean-up. `tight` = its last word only ("airplane seats" → "seats").
+    static func noun(_ item: CoverItem, cleanup: Bool, tight: Bool) -> String {
+        let full: String
+        switch item.recipe {
+        case .sign: full = "sign"
+        case .money: full = "money"
+        case .tickets: full = "tickets"
+        case .menu: full = "menu"
+        case .cutouts: full = "cut-outs"
+        case .badges: full = "badges"
+        case nil:
+            let p = item.prop
+            full = (cleanup ? p?.householdItem : p.map { KitDraft.cutoutLabel(becomes: $0.becomes) })?.lowercased() ?? "prop"
+        }
+        let words = full.split(separator: " ")
+        guard tight || words.count > 2, let last = words.last else { return full }
+        return String(last)
+    }
+
+    /// A row's short label (round 37): the AI's own short when it names its item and fits; two items: both shorts when
+    /// together they fit, else "<verb> the A and the B", tighter until it is 7 words or fewer. Never "… and more".
+    public static func rowShort(_ jobs: [ItemJob], items: [CoverItem], verb: String, cleanup: Bool = false) -> String {
+        let pairs = Array(zip(jobs, items))
+        let its = pairs.map(\.1)
+        var candidates: [String] = []
+        let own = pairs.compactMap { j, it -> String? in
+            let s = trimEnd(j.short)
+            return isValidRowShort(s, items: [it]) ? s : nil
+        }
+        if !own.isEmpty, own.count == pairs.count {
+            candidates.append(list(own.enumerated().map { $0.offset == 0 ? capFirst($0.element) : PlayCast.lowerFirst($0.element) }))
+        }
+        for tight in [false, true] {
+            let ns = its.map { noun($0, cleanup: cleanup, tight: tight) }
+            candidates.append("\(verb) " + list(ns.map { "the " + $0 }))
+            if ns.count > 1 { candidates.append("\(verb) the " + list(ns)) }
+        }
+        if let ok = candidates.first(where: { isValidRowShort($0, items: its) }) { return capFirst(ok) }
+        // Always a label: the tightest one that fits (a one-word name that isn't one of the item's names still reads right).
+        return capFirst(candidates.last { $0.split(separator: " ").count <= maxRowShortWords } ?? verb)
     }
 
     static func steps(_ xs: [String]) -> String {
