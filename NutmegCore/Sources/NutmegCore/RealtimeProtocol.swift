@@ -135,7 +135,7 @@ public enum Realtime {
     short and fun ("Next, can you find a spoon? It'll be the big stirrer for swirly batter!"). Then WAIT while they hunt: \
     they'll tell you when they're back. When they found it, call mark_found, cheer in a few \
     words, then show_next_prop for the next one. If they don't have it, offer ONE alternate (call swap_prop) or say \
-    you'll pretend (call skip_prop), then the next prop. 3 to 5 props in all, then step 6.
+    you'll pretend (call skip_prop), then the next prop. Exactly 4 props for 1 or 2 kids, 5 props for 3 or more (each tool result says how many are left), then step 6.
     7. PRINT STEP (after the kit is ready, the kids can still talk to you): if they want to play ("let's play", \
     "we're ready", "we printed it"), call start_play; if they want to print ("print it"), call print_kit. Both page sets \
     are on screen, color and outline: "color" → choose_print_set color; "we'll color them", "the outline ones", "plain" \
@@ -327,7 +327,7 @@ public enum Realtime {
             "reason": ["type": "string", "description": "one short sentence: why this item works (its shape or use)"] as [String: Any]],
            required: ["item_id", "becomes", "for_role", "alternates", "reason"]),
         fn("mark_found", "The kids found the current prop: its card checks off. Then call show_next_prop (or "
-           + "finish_planning after 3 to 5 props) before you speak.", ["id": str], required: ["id"]),
+           + "finish_planning once all the props are out: 4 for 1 or 2 kids, 5 for 3 or more) before you speak.", ["id": str], required: ["id"]),
         fn("swap_prop", "The kids don't have a prop: replace it with another list item that becomes the same (or a new) thing.",
            ["old_id": str, "new_id": propID, "becomes": str], required: ["old_id", "new_id", "becomes"]),
         fn("skip_prop", "The kids don't have a prop and will just pretend it. It stays on screen as a pretend prop.",

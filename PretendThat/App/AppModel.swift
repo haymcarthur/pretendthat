@@ -92,6 +92,7 @@ final class AppModel {
         if DemoDriver.requestedPhase != nil { service = nil }   // demo screens use the bundled game, no network
         #endif
         store = AdventureStore(service: service)
+        store.holdsEarlyFinish = true   // round 30: a firm prop count (4 for 1–2 kids, 5 for 3+)
         var images = ImageClient.from(info: info)
         #if DEBUG
         // Demo screens skip paid image calls unless asked: -PTDemoArt 1
@@ -109,7 +110,8 @@ final class AppModel {
             guard let self, self.planningNow, !self.realtime.propLinePending else { return nil }
             // Round 7: roles set but no prop yet → she continues straight into the first prop (no "Sound good?" wait).
             return TurnCheck.review(text, step: self.store.planningStep, rolesSet: self.store.plan != nil,
-                                    propsShown: self.store.props?.props.count ?? 0, currentPropDone: self.store.currentPropDone)
+                                    propsShown: self.store.props?.props.count ?? 0, currentPropDone: self.store.currentPropDone,
+                                    propTarget: self.store.propTarget)
         }
         realtime.onSilence = { [weak self] in
             guard let self, self.planningNow, self.store.planningStep != .finish else { return nil }
@@ -884,7 +886,10 @@ final class AppModel {
         if store.props == nil { shownProps = 0 }
         // finish_planning and start_play end her turn: the app speaks the kit and scene lines.
         // Round 29: back to the play step at The End reopens the last scene and the app says it, so she doesn't.
-        return (output, call != .finishPlanning && call != .startPlay && !reopensLastScene)
+        // Round 30: an early finish_planning (fewer props than the game's firm count) was refused: she goes on with
+        // the next prop, so her turn continues.
+        let finished = call == .finishPlanning && store.planningStep == .finish
+        return (output, !finished && call != .startPlay && !reopensLastScene)
     }
 
     /// Round 19: the kit is being remade for a corrected title: drop the old art and beats so the new kit runs fresh.
@@ -1012,16 +1017,22 @@ final class AppModel {
         guard realtime.isLive, store.huntActive, let p = store.props?.props.first(where: { $0.id == store.currentPropID }) else { return }
         let name = p.householdItem.lowercased()
         let count = store.props?.props.count ?? 0
-        let next = count >= 3 ? ["show_next_prop", "finish_planning"] : ["show_next_prop"]
-        let then = count >= 3 ? "call show_next_prop for the next prop (or finish_planning if that's enough props)" : "call show_next_prop for the next prop"
+        // Round 30 (Haylee): a firm count (4 props for 1–2 kids, 5 for 3+): the last one goes straight to finish_planning.
+        let last = count >= store.propTarget
+        let next = last ? ["finish_planning"] : ["show_next_prop"]
+        let then = last ? "call finish_planning (that was the last prop; the app says the kit line)"
+            : "call show_next_prop for the next prop (prop \(count + 1) of \(store.propTarget))"
         Task { @MainActor in
             if found {
                 _ = await store.apply(.markFound(p.id))
                 releasePointIfNoCard()
                 realtime.tapTurn(kidLine: "We found the \(name)!",
-                                 note: "(Silent coaching, don't mention it.) The kids tapped the green check (found it): the \(name) is ALREADY checked off "
-                                    + "on screen (don't call mark_found). Say nothing yet: \(then) FIRST, then cheer in a few words and ask "
-                                    + "about the new prop in the same turn. Never narrate.",
+                                 note: last
+                                    ? "(Silent coaching, don't mention it.) The kids tapped the green check (found it): the \(name) is ALREADY checked off "
+                                        + "on screen (don't call mark_found). It was the LAST prop: call finish_planning now and say nothing."
+                                    : "(Silent coaching, don't mention it.) The kids tapped the green check (found it): the \(name) is ALREADY checked off "
+                                        + "on screen (don't call mark_found). Say nothing yet: \(then) FIRST, then cheer in a few words and ask "
+                                        + "about the new prop in the same turn. Never narrate.",
                                  requiring: next)
             } else if !p.isSkipped, !(p.swapped ?? false), let alt = p.alternates?.first(where: { PropLibrary.contains($0) }) {
                 _ = await store.apply(.swapProp(oldID: p.id, newID: alt, becomes: ""))

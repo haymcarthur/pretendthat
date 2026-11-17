@@ -113,10 +113,12 @@ public enum TurnCheck {
     /// continues the SAME turn right away (`complete`). Roles set but no prop card yet: she must go straight into the
     /// first prop without waiting for a kid reply (no "Sound good?" pause).
     public static func review(_ text: String, step: PlanningStep, rolesSet: Bool, propsShown: Int,
-                              currentPropDone: Bool = false) -> (note: String, complete: Bool)? {
+                              currentPropDone: Bool = false, propTarget: Int = 5) -> (note: String, complete: Bool)? {
         if step == .props && rolesSet && propsShown == 0 { return (firstPropNote, true) }
         // The current prop is found (or skipped) and no next card is out: the next prop comes right away.
-        if step == .props && currentPropDone && propsShown < 5 { return (nextPropNote(propsShown: propsShown), true) }
+        if step == .props && currentPropDone && propsShown < propTarget { return (nextPropNote(propsShown: propsShown, target: propTarget), true) }
+        // Round 30: the last of the game's props is done: the hunt ends (the app says the kit line).
+        if step == .props && currentPropDone && propsShown >= propTarget { return (lastPropNote, true) }
         if needsCompletion(for: text, step: step) { return (completionNote(step: step), true) }
         return nudge(for: text, step: step).map { ($0, false) }
     }
@@ -126,9 +128,11 @@ public enum TurnCheck {
         + "about the roles. Call show_next_prop for the FIRST prop right now, then say ONLY what to find and what it becomes, "
         + "plus: say 'found it' or tap the green check when you have it, or tap the X if you don't. Don't repeat the roles. No \"Sound good?\"."
 
-    static func nextPropNote(propsShown: Int) -> String {
+    static let lastPropNote = "(Silent coaching, don't mention it.) That was the last prop: call finish_planning now and say nothing."
+
+    static func nextPropNote(propsShown: Int, target: Int = 5) -> String {
         "(Silent coaching, don't mention it.) Don't stop: call show_next_prop for the next prop right now"
-            + (propsShown >= 3 ? " (or finish_planning if the props are enough)" : "")
+            + " (prop \(propsShown + 1) of \(target))"
             + ", then say ONLY what to find and what it becomes. Don't repeat your cheer. Never narrate (no \"let me...\")."
     }
 

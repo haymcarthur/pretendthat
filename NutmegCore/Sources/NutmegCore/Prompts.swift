@@ -35,7 +35,7 @@ public enum Prompts {
     plastic plates and cups, stuffed animals, towels, books, toys). Never knives, scissors, glass, electronics, \
     cords, food, medicine, or anything up high. Set safetyOK to false if an item breaks these rules.
 
-    Limits: game ideas exactly 3; props 3 to 5; the kit is always the same 6 item types (badges, sign, money, tickets, menu, cutouts), at most 7 printed pages; \
+    Limits: game ideas exactly 3; props exactly 4 for 1 or 2 kids and exactly 5 for 3 or more kids; the kit is always the same 6 item types (badges, sign, money, tickets, menu, cutouts), at most 7 printed pages; \
     scenes exactly 3; in every scene exactly ONE task for EACH role R1 to R6 plus one solo task; choices 2 to 4. \
     Tasks name ONLY objects the kids really have: the household props they found, the printed kit (badges, sign, \
     money, tickets, menu, cut-outs) and their own bodies (hands, feet, voice). Never any other object (no bell, wand, \
@@ -68,7 +68,7 @@ public enum Prompts {
     }
 
     public static func props(ctx: AdventureContext) -> String {
-        "Phase: props hunt. Pick 3 to 5 different household items from the prop list (id) that become props for this game. householdItem is the item's name; becomes is 2 to 4 words (\"Cozy café seats\"). Every pairing must make sense by shape or use (a map is flat: towel, sheet, books; a hat is round or wearable: bowl, pot, hat; a cape is floppy: towel, blanket; seats are for sitting: chair, cushion; never a bowl as a map). reason is ONE short kid-friendly sentence why it works (\"A bowl is round like a captain's hat!\"). Return Props.\n\(contextJSON(ctx))"
+        "Phase: props hunt. Pick exactly \(PropLibrary.target(players: ctx.playerCount)) different household items from the prop list (id) that become props for this game. householdItem is the item's name; becomes is 2 to 4 words (\"Cozy café seats\"). Every pairing must make sense by shape or use (a map is flat: towel, sheet, books; a hat is round or wearable: bowl, pot, hat; a cape is floppy: towel, blanket; seats are for sitting: chair, cushion; never a bowl as a map). reason is ONE short kid-friendly sentence why it works (\"A bowl is round like a captain's hat!\"). Return Props.\n\(contextJSON(ctx))"
     }
 
     public static func kit(ctx: AdventureContext) -> String {

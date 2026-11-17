@@ -92,7 +92,7 @@ public struct ResumeContext: Equatable, Sendable {
             if let cur = props.first(where: { $0.status == .looking }) {
                 return "step 5, the prop hunt: you asked them to find the \(cur.item.lowercased()) and are waiting to hear if they found it (mark_found, swap_prop or skip_prop, then show_next_prop)."
             }
-            return "step 5, the prop hunt: call show_next_prop for the next prop when they talk to you (or finish_planning after 3 to 5 props)."
+            return "step 5, the prop hunt: call show_next_prop for the next prop when they talk to you (or finish_planning once the game has all its props: 4 for 1 or 2 kids, 5 for 3 or more)."
         case .finish: return "planning is done; the kit is being made."
         }
     }

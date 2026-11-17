@@ -16,6 +16,9 @@ public enum PropLibrary {
     public static func contains(_ id: String) -> Bool { name(id) != nil }
     public static func asset(_ id: String) -> String { "prop-\(id)" }
 
+    /// Round 30 (Haylee): a firm number of props per game: 4 for 1–2 kids, 5 for 3 or more.
+    public static func target(players: Int) -> Int { players >= 3 ? 5 : 4 }
+
     /// Off-list fallback guard: drop free-text props that name something unsafe.
     public static func looksUnsafe(_ text: String) -> Bool {
         let t = text.lowercased()

@@ -141,7 +141,8 @@ public final class AdventureStore {
 
     /// What she says for a new prop card (prop-gathering-flow.md, fix round 2): only the FIRST prop explains how to
     /// answer; later props stay short ("Next, can you find a spoon? It'll be the big stirrer!").
-    public nonisolated static func nextPropOutput(id: String, item: String, becomes: String, n: Int, reason: String? = nil) -> String {
+    public nonisolated static func nextPropOutput(id: String, item: String, becomes: String, n: Int, reason: String? = nil,
+                                                  target: Int = 4) -> String {
         let how = n == 1
             ? "This is the FIRST prop. Its card stays hidden for now. Speak ONLY the roles now, as a set of parts the kids share, then the hunt transition, word for word: \"\(Self.huntTransition)\" (\"We need a Captain, a Navigator, and an Island Explorer! \(Self.huntTransition)\"; for one kid: \"You'll be the Captain! \(Self.huntTransition)\"). Never \"You're the X, the Y, and the Z\" (that sounds like one kid gets every role), never \"Pick who's who\", no \"All set!\". Don't name this prop or describe the card yet, and don't ask anything: when your roles line finishes, the card appears, you point at it, and you'll be asked for the prop line."
             : n % 3 == 0
@@ -150,9 +151,12 @@ public final class AdventureStore {
             : "This is prop \(n): keep it SHORT, like \"Next, can you find a \(item.lowercased())? It'll be \(becomes)!\" Do NOT repeat 'say found it' or 'tell me if you don't have it' (they already know). Don't say \"pretend that\" for this one."
         // Round 24: she says why the item works, briefly, inside the same line (never a second sentence about it).
         let why = reason.map { " Inside that same line, say briefly why it works: \"\($0)\"" } ?? ""
-        return "Card \(id) is ready (prop \(n)). \(how)\(n == 1 ? "" : why) Then wait. Found: mark_found then show_next_prop. Missing: "
-            + "swap_prop (one alternate) or skip_prop, then show_next_prop. After 3 to 5 props, finish_planning."
-            + (n >= 3 ? " (You have \(n); finishing after this one is fine.)" : "")
+        // Round 30 (Haylee): a firm count, 4 props for 1–2 kids and 5 for 3+.
+        let last = n >= target
+        return "Card \(id) is ready (prop \(n) of \(target)). \(how)\(n == 1 ? "" : why) Then wait. "
+            + (last
+               ? "This is the LAST prop. Found: mark_found then finish_planning. Missing: swap_prop (one alternate) or skip_prop, then finish_planning."
+               : "Found: mark_found then show_next_prop. Missing: swap_prop (one alternate) or skip_prop, then show_next_prop. This game has exactly \(target) props: finish_planning only after prop \(target).")
     }
 
     public static let oops = "Oops, my clipboard got mixed up! Let's try that again."
@@ -351,7 +355,7 @@ public final class AdventureStore {
         choices = []; lastError = nil; usingFallback = false
         foundProps = []; failures = [:]; retryAction = nil
         nutmegLine = ""; presenting = .none; reachedStep = nil; lastPlayPhase = nil; steerIdeas = SteerIdeas()
-        kitRemakes = 0; propMisfits = 0
+        kitRemakes = 0; propMisfits = 0; earlyFinishes = 0
         cancelDraft()
         guidePending = false; playQueued = false; guideCalls = 0
         // Round D1: a new adventure (or a replay that loads over this) starts clean.
@@ -720,8 +724,8 @@ public final class AdventureStore {
         case .showNextProp(let raw):
             guard raw.inLibrary else { return "\(raw.itemID) isn't on the item list. Pick a list item." }
             var p = props ?? Props(nutmegSays: "", props: [])
-            if p.props.count >= Sanitizer.Limits.propsMax {
-                return "That's enough props (\(p.props.count)). Call finish_planning now."
+            if p.props.count >= propTarget {
+                return "That's all \(propTarget) props for this game. Call finish_planning now."
             }
             // Round 24: the item must make sense as what it becomes (one retry, then a curated sensible pair).
             let used = Set(p.props.compactMap(\.libraryID))
@@ -741,14 +745,18 @@ public final class AdventureStore {
             phase = .props; presenting = .props; planningStep = .props
             let n = p.props.count
             let swapNote = fellBack ? "(That pairing didn't fit, so the app picked a \((PropLibrary.name(d.itemID) ?? d.itemID).lowercased()) as \(d.becomes) instead: use THIS item and use.) " : ""
-            return swapNote + Self.nextPropOutput(id: id, item: PropLibrary.name(d.itemID) ?? d.itemID, becomes: d.becomes, n: n, reason: d.reason)
+            return swapNote + Self.nextPropOutput(id: id, item: PropLibrary.name(d.itemID) ?? d.itemID, becomes: d.becomes, n: n,
+                                                  reason: d.reason, target: propTarget)
         case .markFound(let id):
             guard let p = props, let prop = p.props.first(where: { $0.id == id || $0.libraryID == id }) ?? p.props.first(where: { $0.id == currentPropID }) else {
                 return "No prop with id \(id)."
             }
             foundProps.insert(prop.id)
             let n = p.props.count
-            return "Checked off \(prop.householdItem). Don't speak yet: call " + (n >= 3 ? "show_next_prop (or finish_planning if that's enough props)" : "show_next_prop")
+            if n >= propTarget {
+                return "Checked off \(prop.householdItem). That was the last of the \(propTarget) props: call finish_planning now and say nothing else."
+            }
+            return "Checked off \(prop.householdItem). Don't speak yet: call show_next_prop (prop \(n + 1) of \(propTarget))"
                 + " FIRST, then cheer in a few words and ask about the new prop in the same turn. Never narrate (\"let me grab the next prop\")."
         case .swapProp(let oldID, let newID, let becomes):
             guard var p = props, let i = p.props.firstIndex(where: { $0.id == oldID || $0.libraryID == oldID }) else {
@@ -779,12 +787,21 @@ public final class AdventureStore {
             }
             p.props[i].skipped = true
             props = p; presenting = .props
-            return "Marked as pretend. Don't speak yet: call show_next_prop (or finish_planning) FIRST, then say you'll pretend that one and ask about the new prop in the same turn."
+            if p.props.count >= propTarget {
+                return "Marked as pretend. That was the last of the \(propTarget) props: call finish_planning now (the app says the kit line)."
+            }
+            return "Marked as pretend. Don't speak yet: call show_next_prop (prop \(p.props.count + 1) of \(propTarget)) FIRST, then say you'll pretend that one and ask about the new prop in the same turn."
         case .finishPlanning:
             // Round 25: once the kit is being made (or made), a second finish_planning changes nothing (seen live: a
             // late "found it" after the hunt remade the whole kit).
             if planningStep == .finish, phase == .makingKit || phase == .kitReady || phase.step == .play {
                 return "The kit is already made. Answer in ONE short line (no narration)."
+            }
+            // Round 30 (Haylee): a firm prop count. An early finish during the hunt gets the next prop instead (twice
+            // at most, so a stuck model can never hold the kit back).
+            if holdsEarlyFinish, phase == .props, let n = props?.props.count, n > 0, n < propTarget, earlyFinishes < 2 {
+                earlyFinishes += 1
+                return "Not yet: this game has \(propTarget) props and only \(n) are out. Say nothing yet: call show_next_prop for prop \(n + 1) FIRST, then ask about it."
             }
             presenting = .none; planningStep = .finish
             if gameTitle == nil { gameTitle = "Airplane" }
@@ -879,6 +896,12 @@ public final class AdventureStore {
 
     /// Misfit pairings in a row (show_next_prop / swap_prop): the first gets a retry, the second the app's fallback.
     @ObservationIgnored private var propMisfits = 0
+    /// Round 30: early finish_planning calls refused this hunt (see `.finishPlanning`).
+    @ObservationIgnored private var earlyFinishes = 0
+    /// Round 30: refuse an early finish_planning (the voice session turns it on; scripted store tests leave it off).
+    @ObservationIgnored public var holdsEarlyFinish = false
+    /// Round 30 (Haylee): this game's firm prop count: 4 for 1–2 kids, 5 for 3 or more.
+    public var propTarget: Int { PropLibrary.target(players: playerCount) }
 
     /// The draft to show: as given when the item fits the use (its reason kept if kid-friendly), nil on a first misfit
     /// (the model retries), or a curated sensible pair on a second misfit. Alternates are kept only when they fit too.
