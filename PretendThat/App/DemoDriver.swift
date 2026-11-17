@@ -161,6 +161,12 @@ enum DemoDriver {
                 continue
             }
             // "#kit": wait for the whole kit to land (print step), then keep going (e.g. "Let's play!").
+            // iPhone version: "#waithunt": wait (≤ 90 s) until a prop card is up (first play or replay), then log the phase.
+            if turn == "#waithunt" {
+                for _ in 0..<900 where !(model.store.huntActive || model.store.replayHuntActive) { try? await Task.sleep(for: .milliseconds(100)) }
+                rtLog("driver: hunt \(model.store.huntActive || model.store.replayHuntActive ? "active" : "NOT active") (phase \(model.store.phase))")
+                continue
+            }
             if turn == "#kit" {
                 for _ in 0..<1800 { if model.kitPapersOut { break }; try? await Task.sleep(for: .milliseconds(100)) }
                 for _ in 0..<100 where !model.realtime.isSpeaking { try? await Task.sleep(for: .milliseconds(100)) }

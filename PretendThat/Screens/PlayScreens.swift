@@ -26,15 +26,18 @@ struct SceneView: View {
     /// iPhone version: a shorter ▶ (still a big target) so the rows get the room under Nutmeg.
     @Environment(\.layoutMetrics) private var metrics
     private var buttonHeight: CGFloat { metrics.isPhone ? 60 : 76 }
-    private var chrome: CGFloat { metrics.isPhone ? 20 + buttonHeight + Theme.Space.s + Theme.depth : Self.chrome }
+    private var chrome: CGFloat { metrics.isPhone ? slack + buttonHeight + Theme.Space.s + Theme.depth : Self.chrome }
+    /// Phone: a tighter paper padding and reveal slack, so the rows get the room under Nutmeg.
+    private var pad: CGFloat { metrics.isPhone ? Theme.Space.s : Self.pad }
+    private var slack: CGFloat { metrics.isPhone ? 6 : 20 }
 
     var body: some View {
         if let scene = store.kit?.scenes[index] {
-            let avail = maxHeight - chrome - 2 * Self.pad
+            let avail = maxHeight - chrome - 2 * pad
             let fits = PTSceneCard.tiers.indices.first { (heights[$0] ?? .infinity) <= avail }
             let tier = fits ?? PTSceneCard.tiers.count - 1
-            let natural = (heights[tier] ?? 300) + 2 * Self.pad
-            let paper = CGSize(width: width, height: fits == nil && avail.isFinite ? max(200, avail + 2 * Self.pad) : natural)
+            let natural = (heights[tier] ?? 300) + 2 * pad
+            let paper = CGSize(width: width, height: fits == nil && avail.isFinite ? max(200, avail + 2 * pad) : natural)
             VStack(spacing: metrics.isPhone ? Theme.Space.s : Theme.Space.m) {
                 GeometryReader { geo in
                     PTPaperReveal(count: 1, isRevealed: revealed, origin: CGPoint(x: -geo.size.width / 2 - 150, y: 60),
@@ -47,12 +50,12 @@ struct SceneView: View {
                                 PTSceneCard(model: model, scene: scene, tier: tier)
                             }
                         }
-                        .padding(Self.pad)
+                        .padding(pad)
                         .frame(width: paper.width, height: paper.height, alignment: .top)
                     }
                     .frame(width: geo.size.width, height: geo.size.height)
                 }
-                .frame(height: paper.height + 20)
+                .frame(height: paper.height + slack)
                 PTNextSceneButton(height: buttonHeight) { model.tapNextScene() }
                     .padding(.bottom, Theme.depth)
                     .opacity(revealed ? 1 : 0)
@@ -62,7 +65,7 @@ struct SceneView: View {
                 ZStack {
                     ForEach(PTSceneCard.tiers.indices, id: \.self) { t in
                         PTSceneCard(model: model, scene: scene, tier: t)
-                            .frame(width: width - 2 * Self.pad)
+                            .frame(width: width - 2 * pad)
                             .fixedSize(horizontal: false, vertical: true)
                             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { heights[t] = $0 }
                     }

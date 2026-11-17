@@ -580,7 +580,7 @@ struct OBSplit<Art: View, Column: View>: View {
             GeometryReader { geo in
                 let safe = PTWindow.safeInsets
                 let cardW = geo.size.width - 24
-                let cardH = min(geo.size.height * 0.38, 380)
+                let cardH = min(geo.size.height * (geo.size.height < 860 ? 0.33 : 0.37), 360)
                 let natural = 786 * s
                 let f = cardH / natural
                 VStack(spacing: 0) {
