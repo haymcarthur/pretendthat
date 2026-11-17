@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  PretendThat privacy manifest (round 37; decisions/2026-11-17-setup-rows-and-compliance.md).
+  - No tracking, no tracking domains.
+  - Collected data: Other User Content (the kid's words as TEXT, names removed, sent to OpenAI and Anthropic so Nutmeg
+    can answer and write the game), not linked to the user, not used for tracking, App Functionality only. Declared
+    because the providers may keep API data up to 30 days for abuse monitoring until Zero Data Retention is confirmed;
+    once ZDR is in place at BOTH providers, this entry (and the App Store label) can become "Data Not Collected".
+    Kids' audio never leaves the iPad (on-device speech, round 31). Purchases go through Apple (not declared).
+  - Required-reason APIs: UserDefaults (CA92.1: the app's own settings and flags). System boot time (35F9.1): the mic
+    and voice timing use CACurrentMediaTime / UITouch timestamps to measure time between events inside the app only.
+    No file timestamp, disk space or active keyboard APIs are used (re-check before each release; iCloud in D4 may add
+    file timestamps, C617.1).
+-->
+<plist version="1.0">
+<dict>
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyCollectedDataType</key>
+			<string>NSPrivacyCollectedDataTypeOtherUserContent</string>
+			<key>NSPrivacyCollectedDataTypeLinked</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
+			<key>NSPrivacyCollectedDataTypePurposes</key>
+			<array>
+				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
+			</array>
+		</dict>
+	</array>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>CA92.1</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategorySystemBootTime</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>35F9.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>

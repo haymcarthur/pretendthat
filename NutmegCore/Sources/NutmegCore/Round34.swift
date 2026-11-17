@@ -212,6 +212,14 @@ public enum SceneRowTap {
         guard rows.indices.contains(index) else { return nil }
         return HandOffLines.task(rows[index])
     }
+    /// Round 37: the voice "what do I do?" (`read_job`) reads ALL of that role's rows in the scene (the setup and
+    /// clean-up scenes may give a role 2 to 4 rows), in order, as one line. A tap still reads just its own row.
+    public static func roleLine(rows: [Step], index: Int) -> String? {
+        guard rows.indices.contains(index) else { return nil }
+        let role = rows[index].role
+        let mine = rows.filter { $0.role == role }
+        return mine.map(HandOffLines.task).joined(separator: " ")
+    }
     /// The row's accessibility label: "Hear the Pet Trainer's job".
     public static func accessibilityLabel(roleName: String) -> String {
         let name = roleName.trimmingCharacters(in: .whitespaces)

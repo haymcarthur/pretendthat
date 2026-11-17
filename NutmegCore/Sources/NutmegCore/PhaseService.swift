@@ -127,8 +127,8 @@ public final class PhaseService: Sendable {
         \(list)
         Roles: \(roles).
         For EACH item write one entry (item = its id): setupSay = an imperative phrase of 5 to 15 words, no role title, \
-        that NAMES the item and gives it a clear purpose in the play space; setupShort = 2 to 5 words; cleanupSay = how \
-        they tidy or put it back at the end, framed in the story, naming it; cleanupShort = 2 to 5 words; role = the role \
+        that NAMES the item and gives it a clear purpose in the play space; setupShort = 2 to 5 words naming the item; cleanupSay = how \
+        they tidy or put it back at the end, framed in the story, naming it; cleanupShort = 2 to 5 words naming it; role = the role \
         it suits best. No quotes. Return ItemJobs.
         \(Prompts.contextJSON(ctx))
         """

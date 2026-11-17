@@ -365,11 +365,12 @@ final class AppModel {
     }
     /// Round 29: a row's 🔊 reads just that role's task (her recorded clip if this game has one, else live once and
     /// saved, D3b). Any tap stops what she was saying first.
-    func readTask(_ index: Int) {
+    func readTask(_ index: Int, wholeRole: Bool = false) {
         guard case .scene(let i) = store.phase, let rows = store.kit?.scenes[i].steps, rows.indices.contains(index) else { return }
         userAction(.readTask)
         wakeUp()
-        let line = HandOffLines.task(rows[index])
+        // Round 37: by voice ("what do I do?") a role with several setup / clean-up rows hears all of them.
+        let line = wholeRole ? (SceneRowTap.roleLine(rows: rows, index: index) ?? HandOffLines.task(rows[index])) : HandOffLines.task(rows[index])
         rtLog("scene: read task \(index + 1)/\(rows.count)")
         speak(line)   // straight to the voice (not through nutmegLine), so the same task can be heard twice
     }
@@ -469,7 +470,19 @@ final class AppModel {
         stickers.reset()
         gate.reset(); safeSnap = nil; screenedTurns = [:]
         replayGame = nil; replayConnecting = false; saveState = .idle
+        // Round 37: the game just played stays reportable from Grown-ups → Report a problem until the app quits (in
+        // memory only: its title and AI-made text, never anything about the kids).
+        if let k = store.fullKit, !(k.items.isEmpty && k.scenes.isEmpty) {
+            lastPlayedReport = ContentReport.Game(id: "last", title: store.currentTitle, kit: k)
+        }
         store.newGame()
+    }
+    /// Round 37: the last game played this launch, for Grown-ups → Report a problem (memory only).
+    var lastPlayedReport: ContentReport.Game?
+    /// "1.0 (1)" for a report email.
+    static var appVersion: String {
+        let i = Bundle.main.infoDictionary
+        return "\(i?["CFBundleShortVersionString"] as? String ?? "?") (\(i?["CFBundleVersion"] as? String ?? "?"))"
     }
 
     /// Round 31: where a kid's words came from (both are text by the time they get here).
@@ -917,7 +930,7 @@ final class AppModel {
         // Round 34: "what do I do, Pet Trainer?": the app reads that row's spoken task (same as tapping the row).
         if case .readJob = call {
             let out = await store.apply(call)
-            if let k = store.lastReadJobRow { store.lastReadJobRow = nil; rtLog("scene: read job (voice) row \(k + 1)"); readTask(k) }
+            if let k = store.lastReadJobRow { store.lastReadJobRow = nil; rtLog("scene: read job (voice) row \(k + 1)"); readTask(k, wholeRole: true) }
             return (out, false)
         }
         // Round 34 (Haylee): on a live first play the app writes and says the prop lines (recorded as clips), so a

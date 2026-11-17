@@ -175,6 +175,7 @@ struct GrownUpsDestination: View {
         case .aboutWhatWeSave: GUAboutView()
         case .help: GUHelpView()
         case .aiPartners: GUAIPartnersView(model: model)
+        case .reportProblem: GUReportView(model: model)
         case .privacyPolicy, .termsOfUse, .replayIntro: EmptyView()   // web rows / the intro never push
         }
     }

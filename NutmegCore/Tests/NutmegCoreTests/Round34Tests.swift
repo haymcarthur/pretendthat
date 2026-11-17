@@ -202,7 +202,9 @@ import Testing
         store.nextScene()   // round 36: past the story (no rows) to the setup scene
         let second = store.plan?.roles[1].roleName ?? "#"
         let out = await store.apply(.readJob(second))
-        #expect(out.contains("Say nothing") && store.lastReadJobRow == 1)
+        // Round 37: a role may have several setup rows; the voice points at that role's first row.
+        let firstRow = store.kit?.scenes[1].steps.firstIndex { $0.role == SceneOwner(.R2) }
+        #expect(out.contains("Say nothing") && store.lastReadJobRow == firstRow)
         let none = await store.apply(.readJob("Zebra Wrangler"))
         #expect(none.contains("tap your own row"))
     }

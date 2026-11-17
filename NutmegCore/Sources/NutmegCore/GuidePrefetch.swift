@@ -54,9 +54,9 @@ public struct ItemJobs: Codable, Equatable, Sendable, SafetyText {
 
     static var jobProps: [String: Any] { [
         "role": Schemas.enumStr(RoleID.allCases.map(\.rawValue)),
-        "setupShort": ["type": "string", "description": "What the setup row SHOWS: 2 to 5 words, no role title (e.g. Hang up the sign)."],
+        "setupShort": ["type": "string", "description": "What the setup row SHOWS: 2 to 5 words that name the item, no role title (e.g. Hang up the sign)."],
         "setupSay": ["type": "string", "description": "The setup job Nutmeg SAYS: an imperative phrase of 5 to 15 words with no role title that NAMES this item and gives it a clear purpose in the play space (e.g. hang the Sunny Bakery sign by the door so customers can find us)."],
-        "cleanupShort": ["type": "string", "description": "What the clean-up row SHOWS: 2 to 5 words (e.g. Put the bowl away)."],
+        "cleanupShort": ["type": "string", "description": "What the clean-up row SHOWS: 2 to 5 words that name the item (e.g. Put the bowl away)."],
         "cleanupSay": ["type": "string", "description": "The clean-up job: an imperative phrase of 5 to 15 words with no role title that names this item and puts it away, framed in the story (e.g. put the mixing bowl back in the kitchen for the night)."],
     ] }
     /// The re-ask / weave schema: a list of jobs, `item` one of `ids`.
@@ -125,9 +125,9 @@ public enum GuideWeave {
         to say. Name the prop by what it becomes (never the household item), gentle and kid-safe. \
         ALSO, for EACH prop, write its jobs (one entry per prop, item = the prop id): setupSay = how the kids put it in \
         place before the play starts so it has a clear purpose in the play space (e.g. "set the treasure chest by the \
-        ship's wheel to hold the gold"), named by what it becomes; setupShort its 2 to 5 word row text; cleanupSay = how \
+        ship's wheel to hold the gold"), named by what it becomes; setupShort its 2 to 5 word row text naming it; cleanupSay = how \
         they put the household item back at the end, framed in the story (e.g. "put the box back in the closet so the \
-        ship can rest"); cleanupShort its row text; role = the playing role it suits best. No quotes. Return PropWeave \
+        ship can rest"); cleanupShort its 2 to 5 word row text naming it; role = the playing role it suits best. No quotes. Return PropWeave \
         (scene and step are the numbers above).
         """
     }
