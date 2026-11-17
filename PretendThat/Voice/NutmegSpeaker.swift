@@ -25,8 +25,8 @@ import NutmegCore
 ///   (+2 semitones, formants not preserved, `VoiceConfig.pitchShift`) BEFORE the player, so `queueMouth` and the
 ///   timeline see exactly what is heard. The shifter holds back ~60 ms (heard) at a line's start; `endOfLine()` (the
 ///   session's audio done, or the idle check when the queue runs dry) plays the rest; `cancel()` resets it so a cut
-///   line never leaks into the next. Clips get their OWN shift toward the live voice (`ClipPitch`, from the clip's
-///   measured pitch), never the live +2 on top. A shift of 0 = no processing.
+///   line never leaks into the next. Clips (raw coral takes stored before the shift) get exactly the same +2
+///   (`ClipPitch.plan`, voice clips match 2026-11-17): no per-clip shift, outlier takes are re-recorded. 0 = no processing.
 /// - Memory: the last app line she was given (Repeat's fallback, round 17).
 /// The speaker itself stores nothing: buffers are played and dropped (the session's recorder keeps app lines only).
 @Observable @MainActor
@@ -397,13 +397,13 @@ final class NutmegSpeaker {
         ensureRunning()
         live?.clipStarted(clip.text, echo: echo)
         clipPlaying = true
-        let plan = ClipPitch.plan(clipHz: clip.pitchHz, shift: shape.shift)
-        rtLog(String(format: "CLIP play %@ (%.1f s%@), pitch %.0f Hz raw → shift %+.2f st%@", String(clip.key.prefix(8)),
-                     Double(clip.samples.count) / Realtime.sampleRate, echo ? ", repeat" : "", clip.pitchHz ?? 0, plan.semitones,
-                     plan.formantSemitones.map { String(format: ", formants %+.1f", $0) } ?? ""))
+        // Voice clips match: a clip is a raw coral take like a live line, so it gets exactly the live processing.
+        let plan = ClipPitch.plan(shape.shift)
+        rtLog(String(format: "CLIP play %@ (%.1f s%@), pitch %.0f Hz raw → shift %+.2f st (same as live)", String(clip.key.prefix(8)),
+                     Double(clip.samples.count) / Realtime.sampleRate, echo ? ", repeat" : "", clip.pitchHz ?? 0, plan.semitones))
         clipFeed?.cancel(); clipFeed = nil
         if plan.isOn {
-            // Its own shift (stored before Varispeed and before the raise): the first ~0.3 s now, the rest a chunk at
+            // The live shift (stored before Varispeed and before the raise): the first ~0.3 s now, the rest a chunk at
             // a time so a long scene line never blocks the main actor (the shifter runs hundreds of times real time).
             let shifter = VoicePitchShifter(plan, playbackRate: playbackRate)
             let chunks = ClipAudio.chunks(count: clip.samples.count)
@@ -553,7 +553,7 @@ struct NutmegClip: Sendable {
     let samples: [Float]
     /// A bundled common line (not this game's).
     var common = false
-    /// Its measured raw median pitch (`PitchTracker`), for its own shift toward the live voice (nil = unmeasured).
+    /// Its measured raw median pitch (`PitchTracker`), logged only (clips get the live processing; nil = unmeasured).
     var pitchHz: Double?
 }
 
