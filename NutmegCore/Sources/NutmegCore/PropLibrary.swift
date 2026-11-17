@@ -8,7 +8,7 @@ public enum PropLibrary {
         ("plate", "Plastic plate"), ("cup", "Plastic cup"), ("bowl", "Bowl"), ("tray", "Tray"), ("spoon", "Spoon"),
         ("pot", "Pot"), ("towel", "Towel"), ("laundry-basket", "Laundry basket"), ("books", "Books"), ("hat", "Hat"),
         ("bag", "Bag"), ("backpack", "Backpack"), ("toy-car", "Toy car"), ("flashlight", "Flashlight"),
-        ("broom", "Toy broom"), ("teddy-bed", "Doll bed"), ("lamp-off", "Lamp (unplugged)"), ("cushion", "Cushion"),
+        ("broom", "Toy broom"), ("teddy-bed", "Doll bed"), ("cushion", "Cushion"),
         ("stool", "Step stool"), ("sheet", "Bedsheet"), ("basket", "Basket"), ("bucket", "Bucket"),
         // Round 30 (Haylee): set 2, 30 more everyday things (crayons, tape and sticky notes are craft items; nothing
         // here implies cutting).
@@ -22,8 +22,13 @@ public enum PropLibrary {
         ("plastic-cups", "Plastic cups"), ("sticky-notes", "Sticky notes")
     ]
     public static let ids: [String] = items.map(\.id)
-    public static func name(_ id: String) -> String? { items.first { $0.id == id }?.name }
-    public static func contains(_ id: String) -> Bool { name(id) != nil }
+    /// Round 43 (Haylee): items taken off the list (the unplugged lamp: a cord and a bulb). Never picked again, but an
+    /// older saved game that has one still shows its name and art.
+    public static let retired: [(id: String, name: String)] = [("lamp-off", "Lamp (unplugged)")]
+    public static func name(_ id: String) -> String? { (items + retired).first { $0.id == id }?.name }
+    /// Has hand-drawn art (`prop-<id>`): the list items and the retired ones.
+    public static func hasArt(_ id: String) -> Bool { name(id) != nil }
+    public static func contains(_ id: String) -> Bool { items.contains { $0.id == id } }
     public static func asset(_ id: String) -> String { "prop-\(id)" }
 
     /// Round 30 (Haylee): a firm number of props per game: 4 for 1–2 kids, 5 for 3 or more.

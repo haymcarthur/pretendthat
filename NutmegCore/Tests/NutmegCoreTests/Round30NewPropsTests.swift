@@ -10,7 +10,7 @@ struct Round30NewPropsTests {
 
     @Test func allThirtyAreInTheLibraryWithTagsUsesAndArtNames() {
         #expect(Self.newIDs.count == 30)
-        #expect(PropLibrary.ids.count == 60 && Set(PropLibrary.ids).count == 60)
+        #expect(PropLibrary.ids.count == 59 && Set(PropLibrary.ids).count == 59)   // round 43: the lamp is retired
         for id in Self.newIDs {
             #expect(PropLibrary.contains(id), "\(id) missing")
             #expect(PropLibrary.tags[id] != nil, "\(id) has no tags")

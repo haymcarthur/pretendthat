@@ -28,25 +28,31 @@ public enum PrintedProps {
     ]
 
     /// Words that end the head phrase ("map OF the island", "holder FOR the tickets").
-    static let breakers: Set<String> = PropFit.breakers
+    static let breakers: Set<String> = PropWords.breakers
 
     /// A word's singular (tickets → ticket, passes → pass, boxes → box, coins → coin).
     public static func singular(_ w: String) -> String {
         let w = w.lowercased()
+        // Round 43: "-ie" words keep their ie (cookies → cookie, not "cooky"); a few irregular ones.
+        if let irregular = irregulars[w] { return irregular }
+        if w.count > 4, w.hasSuffix("ies"), ieWords.contains(String(w.dropLast())) { return String(w.dropLast()) }
         if w.count > 4, w.hasSuffix("sses") || w.hasSuffix("xes") || w.hasSuffix("ches") || w.hasSuffix("shes") { return String(w.dropLast(2)) }
         if w.count > 3, w.hasSuffix("ies") { return String(w.dropLast(3)) + "y" }
         if w.count > 3, w.hasSuffix("s"), !w.hasSuffix("ss") { return String(w.dropLast()) }
         return w
     }
 
+    static let ieWords: Set<String> = ["cookie", "pie", "movie", "brownie", "zombie", "hoodie", "smoothie", "veggie", "goalie",
+                                       "birdie", "cutie", "rookie", "selfie", "genie", "pixie", "bootie", "magpie", "doggie", "kittie"]
+    static let irregulars: [String: String] = ["leaves": "leaf", "scarves": "scarf", "knives": "knife", "mice": "mouse",
+                                               "geese": "goose", "teeth": "tooth", "feet": "foot", "children": "child",
+                                               "wolves": "wolf", "loaves": "loaf", "shelves": "shelf", "buses": "bus",
+                                               "glasses": "glasses", "sunglasses": "sunglasses", "goggles": "goggles",
+                                               "binoculars": "binoculars", "potatoes": "potato", "tomatoes": "tomato"]
+
     /// The head noun of a pretend use: the last word of its head phrase ("the boarding passes" → pass, "the treasure
-    /// map of the island" → map, "the ticket booth" → booth).
-    public static func headNoun(_ becomes: String) -> String? {
-        let words = becomes.lowercased().replacingOccurrences(of: "’", with: "'")
-            .split { !$0.isLetter && $0 != "'" }.map { w in w.hasSuffix("'s") ? String(w.dropLast(2)) : String(w) }
-        let head = words.prefix { !breakers.contains($0) }
-        return head.last.map(singular)
-    }
+    /// map of the island" → map, "the ticket booth" → booth). Round 43: shared with `PropFit` (`PropWords`).
+    public static func headNoun(_ becomes: String) -> String? { PropWords.headNoun(becomes) }
 
     /// The kit's own printed things for this game (head nouns): the tickets, money and menu titles and every cut-out
     /// line. (The sign's title is the place's name and the badges are role titles, so those two don't count; their

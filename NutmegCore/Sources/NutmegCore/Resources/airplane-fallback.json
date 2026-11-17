@@ -98,7 +98,7 @@
       {
         "id": "backpack",
         "householdItem": "Backpack",
-        "becomes": "Suitcase",
+        "becomes": "Carry-on bag",
         "forRole": "R6",
         "safetyOK": true,
         "libraryID": "backpack"
@@ -271,7 +271,7 @@
           },
           {
             "role": "R6",
-            "text": "VIP Passenger, roll your suitcase to the front and ask the Flight Attendant for the best seat.",
+            "text": "VIP Passenger, carry your carry-on bag to the front and ask the Flight Attendant for the best seat.",
             "picture": {
               "kind": "prop",
               "id": "backpack"
@@ -419,7 +419,7 @@
           },
           {
             "role": "R6",
-            "text": "VIP Passenger, grab your suitcase after landing and thank the Captain for a great flight.",
+            "text": "VIP Passenger, grab your carry-on bag after landing and thank the Captain for a great flight.",
             "picture": {
               "kind": "prop",
               "id": "backpack"
@@ -499,11 +499,11 @@
         },
         {
           "item": "prop:backpack",
-          "short": "Pack the suitcase",
-          "say": "pack the suitcase and put it under your seat",
+          "short": "Pack the carry-on bag",
+          "say": "pack the carry-on bag and put it under your seat",
           "role": "R6",
           "householdItem": "Backpack",
-          "becomes": "Suitcase"
+          "becomes": "Carry-on bag"
         }
       ],
       "goals": {
@@ -585,7 +585,7 @@
           "say": "put the backpack back in your room",
           "role": "R6",
           "householdItem": "Backpack",
-          "becomes": "Suitcase"
+          "becomes": "Carry-on bag"
         }
       ],
       "goals": {

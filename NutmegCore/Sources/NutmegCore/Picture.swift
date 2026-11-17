@@ -62,7 +62,7 @@ public enum PictureResolver {
         let id = p.id.trimmingCharacters(in: .whitespaces).lowercased()
             .replacingOccurrences(of: "\(p.kind.rawValue):", with: "")
         switch p.kind {
-        case .prop: return PropLibrary.contains(id) ? .prop(id) : fallback
+        case .prop: return PropLibrary.hasArt(id) ? .prop(id) : fallback   // round 43: a retired item keeps its art
         case .action: return ActionArt.contains(id) ? .action(id) : fallback
         case .kit: return resolveKit(id, kit: kit, roles: roles) ?? fallback
         }

@@ -23,6 +23,8 @@ public struct ResumeContext: Equatable, Sendable {
     public var kit: Kit
     /// The latest few chat lines (oldest first): (from Nutmeg, text).
     public var recent: [(fromNutmeg: Bool, text: String)]
+    /// Round 43: this game's prop shortlist ids (empty = none).
+    public var shortlist: [String] = []
 
     public static let maxLines = 6
     public static let maxLineLength = 220
@@ -63,6 +65,10 @@ public struct ResumeContext: Equatable, Sendable {
                 return "\(p.item) (id \(p.id), becomes \(p.becomes)): \(st)"
             }
             s += "Props: \(list.joined(separator: "; ")).\n"
+        }
+        // Round 43: the hunt keeps choosing from this game's shortlist after a reconnect.
+        if !shortlist.isEmpty, step == .props, kit == .notYet {
+            s += "This game's prop shortlist (choose every next prop or swap from it): \(shortlist.joined(separator: ", ")).\n"
         }
         s += "Kit: \(kitLine)\n"
         if !recent.isEmpty {
@@ -139,5 +145,6 @@ extension ResumeContext {
         self.init(step: store.planningStep, gameTitle: store.gameTitle, playerCount: store.playerCount,
                   roles: store.playingRoles.map(\.roleName),   // round C1: only the roles playing now
                   props: props, kit: kit, recent: transcript.map { ($0.fromNutmeg, $0.text) })
+        shortlist = store.propShortlist?.allIDs ?? []   // round 43
     }
 }

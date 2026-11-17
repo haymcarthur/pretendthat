@@ -11,7 +11,7 @@ struct RoundD1SavedGamesTests {
     func fixture(created: Date = Date(timeIntervalSince1970: 1_800_000_000), pretend: Set<String> = []) -> SavedGame {
         let props = a.props.props.map { p -> SavedProp in
             var s = SavedProp(p); s.pretendOnFirstPlay = pretend.contains(p.id)
-            if p.id == "plate" { s.alternates = ["bowl"] }
+            if p.id == "plate" { s.alternates = ["paper-plate"] }
             return s
         }
         return SavedGame(createdAt: created, title: "Airplane to the Beach", roles: a.plan.roles, props: props, kit: a.kit,
@@ -83,7 +83,7 @@ struct RoundD1SavedGamesTests {
         _ = await store.apply(.setGame("Airplane")); _ = await store.apply(.setTheme("Airplane to the Beach"))
         _ = await store.apply(.setPlayerCount(4)); _ = await store.confirmYes()
         _ = await store.apply(.setRoles(a.plan.roles.map { .init(roleName: $0.roleName, job: $0.job) }))
-        _ = await store.apply(.showNextProp(.init(itemID: "plate", becomes: "the steering wheel", forRole: "Captain", alternates: ["bowl"], reason: "A plate is round like a wheel!")))
+        _ = await store.apply(.showNextProp(.init(itemID: "plate", becomes: "the steering wheel", forRole: "Captain", alternates: ["paper-plate"], reason: "A plate is round like a wheel!")))
         _ = await store.apply(.markFound("plate"))
         _ = await store.apply(.finishPlanning)
         for _ in 0..<400 where store.phase != .kitReady || store.guidePending { try? await Task.sleep(for: .milliseconds(10)) }
@@ -106,7 +106,7 @@ struct RoundD1SavedGamesTests {
         #expect(!json.contains(store.nutmegLine))   // her chat line is never kept
         // What IS kept: the game content.
         #expect(game.title == "Airplane to the Beach" && game.roles.count == 6 && game.props.map(\.id) == ["plate"])
-        #expect(game.props[0].reason == "A plate is round like a wheel!" && game.props[0].alternates == ["bowl"])
+        #expect(game.props[0].reason == "A plate is round like a wheel!" && game.props[0].alternates == ["paper-plate"])
         #expect(game.kit == store.fullKit && game.printStyle == .fullColor && game.clips.isEmpty)
     }
 
@@ -182,7 +182,7 @@ struct RoundD1SavedGamesTests {
                 sawPlate = true
                 store.replayHunt(found: false)
                 let swapped = store.replayCurrentProp
-                #expect(swapped?.id == "plate" && swapped?.libraryID == "bowl" && store.nutmegLine == "A bowl works too! Do you have one?")
+                #expect(swapped?.id == "plate" && swapped?.libraryID == "paper-plate" && store.nutmegLine == "A paper plate works too! Do you have one?")
                 #expect(await store.apply(.skipProp("plate")) == ReplayLines.appSaysOutput)   // "we don't have one" by voice
                 #expect(store.props?.props.first { $0.id == "plate" }?.isSkipped == true)
                 #expect(store.nutmegLine.hasPrefix("No problem, we'll pretend the steering wheel!"))

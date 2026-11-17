@@ -148,6 +148,10 @@ final class AppModel {
         store = AdventureStore(service: service)
         store.holdsEarlyFinish = true   // round 30: a firm prop count (4 for 1–2 kids, 5 for 3+)
         store.propMemory = RecentPropMemory()   // round 30: prop IDs of the last ~5 games (IDs only)
+        store.propShortlistOn = true   // round 43: the app picks each game's prop shortlist (variety)
+        #if DEBUG
+        store.propLog = { rtLog($0) }   // round 43: "PROP unknown use …", the shortlist
+        #endif
         var images = ImageClient.from(info: info)
         #if DEBUG
         // Demo screens skip paid image calls unless asked: -PTDemoArt 1
@@ -1246,7 +1250,8 @@ final class AppModel {
                                         + "on screen (don't call mark_found). Say nothing yet: \(then) FIRST, then cheer in a few words and ask "
                                         + "about the new prop in the same turn. Never narrate.",
                                  requiring: next)
-            } else if !p.isSkipped, !(p.swapped ?? false), let alt = p.alternates?.first(where: { PropLibrary.contains($0) }) {
+            } else if !p.isSkipped, !(p.swapped ?? false), let alt = store.freshAlternate(forProp: p.id) {
+                // Round 43: only an alternate that still fits this card's use and isn't another card's item.
                 _ = await store.apply(.swapProp(oldID: p.id, newID: alt, becomes: ""))
                 let altName = (PropLibrary.name(alt) ?? alt).lowercased()
                 realtime.tapTurn(kidLine: "We don't have a \(name).",
