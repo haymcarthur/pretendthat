@@ -207,7 +207,7 @@ final class StoreKitFlowTests: XCTestCase {
         await waitFor(saved, 20)
         try await Task.sleep(nanoseconds: 2_000_000_000)
         await saved.tap()
-        let game = await app.buttons.matching(NSPredicate(format: "label == 'Moon Crumbs Bakery' OR label == 'Pirate Ship on the Moon'")).firstMatch
+        let game = await app.buttons.matching(identifier: "shelf.game").firstMatch
         await waitFor(game)
         await game.tap()
         let blocked = await text(app, containing: "That's all the new shows").waitForExistence(timeout: 4)
