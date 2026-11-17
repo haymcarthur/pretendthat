@@ -191,3 +191,82 @@ struct PTPrintSetChip: View {
         .accessibilityLabel(style == .fullColor ? "Color pages" : "Outline pages to color")
     }
 }
+
+// MARK: - Round 30: the chat panel's Print tab
+
+/// The full print panel in the chat panel's Print tab (Haylee, round 30), roomier than the stage card: the printer
+/// and the green ▶ on top, then BOTH sets (color and outline), each a strip of its pages over a selection card with
+/// the set's chip. Tapping a set chooses it; tapping a page chooses its set and opens the full-size preview. The
+/// printer prints the chosen set (and waits while that set is still drawing).
+struct PrintTabView: View {
+    let model: AppModel
+    /// Opens the full-size preview of page i (of the chosen set).
+    var onPreview: (Int) -> Void
+    private var store: AdventureStore { model.store }
+    private static let thumb = CGSize(width: 92, height: 119)
+
+    var body: some View {
+        let pages = model.kitPages
+        let sets = model.printSets
+        VStack(spacing: Theme.Space.m) {
+            HStack(spacing: Theme.Space.l) {
+                PTBigIconButton(kind: .print, size: 76, label: "Print") { model.tapPrint() }
+                    .opacity(model.printReady ? 1 : 0.45)
+                    .overlay { if !model.printReady { ProgressView().tint(Theme.white).controlSize(.large) } }
+                    .allowsHitTesting(model.printReady)
+                PTBigIconButton(kind: .play, size: 76, label: "Let's play") { model.tapLetsPlay() }
+            }
+            .padding(.bottom, Theme.depth)
+            ForEach(sets, id: \.self) { style in
+                setCard(style, pages: pages, single: sets.count < 2)
+            }
+        }
+        .padding(.vertical, Theme.Space.xs)
+        .animation(Theme.bouncy, value: store.printSet)
+        .sensoryFeedback(.selection, trigger: store.printSet)
+    }
+
+    private func setCard(_ style: PrintStyle, pages: [KitPage], single: Bool) -> some View {
+        let chosen = store.printSet == style && !single
+        let art = model.artSet(style)
+        return VStack(spacing: Theme.Space.s) {
+            ScrollView(.horizontal) {
+                HStack(spacing: Theme.Space.s) {
+                    ForEach(pages.indices, id: \.self) { i in
+                        KitPageView(page: pages[i], art: art.images[pages[i].item.id], cutouts: art.cutoutImages(pages[i].item))
+                            .scaleEffect(Self.thumb.width / KitPageView.size.width)
+                            .frame(width: Self.thumb.width, height: Self.thumb.height)
+                            .background(Theme.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Theme.line, lineWidth: 1))
+                            .overlay { if model.pageDrawing(pages[i], in: art) { PTPageDrawing().clipShape(RoundedRectangle(cornerRadius: 8)) } }
+                            .rotationEffect(.degrees(i % 2 == 0 ? -2 : 2))
+                            .padding(.vertical, 6)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                model.tapPrintSet(style)
+                                onPreview(i)
+                            }
+                            .accessibilityLabel("Page \(i + 1)")
+                            .accessibilityAddTraits(.isButton)
+                    }
+                }
+                .padding(.horizontal, 6)
+            }
+            .scrollIndicators(.hidden)
+            PTPrintSetChip(style: style, chosen: chosen, progress: art.finished ? nil : art.progress)
+                .frame(height: 44)
+                .onTapGesture { model.tapPrintSet(style) }
+        }
+        .padding(Theme.Space.s)
+        .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(Theme.white.opacity(chosen ? 1 : 0.7)))
+        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous)
+            .strokeBorder(chosen ? Theme.yellow : Theme.line, lineWidth: chosen ? 5 : 1.5))
+        .scaleEffect(chosen || single ? 1 : 0.97)
+        .contentShape(Rectangle())
+        .onTapGesture { model.tapPrintSet(style) }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(style == .fullColor ? "Color pages" : "Outline pages to color")
+        .accessibilityAddTraits(chosen ? [.isSelected, .isButton] : .isButton)
+    }
+}

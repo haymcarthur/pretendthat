@@ -101,7 +101,8 @@ struct RootView: View {
                                 onSend: { text in Task { await model.typed(text) } },
                                 onClose: { chatOpen = false },
                                 pinnedKey: pinnedKey, pinned: pinnedCard, typing: model.realtime.thinkingGap,
-                                tab: tabbed ? Binding(get: { chatTabs.tab }, set: { chatTabs.select($0) }) : nil)
+                                tab: tabbed ? Binding(get: { chatTabs.tab }, set: { chatTabs.select($0) }) : nil,
+                                stepTab: stepTab ?? .scene)
                         .padding([.vertical, .trailing], Theme.Space.m)
                         .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
@@ -195,12 +196,14 @@ struct RootView: View {
         // Round 13: pre-connect the voice session while the start screen shows.
         .task(id: store.phase == .hello) { if store.phase == .hello { model.preconnect() } }
         .onChange(of: store.phase) { _, _ in model.updateIdleTimer() }
-        .onChange(of: PTChatTabState.cardKey(for: store.phase), initial: true) { _, key in
+        .onChange(of: PTChatTabState.cardKey(for: stepTab, phase: store.phase), initial: true) { _, key in
             chatTabs.show(cardKey: key)
             #if DEBUG
             if DemoDriver.chatTabChat { chatTabs.select(.chat) }
             #endif
         }
+        // Round 30 (Haylee): opening the panel always starts on the step tab (the transcript is one tap away).
+        .onChange(of: chatOpen) { _, open in if open { chatTabs.panelOpened() } }
         .onChange(of: model.kitPapersOut) { _, _ in model.updateIdleTimer() }
         .onChange(of: desiredShot) { _, _ in scheduleShot() }
         // Round 7: the point toward a prop card is tied to the card's reveal and her prop line (AppModel.pointAtCard).
@@ -262,7 +265,7 @@ struct RootView: View {
                                     onHunt: { _, found in model.huntReply(found: found) })
                         .opacity(model.isWriting ? 0 : 1)
                         .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: model.isWriting)   // round 11: with the writing shot
-                } else if shot == .wide && !model.isWriting {
+                } else if shot == .wide && !model.isWriting && !(chatOpen && chromeVisible && stepTab == .props) {
                     PTPresentedCards(items: stageItems, nutmeg: L, size: g.size, onTapItem: { silentTap($0) },
                                      onHunt: { _, found in model.huntReply(found: found) })
                 }
@@ -294,18 +297,65 @@ struct RootView: View {
 
     /// What's docked at the top of the chat panel: the hunt's active prop, or the kit papers once they're out.
     private var pinnedKey: String? {
+        if let key = PTChatTabState.cardKey(for: stepTab, phase: store.phase) { return key }   // round 30: the step tab
         if huntOnStage, let active = stageItems.last(where: { !$0.isDone }) { return active.id }
         if model.kitPapersOut { return "kit-papers" }
         if case .scene(let i) = store.phase { return "scene-\(i)" }   // round 8: the scene card docks in the chat panel
         if store.phase == .end { return "end" }   // round 11: and the finale (the chat-open prop-card framing has no side zone)
         return nil
     }
-    /// Round 14: the play step's checklist / hand-off card gets the panel's Checklist | Chat tabs (not the pinned card).
-    private var tabbed: Bool { PTChatTabState.cardKey(for: store.phase) != nil && !huntOnStage && !model.kitPapersOut }
+    /// Round 14: the play step's scene card gets the panel's Scene | Chat tabs (not the pinned card). Round 30
+    /// (Haylee): every step with something to show has its step tab: Props | Chat, Print | Chat, Scene | Chat, and a
+    /// replay's Pick shows the cover. A first play's Pick is Chat only.
+    private var tabbed: Bool { stepTab != nil }
+    private var stepTab: PTStepTab? {
+        PTStepTab.forPhase(store.phase, replay: store.isReplay, propsShown: propListItems.count, papersOut: model.kitPapersOut)
+    }
+
+    /// Round 30: the Props tab's rows: a first play's shown hunt cards (one at a time, as on the stage), or a replay's
+    /// answered props and the current one.
+    private var propListItems: [PTStageItem] {
+        if store.isReplay {
+            let props = store.props?.props ?? []
+            return props.enumerated().compactMap { i, p in
+                let answered = store.foundProps.contains(p.id) || p.isSkipped
+                let current = p.id == store.replayCurrentProp?.id
+                guard answered || current else { return nil }
+                let art = p.libraryID.flatMap { UIImage(named: PropLibrary.asset($0)) }
+                return PTStageItem(id: "prop-\(p.id)", title: p.householdItem, subtitle: p.becomes, image: art,
+                                   tint: Theme.playerColor(i), flipKey: p.libraryID ?? p.householdItem, isPretend: p.isSkipped,
+                                   chip: p.isSkipped ? .pretend : (store.foundProps.contains(p.id) ? .found : (p.swapped == true ? .swapped : .none)),
+                                   huntButtons: current)
+            }
+        }
+        guard model.inConversation, store.presenting == .props else { return [] }
+        return stageItems
+    }
+    private var propListCurrentID: String? {
+        if store.isReplay { return store.replayCurrentProp.map { "prop-\($0.id)" } }
+        return propListItems.first(where: \.huntButtons)?.id
+    }
+    private func propListHunt(_ found: Bool) {
+        if store.isReplay { model.replayHunt(found: found) } else { model.huntReply(found: found) }
+    }
 
     /// Round 10 rule (Haylee): every interactive card (prop, kit, checklist, hand-off) has ONE chat-open treatment:
     /// pinned at the top of the chat panel at full readable size (`.ptPinnedCard()`), never shrunk into the stage gap.
     private var pinnedCard: AnyView? {
+        // Round 30: the step tabs' content.
+        switch stepTab {
+        case .props:
+            return AnyView(PTPropListPanel(items: propListItems, currentID: propListCurrentID,
+                                           onHunt: propListCurrentID == nil ? nil : { propListHunt($0) }))
+        case .print:
+            return AnyView(PrintTabView(model: model, onPreview: { i in
+                var tx = Transaction(); tx.disablesAnimations = true
+                withTransaction(tx) { kitPreview = PTPreviewTarget(index: i) }
+            }))
+        case .cover:
+            return AnyView(ReplayPickView(model: model, coverWidth: PTChatPanel.width - 2 * Theme.Space.m - 24).padding(.top, Theme.Space.s))
+        case .scene, nil: break
+        }
         if case .scene(let i) = store.phase, !huntOnStage, !model.kitPapersOut { return AnyView(PTScenePinnedCard(model: model, index: i)) }
         if store.phase == .end { return AnyView(EndView(model: model).padding(.vertical, Theme.Space.s).ptPinnedCard()) }
         if huntOnStage, let active = stageItems.last(where: { !$0.isDone }) {
@@ -451,8 +501,9 @@ struct RootView: View {
         case .hello: EmptyView()   // the start screen replaces the classic stage (see body)
         case .pickGame: EmptyView()   // games are talked about only: no idea cards, no caption (no-text-overlays.md)
         // Round D1: a replay's Pick and Props (round 26: the first play's flows; its Print is the first play's KitView).
-        case .players: if store.isReplay { ReplayPickView(model: model) } else { PlayersView(model: model) }
-        case .props: if store.isReplay { ReplayPropsView(model: model) } else { PropsView(model: model) }
+        // Round 30: chat open, a replay's cover and props are in the panel's step tab (the stage hides the duplicate).
+        case .players: if store.isReplay { if !(chatOpen && chromeVisible) { ReplayPickView(model: model) } } else { PlayersView(model: model) }
+        case .props: if store.isReplay { if !(chatOpen && chromeVisible) { ReplayPropsView(model: model) } } else { PropsView(model: model) }
         case .makingKit, .kitReady: KitView(model: model, clipboard: clipboard, chatOpen: chatOpen && chromeVisible, preview: $kitPreview,
                                             onCelebrate: { celebrate() })
         case .scene(let i): if !(chatOpen && chromeVisible) { SceneView(model: model, index: i, width: width, maxHeight: height) }   // chat open: pinned in the panel

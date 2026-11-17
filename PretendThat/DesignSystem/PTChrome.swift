@@ -358,6 +358,8 @@ struct PTChatPanel: View {
     /// Round 14 (Haylee): during play (checklist or hand-off card) the panel has "Checklist" | "Chat" tabs instead of
     /// a pinned card: Checklist shows the card full size, Chat the transcript. nil = no tabs (pinned card as before).
     var tab: Binding<PTChatTab>? = nil
+    /// Round 30: which step the step tab is (its label and icon).
+    var stepTab: PTStepTab = .scene
     @State private var draft = ""
     @FocusState private var focused: Bool
     @State private var following = true
@@ -377,8 +379,8 @@ struct PTChatPanel: View {
                 PTIconButton(symbol: "xmark", label: "Close chat", size: 44, action: onClose)
             }
             if let tab, let pinned {
-                PTChatTabs(selection: tab)
-                if tab.wrappedValue == .checklist {
+                PTChatTabs(selection: tab, step: stepTab)
+                if tab.wrappedValue == .step {
                     // The full-size card; a long scene scrolls (never collapses, never clips).
                     ScrollView { pinned.id(pinnedKey) }
                         .scrollIndicators(.automatic)
@@ -398,7 +400,7 @@ struct PTChatPanel: View {
                 }
                 transcript
             }
-            if tab?.wrappedValue != .checklist || pinned == nil {
+            if tab?.wrappedValue != .step || pinned == nil {
             HStack(spacing: Theme.Space.s) {
                 TextField("Type to Nutmeg", text: $draft)
                     .font(Theme.uiFont(17, .medium)).foregroundStyle(Theme.ink)
@@ -626,23 +628,36 @@ enum PTFan {
     }
 }
 
-/// Round 14: "Scene" (round 29; was "Checklist") | "Chat" tabs at the top of the chat panel during play: a two-segment pill, big tap targets.
+/// Round 14: "<step>" | "Chat" tabs at the top of the chat panel: a two-segment pill, kid-sized tap targets with icons.
+/// Round 30: the step segment is Props, Print, Scene or the replay's cover (round 29's Scene was the only one).
 struct PTChatTabs: View {
     @Binding var selection: PTChatTab
+    var step: PTStepTab = .scene
     var body: some View {
         HStack(spacing: 4) {
-            seg(.checklist, "Scene", "theatermasks")   // round 29: the scene card (no checklist any more)
+            seg(.step, Self.title(step), Self.symbol(step))
             seg(.chat, "Chat", "bubble.left.and.bubble.right")
         }
         .padding(4)
         .background(Capsule().fill(Theme.chipGray))
+    }
+    static func title(_ s: PTStepTab) -> String {
+        switch s { case .props: "Props"; case .print: "Print"; case .scene: "Scene"; case .cover: "Game" }
+    }
+    static func symbol(_ s: PTStepTab) -> String {
+        switch s {
+        case .props: "shippingbox.fill"
+        case .print: "printer.fill"
+        case .scene: "theatermasks"
+        case .cover: "photo.on.rectangle"
+        }
     }
     private func seg(_ t: PTChatTab, _ title: String, _ symbol: String) -> some View {
         let on = selection == t
         return Button { selection = t } label: {
             Label(title, systemImage: symbol)
                 .font(Theme.uiFont(17)).foregroundStyle(on ? Theme.white : Theme.ink)
-                .frame(maxWidth: .infinity, minHeight: 48)
+                .frame(maxWidth: .infinity, minHeight: 56)   // round 30: kid-sized
                 .background(Capsule().fill(on ? Theme.cta : Color.clear))
                 .contentShape(Capsule())
         }

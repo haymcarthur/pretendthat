@@ -10,6 +10,8 @@ import NutmegCore
 /// Pick on a replay: the game's title; with no voice session, tiles 1–6 (a tile goes straight on to Props).
 struct ReplayPickView: View {
     let model: AppModel
+    /// Round 30: narrower in the chat panel's cover tab.
+    var coverWidth: CGFloat = 360
     private var store: AdventureStore { model.store }
     var body: some View {
         VStack(spacing: Theme.Space.l) {
@@ -17,7 +19,7 @@ struct ReplayPickView: View {
             // color sign page (`AppModel.cover(for:)` falls back); the title text only when there's no picture at all.
             // Nutmeg still says the name.
             if let g = model.replayGame, let cover = model.cover(for: g) {
-                PTReplayCover(image: cover, title: store.currentTitle)
+                PTReplayCover(image: cover, title: store.currentTitle, width: coverWidth)
             } else {
                 PTText(store.currentTitle, .title).multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.7)
             }

@@ -30,15 +30,9 @@ struct PTPropHuntStage: View {
         let chestY = L.screen(CGPoint(x: 0, y: PTStageCamera.chestY)).y
         ZStack(alignment: .topLeading) {
             if g.chatOpen {
-                // Done thumbnails along the top of the stage, right of the rail (Nutmeg stands below the row).
-                HStack(spacing: 10) {
-                    ForEach(done) { item in
-                        PTPropDoneThumb(item: item).matchedGeometryEffect(id: item.id, in: namespace)
-                    }
-                }
-                .fixedSize()
-                .padding(.leading, F.minX + 8)
-                .padding(.top, F.minY + (PTStageDirector.thumbRow - PTPropDoneThumb.side) / 2 - 4)
+                // Round 30 (Haylee): chat open, the panel's Props tab lists every prop (current, found, pretend), so
+                // the stage hides its duplicate cards (round 14 did the same for the checklist).
+                EmptyView()
             } else {
                 if let active {
                     let zoneL = L.maxX + 20, zoneR = g.size.width - curtainInset - PTStageDirector.curtainGap
@@ -196,3 +190,64 @@ extension PTStageItem {
     var isDone: Bool { chip == .found || isPretend }
 }
 
+
+// MARK: - Round 30: the chat panel's Props tab
+
+/// The hunt's props as a live list in the chat panel's Props tab (Haylee, round 30): the current prop highlighted with
+/// its big ✓ / ✗, found ones checked, swapped ones with the swap arrows, missing ones faded with their pretend
+/// stand-in ("We'll pretend: the pirate map"). Updates as the props are checked off. Only the cards already shown are
+/// listed (the hunt stays one prop at a time).
+struct PTPropListPanel: View {
+    let items: [PTStageItem]
+    /// The prop being hunted now (its row is highlighted and gets the buttons).
+    var currentID: String?
+    var onHunt: ((Bool) -> Void)? = nil
+
+    var body: some View {
+        VStack(spacing: Theme.Space.s) {
+            ForEach(items) { item in
+                row(item, current: item.id == currentID && !item.isDone)
+                    .transition(.scale(scale: 0.9).combined(with: .opacity))
+            }
+        }
+        .padding(.vertical, Theme.Space.xs)
+        .animation(Theme.stageMove, value: items.map { "\($0.id)\($0.chip)\($0.isPretend)\($0.flipKey)" })
+    }
+
+    private func row(_ item: PTStageItem, current: Bool) -> some View {
+        VStack(spacing: Theme.Space.s) {
+            HStack(spacing: Theme.Space.s) {
+                Group {
+                    if let image = item.image { Image(uiImage: image).resizable().scaledToFit() } else { PTShimmer(tint: item.tint) }
+                }
+                .frame(width: current ? 84 : 64, height: current ? 84 : 64)
+                .saturation(item.isPretend ? 0 : 1).opacity(item.isPretend ? 0.5 : 1)
+                .overlay(alignment: .bottomTrailing) {
+                    if item.isDone || item.chip == .swapped { PTPropBadge(item: item, side: 26).offset(x: 4, y: 4) }
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.title).font(Theme.displayFont(current ? 22 : 19)).foregroundStyle(Theme.ink)
+                        .lineLimit(2).minimumScaleFactor(0.7)
+                    if item.isPretend {
+                        // The missing prop's pretend stand-in: what it would have become.
+                        Label(item.subtitle.map { "We'll pretend: \($0)" } ?? "We'll pretend!", systemImage: "sparkles")
+                            .font(Theme.uiFont(15, .medium)).foregroundStyle(Theme.inkMuted)
+                            .fixedSize(horizontal: false, vertical: true)
+                    } else if let sub = item.subtitle {
+                        Text(sub).font(Theme.uiFont(15, .medium)).foregroundStyle(Theme.inkMuted)   // never truncated
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            if current, let onHunt { PTHuntButtons(size: 64, action: onHunt) }
+        }
+        .padding(Theme.Space.s)
+        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(current ? Theme.white : Theme.white.opacity(0.85)))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous)
+            .strokeBorder(current ? Theme.yellow : Theme.line, lineWidth: current ? 4 : 1.5))
+        .opacity(item.isPretend ? 0.9 : 1)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(item.title + (item.isPretend ? ", we'll pretend" : (item.chip == .found ? ", found" : (current ? ", find it now" : ""))))
+    }
+}
