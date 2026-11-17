@@ -110,6 +110,7 @@ The map. Read this first, then open only what you need.
 
 - [Ensemble scenes: everyone plays each scene, per-role rows with 🔊, Next scene button, 3 bigger interactive tasks](decisions/2026-11-16-ensemble-scenes.md): Haylee
 - [Round 29 build: ensemble scenes (3 scenes × a task per role + a solo task, rows with character crops + 🔊, ▶ Next scene, next_scene tool, no scripted lines, save schema 2, guide 7.4¢ → 3.7¢)](decisions/2026-11-16-round29-ensemble-scenes-build.md): Haylee (design), Claude's calls noted
+- [Round 30 build: Release builds can't carry personal keys (Release.xcconfig + build check), chat step tabs (Props / Print / Scene / cover), 4 props for 1–2 kids and 5 for 3+, prop anti-repeat (last 5 games), 30 new props](decisions/2026-11-16-round30.md): Haylee (items), Claude's calls noted
 
 - [Kids' voices stay on the iPad: on-device speech to text, text-only turns to the AI, Nutmeg's voice unchanged](decisions/2026-11-16-on-device-speech.md): Haylee
 
