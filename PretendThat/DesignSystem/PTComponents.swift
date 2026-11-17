@@ -115,7 +115,7 @@ struct PTTaskRow<Picture: View>: View {
                 .font(Theme.bodyFont(fontSize)).foregroundStyle(Theme.ink).multilineTextAlignment(.leading)
                 .minimumScaleFactor(min(1, 17 / fontSize))
                 .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 0)
+                .frame(maxWidth: .infinity, alignment: .leading)   // the text takes all the room between picture and 🔊
             Button(action: onSpeak) {
                 Image(systemName: "speaker.wave.2.fill")
                     .font(.system(size: 24, weight: .bold)).foregroundStyle(Theme.ink)
