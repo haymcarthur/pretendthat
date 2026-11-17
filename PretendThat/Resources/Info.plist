@@ -22,7 +22,7 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>NSMicrophoneUsageDescription</key><string>Nutmeg listens only while you hold the microphone button, so she can understand and answer. Your voice is sent securely to our AI partner to understand it, and isn't saved by PretendThat.</string>
-	<key>NSSpeechRecognitionUsageDescription</key><string>Speech is turned into words on this iPad so Nutmeg can understand you. Nothing is sent anywhere.</string>
+	<key>NSSpeechRecognitionUsageDescription</key><string>If Nutmeg can't connect, speech is turned into words so she can understand you. Apple may process it to do that; PretendThat doesn't save it.</string>
 	<key>ANTHROPIC_API_KEY</key><string>$(ANTHROPIC_API_KEY)</string>
 	<key>OPENAI_API_KEY</key><string>$(OPENAI_API_KEY)</string>
 	<key>RELAY_HOST</key><string>$(RELAY_HOST)</string>
