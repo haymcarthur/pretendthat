@@ -7,98 +7,132 @@ final class FakeDefaults: OnboardingDefaults {
     var values: [String: Any] = [:]
     func bool(forKey k: String) -> Bool { values[k] as? Bool ?? false }
     func integer(forKey k: String) -> Int { values[k] as? Int ?? 0 }
+    func string(forKey k: String) -> String? { values[k] as? String }
     func set(_ value: Bool, forKey k: String) { values[k] = value }
     func set(_ value: Int, forKey k: String) { values[k] = value }
+    func set(_ value: Any?, forKey k: String) { values[k] = value }
     func removeObject(forKey k: String) { values[k] = nil }
 }
 
 /// Round 33: the parent onboarding (state machine, consent gating, the Free Preview counter, plans).
+/// Onboarding v2 (2026-11-16): seven full-screen pages, no gate, two ways out of the last page.
 @Suite struct Round33OnboardingTests {
 
-    // MARK: The flow
+    // MARK: The flow (v2)
 
-    @Test func happyPathWalksAllSixScreens() {
+    @Test func happyPathWalksAllSevenPagesWithNoGate() {
         var f = OnboardingFlow()
-        #expect(f.screen == .hello && !f.gatePassed && !f.canGoBack)
-        f.next()   // nothing moves before the gate
-        #expect(f.screen == .hello)
-        f.passGate()
-        #expect(f.screen == .howItWorks && f.gatePassed && !f.canGoBack)   // never back to the gate
+        #expect(f.screen == .hello && !f.canGoBack)
+        f.next()   // "Let's get started": no gate
+        #expect(f.screen == .howItWorks && f.canGoBack)
+        f.next()
+        #expect(f.screen == .needs && f.canGoBack)
         f.next()
         #expect(f.screen == .privacy && f.canGoBack)
+        f.next()   // consent is REQUIRED: Next doesn't skip it
+        #expect(f.screen == .privacy)
         f.agree()
         #expect(f.consent == true && f.screen == .microphone)
-        f.next()   // the mic screen's only way on is Continue (the system prompts)
+        f.next()   // the mic page's only way on is Continue (the system prompts)
         #expect(f.screen == .microphone)
         f.micAnswered(granted: true)
         #expect(f.screen == .plans && !f.micDenied)
         f.startFreePreview()
         #expect(f.screen == .handOff)
-        f.handOff()
-        #expect(f.finished && !f.canGoBack)
+        f.startFirstGame()
+        #expect(f.finished && f.exit == .firstGame && !f.canGoBack)
+        f.goHome()   // already finished: the first answer stands
+        #expect(f.exit == .firstGame)
+    }
+
+    @Test func handOffCanGoHomeInstead() {
+        var f = OnboardingFlow()
+        f.next(); f.next(); f.next(); f.agree(); f.micAnswered(granted: true); f.startFreePreview()
+        f.goHome()
+        #expect(f.finished && f.exit == .home)
     }
 
     @Test func notNowShowsTheCalmScreenAndCanCloseOrGoBack() {
         var f = OnboardingFlow()
-        f.passGate(); f.next()
+        f.next(); f.next(); f.next()
         f.notNow()
         #expect(f.screen == .aiDeclined && f.consent == false && f.screen.dot == OnboardingScreen.privacy.dot)
         f.back()
         #expect(f.screen == .privacy)
         f.notNow(); f.closeWithoutConsent()
-        #expect(f.finished && f.consent == false)
+        #expect(f.finished && f.consent == false && f.exit == .closedWithoutConsent)
         // Or agree after reading it.
-        var g = OnboardingFlow(); g.passGate(); g.next(); g.notNow(); g.agree()
+        var g = OnboardingFlow(); g.next(); g.next(); g.next(); g.notNow(); g.agree()
         #expect(g.consent == true && g.screen == .microphone)
     }
 
     @Test func deniedMicStaysWithTheNoteThenNextGoesOn() {
         var f = OnboardingFlow()
-        f.passGate(); f.next(); f.agree()
+        f.next(); f.next(); f.next(); f.agree()
         f.micAnswered(granted: false)
         #expect(f.screen == .microphone && f.micDenied && f.micAsked)
         f.next()
         #expect(f.screen == .plans)
     }
 
-    @Test func backStepsOneScreenAtATime() {
+    @Test func backWorksOnEveryPageOneAtATime() {
         var f = OnboardingFlow()
-        f.passGate(); f.next(); f.agree(); f.micAnswered(granted: true); f.startFreePreview()
+        f.next(); f.next(); f.next(); f.agree(); f.micAnswered(granted: true); f.startFreePreview()
         #expect(f.screen == .handOff)
         f.back(); #expect(f.screen == .plans)
         f.back(); #expect(f.screen == .microphone)
         f.back(); #expect(f.screen == .privacy)
+        f.back(); #expect(f.screen == .needs)
         f.back(); #expect(f.screen == .howItWorks)
-        f.back(); #expect(f.screen == .howItWorks)   // the gate is never re-entered by back
-        #expect(f.gatePassed)
+        f.back(); #expect(f.screen == .hello)
+        #expect(!f.canGoBack)
+        f.back(); #expect(f.screen == .hello)
     }
 
-    @Test func replayStartsAfterTheGate() {
+    @Test func replayWalksTheSamePages() {
         let f = OnboardingFlow(replay: true)
-        #expect(f.isReplay && f.gatePassed && f.screen == .howItWorks)
+        #expect(f.isReplay && f.screen == .hello)
     }
 
-    @Test func nutmegSpeaksOnlyOnTheFirstAndLastScreens() {
-        #expect(OnboardingScreen.allCases.filter(\.nutmegSpeaks) == [.hello, .handOff])
+    @Test func onlyPageOneHasAClipAndEveryPageHasADot() {
+        #expect(OnboardingScreen.allCases.filter(\.nutmegSpeaks) == [.hello])
+        #expect(OnboardingScreen.hello.clip == OnboardingCopy.getAGrownUp)
         #expect(Set(OnboardingScreen.allCases.map(\.dot)).count == OnboardingScreen.dotCount)
+        #expect(OnboardingScreen.dotCount == 7)
     }
 
-    @Test func settingsStoreOnlyBooleansAndFinishOnce() {
+    @Test func settingsStoreOnlyDeviceFlagsAndFinishOnce() {
         let d = FakeDefaults(), s = ParentSettings(defaults: d)
         #expect(!s.onboardingDone && !s.aiConsent)
-        var f = OnboardingFlow(); f.passGate(); f.next(); f.agree()
+        var f = OnboardingFlow(); f.next(); f.next(); f.next(); f.agree()
         s.finish(f)   // not finished yet: nothing stored
         #expect(!s.onboardingDone)
-        f.micAnswered(granted: false); f.next(); f.startFreePreview(); f.handOff()
+        f.micAnswered(granted: false); f.next(); f.startFreePreview(); f.goHome()
         s.finish(f)
         #expect(s.onboardingDone && s.aiConsent)
         #expect(d.values.values.allSatisfy { $0 is Bool })   // booleans only, nothing about kids
         // A replay that declines turns consent off.
-        var r = OnboardingFlow(replay: true); r.next(); r.notNow(); r.closeWithoutConsent()
+        var r = OnboardingFlow(replay: true); r.next(); r.next(); r.next(); r.notNow(); r.closeWithoutConsent()
         s.finish(r)
         #expect(s.onboardingDone && !s.aiConsent)
         s.reset()
         #expect(!s.onboardingDone && !s.aiConsent)
+    }
+
+    @Test func progressSurvivesClosingTheAppMidway() {
+        let d = FakeDefaults(), s = ParentSettings(defaults: d)
+        #expect(s.resumeFlow() == OnboardingFlow())
+        var f = OnboardingFlow(); f.next(); f.next(); f.next(); f.agree(); f.micAnswered(granted: false)
+        s.saveProgress(f)
+        // Only a page name and booleans (nothing about kids).
+        #expect(d.values.values.allSatisfy { $0 is Bool || $0 is String })
+        let back = s.resumeFlow()
+        #expect(back.screen == .microphone && back.consent == true && back.micAsked && back.micDenied)
+        // A replay isn't remembered; finishing clears it.
+        f.next(); f.startFreePreview(); f.startFirstGame(); s.finish(f)
+        #expect(s.resumeFlow() == OnboardingFlow())
+        s.saveProgress(OnboardingFlow(replay: true))
+        #expect(d.values[OnboardingKeys.page] == nil)
     }
 
     // MARK: Consent gating of New game
@@ -171,18 +205,30 @@ final class FakeDefaults: OnboardingDefaults {
 
     @Test func privacyCopyMatchesRound31() {
         let all = OnboardingCopy.privacyLines.map(\.text).joined(separator: " ")
-        #expect(all.contains("turned into words on this iPad"))
+        #expect(all.contains("into words right on this iPad"))
         #expect(all.contains("never sent"))
         #expect(all.contains("OpenAI") && all.contains("Anthropic"))
         #expect(all.contains("names removed"))
         #expect(all.contains("No accounts"))
-        #expect(all.contains("Saved games stay on this iPad"))
         // The mic pre-permission never says "Allow"; one Continue button.
         #expect(!OnboardingCopy.micContinue.contains("Allow") && !OnboardingCopy.micBody.contains("Allow"))
         #expect(OnboardingCopy.tagline == "Turn your living room into a pretend-play adventure.")
         #expect(OnboardingCopy.steps.map(\.title) == JourneyStep.allCases.map(\.label))
         // Her two lines are bundled clips (recorded from her real voice).
         #expect(CommonLines.all.contains(OnboardingCopy.getAGrownUp) && CommonLines.all.contains(OnboardingCopy.greetKid))
+    }
+
+    @Test func v2PlansPageReadsTheOnePricingConfig() {
+        #expect(PlanCatalog.showPass.introThenText == "for 12 months, then $14.99/month")
+        #expect(PlanCatalog.seasonPass.introThenText == "for 12 months, then $29.99/month")
+        #expect(OnboardingCopy.cardShows(PlanCatalog.showPass) == "10 new shows a month")
+        #expect(OnboardingCopy.cardShows(PlanCatalog.seasonPass) == "Up to 30 new shows a month")
+        #expect(OnboardingCopy.freeHeroTitle.hasPrefix("\(PlanCatalog.freePreviewShows) free shows"))
+        for l in [OnboardingCopy.plansV2Title, OnboardingCopy.plansV2Lead, OnboardingCopy.freeHeroTitle, OnboardingCopy.freeHeroBody] {
+            #expect(!l.lowercased().contains("trial"))
+        }
+        #expect(!OnboardingCopy.micFine.contains("Allow"))
+        #expect(OnboardingCopy.needs.count == 4 && OnboardingCopy.steps.count == 4)
     }
 
     // MARK: The New game greeting (round 33 addition)
