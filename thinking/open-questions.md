@@ -28,3 +28,5 @@
 - **2026-11-17 (round 38): yearly intro offers?** The decisions give yearly prices ($149.99 / $299.99) but no yearly intro offer, so during the first 12 months monthly is cheaper than yearly ($119.88 vs $149.99; $239.88 vs $299.99). Options: no yearly intro (built), a pay-up-front yearly intro (e.g. $99.99 / $199.99 for the first year), or launch monthly only. Also: Family Sharing on or off (built as off)?
 
 - **2026-11-17 (analytics): default OFF ok?** Built with the "Share anonymous usage counts" switch OFF until a grown-up turns it on (onboarding privacy page, Grown-ups → About what we save); fewer counts, safer under COPPA. Turn it ON by default only after the lawyer / Safe Harbor review says anonymous analytics fits "support for internal operations". Also confirm TelemetryDeck's retention period and DPA for the privacy policy brackets.
+
+- **Nutmeg speed (2026-11-17):** which row in design/voice-speed-check/ sounds like "1.2" to Haylee (line 1 and line 2, ideally on the iPad too)? 1.20 = the app today. See research/2026-11-17-voice-speed-check.md.

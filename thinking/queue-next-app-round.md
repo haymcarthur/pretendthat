@@ -263,3 +263,27 @@ Game arc becomes: Print → **story opener** → **setup scene** → 3 play scen
 - Replays: story + setup + clean-up lines recorded and reused like other clips (replay parity).
 - Cost estimate: +$0.05–0.10 per new game (3 extra voiced lines; guide tokens < 1¢); replays ~free. Re-measure after.
 - Marketing: "it even helps them clean up" for the App Store page / site (draft, don't publish).
+
+## Auto-save round (queued 2026-11-17, Haylee: auto-save for everyone, experience approved, NO cap on saved games)
+- Count the show when the kit is made, not at Let's play! (decisions/2026-11-17-autosave-and-count-at-kit.md).
+- Save every new game automatically when the kit is made; update the save as play goes (recorded lines, cover).
+- No Save button anywhere and no "save?" question on leaving.
+- The one moment: when the kit is ready, the game's cover card shrinks and slides into a small bookshelf (picture, no words) and Nutmeg says one short line ("I put it on your bookshelf!"). Same for every game.
+- The End: star button removed; Play it again + Home. Nutmeg mentions the bookshelf.
+- Leave dialog (X): before the kit, as today (nothing counted, nothing saved). After the kit: shows the game's cover going onto the shelf; Keep playing / Leave. Drop "you'll start a new game next time".
+- Bookshelf: a game left halfway looks the same as a finished one; replays start at the beginning.
+- "Sounds like a game you have" (Haylee): at the Pick confirm ("Yes, let's go!"), before anything is made or counted, match the game type + theme against saved games on the iPad (no AI call). If one is close, show its cover card and Nutmeg says "We already have <title> on your shelf! Want to play that one?" Two big picture buttons: play that one (replay) / make a new one. Suggest, never block.
+- No cap on saved games (Haylee). Grown-ups → Saved games shows how much space they take.
+- Grown-ups → Saved games (Haylee): checkboxes are ON by default (no Select button); check games, press Delete (with a confirm) as the main experience. Add a "Last played" sort next to Newest / Name, each row shows its size, and a search bar by name (grown-ups only; the kids' bookshelf stays pictures + arrows).
+- Bookshelf order (Claude's suggestion, Haylee may veto): most recently played first (lastPlayedAt), so favorites stay up front; no search or filters.
+- Testing: demo mode, no keys (CLAUDE.md rule 7).
+
+## Voice pitch round (queued 2026-11-17, Haylee: Signalsmith plain +2)
+- NutmegSpeaker: Varispeed 1.20 → Signalsmith Stretch +2 semitones (formant preservation OFF) for live lines. Add Signalsmith Stretch + Signalsmith Linear (MIT) as a dependency; credit them in Grown-ups → About.
+- Clips (bundled and recorded) get their own per-clip adjustment toward the target pitch so they're never raised twice; add a pitch check for every clip.
+- Reset the shifter on cancel and barge-in; flush at line end; keep lip sync aligned (about 60 ms added).
+- Render reference: design/voice-pitch-test-2/ (plain Signalsmith +2). Research: research/2026-11-17-voice-pitch-test-2.md.
+- Testing: no live games needed beyond one at most (CLAUDE.md rule 7); compare the offline render against the in-app output. Haylee listens on the iPad before it's final.
+
+## Bug: 10-second pause after "found it" (queued 2026-11-17, Haylee: fix it)
+- After a spoken or typed "found it", the next prop line waits about 10–11 s. Cause (from the Claude-brain spike): `sayAppPropLine` waits up to 10 s while the session is busy, and the busy state stays on after a tool-first pass with no spoken follow-up. Card taps don't hit it. Seen in every recent log. Details: research/2026-11-17-claude-brain-spike.md.

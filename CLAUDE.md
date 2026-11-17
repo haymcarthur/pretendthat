@@ -13,3 +13,4 @@
 4. Update `thinking/INDEX.md` whenever you add a file.
 5. Run tasks (building, research, file generation) in background agents and keep the conversation with Haylee going (her global rule).
 6. Never store anything about kids. No backend, no accounts.
+7. Keep test costs down (Haylee pays for every AI call). Agents test without API keys by default: screenshots and layout checks use the demo mode (no voice, no images). A live game with keys only when the work is about voice or AI, and at most one live game per round. Reuse existing recordings for audio comparisons instead of making new calls. Every agent brief says this.
