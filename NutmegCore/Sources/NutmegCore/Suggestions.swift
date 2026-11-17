@@ -73,26 +73,36 @@ public enum Suggestions {
     }
 }
 
-/// Remembers only the IDs of the last session's picks (UserDefaults; nothing about kids), so the next session differs.
+/// Remembers only the IDs of recent picks (UserDefaults; nothing about kids), so the next sessions differ. Round 42
+/// (Haylee: the suggestions felt stuck): the last 3 sessions' picks are avoided (was: only the last one), newest first.
 public struct SuggestionMemory: @unchecked Sendable {
     let defaults: UserDefaults
     static let gamesKey = "pt.lastGamePicks", twistsKey = "pt.lastTwistPicks"
+    /// How many past sessions' picks are avoided.
+    public static let sessions = 3
     public init(defaults: UserDefaults = .standard) { self.defaults = defaults }
 
-    public var lastGames: Set<String> { Set(defaults.stringArray(forKey: Self.gamesKey) ?? []) }
-    public var lastTwists: Set<String> { Set(defaults.stringArray(forKey: Self.twistsKey) ?? []) }
+    /// The recent picks, newest first (at most `sessions` × 3 ids).
+    public var recentGames: [String] { defaults.stringArray(forKey: Self.gamesKey) ?? [] }
+    public var recentTwists: [String] { defaults.stringArray(forKey: Self.twistsKey) ?? [] }
+    public var lastGames: Set<String> { Set(recentGames) }
+    public var lastTwists: Set<String> { Set(recentTwists) }
 
-    /// Today's 3 games (different from last session's), remembered for next time.
+    /// Today's 3 games (none from the last 3 sessions), remembered for next time.
     public func pickGames() -> [Suggestion] {
-        let picks = Suggestions.sample(Suggestions.games, avoiding: lastGames)
-        defaults.set(picks.map(\.id), forKey: Self.gamesKey)
-        return picks
+        pick(Suggestions.games, key: Self.gamesKey)
     }
 
-    /// 3 theme twists once the game is set (different from last time's), remembered for next time.
+    /// 3 theme twists once the game is set (none from the last 3 times), remembered for next time.
     public func pickTwists() -> [Suggestion] {
-        let picks = Suggestions.sample(Suggestions.twists, avoiding: lastTwists)
-        defaults.set(picks.map(\.id), forKey: Self.twistsKey)
+        pick(Suggestions.twists, key: Self.twistsKey)
+    }
+
+    private func pick(_ pool: [Suggestion], key: String) -> [Suggestion] {
+        let recent = defaults.stringArray(forKey: key) ?? []
+        let picks = Suggestions.sample(pool, avoiding: Set(recent))
+        let ids = picks.map(\.id)
+        defaults.set(Array((ids + recent.filter { !ids.contains($0) }).prefix(Self.sessions * 3)), forKey: key)
         return picks
     }
 }

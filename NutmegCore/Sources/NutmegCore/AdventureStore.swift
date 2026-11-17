@@ -722,7 +722,7 @@ public final class AdventureStore {
             gameTitle = title; plan = nil; props = nil
             phase = .pickGame; presenting = .none; planningStep = .theme
             let ideas = themeIdeas.isEmpty ? "with 2 or 3 example themes that fit this game"
-                : "suggesting ONLY today's theme ideas, and make it sound open (\"Any twist you like! Maybe \(Suggestions.spoken(themeIdeas))?\"; say them so they fit this game; no other examples)"
+                : "suggesting EXACTLY these \(themeIdeas.count) theme ideas, all of them and no others, and make it sound open (\"Any twist you like! Maybe \(Suggestions.spoken(themeIdeas))?\"; you may say them so they fit this game, but never drop one or add your own)"
             return "Game set: \(title). Step 2: react in one short sentence, then ask what theme or twist it should have, \(ideas). If the kids say their own theme, take it. Call set_theme when they pick."
         case .setTheme(let title):
             if let refused = afterYesRefusal() { return refused }

@@ -50,7 +50,7 @@ struct SuggestionsTests {
             let last = memory.lastGames
             let games = memory.pickGames()
             #expect(games.count == 3 && Set(last).isDisjoint(with: games.map(\.id)))
-            #expect(memory.lastGames == Set(games.map(\.id)))
+            #expect(Array(memory.recentGames.prefix(3)) == games.map(\.id) && memory.recentGames.count <= 9)   // round 42: last 3 sessions
             let lastT = memory.lastTwists
             let twists = memory.pickTwists()
             #expect(Set(lastT).isDisjoint(with: twists.map(\.id)))
@@ -64,7 +64,7 @@ struct SuggestionsTests {
         let games = [Suggestions.games[1], Suggestions.games[3], Suggestions.games[6]]
         let text = Realtime.instructions(todayGames: games)
         for g in games { #expect(text.contains(g.text)) }
-        #expect(text.contains("suggest ONLY"))
+        #expect(text.contains("EXACTLY these 3"))   // round 42: all three, no others
         #expect(text.contains("If a kid says ANY other idea, happily take it"))
         let session = Realtime.sessionUpdate(voice: "coral", speed: 1, instructions: text)
         #expect(((session["session"] as? [String: Any])?["instructions"] as? String) == text)
@@ -78,7 +78,7 @@ struct SuggestionsTests {
         store.themeIdeas = twists
         let out = await store.apply(.setGame("Vet Clinic"))
         for t in twists { #expect(out.contains(t.text)) }
-        #expect(out.contains("ONLY"))
+        #expect(out.contains("EXACTLY these 3"))   // round 42
         #expect(out.contains("their own theme, take it"))
     }
 
