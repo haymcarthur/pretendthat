@@ -2,24 +2,24 @@ import Foundation
 import Testing
 @testable import NutmegCore
 
-/// Round 24 (Haylee): props must make sense (a bowl is never a pirate map). (The printer question and the no-printer
+/// Round 24 (Haylee): props must make sense (a bowl is never a pirate sail). (The printer question and the no-printer
 /// "Draw it!" path were removed in round 25, Haylee; their tests went with them.)
 @MainActor struct Round24Tests {
 
     // MARK: 1. Props that make sense
 
     @Test(arguments: [
-        ("bowl", "the pirate map", false),
+        ("bowl", "the pirate sail", false),
         ("bowl", "captain hat", true),
         ("bowl", "the captain's hat", true),
         ("towel", "cape", true),
-        ("pillowcase", "treasure map", true),
+        ("pillowcase", "the pirate sail", true),
         ("chair", "airplane seats", true),
         ("plate", "the steering wheel", true),
         ("spoon", "the big stirrer", true),
         ("blanket", "the big blue ocean", true),
         ("cardboard-box", "the rocket ship", true),
-        ("cup", "the pirate map", false),
+        ("cup", "the pirate sail", false),
         ("broom", "the captain's hat", false),
         ("hat", "the superhero cape", false),
         ("spoon", "the airplane seats", false),
@@ -58,9 +58,9 @@ import Testing
     }
 
     @Test func fallbackPicksAnItemThatFitsTheUse() {
-        let f = PropFit.fallback(becomes: "the pirate map", preferring: ["cup", "towel"])
-        #expect(f.itemID == "towel" && f.becomes == "the pirate map" && PropFit.fits(itemID: f.itemID, becomes: f.becomes))
-        let g = PropFit.fallback(becomes: "the pirate map", avoiding: ["towel", "blanket", "rug", "sheet", "table", "plate", "tray", "books", "pillow", "teddy-bed", "cushion", "stool"])
+        let f = PropFit.fallback(becomes: "the pirate sail", preferring: ["cup", "towel"])
+        #expect(f.itemID == "towel" && f.becomes == "the pirate sail" && PropFit.fits(itemID: f.itemID, becomes: f.becomes))
+        let g = PropFit.fallback(becomes: "the pirate sail", avoiding: ["towel", "blanket", "rug", "sheet", "table", "plate", "tray", "books", "pillow", "teddy-bed", "cushion", "stool"])
         #expect(PropFit.fits(itemID: g.itemID, becomes: g.becomes))
     }
 
@@ -74,11 +74,11 @@ import Testing
     @Test func aMisfitGetsOneRetryThenACuratedPair() async {
         let store = AdventureStore(service: nil)
         await hunting(store)
-        let first = await store.apply(.showNextProp(.init(itemID: "bowl", becomes: "the pirate map", forRole: "all", alternates: ["towel"])))
+        let first = await store.apply(.showNextProp(.init(itemID: "bowl", becomes: "the pirate sail", forRole: "all", alternates: ["towel"])))
         #expect(first.contains("Not shown") && first.contains("towel") && store.props == nil)     // the retry, no card
-        let second = await store.apply(.showNextProp(.init(itemID: "bowl", becomes: "the pirate map", forRole: "all", alternates: ["towel"])))
+        let second = await store.apply(.showNextProp(.init(itemID: "bowl", becomes: "the pirate sail", forRole: "all", alternates: ["towel"])))
         let p = store.props?.props.first
-        #expect(p?.libraryID == "towel" && p?.becomes == "the pirate map" && second.contains("didn't fit"))
+        #expect(p?.libraryID == "towel" && p?.becomes == "the pirate sail" && second.contains("didn't fit"))
         #expect(p.map { PropFit.fits(itemID: $0.libraryID!, becomes: $0.becomes) } == true)
         #expect((p?.reason ?? "").contains("towel"))
     }
@@ -100,21 +100,21 @@ import Testing
     @Test func aSwapMustFitTheUseToo() async {
         let store = AdventureStore(service: nil)
         await hunting(store)
-        _ = await store.apply(.showNextProp(.init(itemID: "towel", becomes: "the pirate map", forRole: "all")))
+        _ = await store.apply(.showNextProp(.init(itemID: "towel", becomes: "the pirate sail", forRole: "all")))
         let retry = await store.apply(.swapProp(oldID: "towel", newID: "bowl", becomes: ""))
         #expect(retry.contains("Not shown") && store.props?.props.first?.libraryID == "towel")
         _ = await store.apply(.swapProp(oldID: "towel", newID: "bowl", becomes: ""))
         let p = store.props?.props.first
-        #expect(p?.libraryID != "bowl" && PropFit.fits(itemID: p?.libraryID ?? "", becomes: "the pirate map"))
+        #expect(p?.libraryID != "bowl" && PropFit.fits(itemID: p?.libraryID ?? "", becomes: "the pirate sail"))
     }
 
     @Test func claudesPropListIsRepaired() async throws {
         let bad = Props(nutmegSays: "Go find these!", props: [
-            Prop(id: "bowl", householdItem: "Bowl", becomes: "the pirate map", forRole: .all, safetyOK: true, libraryID: "bowl"),
+            Prop(id: "bowl", householdItem: "Bowl", becomes: "the pirate sail", forRole: .all, safetyOK: true, libraryID: "bowl"),
             Prop(id: "towel", householdItem: "Towel", becomes: "the cape", forRole: .all, safetyOK: true, libraryID: "towel"),
             Prop(id: "chair", householdItem: "Chair", becomes: "the ship's seats", forRole: .all, safetyOK: true, libraryID: "chair"),
         ])
-        #expect(Validate.props(bad)?.message.contains("Bowl as the pirate map") == true)
+        #expect(Validate.props(bad)?.message.contains("Bowl as the pirate sail") == true)
         let llm = FakeLLM(responses: ["Props": bad])
         let made = try await PhaseService(llm: llm).props(ctx: AdventureContext(gameTitle: "Pirates", playerCount: 2))
         #expect(llm.calls == 2)                                                     // one retry

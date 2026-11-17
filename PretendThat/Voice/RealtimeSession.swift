@@ -406,8 +406,8 @@ final class RealtimeSession {
         guard let socket, isLive else { return }
         let ideas = games.isEmpty ? "" : " with today's ideas as open sparks (\"You can pick anything! Maybe \(Suggestions.spoken(games))?\")"
         if let greetingClip {
-            // Round 34: a returning greeting clip already asked the question: she only offers two ideas.
-            socket.send(Realtime.userText(GameGreeting.kickOffNote(ideas: Suggestions.spoken(Array(games.prefix(2))), returning: returning)))
+            // Round 34: a returning greeting clip already asked the question: she only offers the ideas (round 42: all 3).
+            socket.send(Realtime.userText(GameGreeting.kickOffNote(ideas: Suggestions.spoken(games), returning: returning)))   // round 42: all three ideas
         } else {
             socket.send(Realtime.userText("(The kids just opened the app and can hear you now. They talk to you by holding the big red button. In ONE short turn: say hi in your own words, ask what they feel like playing,\(ideas), and tell them to hold the red button and tell you.)"))
         }

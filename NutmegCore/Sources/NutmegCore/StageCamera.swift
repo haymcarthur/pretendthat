@@ -369,8 +369,7 @@ public enum PTStageDirector {
         /// The prop-card step, chat closed: Nutmeg medium shot, the card's zone on her right (done stack on her left).
         /// Reused by the kit pages, the play checklist, the hand-off card, the finale and the tap screens.
         case propCard
-        /// The prop-card step, chat open: the same medium shot centered between rail and panel, the card pinned in
-        /// the panel (done thumbnails along the top).
+        /// The prop-card step, chat open: the card is pinned in the panel; round 41: she keeps the talking close-up.
         case propCardChat
         /// The legacy all-props presentation (cards in two columns beside her; `show_props`).
         case presentedCards
@@ -404,7 +403,11 @@ public enum PTStageDirector {
         case .hop: return .arrival
         case .talk: return PTStageFrame(shot: .closeUp, fitClosed: true)   // round 14: chat open = closed framing, scaled
         case .writing: return .writing
-        case .propCard, .propCardChat: return huntFrame(curtainInset: curtainInset, doneStack: doneStack, g)
+        case .propCard: return huntFrame(curtainInset: curtainInset, doneStack: doneStack, g)
+        // Round 41 (Haylee: with the chat panel open on the iPad she zoomed out, small on a big platform): every card
+        // is in the panel then, so she keeps the talking framing (the same close-up as talking with the panel open):
+        // no camera move when a card or step comes and goes behind the panel.
+        case .propCardChat: return PTStageFrame(shot: .closeUp, fitClosed: true)
         case .presentedCards: return PTStageFrame(shot: .wide, cards: cards)
         }
     }

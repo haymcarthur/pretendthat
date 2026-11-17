@@ -722,7 +722,7 @@ public final class AdventureStore {
             gameTitle = title; plan = nil; props = nil
             phase = .pickGame; presenting = .none; planningStep = .theme
             let ideas = themeIdeas.isEmpty ? "with 2 or 3 example themes that fit this game"
-                : "suggesting ONLY today's theme ideas, and make it sound open (\"Any twist you like! Maybe \(Suggestions.spoken(themeIdeas))?\"; say them so they fit this game; no other examples)"
+                : "suggesting EXACTLY these \(themeIdeas.count) theme ideas, all of them and no others, and make it sound open (\"Any twist you like! Maybe \(Suggestions.spoken(themeIdeas))?\"; you may say them so they fit this game, but never drop one or add your own)"
             return "Game set: \(title). Step 2: react in one short sentence, then ask what theme or twist it should have, \(ideas). If the kids say their own theme, take it. Call set_theme when they pick."
         case .setTheme(let title):
             if let refused = afterYesRefusal() { return refused }
@@ -793,6 +793,11 @@ public final class AdventureStore {
             return "Props are on screen (ids: \(ids)). Step 5: tell them exactly what to go find and to tell you when they've found them or if they don't have something. If they lack one, use swap_prop or skip_prop. When they're ready, step 6: finish_planning."
         case .showNextProp(let raw):
             guard raw.inLibrary else { return "\(raw.itemID) isn't on the item list. Pick a list item." }
+            // Round 42: a use the kit prints (by word, or one of this kit's own printed things): one retry, then a fallback.
+            if let c = printedClash(raw.becomes), propMisfits == 0 {
+                propMisfits = 1
+                return PrintedProps.retryOutput(itemID: raw.itemID, becomes: raw.becomes, clash: c)
+            }
             var p = props ?? Props(nutmegSays: "", props: [])
             if p.props.count >= propTarget {
                 return "That's all \(propTarget) props for this game. Call finish_planning now."
@@ -857,9 +862,15 @@ public final class AdventureStore {
             }
             guard PropLibrary.contains(newID) else { return "\(newID) isn't on the list. Pick another list item or skip_prop." }
             // Round 24: the new item must make sense as the use too (one retry, then the best fitting item).
-            let use = becomes.isEmpty ? p.props[i].becomes : becomes
+            var use = becomes.isEmpty ? p.props[i].becomes : becomes
             var newID = newID
-            if !PropFit.fits(itemID: newID, becomes: use) {
+            if let c = printedClash(use) {
+                // Round 42: never swap into a printed thing (tickets, money, maps…): one retry, then a sensible pair.
+                if propMisfits == 0 { propMisfits = 1; return PrintedProps.retryOutput(itemID: newID, becomes: use, clash: c) }
+                let used = Set(p.props.compactMap(\.libraryID))
+                let f = sensibleFallback(becomes: use, preferring: [newID] + (p.props[i].alternates ?? []), avoiding: used)
+                newID = f.itemID; use = f.becomes
+            } else if !PropFit.fits(itemID: newID, becomes: use) {
                 if propMisfits == 0 { propMisfits = 1; return PropFit.retryOutput(itemID: newID, becomes: use) }
                 let used = Set(p.props.compactMap(\.libraryID))
                 newID = PropFit.fallback(becomes: use, preferring: p.props[i].alternates ?? [], avoiding: used).itemID
@@ -868,7 +879,7 @@ public final class AdventureStore {
             p.props[i].reason = PropFit.reason(itemID: newID, becomes: use)
             p.props[i].libraryID = newID
             p.props[i].householdItem = PropLibrary.name(newID) ?? newID
-            if !becomes.isEmpty { p.props[i].becomes = becomes }
+            if !becomes.isEmpty || use != p.props[i].becomes { p.props[i].becomes = use }
             p.props[i].skipped = false
             p.props[i].swapped = true
             p.props[i].alternates = p.props[i].alternates?.filter { $0 != newID }
@@ -1012,11 +1023,11 @@ public final class AdventureStore {
     /// (the model retries), or a curated sensible pair on a second misfit. Alternates are kept only when they fit too.
     private func fittingDraft(_ raw: PlanningCall.PropDraft, used: Set<String>) -> (PlanningCall.PropDraft, Bool)? {
         var d = raw, fellBack = false
-        if PropFit.fits(itemID: d.itemID, becomes: d.becomes) {
+        if PropFit.fits(itemID: d.itemID, becomes: d.becomes) && PrintedProps.clash(d.becomes, kit: printedKitItems) == nil {
             d.reason = PropFit.keptReason(d.reason, itemID: d.itemID, becomes: d.becomes)
         } else {
             guard propMisfits > 0 else { propMisfits += 1; return nil }
-            let f = PropFit.fallback(becomes: d.becomes, preferring: d.alternates, avoiding: used)
+            let f = sensibleFallback(becomes: d.becomes, preferring: d.alternates + [d.itemID], avoiding: used)
             d.itemID = f.itemID; d.becomes = f.becomes; d.reason = f.reason; fellBack = true
         }
         propMisfits = 0
@@ -1024,6 +1035,23 @@ public final class AdventureStore {
         if alts.isEmpty { alts = Array(PropFit.candidates(for: d.becomes, avoiding: used.union([d.itemID])).prefix(1)) }
         d.alternates = Array(alts.prefix(2))
         return (d, fellBack)
+    }
+
+    /// Round 42: the kit's printed things for this game (the pages written during the hunt, else the made kit).
+    public var printedKitItems: [KitItem]? { draftItems ?? fullKit?.items }
+
+    /// Round 42: why a prop's use can't be shown (it's a printed thing, by word or in this kit), or nil.
+    public func printedClash(_ becomes: String) -> String? { PrintedProps.clash(becomes, kit: printedKitItems) }
+
+    /// A sensible pair that is never a printed thing: the usual fitting fallback, else the first curated pair (the
+    /// preferred items first) whose use the kit doesn't print.
+    private func sensibleFallback(becomes: String, preferring: [String], avoiding: Set<String>) -> (itemID: String, becomes: String, reason: String) {
+        let f = PropFit.fallback(becomes: becomes, preferring: preferring, avoiding: avoiding)
+        if printedClash(f.becomes) == nil { return f }
+        for id in preferring + PropLibrary.ids where !avoiding.contains(id) {
+            if let u = PropLibrary.uses[id]?.first(where: { printedClash($0.becomes) == nil }) { return (id, u.becomes, u.reason) }
+        }
+        return f
     }
 
     // MARK: Corrections (round 19)

@@ -31,14 +31,14 @@ struct Round30NewPropsTests {
 
     @Test func thePairingsHaylee() {
         let good: [(String, String)] = [
-            ("paper", "the pirate map"), ("paper", "the secret letter"), ("paper", "the train ticket"),
+            ("paper", "the fan"), ("paper", "the snowballs"),   // round 42: never a map, letter or ticket (printed)
             ("paper-towel-tube", "the telescope"), ("paper-towel-tube", "the microphone"), ("paper-towel-tube", "the magic wand"),
             ("colander", "the knight's helmet"), ("baking-sheet", "the steering wheel"), ("baking-sheet", "the tray"),
             ("baking-sheet", "the shield"), ("umbrella", "the cane"), ("umbrella", "the magic wand"),
             ("pillowcase", "the sack"), ("pillowcase", "the cape"), ("pillowcase", "the treasure bag"),
             ("wagon", "the car"), ("wagon", "the train"), ("wagon", "the delivery cart"),
             ("hula-hoop", "the steering wheel"), ("hula-hoop", "the pond"), ("headband", "the crown"),
-            ("sticky-notes", "the tickets"), ("jump-rope", "the finish line"), ("plastic-cups", "the drums"),
+            ("sticky-notes", "the leaves"), ("jump-rope", "the finish line"), ("plastic-cups", "the drums"),
         ]
         for (id, use) in good { #expect(PropFit.fits(itemID: id, becomes: use), "\(id) should fit \(use)") }
         let bad: [(String, String)] = [

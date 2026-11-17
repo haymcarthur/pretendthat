@@ -57,6 +57,11 @@ struct PTStageView<Character: View, Overlay: View>: View {
             let geo = KeyboardProofGeometry(proxy, referenceSize: referenceSize, calm: calm)
             let screen = screenSize ?? CGSize(width: geo.size.width + geo.safeAreaInsets.leading + geo.safeAreaInsets.trailing,
                                               height: geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom)
+            // Round 41 (Haylee: in a game the side curtains stopped short of the bottom; on the start screen they run
+            // to it): the root measures the screen without its bottom safe area, so the curtains are drawn down to the
+            // real bottom edge (the stage's bottom plus its bottom inset), like the start screen's.
+            let curtainScreen = CGSize(width: screen.width,
+                                       height: max(screen.height, geo.originY + geo.size.height + geo.safeAreaInsets.bottom))
             let full = CGSize(width: geo.size.width + geo.safeAreaInsets.leading + geo.safeAreaInsets.trailing,
                               height: geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom)
             let g = PTStageGeometry(size: geo.size, leadingInset: leadingInset, bottomInset: bottomInset,
@@ -72,7 +77,7 @@ struct PTStageView<Character: View, Overlay: View>: View {
             ZStack(alignment: .topLeading) {
                 let origin = CGPoint(x: proxy.frame(in: .global).minX, y: geo.originY)
                 if metrics.isPhone {
-                    PTPhoneScenery(comp: comp, fullFloor: g.floor, screen: screen, origin: origin)
+                    PTPhoneScenery(comp: comp, fullFloor: g.floor, screen: curtainScreen, origin: origin)
                 } else {
                 PTStageFloor(rect: comp.floor, apron: false)
                 // Round 15 (Haylee: the floor ran in front of the curtains on The End): the proscenium (curtains,
@@ -80,8 +85,8 @@ struct PTStageView<Character: View, Overlay: View>: View {
                 // placed in screen space (the full-screen backdrop's frame, wherever this stage sits), so they line up
                 // exactly; the floor moves under them, Nutmeg and the cards stay in front.
                 PTCurtain(progress: 1, showsValance: false)
-                    .frame(width: screen.width, height: screen.height)
-                    .position(x: screen.width / 2 - origin.x, y: screen.height / 2 - origin.y)
+                    .frame(width: curtainScreen.width, height: curtainScreen.height)
+                    .position(x: curtainScreen.width / 2 - origin.x, y: curtainScreen.height / 2 - origin.y)
                     .allowsHitTesting(false)
                 }
                 ForEach(Array(PTStageCamera.stars.enumerated()), id: \.offset) { i, star in

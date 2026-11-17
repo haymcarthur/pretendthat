@@ -127,12 +127,11 @@ struct Round39AutoSaveTests {
     }
 
     @Test func shelfLinesAreKidSafeAndShort() {
-        #expect(ShelfLines.onTheShelf == "I put it on your bookshelf!")
-        #expect(ShelfLines.soundsLike(title: "Pet Vet") == "We already have Pet Vet on your shelf! Want to play that one?")
-        // Not bundled yet (needs a live recording run): said live, then kept with each game.
-        #expect(!CommonLines.all.contains(ShelfLines.onTheShelf))
+        // Round 41/42: no bookshelf moment and no "shelf" in her words; the End line is a bundled line now.
+        #expect(ShelfLines.soundsLike(title: "Pet Vet") == "We already have Pet Vet saved! Want to play that one?")
+        #expect(CommonLines.all.contains(HandOffLines.end()))
         #expect(ShelfLines.newGameNote(playerCount: 3).contains("don't call confirm_plan"))
-        for l in [ShelfLines.onTheShelf, ShelfLines.soundsLike(title: "Pet Vet"), HandOffLines.end()] {
+        for l in [ShelfLines.soundsLike(title: "Pet Vet"), HandOffLines.end()] {
             #expect(Sanitizer.kidSafety(l) == nil, "\(l)")
         }
     }

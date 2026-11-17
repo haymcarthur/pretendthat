@@ -30,10 +30,10 @@ public enum HandOffLines {
         return ".!?".contains(last) ? t : t + "."
     }
 
-    /// The End. Round 39 (Haylee, auto-save): no star any more. Every game is already on the bookshelf, so The End has
-    /// Play it again (the arrow) and the house, and she mentions the bookshelf. The same words for a new game and a
-    /// replay (one bundled clip; `replay` is kept for the callers).
-    public static func end(replay: Bool = false) -> String {
-        "The end! What a show! Take a bow! It's on your bookshelf. Tap the arrow to play again, or the house to go home!"
-    }
+    /// The End. Round 39 (Haylee, auto-save): no star any more; The End has Play it again (the arrow) and the house.
+    /// Round 41 (Haylee, decisions/2026-11-17-no-shelf-moment.md): kids don't know "the bookshelf", so she says the game
+    /// is saved. The same words for a new game and a replay (one bundled clip; `replay` is kept for the callers).
+    public static let endLine = "The end! What a show! Take a bow! This game is saved, so you can play it again later. "
+        + "Tap the arrow to play it again, or the house to go home!"
+    public static func end(replay: Bool = false) -> String { endLine }
 }

@@ -68,7 +68,7 @@ public enum Prompts {
     }
 
     public static func props(ctx: AdventureContext) -> String {
-        "Phase: props hunt. Pick exactly \(PropLibrary.target(players: ctx.playerCount)) different household items from the prop list (id) that become props for this game. householdItem is the item's name; becomes is 2 to 4 words (\"Cozy café seats\"). Every pairing must make sense by shape or use (a map is flat: towel, sheet, books; a hat is round or wearable: bowl, pot, hat; a cape is floppy: towel, blanket; seats are for sitting: chair, cushion; never a bowl as a map). reason is ONE short kid-friendly sentence why it works (\"A bowl is round like a captain's hat!\"). Return Props.\n\(contextJSON(ctx))"
+        "Phase: props hunt. Pick exactly \(PropLibrary.target(players: ctx.playerCount)) different household items from the prop list (id) that become props for this game. householdItem is the item's name; becomes is 2 to 4 words (\"Cozy café seats\"). Every pairing must make sense by shape or use (a hat is round or wearable: bowl, pot, hat; a cape is floppy: towel, blanket; seats are for sitting: chair, cushion; a tent is big and floppy: sheet, blanket). A prop is NEVER something the printed kit makes (no tickets, passes, money, coins, menus, signs, badges, maps, cards, letters or notes): the kit prints those. reason is ONE short kid-friendly sentence why it works (\"A bowl is round like a captain's hat!\"). Return Props.\n\(contextJSON(ctx))"
     }
 
     public static func kit(ctx: AdventureContext) -> String {

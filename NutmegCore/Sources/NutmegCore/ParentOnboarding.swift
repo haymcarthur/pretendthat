@@ -541,8 +541,9 @@ public enum GameGreeting {
         return p.line
     }
 
-    /// Her live turn after the greeting clip: the game question only (no hi, no name, no introduction), with two of
-    /// today's ideas. `ideas` = e.g. "a pizza shop or a castle" ("" = none).
+    /// Her live turn after the greeting clip: the game question only (no hi, no name, no introduction), with today's
+    /// ideas. `ideas` = e.g. "a pizza shop, a castle, or a zoo" ("" = none). Round 42 (Haylee: she offered only two
+    /// games): all three of today's ideas, word for word, on both paths.
     public static func kickOffNote(ideas: String, returning: Bool = false) -> String {
         if returning {
             // Round 34: the greeting clip already asked "What should we play?": only the two ideas, one short line.
@@ -553,6 +554,6 @@ public enum GameGreeting {
         let example = ideas.isEmpty ? "What should we play? Hold the red button and tell me!"
             : "What should we play? Maybe \(ideas)? Hold the red button and tell me!"
         return "(The kids just opened the app and can hear you now. You ALREADY said hi out loud, so do NOT greet them, say "
-            + "your name or introduce yourself. Say ONLY the game question, as short as this, in your own words: \"\(example)\")"
+            + "your name or introduce yourself. Say ONLY this, word for word: \"\(example)\")"
     }
 }

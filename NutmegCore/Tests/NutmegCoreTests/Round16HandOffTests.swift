@@ -33,10 +33,11 @@ private func clean(_ line: String) {
 }
 
 @Test func endLineSaysWhatEachButtonDoes() {
-    // Round 39: The End has the arrow (play it again) and the house (home), and mentions the bookshelf; no star.
+    // Round 39: The End has the arrow (play it again) and the house (home); no star. Round 42: "this game is saved",
+    // never "bookshelf".
     let plain = HandOffLines.end()
-    #expect(plain.contains("Tap the arrow to play again") && plain.contains("the house to go home") && !plain.contains("Back"))
-    #expect(plain.contains("bookshelf") && !plain.contains("star"))
+    #expect(plain.contains("Tap the arrow to play it again") && plain.contains("the house to go home") && !plain.contains("Back"))
+    #expect(plain.contains("This game is saved") && !plain.contains("shelf") && !plain.contains("star"))
     clean(plain)
 }
 

@@ -111,8 +111,7 @@ extension PropLibrary {
         "rug": [("the island", "A rug is flat and big enough to stand on, like an island!")],
         "cardboard-box": [("the rocket ship", "A box is big enough to sit in, like a rocket!"),
                           ("the treasure chest", "A box can hold things, just like a treasure chest!")],
-        "plate": [("the steering wheel", "A plate is round like a steering wheel!"),
-                  ("the gold coin", "A plate is round and flat like a big coin!")],
+        "plate": [("the steering wheel", "A plate is round like a steering wheel!")],   // round 42: no coins (the kit prints money)
         "cup": [("the telescope cup", "A cup is round like the end of a telescope!"),
                 ("the magic potion", "A cup can hold things, just like a potion!")],
         "bowl": [("the captain's hat", "A bowl is round like a captain's hat!"),
@@ -124,10 +123,9 @@ extension PropLibrary {
         "pot": [("the knight's helmet", "A pot is round and fits on your head like a helmet!"),
                 ("the soup pot", "A pot can hold things, just like a soup pot!")],
         "towel": [("the superhero cape", "A towel is big and floppy, just like a cape!"),
-                  ("the treasure map", "A towel is flat and floppy like a big map!")],
+                  ("the magic carpet", "A towel is flat and floppy like a magic carpet!")],   // round 42: no maps (paper is the kit's job)
         "laundry-basket": [("the boat", "A laundry basket is big enough to sit in, like a boat!")],
-        "books": [("the menu", "Books have flat pages like a menu!"),
-                  ("the map book", "Books have flat pages, just like a map!")],
+        "books": [("the castle wall", "Books stack up like bricks in a wall!")],   // round 42: no menus or maps
         "hat": [("the captain's hat", "A hat goes on your head, just like a captain's hat!")],
         "bag": [("the treasure bag", "A bag can hold things, just like a treasure bag!")],
         "backpack": [("the jet pack", "A backpack goes on your back, just like a jet pack!")],
@@ -140,13 +138,13 @@ extension PropLibrary {
         "cushion": [("the throne", "A cushion is soft for sitting, like a throne!")],
         "stool": [("the stage", "A step stool is flat on top, like a little stage!")],
         "sheet": [("the pirate sail", "A sheet is big and floppy, just like a sail!"),
-                  ("the treasure map", "A sheet is big and flat like a map!")],
+                  ("the tent", "A sheet is big and floppy, just right for a tent!")],
         "basket": [("the treasure chest", "A basket can hold things, just like a treasure chest!")],
         "bucket": [("the treasure bucket", "A bucket can hold lots of treasure!")],
         // Round 30: set 2.
-        "paper": [("the treasure map", "Paper is flat, just right for a map!"),
-                  ("the secret letter", "Paper is flat, just like a letter!"),
-                  ("the train ticket", "Paper is flat, just like a ticket!")],
+        // Round 42: paper never becomes a printed thing (tickets, maps, letters: the kit prints those).
+        "paper": [("the fan", "Paper folds into a fan, flap flap!"),
+                  ("the snowballs", "Paper crumples into soft little snowballs!")],
         "paper-towel-tube": [("the telescope", "A paper towel tube is long and hollow, just like a telescope!"),
                              ("the microphone", "A paper towel tube is long, just right for a microphone!"),
                              ("the magic wand", "A paper towel tube is long like a magic wand!")],
@@ -159,8 +157,7 @@ extension PropLibrary {
         "tape": [("the finish line", "Tape makes a long line on the floor, just like a finish line!"),
                  ("the road lines", "Tape makes lines on the floor, just like a road!")],
         "paper-plate": [("the steering wheel", "A paper plate is round like a steering wheel!"),
-                        ("the pizza", "A paper plate is round and flat like a pizza!"),
-                        ("the gold coin", "A paper plate is round like a big coin!")],
+                        ("the pizza", "A paper plate is round and flat like a pizza!")],
         "plastic-container": [("the treasure chest", "A container can hold things, just like a treasure chest!"),
                               ("the lunch box", "A container can hold things, just like a lunch box!")],
         "measuring-cup": [("the magic potion", "A measuring cup can hold things, just like a potion!"),
@@ -210,8 +207,8 @@ extension PropLibrary {
                            ("the magic wands", "Chalk sticks are long like little wands!")],
         "plastic-cups": [("the castle tower", "Plastic cups stack up tall like a tower!"),
                          ("the drums", "Plastic cups are round like little drums!")],
-        "sticky-notes": [("the tickets", "Sticky notes are flat, just like tickets!"),
-                         ("the secret notes", "Sticky notes are just right for secret notes!")],
+        "sticky-notes": [("the leaves", "Sticky notes can be the leaves on a pretend tree!"),   // round 42: no tickets or notes
+                         ("the spots", "Sticky notes make great spots for a pretend ladybug!")],
     ]
 }
 
@@ -285,6 +282,8 @@ public enum PropFit {
     /// True when the item can plausibly become `becomes` (or the use isn't recognized). Off-list items are never a fit.
     public static func fits(itemID: String, becomes: String) -> Bool {
         guard let tags = PropLibrary.tagsFor(itemID) else { return false }
+        // Round 42: never a paper thing the kit prints (tickets, passes, money, menus, signs, badges, maps, cards...).
+        guard PrintedProps.clash(becomes) == nil else { return false }
         guard let need = need(for: becomes) else { return true }
         return !tags.isDisjoint(with: need.anyOf)
     }
@@ -349,13 +348,16 @@ public enum PropFit {
         if let id = candidates(for: becomes, preferring: preferring, avoiding: avoiding).first {
             return (id, becomes, reason(itemID: id, becomes: becomes))
         }
-        let id = (preferring + PropLibrary.ids).first { !avoiding.contains($0) && PropLibrary.uses[$0] != nil } ?? "towel"
-        let use = PropLibrary.uses[id]?.first ?? ("the treasure map", "A towel is flat and floppy like a big map!")
+        // Round 42: the curated use must not be a printed thing either.
+        func ok(_ u: (becomes: String, reason: String)) -> Bool { PrintedProps.clash(u.becomes) == nil }
+        let id = (preferring + PropLibrary.ids).first { !avoiding.contains($0) && (PropLibrary.uses[$0] ?? []).contains(where: ok) } ?? "towel"
+        let use = (PropLibrary.uses[id] ?? []).first(where: ok) ?? ("the superhero cape", "A towel is big and floppy, just like a cape!")
         return (id, use.becomes, use.reason)
     }
 
     /// The tool output after a misfit: one retry, with the items that would fit.
     public static func retryOutput(itemID: String, becomes: String, preferring: [String] = []) -> String {
+        if let clash = PrintedProps.clash(becomes) { return PrintedProps.retryOutput(itemID: itemID, becomes: becomes, clash: clash) }
         let name = (PropLibrary.name(itemID) ?? itemID).lowercased()
         let fits = candidates(for: becomes, preferring: preferring).prefix(4).map { "\($0) (\((PropLibrary.name($0) ?? $0).lowercased()))" }
         return "Not shown: a \(name) can't really become \(becomes) (its shape doesn't fit). Say nothing yet: call the "

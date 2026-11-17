@@ -89,6 +89,7 @@ struct HelloView: View {
 struct PlayersView: View {
     let model: AppModel
     private var store: AdventureStore { model.store }
+    @Environment(\.layoutMetrics) private var metrics
 
     var body: some View {
         VStack(spacing: Theme.Space.l) {
@@ -97,9 +98,24 @@ struct PlayersView: View {
                 PTCountPicker(selected: nil) { store.setPlayerCount($0) }
             } else {
                 if case let roles = store.playingRoles, !roles.isEmpty {   // round C1: only the N playing roles
-                    HStack(spacing: Theme.Space.l) {
-                        ForEach(Array(roles.enumerated()), id: \.element.id) { i, r in
-                            PTRoleBadge(role: r).ptPopIn(index: i)
+                    // Round 41 (the 4th tile ran under the curtain's tie-back on the iPad): one row up to 3 roles,
+                    // then two columns (4 = 2 × 2, 5–6 = 3 rows), so every tile stays inside the card zone.
+                    let size: CGFloat = metrics.isPhone ? (roles.count >= 5 ? 88 : 112) : Theme.Size.badge   // phone: 3 rows fit above the pill
+                    if roles.count <= 3 {
+                        HStack(spacing: metrics.isPhone ? Theme.Space.s : Theme.Space.l) {
+                            ForEach(Array(roles.enumerated()), id: \.element.id) { i, r in
+                                PTRoleBadge(role: r, size: roles.count == 3 && metrics.isPhone ? 96 : size).ptPopIn(index: i)
+                            }
+                        }
+                    } else {
+                        Grid(horizontalSpacing: Theme.Space.m, verticalSpacing: Theme.Space.m) {
+                            ForEach(Array(stride(from: 0, to: roles.count, by: 2)), id: \.self) { row in
+                                GridRow {
+                                    ForEach(row..<min(row + 2, roles.count), id: \.self) { i in
+                                        PTRoleBadge(role: roles[i], size: size).ptPopIn(index: i)
+                                    }
+                                }
+                            }
                         }
                     }
                 }

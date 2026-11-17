@@ -186,6 +186,7 @@ struct NutmegCharacter: View {
     }
 
     private static let writingCrayonAvailable = UIImage(named: "nutmeg-writing-crayon") != nil
+    private static let writingShadowAvailable = UIImage(named: "nutmeg-writing-crayon-shadow") != nil
     private static let headsetAvailable = UIImage(named: "nutmeg-headset") != nil
 
     private func bodyAsset(_ pose: NutmegPose) -> String {
@@ -213,6 +214,12 @@ struct NutmegCharacter: View {
     /// stay still. Layer order is unchanged (body → crayon → clipboard → fingers). Reduce Motion: still.
     @ViewBuilder private func crayon(t: Double, px: CGFloat) -> some View {
         if shown == .coloring, Self.writingCrayonAvailable {
+            // Round 41 (Haylee: the shadow on her vest moved with the hand): the vest shadow (the crayon art's one
+            // #470D62 path, moved unchanged into its own layer) stays put on the vest, right under the rocking crayon.
+            if Self.writingShadowAvailable {
+                layer("nutmeg-writing-crayon-shadow")
+                    .transformEffect(NutmegPose.coloring.bodyTransform.px(px))
+            }
             layer("nutmeg-writing-crayon")
                 .rotationEffect(.degrees(writingRock(t: t)), anchor: Self.wrist)
                 .transformEffect(NutmegPose.coloring.bodyTransform.px(px))
