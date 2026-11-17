@@ -218,10 +218,10 @@ struct RootView: View {
         .onChange(of: store.currentPrintStyle) { _, _ in model.draftChanged() }
         .onChange(of: model.kitFinal) { _, final in model.kitFinalChanged(final) }
         .onChange(of: model.isWriting) { _, on in
-            model.scribble.setPlaying(on, ducked: model.isSpeaking)
+            model.writingChanged(on, reduceMotion: reduceMotion)   // round 28: the scribble waits for the writing shot
             if on { model.talkReleased() }   // the pill steps aside: a held mic is let go (sent or cleared)
         }
-        .onChange(of: model.isSpeaking) { _, talking in if model.isWriting { model.scribble.setPlaying(true, ducked: talking) } }
+        .onChange(of: model.isSpeaking) { _, talking in if model.writingOnScreen { model.scribble.setPlaying(true, ducked: talking) } }
         .onChange(of: presentedSubjects) { _, _ in requestStickers() }
         .task {
             model.refreshShelf()   // round D1: the start screen shows My games once a game is saved

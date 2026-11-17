@@ -138,6 +138,7 @@ final class AppModel {
         realtime.onKidTurnTools = { [weak self] in
             guard let self else { return nil }
             if self.store.isReplay { return ReplayLines.tools(self.store.phase) }   // round D1
+            if self.store.gameLocked && self.store.phase == .players { return Realtime.pickBackTools }   // round 28: back on Pick
             guard self.planningNow else {
                 return Realtime.afterHuntTools(self.store.phase)   // round 23
             }
@@ -373,10 +374,10 @@ final class AppModel {
             noteReplayStep()
             return
         }
-        let line = toChecklist ? HandOffLines.backToChecklist : BackNav.arrivalLine(step)
+        let line = toChecklist ? HandOffLines.backToChecklist : store.arrivalLine(step)   // round 28: Pick names the game
         rtLog("back-nav: \(step.label) (tap)")
         if realtime.isLive {
-            realtime.addNote(Realtime.systemNote(BackNav.tapNote(step)))
+            realtime.addNote(Realtime.systemNote(BackNav.tapNote(step, line: line)))
             speaker.remember(line)
             speaker.say(line)
         } else {
@@ -399,7 +400,7 @@ final class AppModel {
         gameVoice = nil
         kitReadySaid = false; deferredLine = nil; doze.wake(); dozeStage = .awake; wokePop = false; endKitBackgroundTask()
         huntStartedAt = nil; printReachedAt = nil
-        shownProps = 0; beat = .none; kitBeatTask?.cancel(); kitBeat = .coloring; kitWriting = false; kitWritingTask?.cancel(); kitWritingTask = nil
+        shownProps = 0; beat = .none; kitBeatTask?.cancel(); kitBeat = .coloring; papersShown = false; kitWriting = false; kitWritingTask?.cancel(); kitWritingTask = nil
         voice.stop()
         resetArt()
         stickers.reset()
@@ -473,10 +474,37 @@ final class AppModel {
             trackArtTimings()
         }
         // (A fast kit can skip straight to kitReady between two observations; it still gets its writing beat.)
-        if (store.phase == .makingKit || store.phase == .kitReady) && kitBeat == .coloring && !kitWriting && kitWritingTask == nil {
+        // Round 28 (Haylee): back to Print (step rail) once the papers came out: no writing beat, the pages at once.
+        if store.phase == .kitReady && papersShown { kitBeat = .papers }
+        if (store.phase == .makingKit || store.phase == .kitReady) && kitBeat == .coloring && !kitWriting && kitWritingTask == nil && !papersShown {
             startKitWriting()
         }
         if !(store.phase == .makingKit || store.phase == .kitReady) { kitWritingTask?.cancel(); kitWritingTask = nil; kitWriting = false }
+    }
+
+    /// Round 28 (Haylee): the scribble sound started before Nutmeg was visibly writing (the camera was still moving in
+    /// and the pose swap waits for it). Now it starts only once the writing shot has settled with the writing pose on
+    /// screen, and stops the moment she leaves the pose.
+    static let writingShotSettle: Duration = .milliseconds(1100)
+    static let writingShotSettleReduced: Duration = .milliseconds(400)
+    /// The writing pose is on screen and the camera has settled (the scribble plays only while this is true).
+    private(set) var writingOnScreen = false
+    @ObservationIgnored private var writingShotTask: Task<Void, Never>?
+    func writingChanged(_ on: Bool, reduceMotion: Bool = false) {
+        writingShotTask?.cancel(); writingShotTask = nil
+        guard on else {
+            writingOnScreen = false
+            scribble.setPlaying(false, ducked: false)
+            return
+        }
+        let settle = reduceMotion ? Self.writingShotSettleReduced : Self.writingShotSettle
+        writingShotTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: settle)
+            guard let self, !Task.isCancelled, self.isWriting else { return }
+            self.writingOnScreen = true
+            self.scribble.setPlaying(true, ducked: self.isSpeaking)
+            rtLog("scribble: on (the writing shot settled)")
+        }
     }
 
     /// Kit writing (round 5): once she has finished saying she's making the kit, she writes on her clipboard until the
@@ -694,6 +722,8 @@ final class AppModel {
     /// Kit step beats (no-text-overlays.md, fix round 2): she colors in the close-up until the WHOLE kit is final, then
     /// looks up (crayon down), the camera zooms out, and the papers fly off her clipboard.
     var kitBeat: PTStageDirector.KitBeat = .coloring
+    /// Round 28: this kit's papers have come out once (back to Print shows them at once, no writing beat).
+    @ObservationIgnored var papersShown = false
     @ObservationIgnored private var kitBeatTask: Task<Void, Never>?
     /// The printable pages for the current kit.
     var kitPages: [KitPage] {
@@ -780,7 +810,10 @@ final class AppModel {
         if final, let at = printReachedAt {
             rtLog(String(format: "TIMING kit final %.1f s after Print was reached", Date().timeIntervalSince(at)))
         }
-        guard final else { kitBeat = .coloring; return }
+        // Round 28 (Haylee): leaving Print for Play (kitFinal goes false) and coming back must show the pages at once:
+        // the writing beat only plays while pages are still being made. `papersShown` is cleared on a remake / new game.
+        guard final else { if !papersShown { kitBeat = .coloring }; return }
+        if papersShown { kitWriting = false; kitBeat = .papers; return }
         kitBeatTask = Task { @MainActor in
             // Writing never reads as a flicker: at least minKitWriting on the clipboard, even for an instant kit.
             for _ in 0..<100 where !kitWriting && (store.phase == .makingKit || store.phase == .kitReady) && !Task.isCancelled {
@@ -794,6 +827,7 @@ final class AppModel {
             try? await Task.sleep(for: .milliseconds(900))
             guard !Task.isCancelled else { return }
             kitBeat = .papers                                   // zoom out; the papers fly once the camera settles
+            papersShown = true
             // Round 7: the ready line only now that the whole kit exists; about printing, never "go play".
             // Round 9: exactly once, even across a lock/background (deferred until the session is back).
             guard !kitReadySaid else { return }
@@ -895,7 +929,7 @@ final class AppModel {
         rtLog("kit: remade for a corrected title")
         resetArt()
         kitReadySaid = false; deferredLine = nil
-        kitBeatTask?.cancel(); kitBeat = .coloring
+        kitBeatTask?.cancel(); kitBeat = .coloring; papersShown = false
     }
 
     // MARK: Confirm step (round 19, Haylee)
@@ -1224,7 +1258,7 @@ final class AppModel {
             endKitBackgroundTask()
             if realtime.suspended { Task { await resumeSession() } }
             retryKitIfNeeded()
-            if isWriting { scribble.setPlaying(true, ducked: isSpeaking) }
+            if writingOnScreen { scribble.setPlaying(true, ducked: isSpeaking) }
         default: break
         }
     }
@@ -1453,7 +1487,7 @@ final class AppModel {
         coverArt.reset()
         for style in PrintStyle.sets { artSet(style).restore(images: images[style] ?? [:], cutouts: cutouts[style] ?? [:]) }
         replayGame = g
-        kitBeat = .papers; kitWriting = false; kitReadySaid = true; beat = .none; shownProps = 0
+        kitBeat = .papers; papersShown = true; kitWriting = false; kitReadySaid = true; beat = .none; shownProps = 0
         savedGames.touch(g.id)
         replayStartCalls = AICallLog.snapshot
         rtLog("REPLAY start \"\(g.title)\": \(decoded.count) art files restored, no generation; AI calls so far: \(AICallLog.summary())")
@@ -1631,6 +1665,13 @@ final class AppModel {
 
     func resolve(_ picture: Picture) -> ResolvedPicture {
         PictureResolver.resolve(picture, kit: store.kit, roles: store.plan?.roles ?? [])
+    }
+
+    /// Round 28 (Haylee): the hand-off card shows the role's COLORED badge (the color set's slice for that role), not
+    /// the text. nil while it isn't drawn (the card shows the role's color chip).
+    func handoffBadge(_ role: Role) -> UIImage? {
+        guard let id = store.kit?.items.first(where: { $0.recipe == .badges })?.id else { return nil }
+        return colorArt.badgeSlice(id, role: role.id.index)
     }
 
     /// The tile for one picture: library/action art, or this game's own kit art (one ticket, one bill, a role's

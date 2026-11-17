@@ -241,7 +241,7 @@ enum DemoDriver {
                 continue
             }
             if turn == "#playthrough" {
-                for _ in 0..<30 {
+                for _ in 0..<80 {   // round 28: a turn per playing role per scene (up to 24 turns, 2 steps each)
                     for _ in 0..<600 where model.wifiPause.isPaused { try? await Task.sleep(for: .milliseconds(100)) }   // round D3b
                     for _ in 0..<80 where model.realtime.isSpeaking || model.realtime.isBusy { try? await Task.sleep(for: .milliseconds(100)) }
                     try? await Task.sleep(for: .seconds(1))

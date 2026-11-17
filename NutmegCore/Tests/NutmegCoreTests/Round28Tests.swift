@@ -114,6 +114,9 @@ import Testing
         #expect(PretendLine.has(turns[0].nutmegSays) && turns[1].nutmegSays.isEmpty)
         let line = HandOffLines.checklist(sceneLine: turns[1].nutmegSays, firstScene: false, firstStep: turns[1].steps.first?.text)
         #expect(line.hasPrefix("First, ") && !line.contains("Pretend that"))
+        // The role title keeps its capitals (seen live: "First, stand Manager, put on your badge!").
+        #expect(ChecklistCheers.phrase("Stand Manager, put on your badge!") == "Stand Manager, put on your badge")
+        #expect(ChecklistCheers.phrase("Everyone, wave!") == "everyone, wave")
     }
 
     // MARK: 4b. Props must be real
@@ -239,5 +242,6 @@ import Testing
         let pirate = await store.apply(.setGame("Pirate Ship"))
         #expect(pirate.contains("Refused") && store.currentTitle == "Post Office in a Fairy Forest")
         #expect(llm.calls == calls)
+        #expect(Realtime.pickBackTools.contains("set_player_count") && Realtime.pickBackTools.contains("set_game"))
     }
 }

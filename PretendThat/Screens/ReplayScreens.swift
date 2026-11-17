@@ -13,7 +13,14 @@ struct ReplayPickView: View {
     private var store: AdventureStore { model.store }
     var body: some View {
         VStack(spacing: Theme.Space.l) {
-            PTText(store.currentTitle, .title).multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.7)
+            // Round 28 (Haylee): the game's wide cover (round 27), framed on the stage where the title was; else its
+            // color sign page (`AppModel.cover(for:)` falls back); the title text only when there's no picture at all.
+            // Nutmeg still says the name.
+            if let g = model.replayGame, let cover = model.cover(for: g) {
+                PTReplayCover(image: cover, title: store.currentTitle)
+            } else {
+                PTText(store.currentTitle, .title).multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.7)
+            }
             if model.noVoiceSession {
                 // Two rows of three (six in a row reached Nutmeg's face in the card zone).
                 VStack(spacing: Theme.Space.s) {
@@ -29,6 +36,30 @@ struct ReplayPickView: View {
             }
         }
         .animation(Theme.springy, value: model.noVoiceSession)
+    }
+}
+
+/// Round 28: the saved game's cover on the replay's Pick: a 3:2 picture in a white mat with a soft edge, like a
+/// framed poster on the stage.
+struct PTReplayCover: View {
+    let image: UIImage
+    let title: String
+    var width: CGFloat = 360
+    @State private var shown = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    var body: some View {
+        Image(uiImage: image).resizable().scaledToFill()
+            .frame(width: width, height: width * 2 / 3)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.smallRadius))
+            .padding(10)
+            .background(RoundedRectangle(cornerRadius: Theme.smallRadius + 8).fill(Theme.white))
+            .overlay(RoundedRectangle(cornerRadius: Theme.smallRadius + 8).strokeBorder(Theme.line, lineWidth: 2))
+            .background(RoundedRectangle(cornerRadius: Theme.smallRadius + 8).fill(Theme.shadow.color).offset(y: Theme.cardDepth))
+            .scaleEffect(shown || reduceMotion ? 1 : 0.85)
+            .opacity(shown ? 1 : 0)
+            .onAppear { withAnimation(reduceMotion ? Theme.stageMoveReduced : Theme.springy) { shown = true } }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(title)
     }
 }
 

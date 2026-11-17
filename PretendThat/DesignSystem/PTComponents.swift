@@ -164,22 +164,23 @@ struct PTHandoffCard<Figure: View>: View {
     let onTap: () -> Void
     /// Round 10: chat open, the card is pinned at the top of the chat panel (panel width, same big button).
     var pinned = false
+    /// Round 28 (Haylee): the role's COLORED badge (its slice of the color badge sheet) instead of the "Pass the iPad
+    /// to …" text (most players can't read; Nutmeg still says it). nil = not drawn yet: the role's color chip.
+    var badge: UIImage? = nil
     @State private var shown = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         if pinned {
-            VStack(spacing: Theme.Space.m) {
-                Text("Pass the iPad to \(role.spoken)!").font(Theme.headlineFont(26)).foregroundStyle(Theme.inkMuted)
-                    .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+            VStack(spacing: Theme.Space.s) {
+                badgeView(height: 150)
                 checkButton
             }
             .padding(.vertical, Theme.Space.s)
             .ptPinnedCard()
         } else {
-            VStack(spacing: Theme.Space.l) {
-                Text("Pass the iPad to \(role.spoken)!").font(Theme.headlineFont(26)).foregroundStyle(Theme.inkMuted)
-                    .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+            VStack(spacing: Theme.Space.m) {
+                badgeView(height: 250)
                 if Figure.self != EmptyView.self { figure.frame(height: 200) }
                 checkButton
             }
@@ -193,8 +194,30 @@ struct PTHandoffCard<Figure: View>: View {
         }
     }
 
+    /// The colored badge, big, framed in the role color, with a tiny role name under it; the color chip until the
+    /// badge art is there.
+    @ViewBuilder private func badgeView(height: CGFloat) -> some View {
+        VStack(spacing: 4) {
+            if let badge {
+                Image(uiImage: badge).resizable().scaledToFit()
+                    .frame(height: height)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.smallRadius))
+                    .overlay(RoundedRectangle(cornerRadius: Theme.smallRadius).strokeBorder(Theme.playerColor(role.id.index), lineWidth: 5))
+                    .background(RoundedRectangle(cornerRadius: Theme.smallRadius).fill(Theme.playerShade(role.id.index)).offset(y: Theme.cardDepth))
+                    .transition(.opacity)
+                Text(role.roleName).font(Theme.headlineFont(14)).foregroundStyle(Theme.inkMuted).lineLimit(1)
+            } else {
+                PTRoleBadge(role: role, size: height * 0.62)
+                    .frame(height: height)
+            }
+        }
+        .animation(.easeInOut(duration: 0.25), value: badge != nil)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Pass the iPad to \(role.spoken)")
+    }
+
     private var checkButton: some View {
-        PTBigIconButton(kind: .check, size: 104, label: "I'm \(role.spoken)! I have the iPad", action: onTap)
+        PTBigIconButton(kind: .check, size: pinned ? 88 : 104, label: "I'm \(role.spoken)! I have the iPad", action: onTap)
             .ptBounce(trigger: shown)
             .padding(.bottom, Theme.depth)
     }

@@ -166,6 +166,13 @@ public enum ChecklistCheers {
         guard let first = s.first else { return s }
         let firstWord = s.prefix { $0 != " " && $0 != "," }
         let keepCase = firstWord == "I" || firstWord.count > 1 && firstWord.allSatisfy(\.isUppercase)
+        // Round 28: a step that calls its role by title keeps the title's capitals ("First, Stand Manager, …", not
+        // "First, stand Manager, …"); every step now starts with its role's title.
+        if let comma = s.firstIndex(of: ",") {
+            let head = s[..<comma].split(separator: " ")
+            if (1...4).contains(head.count), head.allSatisfy({ $0.first?.isUppercase == true }),
+               head.first.map({ $0.lowercased() != "everyone" }) == true { return s }
+        }
         return keepCase ? s : first.lowercased() + s.dropFirst()
     }
 

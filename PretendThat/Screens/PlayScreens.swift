@@ -12,7 +12,8 @@ struct HandoffView: View {
         if let id = store.kit?.scenes[sceneIndex].owner.role, let role = store.plan?.role(for: id) {
             // Nutmeg points at the card from the shared stage (no second Nutmeg inside the card). Round 26 (Haylee's
             // button audit): one big green check, and no "Back to the checklist" (the rail and voice still go back).
-            PTHandoffCard(role: role, figure: { EmptyView() }, onTap: { model.tapHandoff(id) }, pinned: pinned)
+            PTHandoffCard(role: role, figure: { EmptyView() }, onTap: { model.tapHandoff(id) }, pinned: pinned,
+                          badge: model.handoffBadge(role))   // round 28: the colored badge, not the text
                 .id(sceneIndex)
         }
     }

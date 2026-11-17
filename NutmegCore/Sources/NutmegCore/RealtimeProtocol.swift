@@ -393,6 +393,9 @@ public enum Realtime {
         case .roles, .finish: return nil
         }
     }
+    /// Round 28: back on Pick after the confirm "yes" (the step rail or "back to pick"): only the count can change, so a
+    /// kid turn is tool-first over the count (and the game/theme tools, which the app refuses with her line).
+    public static let pickBackTools = ["set_player_count", "set_game", "set_theme", "go_to_step", "just_talk"]
     /// Round 23: after the hunt a kid turn is tool-first too, so "print it again" always moves (round 22's play turns
     /// were free replies, and live the model answered "Sure!" without moving, or narrated before the tool).
     public static func afterHuntTools(_ phase: Phase) -> [String]? {

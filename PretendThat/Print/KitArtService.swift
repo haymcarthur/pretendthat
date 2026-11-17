@@ -90,6 +90,8 @@ final class KitArtService {
         }
         return KitArtPrompt.cutoutLabels(item).indices.map { cutouts[item.id]?[$0] }
     }
+    /// Round 28: role `k`'s own slice of the badge sheet only (nil while it isn't drawn; no shared-image fallback).
+    func badgeSlice(_ itemID: String, role k: Int) -> UIImage? { cutouts[itemID]?[k] }
     /// Role `k`'s badge picture: its slice of the badge sheet, else the shared badge image.
     func badge(_ itemID: String, role k: Int?) -> UIImage? {
         if let k, let slice = cutouts[itemID]?[k] { return slice }

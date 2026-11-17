@@ -186,7 +186,7 @@ struct SeededRNG: RandomNumberGenerator {
     for l in ChecklistCheers.praise + ChecklistCheers.congrats {
         #expect(!TurnCheck.hasSoundEffect(l), "\(l)")
     }
-    #expect(ChecklistCheers.phrase("Captain, check the plane.") == "captain, check the plane")
+    #expect(ChecklistCheers.phrase("Captain, check the plane.") == "Captain, check the plane")   // round 28: the title keeps its capital
     #expect(ChecklistCheers.phrase("I spy a cloud!") == "I spy a cloud")
 }
 
