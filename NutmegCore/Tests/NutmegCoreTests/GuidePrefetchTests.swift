@@ -74,7 +74,7 @@ import Testing
         let bad = PropWeave(uses: [
             .init(propID: "pot", scene: 9, step: 0, text: "Captain, open the big oven!"),           // no such scene
             .init(propID: "lamp", scene: 0, step: 0, text: "Captain, turn on the lamp!"),           // not asked for
-            .init(propID: "pot", scene: 0, step: 2, text: String(repeating: "word ", count: 40)),   // too long
+            .init(propID: "pot", scene: 0, step: 2, text: String(repeating: "word ", count: 60)),   // too long
             .init(propID: "pot", scene: 0, step: 3, text: "Everyone, peek in the big oven!"),       // taken
             .init(propID: "pot", scene: 2, step: 4, text: "Passenger, smell the big oven!"),        // fine
         ])
@@ -95,7 +95,7 @@ import Testing
         let def = (schema["$defs"] as? [String: Any])?["scene"] as? [String: Any]
         let scene = def?["required"] as? [String]
         #expect(Set(scene ?? []) == Set(["title", "nutmegSays", "R1", "R2", "R3", "R4", "R5", "R6", "solo"]))
-        #expect(((def?["properties"] as? [String: Any])?["R3"] as? [String: Any])?["type"] as? String == "string")
+        #expect(((def?["properties"] as? [String: Any])?["R3"] as? [String: Any])?["type"] as? String == "object")   // round 34: {short, say}
         let keys = RoleID.allCases.map(\.rawValue) + ["solo"]
         let one = #"{"title":"Liftoff","nutmegSays":"Pretend that we fly!","# + keys.map { #""\#($0)":"\#($0) task""# }.joined(separator: ",") + "}"
         let json = "{" + (1...3).map { #""scene\#($0)":"# + one }.joined(separator: ",") + "}"

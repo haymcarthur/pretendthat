@@ -12,8 +12,11 @@ public enum HandOffLines {
     /// Round 29 (Haylee, ensemble scenes): a scene opens with ONE flowing line: the "Pretend that" setup, then every
     /// playing role's task by role name. Repeat (the pill) says it again. `scene` is the scene as the players see it.
     /// The first scene of a play also says how to move on (round 16: she names the button; most players can't read).
+    /// Round 34 (Haylee): ONLY the setup and the cue ("Tap your speaker when you're ready to hear your job!"); each kid
+    /// taps their own row for their job (`task`). The old full read-out is `PlayCast.sceneSpeech`.
     public static func sceneOpen(_ scene: Scene, first: Bool = false) -> String {
-        PlayCast.sceneSpeech(scene) + (first ? " " + nextSceneHowTo : "")
+        let setup = PlayCast.endSentence(scene.nutmegSays.trimmingCharacters(in: .whitespacesAndNewlines))
+        return [setup, taskCue, first ? nextSceneHowTo : ""].filter { !$0.isEmpty }.joined(separator: " ")
     }
     public static let nextSceneHowTo = "Tap the green play button for the next scene!"
 

@@ -140,7 +140,7 @@ public enum Realtime {
     what it becomes. Only on the FIRST prop, also explain once: say "found it" or tap the green check when you have it, \
     or tap the X if you don't ("Can you find a blanket? It'll be our big blue ocean! Say 'found it' or tap the green \
     check when you have it, or tap the X if you don't."). NEVER repeat that explanation after the first prop. Later props stay \
-    short and fun ("Next, can you find a spoon? It'll be the big stirrer for swirly batter!"). Then WAIT while they hunt: \
+    short and fun ("Can you find a spoon? It'll be the big stirrer for swirly batter!"; never start with "Next", vary it). Then WAIT while they hunt: \
     they'll tell you when they're back. When they found it, call mark_found, cheer in a few \
     words, then show_next_prop for the next one. If they don't have it, offer ONE alternate (call swap_prop) or say \
     you'll pretend (call skip_prop), then the next prop. Exactly 4 props for 1 or 2 kids, 5 props for 3 or more (each tool result says how many are left), then step 6.
@@ -151,7 +151,8 @@ public enum Realtime {
     answer in one short line. "Go play" wording is only for after start_play.
     PLAY STEP: everyone plays each scene together (the app reads each role's task). If they want the next scene \
     ("next scene", "we're done", "what's next", "finished"), call next_scene and say nothing (the app says the next \
-    scene); otherwise one short, fun line that helps the scene.
+    scene); if a kid asks what their job is ("what do I do, Pet Trainer?", "what's my job?"), call read_job with \
+    that role and say nothing (the app reads it); otherwise one short, fun line that helps the scene.
     GOING BACK (after the hunt: print step, play step, The End; the steps are Pick, Props, Print, Play): "print it \
     again", "go back to the props", "back to the game", "back to the play step" → call go_to_step (pick, props, print \
     or play) and say only the line its result gives you.
@@ -354,6 +355,9 @@ public enum Realtime {
         fn("next_scene", "PLAY STEP scene only: the kids want the next scene (\"next scene\", \"we're done\", \"what's "
            + "next\", \"finished\"). Does exactly what tapping the green Next scene button does (after the last scene: "
            + "The End). Say nothing: the app says the next scene.", [:], required: []),
+        fn("read_job", "PLAY STEP scene only: a kid asks what their job is (\"what do I do, Pet Trainer?\", \"what's my "
+           + "job?\"). The app reads that role's task out loud, like tapping its row. Say nothing.",
+           ["role": ["type": "string", "description": "The role's title, as on the row (e.g. Pet Trainer)."]], required: ["role"]),
         fn("go_to_step", "After the hunt (print step, play step, The End): the kids want to go back to a step they already "
            + "did (\"print it again\", \"go back to the props\", \"back to the game\", \"back to the play step\"). The "
            + "steps are Pick, Props, Print, Play. Does exactly what tapping that step on the step rail does; the result says "
@@ -406,7 +410,7 @@ public enum Realtime {
     public static func afterHuntTools(_ phase: Phase) -> [String]? {
         switch phase {
         case .kitReady: return ["start_play", "print_kit", "choose_print_set", "go_to_step", "just_talk"]
-        case .scene: return ["next_scene", "go_to_step", "just_talk"]
+        case .scene: return ["next_scene", "read_job", "go_to_step", "just_talk"]
         case .end: return ["go_to_step", "just_talk"]
         default: return nil
         }
@@ -609,6 +613,8 @@ public enum PlanningCall: Equatable, Sendable {
     case choosePrintSet(PrintStyle)
     /// Round 29 (ensemble scenes): "next scene" / "we're done" in a scene, same as the green ▶ Next scene button.
     case nextScene
+    /// Round 34: "what do I do, Pet Trainer?" in a scene: the app reads that role's spoken task (its row's 🔊).
+    case readJob(String)
     /// Round 23: "print it again", "go back to the props": the same navigation as tapping a step on the rail.
     case goToStep(JourneyStep)
 
@@ -661,6 +667,7 @@ public enum PlanningCall: Equatable, Sendable {
         case "print_kit": return .printKit
         case "choose_print_set": return PrintStyle(choice: s(a, "set")).map { .choosePrintSet($0) }
         case "next_scene": return .nextScene
+        case "read_job": let r = s(a, "role"); return r.isEmpty ? nil : .readJob(r)
         case "go_to_step": return BackNav.toolSteps[s(a, "step").lowercased()].map { .goToStep($0) }
         default: return nil
         }

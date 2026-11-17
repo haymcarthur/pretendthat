@@ -66,7 +66,7 @@ import Testing
 
     @Test func replayCardNoteAndArticles() {
         let books = Prop(id: "books", householdItem: "Books", becomes: "the display stand", forRole: .all, safetyOK: true, libraryID: "books")
-        #expect(ReplayLines.propAsk(books, first: false) == "Next, do you still have some books for the display stand?")
+        #expect(ReplayLines.propAsk(books, n: 4) == "Ooh, some books would make a great display stand! Can you find some?")   // round 34
         #expect(ReplayLines.useInstead("Books") == "Some books work too! Do you have some?")
         #expect(ReplayLines.useInstead("Pot") == "A pot works too! Do you have one?")
         #expect(ReplayLines.useInstead("Apron") == "An apron works too! Do you have one?")
@@ -91,7 +91,7 @@ import Testing
         // ✗ with no saved alternate: pretend at once, then the next card.
         store.replayHunt(found: false)
         #expect(store.props?.props[0].isSkipped == true && store.replayCurrentProp?.id == props[1].id)
-        #expect(store.nutmegLine.contains("Next, do you still have a"))
+        #expect(store.nutmegLine.hasPrefix("No problem, we'll pretend") && !store.nutmegLine.contains("still have"))   // round 34
         #expect(ClipMeta.kind(of: store.nutmegLine) == .replay)
         store.replayAllFound()
         #expect(store.phase == .kitReady && store.nutmegLine == HandOffLines.printReady)

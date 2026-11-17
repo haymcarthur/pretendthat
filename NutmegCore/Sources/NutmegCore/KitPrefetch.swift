@@ -20,7 +20,7 @@ public struct KitScenes: Codable, Equatable, Sendable {
 
 extension KitPages: SafetyText { public var safetyTexts: [String] { [nutmegSays] + items.flatMap { [$0.title] + $0.lines } } }
 extension KitScenes: SafetyText {
-    public var safetyTexts: [String] { [nutmegSays] + scenes.flatMap { [$0.title, $0.nutmegSays] + $0.steps.map(\.text) } }
+    public var safetyTexts: [String] { [nutmegSays] + scenes.flatMap { [$0.title, $0.nutmegSays] + $0.steps.flatMap { [$0.text] + ($0.short.map { [$0] } ?? []) } } }
 }
 
 /// What the kit pages depend on. A change (a round 19 correction of the game, theme or count, or new roles) cancels the

@@ -17,13 +17,11 @@ public enum ReplayLines {
         return label.isEmpty ? p.becomes : "the " + label
     }
 
-    /// One saved prop's card on a replay. The first one explains the two buttons once (like the first play's first
-    /// prop); later ones stay short.
-    public static func propAsk(_ p: Prop, first: Bool) -> String {
-        let item = some(p.householdItem)
-        return first
-            ? "Do you still have \(item) for \(becomes(p))? Tap the green check if you do, or the X if you don't!"
-            : "Next, do you still have \(item) for \(becomes(p))?"
+    /// One saved prop's card on a replay. Round 34 (Haylee): the SAME words as the first play's prop line
+    /// (`PropLines`), never "do you still have…". `n` is the card's number in the hunt (1 = the first, with "First,"
+    /// and the buttons explained once).
+    public static func propAsk(_ p: Prop, n: Int) -> String {
+        PropLines.ask(item: p.householdItem, becomes: p.becomes, reason: p.reason, n: n)
     }
     /// ✗ with a saved alternate: the card changes to it, same question.
     public static func useInstead(_ item: String) -> String {
@@ -114,7 +112,7 @@ public enum ReplayProps {
                     } else if sp.pretendOnFirstPlay, !label.isEmpty, st.text.range(of: "pretend " + label, options: .caseInsensitive) != nil {
                         // The first play's pretend: back to the real prop (it's here this time, unless the kids say not).
                         var s = st
-                        s.text = s.text.replacingOccurrences(of: "pretend " + label, with: label, options: .caseInsensitive)
+                        s.mapTexts { $0.replacingOccurrences(of: "pretend " + label, with: label, options: .caseInsensitive) }
                         s.picture = .prop(lib)
                         scenes[i].steps[j] = s
                         uses.append(PropUse(propID: sp.id, scene: i, step: j, libraryID: lib, item: sp.householdItem, becomes: sp.becomes))

@@ -60,6 +60,8 @@ public enum PlayCast {
     public static func task(_ scene: Scene, role: Role, roles: [Role], players n: Int) -> Step {
         var s = scene.steps.first { $0.role.role == role.id } ?? filler(role)
         s.text = calledOut(unname(s.text, roles: roles, players: players(n)), role: role)
+        // Round 34: the shown text, short and broad (with any away role unnamed too).
+        s.short = TaskShort.clean(s.short.map { unname($0, roles: roles, players: players(n)) }, say: s.text, roles: roles)
         s.role = SceneOwner(role.id)
         return s
     }
@@ -72,6 +74,7 @@ public enum PlayCast {
         // Not "unnamed": a solo task is written for a kid alone and may speak of pretend customers ("every pretend
         // passenger"), which would wrongly match another role's title.
         s.text = calledOut(s.text, role: r1)
+        s.short = TaskShort.clean(s.short, say: s.text, roles: roles)
         s.role = .R1
         return s
     }
@@ -81,7 +84,8 @@ public enum PlayCast {
     public static func rows(_ scene: Scene, roles: [Role], players n: Int) -> [Step] {
         let n = players(n)
         if isLegacy(scene) || roles.isEmpty {
-            return scene.steps.prefix(maxRows).map { var s = $0; s.text = unname(s.text, roles: roles, players: n); return s }
+            return scene.steps.prefix(maxRows).map { var s = $0; s.text = unname(s.text, roles: roles, players: n)
+                s.short = TaskShort.clean(s.short.map { unname($0, roles: roles, players: n) }, say: s.text, roles: roles); return s }
         }
         if n == 1, let solo = soloTask(scene, roles: roles) { return [solo] }
         return RoleCast.playing(roles, kids: n).map { task(scene, role: $0, roles: roles, players: n) }

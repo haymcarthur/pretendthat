@@ -42,7 +42,7 @@ struct PropLineTests {
         // Round 7: the first prop explanation moved to its own line, asked after the roles finish playing.
         #expect(AdventureStore.firstPropLine(item: "Plate", becomes: "the steering wheel").contains("explain ONCE"))
         #expect(first.contains("Speak ONLY the roles"))
-        #expect(second.contains("Next, can you find a spoon? It'll be the big stirrer!"))
+        #expect(second.contains("Can you find a spoon? It'll be the big stirrer!") && second.contains("never start with"))   // round 34
         #expect(second.contains("Do NOT repeat"))
         #expect(!second.contains("explain ONCE"))
     }

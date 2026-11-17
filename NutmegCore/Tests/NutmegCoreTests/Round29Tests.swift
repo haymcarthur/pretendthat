@@ -42,9 +42,14 @@ import Testing
         let view = PlayCast.kit(a.kit, roles: roles, players: 3)
         let line = HandOffLines.sceneOpen(view.scenes[0])
         #expect(line.hasPrefix(view.scenes[0].nutmegSays))
+        // Round 34 (Haylee): the opening is the setup + the cue; the tasks are read per row (PlayCast.sceneSpeech
+        // still builds the old full read-out).
+        #expect(line.hasSuffix(HandOffLines.taskCue))
+        for row in view.scenes[0].steps { #expect(!line.contains(row.text), "\(row.text)") }
         var at = line.startIndex
-        for row in view.scenes[0].steps {   // each task, by role name, in rank order
-            let r = line.range(of: row.text, range: at..<line.endIndex)
+        let full = PlayCast.sceneSpeech(view.scenes[0])
+        for row in view.scenes[0].steps {
+            let r = full.range(of: row.text, range: at..<full.endIndex)
             #expect(r != nil, "\(row.text)")
             at = r?.upperBound ?? at
         }
@@ -59,7 +64,7 @@ import Testing
         #expect(KitScenesSix.count == 3 && GuideRepair.minScenes == 3 && Sanitizer.Limits.scenesMax == 3)
         #expect(KitScenesSix.taskKeys.map(\.key) == ["R1", "R2", "R3", "R4", "R5", "R6", "solo"])
         let rules = Prompts.sceneRules
-        #expect(rules.contains("1 to 3 minutes") && rules.contains("at most two parts") && rules.contains("CONNECT"))
+        #expect(rules.contains("1 to 3 minutes") && rules.contains("3 to 7 words") && rules.contains("CONNECT"))
         #expect(rules.contains("no quotes, no \"Say:\"") && rules.contains("solo task is for ONE kid"))
         #expect(rules.contains("ONLY REAL PROPS"))
         let six = KitScenesSix(nutmegSays: "", scenes: a.kit.scenes)

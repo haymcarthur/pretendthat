@@ -148,7 +148,7 @@ public final class AdventureStore {
             : n % 3 == 0
             // Round 13: "Pretend that" on about 1 prop in 3 (props 3 and 6), decided by the app so it really happens.
             ? "This is prop \(n): keep it SHORT and use the words \"pretend that\" this time, like \"Can you find a \(item.lowercased())? Let's pretend that it's \(becomes)!\" Do NOT repeat 'say found it' or 'tell me if you don't have it' (they already know)."
-            : "This is prop \(n): keep it SHORT, like \"Next, can you find a \(item.lowercased())? It'll be \(becomes)!\" Do NOT repeat 'say found it' or 'tell me if you don't have it' (they already know). Don't say \"pretend that\" for this one."
+            : "This is prop \(n): keep it SHORT, like \"Can you find a \(item.lowercased())? It'll be \(becomes)!\" or \"Ooh, a \(item.lowercased()) would be perfect! Can you find one?\" (never start with \"Next\"; vary it). Do NOT repeat 'say found it' or 'tell me if you don't have it' (they already know). Don't say \"pretend that\" for this one."
         // Round 24: she says why the item works, briefly, inside the same line (never a second sentence about it).
         let why = reason.map { " Inside that same line, say briefly why it works: \"\($0)\"" } ?? ""
         // Round 30 (Haylee): a firm count, 4 props for 1–2 kids and 5 for 3+.
@@ -160,6 +160,17 @@ public final class AdventureStore {
     }
 
     public static let oops = "Oops, my clipboard got mixed up! Let's try that again."
+
+    /// Round 34 (Haylee): on a live voice first play, the app writes and says the prop lines (`PropLines`) so they are
+    /// recorded and a replay says the same words. Off (tests, the tap fallback): the model says them, as before.
+    @ObservationIgnored public var appSaysPropLines = false
+    /// The prop line the app owes after the last show_next_prop (the app takes it with `takePendingPropLine`).
+    @ObservationIgnored public private(set) var pendingPropLine: String?
+    public func takePendingPropLine() -> String? { defer { pendingPropLine = nil }; return pendingPropLine }
+    /// Round 34: the row `read_job` asked for (the app reads it and clears this).
+    @ObservationIgnored public var lastReadJobRow: Int?
+    /// The first prop's line (said by the app once the roles line has played).
+    public var firstPropAppLine: String? { props.flatMap { PropLines.line(for: $0.props, index: 0) } }
 
     /// Round 19: the line when a late theme fix remakes the kit.
     public nonisolated static func remakeLine(_ title: String) -> String {
@@ -437,7 +448,7 @@ public final class AdventureStore {
         guard let first = list.first else { currentPropID = nil; phase = .kitReady; return HandOffLines.printReady }
         currentPropID = first.id
         phase = .props
-        return ReplayLines.propAsk(first, first: true)
+        return PropLines.line(for: list, index: 0) ?? ReplayLines.propAsk(first, n: 1)   // round 34: the first play's words
     }
 
     /// The replay's hunt is on: one card, ✓ / ✗ (or "found it" / "we don't have one").
@@ -476,11 +487,13 @@ public final class AdventureStore {
 
     /// The next card not answered yet, or Print after the last one. Returns the line to say.
     private func advanceReplayHunt(lead: String?) -> String {
-        let next = (props?.props ?? []).first { !foundProps.contains($0.id) && !$0.isSkipped }
+        let all = props?.props ?? []
         let line: String
-        if let next {
-            currentPropID = next.id
-            line = ReplayLines.propAsk(next, first: false)
+        if let k = all.firstIndex(where: { !foundProps.contains($0.id) && !$0.isSkipped }) {
+            currentPropID = all[k].id
+            // Round 34 (Haylee): the first play's prop line, word for word (its lead says the answer before it: a
+            // cheer, or the pretend line), so the first play's clip plays again.
+            return PropLines.line(for: all, index: k) ?? ReplayLines.propAsk(all[k], n: k + 1)
         } else {
             currentPropID = nil
             presenting = .none
@@ -770,6 +783,13 @@ public final class AdventureStore {
             phase = .props; presenting = .props; planningStep = .props
             let n = p.props.count
             let swapNote = fellBack ? "(That pairing didn't fit, so the app picked a \((PropLibrary.name(d.itemID) ?? d.itemID).lowercased()) as \(d.becomes) instead: use THIS item and use.) " : ""
+            // Round 34 (Haylee): the app writes and says every prop line after the first (the first follows the roles
+            // line, `firstPropAppLine`), recorded as her clip, so a replay says exactly the same words.
+            pendingPropLine = nil
+            if appSaysPropLines, n > 1, let line = PropLines.line(for: p.props, index: n - 1) {
+                pendingPropLine = line
+                return swapNote + freshNote + PropLines.appSaysOutput(id: id, n: n, target: propTarget, line: line)
+            }
             return swapNote + freshNote + Self.nextPropOutput(id: id, item: PropLibrary.name(d.itemID) ?? d.itemID, becomes: d.becomes, n: n,
                                                   reason: d.reason, target: propTarget)
         case .markFound(let id):
@@ -780,6 +800,9 @@ public final class AdventureStore {
             let n = p.props.count
             if n >= propTarget {
                 return "Checked off \(prop.householdItem). That was the last of the \(propTarget) props: call finish_planning now and say nothing else."
+            }
+            if appSaysPropLines {
+                return "Checked off \(prop.householdItem). Don't speak: call show_next_prop (prop \(n + 1) of \(propTarget)) now; the app cheers and says the new prop's line."
             }
             return "Checked off \(prop.householdItem). Don't speak yet: call show_next_prop (prop \(n + 1) of \(propTarget))"
                 + " FIRST, then cheer in a few words and ask about the new prop in the same turn. Never narrate (\"let me grab the next prop\")."
@@ -814,6 +837,9 @@ public final class AdventureStore {
             props = p; presenting = .props
             if p.props.count >= propTarget {
                 return "Marked as pretend. That was the last of the \(propTarget) props: call finish_planning now (the app says the kit line)."
+            }
+            if appSaysPropLines {
+                return "Marked as pretend. Don't speak: call show_next_prop (prop \(p.props.count + 1) of \(propTarget)) now; the app says the pretend line and the new prop's line."
             }
             return "Marked as pretend. Don't speak yet: call show_next_prop (prop \(p.props.count + 1) of \(propTarget)) FIRST, then say you'll pretend that one and ask about the new prop in the same turn."
         case .finishPlanning:
@@ -855,6 +881,14 @@ public final class AdventureStore {
             guard case .scene = phase else { return "There's no scene right now. Answer in ONE short line." }
             nextScene()
             return "Next scene: the app moves on and says its line. Say nothing."
+        case .readJob(let role):
+            // Round 34: the app (AppModel) reads that row's spoken task; this is the fallback answer.
+            guard case .scene(let i) = phase, let rows = kit?.scenes[i].steps,
+                  let k = SceneRowTap.row(named: role, rows: rows, roles: plan?.roles ?? []) else {
+                return "Nobody is the \(role) in this scene. Answer in ONE short line: tap your own row to hear your job."
+            }
+            lastReadJobRow = k
+            return "The app reads the \(role)'s job out loud now. Say nothing."
         case .choosePrintSet(let style):
             // Round 27: "color" / "we'll color them" on the Print step: the highlight moves to that set.
             guard phase == .kitReady else { return PrintSetLines.notNowOutput }

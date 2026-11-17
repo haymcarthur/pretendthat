@@ -43,7 +43,7 @@ func walk(_ store: AdventureStore) async -> [Phase] {
     // Round 29 (ensemble scenes): no hand-off; scene 1 opens with every playing role's task.
     #expect(store.phase == .scene(0))
     #expect(store.kit?.scenes[0].steps.count == 5)
-    #expect(store.nutmegLine.hasPrefix("Pretend that") && store.nutmegLine.contains("Captain,"))
+    #expect(store.nutmegLine.hasPrefix("Pretend that") && store.nutmegLine.contains(HandOffLines.taskCue) && !store.nutmegLine.contains("Captain,"))   // round 34
 }
 
 @Test @MainActor func everyKidCountPlaysTheSameThreeScenes() async {
@@ -167,7 +167,7 @@ func storeAtFirstScene(players: Int = 3) async -> AdventureStore {
     let store = await storeAtFirstScene()
     let out = await store.apply(.nextScene)
     #expect(out.contains("Say nothing") && store.phase == .scene(1))
-    #expect(Realtime.afterHuntTools(.scene(0)) == ["next_scene", "go_to_step", "just_talk"])
+    #expect(Realtime.afterHuntTools(.scene(0)) == ["next_scene", "read_job", "go_to_step", "just_talk"])
     #expect(PlanningCall.decode(name: "next_scene", arguments: "{}") == .nextScene)
     #expect(Realtime.tools.contains { $0["name"] as? String == "next_scene" })
     #expect(!Realtime.tools.contains { ["finish_scene", "confirm_handoff"].contains($0["name"] as? String ?? "") })

@@ -224,7 +224,8 @@
             "picture": {
               "kind": "action",
               "id": "point"
-            }
+            },
+            "short": "Welcome passengers aboard"
           },
           {
             "role": "R2",
@@ -232,7 +233,8 @@
             "picture": {
               "kind": "prop",
               "id": "chair"
-            }
+            },
+            "short": "Find your airplane seat"
           },
           {
             "role": "R3",
@@ -240,7 +242,8 @@
             "picture": {
               "kind": "action",
               "id": "point"
-            }
+            },
+            "short": "Help everyone buckle up"
           },
           {
             "role": "R4",
@@ -248,7 +251,8 @@
             "picture": {
               "kind": "action",
               "id": "point"
-            }
+            },
+            "short": "Pick where the plane flies"
           },
           {
             "role": "R5",
@@ -256,7 +260,8 @@
             "picture": {
               "kind": "prop",
               "id": "tray"
-            }
+            },
+            "short": "Load the snack cart"
           },
           {
             "role": "R6",
@@ -264,7 +269,8 @@
             "picture": {
               "kind": "prop",
               "id": "backpack"
-            }
+            },
+            "short": "Ask for the best seat"
           },
           {
             "role": "solo",
@@ -272,7 +278,8 @@
             "picture": {
               "kind": "prop",
               "id": "chair"
-            }
+            },
+            "short": "Get the passengers seated"
           }
         ]
       },
@@ -291,7 +298,8 @@
             "picture": {
               "kind": "prop",
               "id": "plate"
-            }
+            },
+            "short": "Steer the plane"
           },
           {
             "role": "R2",
@@ -299,7 +307,8 @@
             "picture": {
               "kind": "action",
               "id": "point"
-            }
+            },
+            "short": "Order a snack"
           },
           {
             "role": "R3",
@@ -307,7 +316,8 @@
             "picture": {
               "kind": "prop",
               "id": "tray"
-            }
+            },
+            "short": "Serve snacks down the aisle"
           },
           {
             "role": "R4",
@@ -315,7 +325,8 @@
             "picture": {
               "kind": "action",
               "id": "point"
-            }
+            },
+            "short": "Steer around a cloud"
           },
           {
             "role": "R5",
@@ -323,7 +334,8 @@
             "picture": {
               "kind": "prop",
               "id": "tray"
-            }
+            },
+            "short": "Make the snacks"
           },
           {
             "role": "R6",
@@ -331,7 +343,8 @@
             "picture": {
               "kind": "action",
               "id": "point"
-            }
+            },
+            "short": "Order the fanciest snack"
           },
           {
             "role": "solo",
@@ -339,7 +352,8 @@
             "picture": {
               "kind": "prop",
               "id": "plate"
-            }
+            },
+            "short": "Fly and serve snacks"
           }
         ]
       },
@@ -358,7 +372,8 @@
             "picture": {
               "kind": "prop",
               "id": "plate"
-            }
+            },
+            "short": "Land the plane softly"
           },
           {
             "role": "R2",
@@ -366,7 +381,8 @@
             "picture": {
               "kind": "prop",
               "id": "chair"
-            }
+            },
+            "short": "Hold on through the bumps"
           },
           {
             "role": "R3",
@@ -374,7 +390,8 @@
             "picture": {
               "kind": "action",
               "id": "point"
-            }
+            },
+            "short": "Get everyone ready to land"
           },
           {
             "role": "R4",
@@ -382,7 +399,8 @@
             "picture": {
               "kind": "action",
               "id": "point"
-            }
+            },
+            "short": "Help count down"
           },
           {
             "role": "R5",
@@ -390,7 +408,8 @@
             "picture": {
               "kind": "prop",
               "id": "tray"
-            }
+            },
+            "short": "Pack up the snack cart"
           },
           {
             "role": "R6",
@@ -398,7 +417,8 @@
             "picture": {
               "kind": "prop",
               "id": "backpack"
-            }
+            },
+            "short": "Thank the Captain"
           },
           {
             "role": "solo",
@@ -406,7 +426,8 @@
             "picture": {
               "kind": "prop",
               "id": "plate"
-            }
+            },
+            "short": "Land through the bumps"
           }
         ]
       }

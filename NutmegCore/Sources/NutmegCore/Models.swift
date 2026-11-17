@@ -150,14 +150,30 @@ public struct KitItem: Codable, Equatable, Sendable, Identifiable {
 /// One play-guide task. Round 29 (ensemble scenes): ONE task per role per scene (R1…R6, called out by its title) plus a
 /// `solo` task. The picture is no longer asked for or shown (the row shows the role's character); it still marks a step
 /// that uses a household prop (`.prop`), so skips, swaps and replays can find it.
+/// Round 34 (Haylee): each task has TWO texts. `short` is what the row SHOWS (about 3–7 words, broad, no role title:
+/// "Get the pet ready to go home"); `text` is what Nutmeg SAYS when the row is tapped (the guide's `say`: the role's
+/// title, the job, and 1–2 concrete ideas with their props or kit). `short` is nil in older guides (`TaskShort`
+/// derives one from `text`, and GuideRepair stores it).
 public struct Step: Codable, Equatable, Sendable {
     public var picture: Picture; public var text: String
     public var role: SceneOwner
-    public init(picture: Picture, text: String, role: SceneOwner = .all) { self.picture = picture; self.text = text; self.role = role }
+    public var short: String?
+    /// The spoken version (round 34's `say`): the same storage as `text`.
+    public var say: String { get { text } set { text = newValue } }
+    public init(picture: Picture, text: String, role: SceneOwner = .all, short: String? = nil) {
+        self.picture = picture; self.text = text; self.role = role; self.short = short
+    }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         picture = try c.decodeIfPresent(Picture.self, forKey: .picture) ?? .point; text = try c.decode(String.self, forKey: .text)
         role = (try? c.decodeIfPresent(SceneOwner.self, forKey: .role)) ?? .all   // older JSON: everyone's step
+        short = try c.decodeIfPresent(String.self, forKey: .short)
+    }
+    private enum CodingKeys: String, CodingKey { case picture, text, role, short }
+    /// The same rewrite on both texts (skips, swaps, pretend stand-ins, scrubbing).
+    public mutating func mapTexts(_ f: (String) -> String) {
+        text = f(text)
+        if let s = short { short = f(s) }
     }
 }
 /// `Scene` clashes with SwiftUI.Scene in the app target; use `KitScene` there.
