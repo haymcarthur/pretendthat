@@ -72,7 +72,7 @@ struct LayoutMetrics: Equatable, Sendable {
         case .print: 340
         case .scene(let rows): 64 + CGFloat(rows) * 78 + 118
         case .end: 232
-        case .cover: noVoice ? 470 : 270
+        case .cover: noVoice ? 500 : 300   // round 40: the whole 3:2 cover in its mat (360 wide) fits
         case .players: 320
         case .propsGrid: 2000
         }

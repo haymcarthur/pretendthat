@@ -103,20 +103,26 @@ struct PTPhoneCardGrid: View {
 
 /// Nutmeg's small live head (her real layered art, lip-synced) for the phone's chat sheet header: the sheet covers the
 /// stage, and she is never heard unless she's on screen.
+/// Round 40 (Haylee): cropped to her FACE (eyes, nose and mouth fill the circle; the ears are cut off) so her mouth is
+/// clearly visible while she talks.
 struct PTNutmegAvatar: View {
     let model: AppModel
-    var diameter: CGFloat = 52
+    var diameter: CGFloat = 56
+    /// The canvas point the circle centers on (between her eyes and her mouth) and how much of the canvas the circle
+    /// spans (about her cheeks), canvas px.
+    static let faceCenter = CGPoint(x: 628, y: 532)
+    static let faceSpan: CGFloat = 490
 
     var body: some View {
-        let k = diameter * 1.18 / PTStageCamera.headWidth
+        let k = diameter / Self.faceSpan
         let canvas = CGSize(width: PTStageCamera.art.width * k, height: PTStageCamera.art.height * k)
-        let head = PTStageCamera.headFocus
+        let c = Self.faceCenter
         ZStack {
             Circle().fill(Theme.startSky)
             NutmegCharacter(state: model.nutmegState, mouthLevel: model.mouthLevel, mouthShape: model.mouthShape,
                             isSpeaking: model.isSpeaking, holdsClipboard: false)
                 .frame(width: canvas.width, height: canvas.height)
-                .position(x: diameter / 2 + canvas.width / 2 - head.x * k, y: diameter / 2 + canvas.height / 2 - head.y * k + diameter * 0.12)
+                .position(x: diameter / 2 + canvas.width / 2 - c.x * k, y: diameter / 2 + canvas.height / 2 - c.y * k)
         }
         .frame(width: diameter, height: diameter)
         .clipShape(Circle())
