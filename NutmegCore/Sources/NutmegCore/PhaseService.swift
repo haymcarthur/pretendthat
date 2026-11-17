@@ -6,8 +6,12 @@ public struct AdventureContext: Codable, Equatable, Sendable {
     public var plan: GamePlan?
     public var props: Props?
     public var playerCount: Int
-    public init(gameTitle: String? = nil, plan: GamePlan? = nil, props: Props? = nil, playerCount: Int) {
+    /// Round 43: this game's prop shortlist (Claude's prop list comes from it too); nil = the whole list.
+    public var propShortlist: PropShortlist?
+    public init(gameTitle: String? = nil, plan: GamePlan? = nil, props: Props? = nil, playerCount: Int,
+                propShortlist: PropShortlist? = nil) {
         self.gameTitle = gameTitle; self.plan = plan; self.props = props; self.playerCount = playerCount
+        self.propShortlist = propShortlist
     }
 }
 
@@ -53,8 +57,9 @@ public final class PhaseService: Sendable {
     /// Round 24: misfit pairings get one retry (`Validate.props`), then the app's curated sensible pairs.
     public func props(ctx: AdventureContext) async throws -> Props {
         try await ClaudeRouting.$call.withValue(.props) {
-        PropFit.repair(try await safe({ try await self.ask(Props.self, $0, Schemas.props(), .medium, clean: Sanitizer.clean, problem: Validate.props) },
-                                      Prompts.props(ctx: ctx)))
+        PropFit.repair(try await safe({ try await self.ask(Props.self, $0, Schemas.props(), .medium, clean: Sanitizer.clean,
+                                                           problem: { Validate.props($0, shortlist: ctx.propShortlist) }) },
+                                      Prompts.props(ctx: ctx)), shortlist: ctx.propShortlist)
         }
     }
     public func kit(ctx: AdventureContext) async throws -> Kit {
@@ -196,11 +201,29 @@ public enum Validate {
     public static func plan(_ p: GamePlan, count: Int) -> Problem? {
         p.roles.count < count ? short("roles", p.roles.count, want: "\(count) different roles", fatal: p.roles.isEmpty) : nil
     }
-    public static func props(_ p: Props) -> Problem? {
+    public static func props(_ p: Props, shortlist: PropShortlist? = nil) -> Problem? {
         if p.props.count < 3 { return short("safe props", p.props.count, want: "3 to 5 safe props", fatal: p.props.isEmpty) }
         let bad = p.props.filter { !PropFit.fits(itemID: $0.libraryID ?? $0.id, becomes: $0.becomes) }
-        return bad.isEmpty ? nil : Problem(message: "these items can't really become that by shape or use: "
-            + bad.map { "\($0.householdItem) as \($0.becomes)" }.joined(separator: "; ") + "; pick items whose shape fits", fatal: false)
+        var problems: [String] = []
+        if !bad.isEmpty {
+            problems.append("these items can't really become that by shape or use: "
+                + bad.map { "\($0.householdItem) as \($0.becomes)" }.joined(separator: "; ") + "; pick items whose shape fits")
+        }
+        // Round 43: never the same pretend use twice (Sanitizer already drops a repeated item), and only shortlist items.
+        var seen = Set<String>()
+        let repeats = p.props.filter { !seen.insert(PropWords.useKey($0.becomes)).inserted }
+        if !repeats.isEmpty {
+            problems.append("these pretend uses are there twice: " + repeats.map(\.becomes).joined(separator: "; ")
+                + "; every prop becomes a different thing")
+        }
+        if let shortlist {
+            let off = p.props.filter { !shortlist.contains($0.libraryID ?? $0.id) }
+            if !off.isEmpty {
+                problems.append("these items aren't on this game's prop shortlist: " + off.map(\.householdItem).joined(separator: ", ")
+                    + "; choose only from: " + shortlist.allIDs.joined(separator: ", "))
+            }
+        }
+        return problems.isEmpty ? nil : Problem(message: problems.joined(separator: ". "), fatal: false)
     }
     public static func pages(_ p: KitPages) -> Problem? {
         if p.items.isEmpty { return short("kit items", 0, want: "the 6 kit items", fatal: true) }

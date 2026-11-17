@@ -215,7 +215,8 @@ public final class AdventureStore {
             if q.setting == q.gameTitle { q.setting = t }   // the voice path's setting is the title itself
             q.gameTitle = t; p = q
         }
-        return AdventureContext(gameTitle: gameTitle ?? plan?.gameTitle, plan: p, props: props, playerCount: max(1, playerCount))
+        return AdventureContext(gameTitle: gameTitle ?? plan?.gameTitle, plan: p, props: props, playerCount: max(1, playerCount),
+                                propShortlist: propShortlist)
     }
 
     /// The ONE game title every later step uses (kit pages, page art prompts, the print job, the recap).
@@ -276,6 +277,7 @@ public final class AdventureStore {
 
     public func confirmRoles() async {
         phase = .props
+        makePropShortlist()   // round 43: Claude's list comes from this game's shortlist too
         await run("props", kidSaid: nil) { [self] svc in
             props = try await svc.props(ctx: context)
         } fallback: { [self] in useFallbackGame() }
@@ -397,7 +399,7 @@ public final class AdventureStore {
         choices = []; lastError = nil; usingFallback = false
         foundProps = []; failures = [:]; retryAction = nil
         nutmegLine = ""; presenting = .none; reachedStep = nil; lastPlayPhase = nil; steerIdeas = SteerIdeas()
-        kitRemakes = 0; propMisfits = 0; earlyFinishes = 0
+        kitRemakes = 0; propMisfits = 0; earlyFinishes = 0; propShortlist = nil
         cancelDraft()
         guidePending = false; playQueued = false; guideCalls = 0
         // Round D1: a new adventure (or a replay that loads over this) starts clean.
@@ -510,8 +512,11 @@ public final class AdventureStore {
             say(advanceReplayHunt(lead: nil))
             return
         }
+        // Round 43: the saved alternate is offered only if it still fits this card's use and isn't another card's item.
+        let others = Set(p.props.compactMap(\.libraryID))
         if !replaySwapped.contains(id),
-           let alt = p.props[i].alternates?.first(where: { PropLibrary.contains($0) && $0 != p.props[i].libraryID }) {
+           let alt = p.props[i].alternates?.first(where: { PropLibrary.contains($0) && $0 != p.props[i].libraryID
+               && !others.contains($0) && PropFit.fits(itemID: $0, becomes: p.props[i].becomes) }) {
             replaySwapped.insert(id)
             p.props[i].libraryID = alt
             p.props[i].householdItem = PropLibrary.name(alt) ?? alt
@@ -771,7 +776,9 @@ public final class AdventureStore {
             let title = gameTitle ?? "Pretend"
             plan = Sanitizer.clean(GamePlan(gameTitle: title, gameEmoji: "", setting: title, roles: roles, nutmegSays: ""), playerCount: playerCount)
             phase = .players; presenting = .none; planningStep = .props
-            return Self.rolesSetOutput(plan!.roles, players: playerCount) + RecentProps.note(recentProps)
+            // Round 43 (Haylee: "box is always used"): the app picks this game's prop shortlist; the model chooses from it.
+            makePropShortlist()
+            return Self.rolesSetOutput(plan!.roles, players: playerCount) + (propShortlist?.note ?? RecentProps.note(recentProps))
         case .showProps(let drafts):
             var used = Set<String>()
             let list: [Prop] = drafts.enumerated().compactMap { i, d in
@@ -793,27 +800,27 @@ public final class AdventureStore {
             return "Props are on screen (ids: \(ids)). Step 5: tell them exactly what to go find and to tell you when they've found them or if they don't have something. If they lack one, use swap_prop or skip_prop. When they're ready, step 6: finish_planning."
         case .showNextProp(let raw):
             guard raw.inLibrary else { return "\(raw.itemID) isn't on the item list. Pick a list item." }
-            // Round 42: a use the kit prints (by word, or one of this kit's own printed things): one retry, then a fallback.
-            if let c = printedClash(raw.becomes), propMisfits == 0 {
-                propMisfits = 1
-                return PrintedProps.retryOutput(itemID: raw.itemID, becomes: raw.becomes, clash: c)
-            }
             var p = props ?? Props(nutmegSays: "", props: [])
             if p.props.count >= propTarget {
                 return "That's all \(propTarget) props for this game. Call finish_planning now."
             }
-            // Round 24: the item must make sense as what it becomes (one retry, then a curated sensible pair).
+            // Round 24 / 42 / 43: the pair must make sense, never be a printed thing, come from this game's shortlist,
+            // and never repeat an item or a pretend use of this hunt: one retry naming the problem, then the app's pair.
             let used = Set(p.props.compactMap(\.libraryID))
-            guard let fit = fittingDraft(raw, used: used) else {
-                return PropFit.retryOutput(itemID: raw.itemID, becomes: raw.becomes, preferring: raw.alternates)
+            let usedUses = Set(p.props.map { PropWords.useKey($0.becomes) })
+            guard let fit = fittingDraft(raw, used: used, usedUses: usedUses) else {
+                return propRetry(raw.itemID, becomes: raw.becomes, alternates: raw.alternates, used: used, usedUses: usedUses)
+                    ?? PropFit.retryOutput(itemID: raw.itemID, becomes: raw.becomes, preferring: raw.alternates, avoiding: used)
             }
             var d = fit.0
             let fellBack = fit.1
             // Round 30 (Haylee): a prop from one of the last ~5 games gives way to a fresh alternate that fits the same
-            // use (the old item stays as the backup alternate).
+            // use (the old item stays as the backup alternate). Round 43: only without a shortlist (the shortlist already
+            // steers away from the last games).
             var freshNote = ""
-            if !fellBack, let alt = RecentProps.fresher(itemID: d.itemID, becomes: d.becomes, alternates: raw.alternates + d.alternates,
-                                                         recent: recentProps, used: used) {
+            if !fellBack, propShortlist == nil,
+               let alt = RecentProps.fresher(itemID: d.itemID, becomes: d.becomes, alternates: raw.alternates + d.alternates,
+                                             recent: recentProps, used: used) {
                 let old = d.itemID
                 d.alternates = Array(([old] + d.alternates.filter { $0 != alt && $0 != old }).prefix(2))
                 d.itemID = alt
@@ -821,6 +828,17 @@ public final class AdventureStore {
                 freshNote = "(The \((PropLibrary.name(old) ?? old).lowercased()) was a prop in a recent game, so the app picked a "
                     + "\((PropLibrary.name(alt) ?? alt).lowercased()) as \(d.becomes) instead, for something new: use THIS item.) "
             }
+            // Round 43 (Haylee): the first prop is an everyday thing: a toy-ish first pick gives way to an everyday
+            // alternate that fits the same use.
+            if p.props.isEmpty, PropFit.toyish.contains(d.itemID),
+               let alt = d.alternates.first(where: { !PropFit.toyish.contains($0) && !used.contains($0) && PropFit.fits(itemID: $0, becomes: d.becomes) }) {
+                let old = d.itemID
+                d.alternates = Array(([old] + d.alternates.filter { $0 != alt && $0 != old }).prefix(2))
+                d.itemID = alt
+                d.reason = PropFit.reason(itemID: alt, becomes: d.becomes)
+                freshNote += "(The app picked a \(PropFit.itemName(alt)) as \(d.becomes): an everyday thing for the first prop. Use THIS item.) "
+            }
+            if PropFit.check(itemID: d.itemID, becomes: d.becomes).unknown { propLog?("PROP unknown use: \(d.itemID) → \(d.becomes)") }
             if props == nil { foundProps = [] }
             let owner = plan?.roles.first { $0.roleName.localizedCaseInsensitiveCompare(d.forRole) == .orderedSame }
                 .map { SceneOwner(rawValue: $0.id.rawValue) ?? .all } ?? .all
@@ -861,43 +879,40 @@ public final class AdventureStore {
                 return "No prop with id \(oldID). Ids: \(props?.props.map(\.id).joined(separator: ", ") ?? "none")."
             }
             guard PropLibrary.contains(newID) else { return "\(newID) isn't on the list. Pick another list item or skip_prop." }
-            // Round 24: the new item must make sense as the use too (one retry, then the best fitting item).
+            // Round 24: the new item must make sense as the use too. Round 43: never an item or a use already in this
+            // hunt (the missing item itself included), and from the shortlist. One retry, then (F3) the first fitting
+            // unused item for the SAME use, shortlist first; when nothing fits, the prop becomes pretend (its cut-out
+            // is printed), never a random pair.
             var use = becomes.isEmpty ? p.props[i].becomes : becomes
             var newID = newID
-            if let c = printedClash(use) {
-                // Round 42: never swap into a printed thing (tickets, money, maps…): one retry, then a sensible pair.
-                if propMisfits == 0 { propMisfits = 1; return PrintedProps.retryOutput(itemID: newID, becomes: use, clash: c) }
-                let used = Set(p.props.compactMap(\.libraryID))
-                let f = sensibleFallback(becomes: use, preferring: [newID] + (p.props[i].alternates ?? []), avoiding: used)
-                newID = f.itemID; use = f.becomes
-            } else if !PropFit.fits(itemID: newID, becomes: use) {
-                if propMisfits == 0 { propMisfits = 1; return PropFit.retryOutput(itemID: newID, becomes: use) }
-                let used = Set(p.props.compactMap(\.libraryID))
-                newID = PropFit.fallback(becomes: use, preferring: p.props[i].alternates ?? [], avoiding: used).itemID
+            let others = p.props.indices.filter { $0 != i }.map { p.props[$0] }
+            let used = Set(others.compactMap(\.libraryID)).union([p.props[i].libraryID ?? p.props[i].id])
+            let usedUses = Set(others.map { PropWords.useKey($0.becomes) })
+            if let retry = propRetry(newID, becomes: use, alternates: p.props[i].alternates ?? [], used: used, usedUses: usedUses) {
+                if propMisfits == 0 { propMisfits = 1; return retry }
+                propMisfits = 0
+                let same = printedClash(use) != nil || usedUses.contains(PropWords.useKey(use)) ? p.props[i].becomes : use
+                guard let id = swapCandidate(becomes: same, preferring: [newID] + (p.props[i].alternates ?? []), avoiding: used) else {
+                    return turnPretend(&p, at: i, why: "Nothing else on the list can be \(same)")
+                }
+                newID = id; use = same
             }
             propMisfits = 0
+            if PropFit.check(itemID: newID, becomes: use).unknown { propLog?("PROP unknown use (swap): \(newID) → \(use)") }
             p.props[i].reason = PropFit.reason(itemID: newID, becomes: use)
             p.props[i].libraryID = newID
             p.props[i].householdItem = PropLibrary.name(newID) ?? newID
             if !becomes.isEmpty || use != p.props[i].becomes { p.props[i].becomes = use }
             p.props[i].skipped = false
             p.props[i].swapped = true
-            p.props[i].alternates = p.props[i].alternates?.filter { $0 != newID }
+            p.props[i].alternates = p.props[i].alternates?.filter { $0 != newID && !used.contains($0) }
             props = p; presenting = .props
             return "Swapped (the card still uses id \(p.props[i].id)) to a \(p.props[i].householdItem.lowercased()). Say what the new item becomes and why it works, briefly (\"\(p.props[i].reason ?? "")\"), and ask if they can find it."
         case .skipProp(let id):
             guard var p = props, let i = p.props.firstIndex(where: { $0.id == id || $0.libraryID == id }) else {
                 return "No prop with id \(id)."
             }
-            p.props[i].skipped = true
-            props = p; presenting = .props
-            if p.props.count >= propTarget {
-                return "Marked as pretend. That was the last of the \(propTarget) props: call finish_planning now (the app says the kit line)."
-            }
-            if appSaysPropLines {
-                return "Marked as pretend. Don't speak: call show_next_prop (prop \(p.props.count + 1) of \(propTarget)) now; the app says the pretend line and the new prop's line."
-            }
-            return "Marked as pretend. Don't speak yet: call show_next_prop (prop \(p.props.count + 1) of \(propTarget)) FIRST, then say you'll pretend that one and ask about the new prop in the same turn."
+            return turnPretend(&p, at: i, why: nil)
         case .finishPlanning:
             // Round 25: once the kit is being made (or made), a second finish_planning changes nothing (seen live: a
             // late "found it" after the hunt remade the whole kit).
@@ -1012,6 +1027,14 @@ public final class AdventureStore {
 
     /// Misfit pairings in a row (show_next_prop / swap_prop): the first gets a retry, the second the app's fallback.
     @ObservationIgnored private var propMisfits = 0
+    /// Round 43 (Haylee: "box is always used"): this game's prop shortlist (the model chooses from it), made at set_roles.
+    @ObservationIgnored public private(set) var propShortlist: PropShortlist?
+    /// Round 43: make a shortlist per game (the app turns it on; scripted store tests leave it off unless they test it).
+    @ObservationIgnored public var propShortlistOn = false
+    /// Round 43: a fixed seed for the shortlist (tests, debug runs); nil = random.
+    @ObservationIgnored public var shortlistSeed: UInt64?
+    /// Round 43: DEBUG notes about props ("PROP unknown use", the shortlist); the app logs them.
+    @ObservationIgnored public var propLog: ((String) -> Void)?
     /// Round 30: early finish_planning calls refused this hunt (see `.finishPlanning`).
     @ObservationIgnored private var earlyFinishes = 0
     /// Round 30: refuse an early finish_planning (the voice session turns it on; scripted store tests leave it off).
@@ -1019,22 +1042,105 @@ public final class AdventureStore {
     /// Round 30 (Haylee): this game's firm prop count: 4 for 1–2 kids, 5 for 3 or more.
     public var propTarget: Int { PropLibrary.target(players: playerCount) }
 
-    /// The draft to show: as given when the item fits the use (its reason kept if kid-friendly), nil on a first misfit
-    /// (the model retries), or a curated sensible pair on a second misfit. Alternates are kept only when they fit too.
-    private func fittingDraft(_ raw: PlanningCall.PropDraft, used: Set<String>) -> (PlanningCall.PropDraft, Bool)? {
+    /// The draft to show: as given when the pair is fine (its reason kept if kid-friendly and not a parrot), nil on a
+    /// first problem (the model retries), or the app's sensible pair on a second one. Alternates are kept only when they
+    /// fit too, aren't used yet and (with a shortlist) are on it.
+    private func fittingDraft(_ raw: PlanningCall.PropDraft, used: Set<String>, usedUses: Set<String>) -> (PlanningCall.PropDraft, Bool)? {
         var d = raw, fellBack = false
-        if PropFit.fits(itemID: d.itemID, becomes: d.becomes) && PrintedProps.clash(d.becomes, kit: printedKitItems) == nil {
+        if propRetry(raw.itemID, becomes: raw.becomes, alternates: raw.alternates, used: used, usedUses: usedUses) == nil {
             d.reason = PropFit.keptReason(d.reason, itemID: d.itemID, becomes: d.becomes)
         } else {
             guard propMisfits > 0 else { propMisfits += 1; return nil }
-            let f = sensibleFallback(becomes: d.becomes, preferring: d.alternates + [d.itemID], avoiding: used)
+            let f = sensibleFallback(becomes: d.becomes, preferring: d.alternates + [d.itemID], avoiding: used, avoidingUses: usedUses)
             d.itemID = f.itemID; d.becomes = f.becomes; d.reason = f.reason; fellBack = true
         }
         propMisfits = 0
-        var alts = d.alternates.filter { $0 != d.itemID && PropFit.fits(itemID: $0, becomes: d.becomes) }
-        if alts.isEmpty { alts = Array(PropFit.candidates(for: d.becomes, avoiding: used.union([d.itemID])).prefix(1)) }
+        let avoid = used.union([d.itemID])
+        let becomes = d.becomes
+        func ok(_ id: String) -> Bool { !avoid.contains(id) && onShortlist(id) && PropFit.fits(itemID: id, becomes: becomes) }
+        var alts = d.alternates.filter(ok)
+        if alts.isEmpty {
+            alts = Array(PropFit.candidates(for: becomes, preferring: propShortlist?.allIDs ?? [], avoiding: avoid).filter(ok).prefix(1))
+        }
         d.alternates = Array(alts.prefix(2))
         return (d, fellBack)
+    }
+
+    /// Round 43: what's wrong with a pair for THIS hunt (the retry text), or nil when it's fine: a printed thing, an
+    /// item off this game's shortlist, an item or a pretend use already in the hunt, or a misfit.
+    private func propRetry(_ itemID: String, becomes: String, alternates: [String], used: Set<String>, usedUses: Set<String>) -> String? {
+        let name = PropFit.itemName(itemID)
+        if let c = printedClash(becomes) { return PrintedProps.retryOutput(itemID: itemID, becomes: becomes, clash: c) }
+        if let s = propShortlist, !s.contains(itemID) { return s.retryOutput(itemID: itemID, becomes: becomes, used: used) }
+        let preferred = alternates.filter(onShortlist) + (propShortlist?.allIDs ?? [])
+        let others = PropFit.candidates(for: becomes, preferring: preferred, avoiding: used.union([itemID])).filter(onShortlist).prefix(3)
+        if used.contains(itemID) {
+            return "Not shown: the \(name) is already a card in this hunt, and an item is never used twice. Say nothing yet: "
+                + "call the same tool again with a DIFFERENT item" + (others.isEmpty ? "" : " (e.g. \(others.joined(separator: ", ")))")
+                + ". Add a short reason why it works."
+        }
+        let key = PropWords.useKey(becomes)
+        if usedUses.contains(key) {
+            let first = props?.props.first { PropWords.useKey($0.becomes) == key }
+            return "Not shown: \(becomes) is already a prop in this hunt" + (first.map { " (the \($0.householdItem.lowercased()))" } ?? "")
+                + ", and a pretend use is never there twice. Say nothing yet: call the same tool again for a DIFFERENT thing "
+                + "this game needs. Add a short reason why it works."
+        }
+        if !PropFit.fits(itemID: itemID, becomes: becomes) {
+            return PropFit.retryOutput(itemID: itemID, becomes: becomes, preferring: preferred, avoiding: used)
+        }
+        return nil
+    }
+
+    /// Round 43: on this game's shortlist (or there is none).
+    private func onShortlist(_ id: String) -> Bool { propShortlist?.contains(id) ?? true }
+
+    /// Round 43 (F3): the first unused item that fits the same use: the preferred ones and the shortlist first, then
+    /// anything on the list; nil when nothing fits (the caller makes the prop pretend).
+    private func swapCandidate(becomes: String, preferring: [String], avoiding: Set<String>) -> String? {
+        let pool = PropFit.candidates(for: becomes, preferring: preferring.filter(onShortlist) + (propShortlist?.allIDs ?? []),
+                                      avoiding: avoiding)
+        return pool.first(where: onShortlist) ?? pool.first
+    }
+
+    /// Round 43: a fresh alternate the tap ✗ can swap to (fits the card's use, not in this hunt), or nil.
+    public func freshAlternate(forProp id: String) -> String? {
+        guard let p = props?.props, let card = p.first(where: { $0.id == id }) else { return nil }
+        let used = Set(p.compactMap(\.libraryID)).union([card.libraryID ?? card.id])
+        return (card.alternates ?? []).first { PropLibrary.contains($0) && !used.contains($0) && onShortlist($0)
+            && PropFit.fits(itemID: $0, becomes: card.becomes) }
+    }
+
+    /// A prop the kids don't have becomes pretend (skip_prop, or a swap with nothing that fits): the kit prints its
+    /// cut-out. Returns the tool output.
+    private func turnPretend(_ p: inout Props, at i: Int, why: String?) -> String {
+        p.props[i].skipped = true
+        props = p; presenting = .props
+        let lead = why.map { "\($0), so it's a pretend prop now (the kit prints its cut-out; don't call skip_prop). " } ?? "Marked as pretend. "
+        if p.props.count >= propTarget {
+            return lead + "That was the last of the \(propTarget) props: call finish_planning now (the app says the kit line)."
+        }
+        if appSaysPropLines {
+            return lead + "Don't speak: call show_next_prop (prop \(p.props.count + 1) of \(propTarget)) now; the app says the pretend line and the new prop's line."
+        }
+        return lead + "Don't speak yet: call show_next_prop (prop \(p.props.count + 1) of \(propTarget)) FIRST, then say you'll pretend that one and ask about the new prop in the same turn."
+    }
+
+    /// Round 43: this game's prop shortlist, from its game, theme and role words and the last games' props.
+    private func makePropShortlist() {
+        guard propShortlistOn else { propShortlist = nil; return }
+        let game = [gameType, gameTitle, plan?.gameTitle].compactMap { $0 }
+        let roles = (plan?.roles ?? []).flatMap { [$0.roleName, $0.job] }
+        let recent = propMemory?.games ?? []
+        if let seed = shortlistSeed {
+            var rng = SeededGenerator(seed: seed)
+            propShortlist = PropShortlist.make(game: game, roles: roles, recent: recent, using: &rng)
+        } else {
+            propShortlist = PropShortlist.make(game: game, roles: roles, recent: recent)
+        }
+        if let s = propShortlist {
+            propLog?("PROP shortlist: \(s.picks.map(\.itemID).joined(separator: ", ")) · backups \(s.backups.map(\.itemID).joined(separator: ", ")) · uses \(s.uses.prefix(8).joined(separator: "; "))")
+        }
     }
 
     /// Round 42: the kit's printed things for this game (the pages written during the hunt, else the made kit).
@@ -1043,22 +1149,34 @@ public final class AdventureStore {
     /// Round 42: why a prop's use can't be shown (it's a printed thing, by word or in this kit), or nil.
     public func printedClash(_ becomes: String) -> String? { PrintedProps.clash(becomes, kit: printedKitItems) }
 
-    /// A sensible pair that is never a printed thing: the usual fitting fallback, else the first curated pair (the
-    /// preferred items first) whose use the kit doesn't print.
-    private func sensibleFallback(becomes: String, preferring: [String], avoiding: Set<String>) -> (itemID: String, becomes: String, reason: String) {
-        let f = PropFit.fallback(becomes: becomes, preferring: preferring, avoiding: avoiding)
-        if printedClash(f.becomes) == nil { return f }
-        for id in preferring + PropLibrary.ids where !avoiding.contains(id) {
-            if let u = PropLibrary.uses[id]?.first(where: { printedClash($0.becomes) == nil }) { return (id, u.becomes, u.reason) }
+    /// A sensible pair that is never a printed thing, never an item or a use of this hunt, and (round 43) from the
+    /// shortlist: an item that fits the same use (the preferred ones and the shortlist first), else a shortlist pick
+    /// with its own use, else the first curated pair the kit doesn't print.
+    private func sensibleFallback(becomes: String, preferring: [String], avoiding: Set<String>, avoidingUses: Set<String> = [])
+        -> (itemID: String, becomes: String, reason: String) {
+        let useFree = printedClash(becomes) == nil && !avoidingUses.contains(PropWords.useKey(becomes))
+        if useFree, let id = swapCandidate(becomes: becomes, preferring: preferring, avoiding: avoiding), onShortlist(id) {
+            return (id, becomes, PropFit.reason(itemID: id, becomes: becomes))
         }
-        return f
+        if let s = propShortlist {
+            for pick in s.picks + s.backups where !avoiding.contains(pick.itemID) && !pick.use.isEmpty
+                && printedClash(pick.use) == nil && !avoidingUses.contains(PropWords.useKey(pick.use))
+                && PropFit.fits(itemID: pick.itemID, becomes: pick.use) {
+                return (pick.itemID, pick.use, PropFit.reason(itemID: pick.itemID, becomes: pick.use))
+            }
+        }
+        if useFree, let id = swapCandidate(becomes: becomes, preferring: preferring, avoiding: avoiding) {
+            return (id, becomes, PropFit.reason(itemID: id, becomes: becomes))
+        }
+        return PropFit.curatedPair(preferring: preferring.filter(onShortlist) + (propShortlist?.allIDs ?? []), avoiding: avoiding,
+                                   avoidingUses: avoidingUses, printed: { self.printedClash($0) != nil })
     }
 
     // MARK: Corrections (round 19)
 
     /// The roles and props were made for the old plan (or the count/theme just changed): clear them and wait on the recap.
     private func clearPlanForRedo() {
-        plan = nil; props = nil; foundProps = []; currentPropID = nil
+        plan = nil; props = nil; foundProps = []; currentPropID = nil; propShortlist = nil
         phase = .players; presenting = .none; planningStep = .confirm
     }
 
