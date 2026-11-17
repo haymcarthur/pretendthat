@@ -70,16 +70,20 @@ struct PTStageView<Character: View, Overlay: View>: View {
             let comp = PTStageCamera.compose(f, g, faceFocus: faceFocus)
             let L = comp.nutmeg
             ZStack(alignment: .topLeading) {
-                PTStageFloor(rect: comp.floor, apron: metrics.isPhone)
+                let origin = CGPoint(x: proxy.frame(in: .global).minX, y: geo.originY)
+                if metrics.isPhone {
+                    PTPhoneScenery(comp: comp, fullFloor: g.floor, screen: screen, origin: origin)
+                } else {
+                PTStageFloor(rect: comp.floor, apron: false)
                 // Round 15 (Haylee: the floor ran in front of the curtains on The End): the proscenium (curtains,
                 // tie-backs, valance) draws ABOVE the floor at every camera position. Same curtains as the backdrop's,
                 // placed in screen space (the full-screen backdrop's frame, wherever this stage sits), so they line up
                 // exactly; the floor moves under them, Nutmeg and the cards stay in front.
-                let origin = CGPoint(x: proxy.frame(in: .global).minX, y: geo.originY)
                 PTCurtain(progress: 1, showsValance: false)
                     .frame(width: screen.width, height: screen.height)
                     .position(x: screen.width / 2 - origin.x, y: screen.height / 2 - origin.y)
                     .allowsHitTesting(false)
+                }
                 ForEach(Array(PTStageCamera.stars.enumerated()), id: \.offset) { i, star in
                     // Round 11: the stars are stage props: exactly the camera's transform (no parallax, no size cap).
                     let side = star.size * L.k
@@ -346,5 +350,85 @@ struct PTHuntButtons: View {
             PTBigIconButton(kind: .cross, size: size, label: "We don't have it") { action(false) }
         }
         .padding(.bottom, Theme.depth)   // the depth edge stays inside the card
+    }
+}
+
+
+// MARK: - iPhone stage scenery (round 40)
+
+/// Round 40 (Haylee: "the iPhone stage looks odd when Nutmeg is shrunk"): how the phone's stage scenery (sky, floor,
+/// curtains) follows Nutmeg when she shrinks to make room for a card below her.
+/// - `settle` (shipped): she shrinks and steps back; the floor stays as wide as the stage (its edge is a gentle curve
+///   right under her feet, never a small round platform with a straight line beside it), and the curtains' tie-backs
+///   rise with her so they sit beside her, above the card. The card then covers the lower stage cleanly.
+/// - `zoom`: the camera pulls back: the whole proscenium (sky, floor, curtains) shrinks with her, inside the coral
+///   "house" curtains (compared in screenshots, not shipped: a stage inside a stage, tiny tassels, a big coral frame).
+/// - `old`: round 39 (the floor shrinks with her: the platform floats mid-screen, the sky ends in a hard line).
+enum PTPhoneStageLook: String {
+    case settle, zoom, old
+    static var current: PTPhoneStageLook {
+        #if DEBUG
+        let args = ProcessInfo.processInfo.arguments
+        if let i = args.firstIndex(of: "-PTStageLook"), i + 1 < args.count, let l = PTPhoneStageLook(rawValue: args[i + 1]) { return l }
+        #endif
+        return .settle
+    }
+}
+
+/// The phone stage's scenery under Nutmeg (stage coordinates; `origin` = the stage's top-left on the screen).
+struct PTPhoneScenery: View {
+    let comp: PTStageCamera.Composition
+    /// The floor at the reference (arrival) framing, stage coordinates.
+    let fullFloor: CGRect
+    let screen: CGSize
+    let origin: CGPoint
+    var look = PTPhoneStageLook.current
+
+    var body: some View {
+        let s = comp.world.scale
+        switch look {
+        case .old:
+            PTStageFloor(rect: comp.floor, apron: true)
+            curtains(tie: nil, valance: false)
+        case .settle:
+            // Her own sky (it hides the backdrop's curtains, which can't follow the tie), so the valance is drawn here.
+            Theme.startSky.frame(width: screen.width, height: screen.height)
+                .position(x: screen.width / 2 - origin.x, y: screen.height / 2 - origin.y)
+            let w = max(comp.floor.width, fullFloor.width)
+            PTStageFloor(rect: CGRect(x: comp.floor.midX - w / 2, y: comp.floor.minY, width: w, height: comp.floor.height), apron: true)
+            // The tie-backs keep their height above the floor line, in her scale (stage coords → screen coords).
+            let fullTie = screen.height * 0.45
+            let fullFeet = fullFloor.midY + origin.y, feet = comp.floor.midY + origin.y
+            curtains(tie: s < 0.999 ? min(fullTie, feet - (fullFeet - fullTie) * s) : nil, valance: true)
+        case .zoom:
+            // The house: coral all round; the whole full-size proscenium scaled with her (floor → her floor).
+            Theme.coral.frame(width: screen.width, height: screen.height)
+                .position(x: screen.width / 2 - origin.x, y: screen.height / 2 - origin.y)
+            let tl = CGPoint(x: comp.floor.minX + (-origin.x - fullFloor.minX) * s, y: comp.floor.minY + (-origin.y - fullFloor.minY) * s)
+            ZStack(alignment: .topLeading) {
+                Theme.startSky
+                PTStageFloor(rect: fullFloor.offsetBy(dx: origin.x, dy: origin.y), apron: true)
+                PTCurtain(progress: 1, showsValance: false)
+            }
+            .frame(width: screen.width, height: screen.height, alignment: .topLeading)
+            .scaleEffect(s, anchor: .topLeading)
+            .position(x: tl.x + screen.width / 2, y: tl.y + screen.height / 2)
+            curtainsValanceOnly
+        }
+    }
+
+    private func curtains(tie: CGFloat?, valance: Bool) -> some View {
+        PTCurtain(progress: 1, showsValance: valance, tieY: tie)
+            .frame(width: screen.width, height: screen.height)
+            .position(x: screen.width / 2 - origin.x, y: screen.height / 2 - origin.y)
+            .allowsHitTesting(false)
+    }
+
+    private var curtainsValanceOnly: some View {
+        PTValance(height: PTCurtain.metrics(screen).valance)
+            .frame(width: screen.width, alignment: .leading).clipped()
+            .frame(width: screen.width, height: screen.height, alignment: .topLeading)
+            .position(x: screen.width / 2 - origin.x, y: screen.height / 2 - origin.y)
+            .allowsHitTesting(false)
     }
 }

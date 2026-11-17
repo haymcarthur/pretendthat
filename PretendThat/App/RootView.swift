@@ -155,7 +155,9 @@ struct RootView: View {
                     .transition(.move(edge: .leading).combined(with: .opacity))
                     .ignoresSafeArea(.keyboard)
             }
-            if chromeVisible {
+            // Round 40 (Haylee): on the iPhone the chat shelf hides the pill (typing is the chat's input; closing the
+            // chat brings the pill back, the mic one tap away). The iPad keeps it.
+            if chromeVisible && !(metrics.isPhone && chatOpen) {
                 PTControlBar(chatOpen: chatOpen, mic: micMode, canRepeat: model.repeatTarget.isAvailable,
                              onChat: { chatOpen.toggle() },
                              onMicPress: { model.talkPressed(touchHost: $0) },
@@ -261,7 +263,12 @@ struct RootView: View {
             #endif
         }
         // Round 30 (Haylee): opening the panel always starts on the step tab (the transcript is one tap away).
-        .onChange(of: chatOpen) { _, open in if open { chatTabs.panelOpened() } }
+        .onChange(of: chatOpen) { _, open in
+            if open { chatTabs.panelOpened() }
+            #if DEBUG
+            if open, DemoDriver.chatTabChat { chatTabs.select(.chat) }   // round 40 shots: the transcript and its field
+            #endif
+        }
         .onChange(of: model.kitPapersOut) { _, _ in model.updateIdleTimer() }
         .onChange(of: desiredShot) { _, _ in scheduleShot() }
         // Round 7: the point toward a prop card is tied to the card's reveal and her prop line (AppModel.pointAtCard).
@@ -324,7 +331,9 @@ struct RootView: View {
 
     // MARK: iPhone (portrait)
 
-    /// The phone's chat sheet: full width under the top bar, down to the bottom edge, its field above the pill.
+    /// The phone's chat shelf (round 40, Haylee): edge to edge, attached to the bottom of the screen (rounded top
+    /// corners only), under the X + step rail; the control pill is hidden while it's open, so its field sits just above
+    /// the home indicator.
     private var phoneChatSheet: some View {
         let safeBottom = max(0, (screenSize == .zero ? rootSize.height : screenSize.height) - rootSize.height - rootTop)
         return PTChatPanel(lines: model.realtime.transcript.map { PTChatPanel.Line(id: $0.id, fromNutmeg: $0.fromNutmeg, text: $0.text) },
@@ -334,8 +343,7 @@ struct RootView: View {
                            tab: tabbed ? Binding(get: { chatTabs.tab }, set: { chatTabs.select($0) }) : nil,
                            stepTab: stepTab ?? .scene,
                            header: AnyView(PTNutmegAvatar(model: model)),
-                           bottomClearance: keyboardUp ? 0 : metrics.pillHeight + metrics.pillBottom + safeBottom)
-            .padding(.horizontal, Theme.Space.s)
+                           bottomClearance: keyboardUp ? 0 : safeBottom)
             .padding(.top, LayoutMetrics.phoneTopInset(screen: screenSize == .zero ? rootSize : screenSize, safeTop: rootTop)
                      + LayoutMetrics.phoneTopBar + Theme.Space.xs)
             .ignoresSafeArea(.container, edges: .bottom)
@@ -679,7 +687,7 @@ struct RootView: View {
         case .pickGame: EmptyView()   // games are talked about only: no idea cards, no caption (no-text-overlays.md)
         // Round D1: a replay's Pick and Props (round 26: the first play's flows; its Print is the first play's KitView).
         // Round 30: chat open, a replay's cover and props are in the panel's step tab (the stage hides the duplicate).
-        case .players: if store.isReplay { if !(chatOpen && chromeVisible) { ReplayPickView(model: model) } } else { PlayersView(model: model) }
+        case .players: if store.isReplay { if !(chatOpen && chromeVisible) { ReplayPickView(model: model, coverWidth: min(360, width - 8), maxHeight: height) } } else { PlayersView(model: model) }
         // Round 34: a replay's hunt is drawn by the stage overlay (`PTPropHuntStage`), exactly like a first play's.
         case .props: if store.isReplay { EmptyView() } else { PropsView(model: model) }
         case .makingKit, .kitReady: KitView(model: model, clipboard: clipboard, chatOpen: chatOpen && chromeVisible, preview: $kitPreview,

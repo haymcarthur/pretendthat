@@ -474,6 +474,25 @@ enum DemoDriver {
             if target == "shelf" { model.openShelf() }
             return
         }
+        // Round 40: `-PTDemo replayPick` (a saved game, cover from env PT_SEED_COVER, then its replay's Pick) and
+        // `-PTDemo play1` (the first play scene) for the iPhone stage and cover shots.
+        if target == "replayPick" {
+            await drive(store, model: model, to: "end")
+            let cover = ProcessInfo.processInfo.environment["PT_SEED_COVER"].flatMap { try? Data(contentsOf: URL(fileURLWithPath: $0)) }
+            if var g = store.savedGame(now: Date(), art: [], cover: nil) {
+                g.title = "Sea Clinic \(Int(Date().timeIntervalSince1970) % 1000)"
+                try? model.savedGames.save(g, art: [:], cover: cover)
+                model.leave(); model.refreshShelf()
+                if let saved = model.shelfGames.first(where: { $0.title == g.title }) { model.tapSavedGame(saved) }
+            }
+            return
+        }
+        if target == "play1" || target == "cleanup" {
+            await drive(store, model: model, to: "scene2")
+            store.nextScene()
+            if target == "cleanup" { while case .scene(let i) = store.phase, store.currentArc != .cleanup, i < 10 { store.nextScene() } }
+            return
+        }
         if target == "sceneLong" {   // round 14/29: 6 players, a 2-line title and 6 long tasks
             await drive(store, model: model, to: "scene")
             store.changePlayerCount(6)

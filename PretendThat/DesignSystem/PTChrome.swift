@@ -388,6 +388,22 @@ struct PTWiFiNote: View {
 
 // MARK: - Chat panel
 
+/// Round 40: the iPad panel is a rounded floating panel; the iPhone's is a shelf attached to the bottom of the screen,
+/// edge to edge, with only its top corners rounded.
+struct PTChatPanelShape: ViewModifier {
+    var shelf: Bool
+    func body(content: Content) -> some View {
+        if shelf {
+            content
+                .background(UnevenRoundedRectangle(topLeadingRadius: 28, bottomLeadingRadius: 0, bottomTrailingRadius: 0,
+                                                   topTrailingRadius: 28, style: .continuous).fill(Theme.white))
+                .shadow(color: Theme.panelShadow, radius: 10, y: -2)
+        } else {
+            content.ptPanel(radius: 28)
+        }
+    }
+}
+
 /// Dark rounded panel from the right: the live transcript as bubbles and a native TextField to type to Nutmeg.
 struct PTChatPanel: View {
     struct Line: Identifiable, Equatable { let id: UUID; let fromNutmeg: Bool; let text: String }
@@ -479,7 +495,7 @@ struct PTChatPanel: View {
         .frame(maxWidth: metrics.isPhone ? .infinity : nil)
         .frame(maxHeight: .infinity)
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { panelHeight = $0 }
-        .ptPanel(radius: 28)
+        .modifier(PTChatPanelShape(shelf: metrics.isPhone))
     }
 
     /// The transcript (Nutmeg's and the kid's lines, typing dots), following the newest line.

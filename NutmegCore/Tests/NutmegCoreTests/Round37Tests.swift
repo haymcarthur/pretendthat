@@ -5,8 +5,10 @@ import Testing
 /// Round 37 (Haylee: every prop and printed item is used on purpose, tasks are short and broad, kids can't read): the
 /// setup and clean-up scenes may give a role several rows (a solo kid 2 to 4), at most 2 items a row, and every row
 /// has a real short label of 2 to 7 words that names its item(s), never "… and more".
+/// Round 40: these rows are now how a game saved before round 40 (no goals) still composes, so the tests use the demo
+/// game with its goals taken off (an older saved game's replay must look and sound as it did).
 @MainActor struct Round37Tests {
-    let a = Fallback.airplane
+    let a: Fallback.Airplane = { var x = Fallback.airplane; x.kit.setup?.goals = nil; x.kit.cleanup?.goals = nil; return x }()
     var roles: [Role] { a.plan.roles }
     var props: [Prop] { a.props.props }
 

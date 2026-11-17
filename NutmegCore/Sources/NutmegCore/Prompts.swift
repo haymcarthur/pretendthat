@@ -167,13 +167,16 @@ public enum Prompts {
         + "play space with the printed pages and their props (title 2 to 4 words; nutmegSays ONE sentence starting with "
         + "\"Pretend that\", e.g. \"Pretend that the bakery opens in five minutes!\"). cleanupScene: the story's ending, "
         + "putting everything away (e.g. title \"Closing Time\", nutmegSays \"Pretend that the bakery is closing for the "
-        + "night!\"). pageJobs: for EACH printed page, the job that gives it its purpose: setupSay = what the kids do with "
-        + "that page to set up (an imperative phrase of 5 to 12 words, no role title, naming the page, e.g. \"hang the "
-        + "Sunny Bakery sign by the door so customers can find us\"; badges: \"put on your badge\"; cut-outs: what they "
-        + "set the cut-outs out as), cleanupSay = how they tidy it at the end, framed in the story, both with short row "
-        + "texts of 2 to 5 words that name the page, and role = the role it suits best (spread them over R1 to R6). Every page and every prop must have a "
-        + "clear purpose, nothing random or unused: the play tasks may refer back to what was set up (\"serve the cakes "
-        + "you lined up on the counter\")."
+        + "night!\"). goals (in both scenes): for EACH role R1 to R6, that role's GOAL in the scene, 2 to 6 words in the "
+        + "game's world, an imperative with no role title and no list of items (setup e.g. \"Get the pet room ready\", "
+        + "\"Open the front desk\"; clean-up e.g. \"Close up the clinic\"); the kids see only the goal, and Nutmeg says "
+        + "how: \"get the pet room ready by hanging up the sign and setting up the pet bed\". pageJobs: for EACH printed "
+        + "page, the job that gives it its purpose: setupSay = what the kids do with that page to set up (an imperative "
+        + "phrase of 5 to 12 words that STARTS WITH A VERB, no role title, naming the page, e.g. \"hang the Sunny Bakery "
+        + "sign by the door\"; badges: \"put on your badge\"; cut-outs: what they set the cut-outs out as), cleanupSay = "
+        + "how they tidy it at the end, framed in the story, starting with a verb, and role = the role whose goal it "
+        + "belongs to (spread them over R1 to R6). Every page and every prop must have a clear purpose, nothing random or "
+        + "unused: the play tasks may refer back to what was set up (\"serve the cakes you lined up on the counter\")."
 
     static func contextJSON(_ ctx: AdventureContext) -> String {
         let enc = JSONEncoder(); enc.outputFormatting = [.sortedKeys]

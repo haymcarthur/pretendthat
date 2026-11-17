@@ -8,3 +8,4 @@
 - **Why:** after her first iPhone game, Haylee found the 2-player rows too granular and missing the props. The 4-player rows were closer.
 - **Replaces:** round 37's rule of at most 2 items per row with labels that list the items.
 - **Who decided:** Haylee.
+- **Built:** round 40 ([decision](2026-11-17-round40.md)).

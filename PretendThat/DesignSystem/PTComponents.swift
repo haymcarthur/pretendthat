@@ -100,6 +100,36 @@ struct PTRoleBadge: View {
 /// Round 29 (Haylee, ensemble scenes): one playing role's row on a scene card: the role's character picture, its ONE
 /// task for the scene, and a big 🔊 (≥ 56 pt) that reads just that task. No checkbox: the iPad stays in the middle and
 /// everyone plays at once; the green ▶ moves on.
+/// Round 40 (Haylee: "a lot of outlines": a thick role-colored row outline, a ring on the badge AND a ring on the 🔊):
+/// ONE visual container per row.
+/// - `soft` (shipped): no outline; the row is a soft pill in a pale tint of the role color with a slightly deeper
+///   bottom edge (still reads as tappable); the badge is the art in a plain circle (no ring); the 🔊 is a plain white
+///   circle with the icon in the role color.
+/// - `thin` (the alternative, for Haylee to compare): a thin role-colored outline on a white row, no rings.
+/// - `rings`: the round-39 look (thick outline + both rings).
+enum PTRowLook: String {
+    case soft, thin, rings
+    static var current: PTRowLook {
+        #if DEBUG
+        let args = ProcessInfo.processInfo.arguments
+        if let i = args.firstIndex(of: "-PTRowLook"), i + 1 < args.count, let l = PTRowLook(rawValue: args[i + 1]) { return l }
+        #endif
+        return .soft
+    }
+    /// The badge and the 🔊 carry a ring (only the round-39 look).
+    var rings: Bool { self == .rings }
+}
+
+/// Round 40: the row's pale fill: the role color mixed a little into white (opaque, so the paper never shows through).
+extension Color {
+    func paleTint(_ amount: Double = 0.16) -> Color {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        UIColor(self).getRed(&r, green: &g, blue: &b, alpha: &a)
+        let t = CGFloat(amount)
+        return Color(red: 1 - (1 - r) * t, green: 1 - (1 - g) * t, blue: 1 - (1 - b) * t)
+    }
+}
+
 struct PTTaskRow<Picture: View>: View {
     let text: String
     /// The role's color (the row's edge and the 🔊 ring), so a kid finds their row by color and character.
@@ -108,6 +138,7 @@ struct PTTaskRow<Picture: View>: View {
     var padding: CGFloat = Theme.Space.s
     /// iPhone version: the 🔊's size (the whole row is the button, so 44 pt still reads as the cue on the phone).
     var speaker: CGFloat = 56
+    var look: PTRowLook = .current
     let speakLabel: String
     let onSpeak: () -> Void
     @ViewBuilder var picture: Picture
@@ -123,13 +154,9 @@ struct PTTaskRow<Picture: View>: View {
                     .minimumScaleFactor(min(1, 17 / fontSize))
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)   // the text takes all the room between picture and 🔊
-                Image(systemName: "speaker.wave.2.fill")
-                    .font(.system(size: speaker == 56 ? 24 : speaker * 0.43, weight: .bold)).foregroundStyle(Theme.ink)
-                    .frame(width: speaker, height: speaker)
-                    .background(Circle().fill(Theme.chipGray))
-                    .overlay(Circle().strokeBorder(tint, lineWidth: 3))
+                speakerButton
             }
-            .ptCard(fill: Theme.white, edge: tint, padding: padding)
+            .modifier(PTTaskRowBackground(look: look, tint: tint, padding: padding))
             .contentShape(Rectangle())
         }
         .buttonStyle(PTRowPressStyle(tint: tint))
@@ -137,6 +164,48 @@ struct PTTaskRow<Picture: View>: View {
         .accessibilityLabel(speakLabel)
         .accessibilityHint(text)
         .accessibilityAddTraits(.isButton)
+    }
+
+    @ViewBuilder private var speakerButton: some View {
+        let icon = Image(systemName: "speaker.wave.2.fill")
+            .font(.system(size: speaker == 56 ? 24 : speaker * 0.43, weight: .bold))
+            .frame(width: speaker, height: speaker)
+        switch look {
+        case .rings:
+            icon.foregroundStyle(Theme.ink)
+                .background(Circle().fill(Theme.chipGray))
+                .overlay(Circle().strokeBorder(tint, lineWidth: 3))
+        case .soft, .thin:
+            icon.foregroundStyle(tint)
+                .background(Circle().fill(Theme.white))
+                .background(Circle().fill(look == .soft ? tint.opacity(0.22) : Theme.line.opacity(0.6)).offset(y: 2))
+        }
+    }
+}
+
+/// Round 40: the one container a scene row has (see `PTRowLook`).
+struct PTTaskRowBackground: ViewModifier {
+    let look: PTRowLook
+    let tint: Color
+    let padding: CGFloat
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous)
+        switch look {
+        case .rings:
+            content.ptCard(fill: Theme.white, edge: tint, padding: padding)
+        case .soft:
+            content
+                .padding(padding)
+                .background(shape.fill(tint.paleTint()))
+                .background(shape.fill(tint.paleTint(0.38)).offset(y: 3))
+                .padding(.bottom, 3)
+        case .thin:
+            content
+                .padding(padding)
+                .background(shape.fill(Theme.white))
+                .overlay(shape.strokeBorder(tint, lineWidth: 1.5))
+                .padding(.bottom, 3)
+        }
     }
 }
 
@@ -160,6 +229,8 @@ struct PTCharacterPicture: View {
     let role: Role
     let image: UIImage?
     var size: CGFloat = 64
+    /// Round 40: false = the art in a plain circle (no ring, no shaded edge), for the calmer scene rows.
+    var ring = true
 
     var body: some View {
         let tint = Theme.playerColor(role.id.index)
@@ -176,8 +247,8 @@ struct PTCharacterPicture: View {
             }
         }
         .frame(width: size, height: size)
-        .overlay(Circle().strokeBorder(tint, lineWidth: max(2, size * 0.05)))
-        .background(Circle().fill(Theme.playerShade(role.id.index)).offset(y: Theme.cardDepth * 0.6))
+        .overlay(Circle().strokeBorder(tint, lineWidth: ring ? max(2, size * 0.05) : 0))
+        .background(Circle().fill(Theme.playerShade(role.id.index)).offset(y: Theme.cardDepth * 0.6).opacity(ring ? 1 : 0))
         .animation(.easeInOut(duration: 0.25), value: image != nil)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(role.roleName)

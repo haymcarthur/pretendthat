@@ -505,7 +505,15 @@
           "householdItem": "Backpack",
           "becomes": "Suitcase"
         }
-      ]
+      ],
+      "goals": {
+        "R1": "Get the cockpit ready",
+        "R2": "Get the cabin ready",
+        "R3": "Stock the snack cart",
+        "R4": "Open the boarding gate",
+        "R5": "Get the snack kitchen ready",
+        "R6": "Get ready to board"
+      }
     },
     "cleanup": {
       "title": "Back at the Gate",
@@ -579,7 +587,15 @@
           "householdItem": "Backpack",
           "becomes": "Suitcase"
         }
-      ]
+      ],
+      "goals": {
+        "R1": "Close up the cockpit",
+        "R2": "Tidy up the cabin",
+        "R3": "Close the snack cart",
+        "R4": "Close the boarding gate",
+        "R5": "Clean the snack kitchen",
+        "R6": "Unpack after the flight"
+      }
     }
   }
 }
