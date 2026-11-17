@@ -113,9 +113,10 @@ The map. Read this first, then open only what you need.
 - [Round 30 build: Release builds can't carry personal keys (Release.xcconfig + build check), chat step tabs (Props / Print / Scene / cover), 4 props for 1–2 kids and 5 for 3+, prop anti-repeat (last 5 games), 30 new props](decisions/2026-11-16-round30.md): Haylee (items), Claude's calls noted
 
 - [Kids' voices stay on the iPad: on-device speech to text, text-only turns to the AI, Nutmeg's voice unchanged](decisions/2026-11-16-on-device-speech.md): Haylee
+- [Round 31 build: on-device speech (no kid audio leaves the iPad, words name-scrubbed + screened, sent as text; grown-up note + typing when on-device speech is missing), instant mic press (UIKit touch view: 750–850 ms → 12–15 ms), latency and what still needs a real iPad, suggested privacy wording](decisions/2026-11-16-round31-on-device-speech-build.md): Haylee (design), Claude's calls noted
 
 ## Work queue
-- [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–29 (ensemble scenes) + C1 + D1 + D2 + D3a + D3b done (round 27's mockups separate); next: D4 iCloud
+- [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–31 (31: on-device speech + instant mic) + C1 + D1 + D2 + D3a + D3b done (round 27's mockups separate); next: D4 iCloud
 
 ## Research
 - [Cost per game (2026-11-15)](research/2026-11-15-cost-per-game.md): about $1.60/game, OpenAI voice is the biggest share; levers ranked
