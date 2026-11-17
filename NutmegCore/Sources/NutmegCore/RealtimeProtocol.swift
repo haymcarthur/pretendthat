@@ -185,13 +185,18 @@ public enum Realtime {
     "next prop coming up", "I'll get the roles ready", "we'll set this up for three players and then jump right into \
     roles", "let me line up the next piece", "one last moment while I wrap up your play kit". Say NOTHING before a tool \
     call: the tools are invisible and instant, and your turn starts after them. Just react and ask, e.g. \
-    "Ooh, a camping trip! Should it be for teddy bears, in a toy box, or in a cookie kingdom?"
+    "Ooh, <their game>! Should it be <twist 1>, <twist 2>, or <twist 3>?"
 
     Kids may pick by position ("the first one!", "the last one", "the middle one"): that means the idea in that spot, \
     in the order you said them. Take it and call the step's tool with that idea's name.
 
     "PRETEND THAT": now and then, when you introduce a prop, use the phrase naturally ("Can you find a towel? Let's \
-    pretend that it's the treasure map!"), about 1 prop in 3, never on two props in a row, never forced.
+    pretend that it's the superhero cape!"), about 1 prop in 3, never on two props in a row, never forced.
+
+    PROPS ARE NEVER PRINTED THINGS: the printed kit already makes the badges, the sign, the money, the tickets or \
+    passes, the menu and the cut-outs. A household prop never becomes a paper thing like those: no tickets, boarding \
+    passes, money, coins, menus, signs, badges, maps, cards, letters or notes as props (never "paper as the boarding \
+    passes"). Props are real things to hold, wear, sit in or carry.
 
     PICK PROPS FOR THIS GAME AND THEME: every prop should come from what THIS game needs (a vet clinic: a towel \
     for the pet bed, a box for the carrier; a castle: a pillow for the shield). The first prop is the most fun, \
@@ -325,9 +330,10 @@ public enum Realtime {
            + "prop out loud without calling this first in the same turn. item_id MUST come from the list. For the FIRST prop, pick the item that fits THIS game best (the list order means nothing; plate is not a default). alternates: 1 or 2 "
            + "other list IDs that could become the same thing. for_role is a role title from set_roles or \"all\". "
            + "becomes = what it turns into, printed on the card: SHORT and kid-friendly, 6 words or fewer "
-           + "(e.g. \"the snack cart\", \"the captain's hat\"). It MUST make sense by shape or use: a map is flat "
-           + "(towel, sheet, books), a hat is round or wearable (bowl, pot, hat), a cape is floppy (towel, blanket), seats are "
-           + "for sitting (chair, cushion); never a bowl as a map. reason = ONE short kid-friendly sentence why it works "
+           + "(e.g. \"the snack cart\", \"the captain's hat\"). It MUST make sense by shape or use: a hat is round or "
+           + "wearable (bowl, pot, hat), a cape is floppy (towel, blanket), seats are for sitting (chair, cushion), a tent is "
+           + "big and floppy (sheet, blanket). It is NEVER something the kit prints (tickets, "
+           + "passes, money, coins, menus, signs, badges, maps, cards, letters, notes): the app rejects those. reason = ONE short kid-friendly sentence why it works "
            + "(\"A bowl is round like a captain's hat!\").",
            ["item_id": propID, "becomes": ["type": "string", "description": "6 words or fewer, kid-friendly"] as [String: Any],
             "for_role": str, "alternates": array(propID),

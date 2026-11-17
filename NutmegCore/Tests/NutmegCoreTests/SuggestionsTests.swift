@@ -369,7 +369,7 @@ struct SuggestionsTests {
     }
 
     @Test func pretendThatPhraseIsInTheInstructions() {
-        #expect(Realtime.instructions.contains("pretend that it's the treasure map"))
+        #expect(Realtime.instructions.contains("pretend that it's the superhero cape"))   // round 42: maps are printed
         #expect(Realtime.instructions.contains("about 1 prop in 3"))
         #expect(Prompts.system.contains("Pretend that a hungry customer just walked in!"))
     }

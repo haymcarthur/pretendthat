@@ -239,7 +239,12 @@ final class AppModel {
         aiConsent = parentSettings.aiConsent
         realtime.onCall = { [weak self] name, args in
             guard let self else { return ("ok", true) }
-            return await self.handleCall(name: name, arguments: args)
+            let r = await self.handleCall(name: name, arguments: args)
+            #if DEBUG
+            // Round 42: a prop the app turned away (a misfit or a printed thing) shows in the log with what was asked.
+            if r.output.hasPrefix("Not shown") { rtLog("PROP rejected (\(name)): \(args.prefix(160)) → \(r.output.prefix(90))") }
+            #endif
+            return r
         }
     }
 
