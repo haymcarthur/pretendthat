@@ -68,7 +68,12 @@ public enum Prompts {
     }
 
     public static func props(ctx: AdventureContext) -> String {
-        "Phase: props hunt. Pick exactly \(PropLibrary.target(players: ctx.playerCount)) different household items from the prop list (id) that become props for this game. householdItem is the item's name; becomes is 2 to 4 words (\"Cozy café seats\"). Every pairing must make sense by shape or use (a hat is round or wearable: bowl, pot, hat; a cape is floppy: towel, blanket; seats are for sitting: chair, cushion; a tent is big and floppy: sheet, blanket). A prop is NEVER something the printed kit makes (no tickets, passes, money, coins, menus, signs, badges, maps, cards, letters or notes): the kit prints those. reason is ONE short kid-friendly sentence why it works (\"A bowl is round like a captain's hat!\"). Return Props.\n\(contextJSON(ctx))"
+        // Round 43: no fixed item examples (the model copied them: box, bowl); this game's shortlist instead.
+        let list = ctx.propShortlist.map { s in
+            " Choose ONLY from this game's prop shortlist (the app picked it fresh for this game): "
+                + (s.picks + s.backups).map { "\($0.itemID) (e.g. \($0.use))" }.joined(separator: ", ") + "."
+        } ?? ""
+        return "Phase: props hunt. Pick exactly \(PropLibrary.target(players: ctx.playerCount)) different household items from the prop list (id) that become props for this game.\(list) householdItem is the item's name; becomes is 2 to 4 words. Every pairing must make sense by shape or use: \(PropRules.shapeSentence) Never the same item twice and never the same pretend use twice. A prop is NEVER something the printed kit makes (no tickets, passes, money, coins, menus, signs, badges, maps, cards, letters or notes): the kit prints those. reason is ONE short kid-friendly sentence saying what about the item's shape or use makes it work (never just the pair again). Return Props.\n\(contextJSON(ctx))"
     }
 
     public static func kit(ctx: AdventureContext) -> String {
