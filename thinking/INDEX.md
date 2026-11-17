@@ -1,5 +1,7 @@
 # Thinking index (PretendThat)
 
+**Morning summary:** [overnight-status.md](overnight-status.md)
+
 The map. Read this first, then open only what you need.
 
 ## Decisions
