@@ -24,6 +24,11 @@ enum DemoDriver {
         return args[i + 1]
     }
 
+    /// Round 32: `-PTGrownUps <GrownUpsSection rawValue>` opens that menu screen (savedGames, subscription,
+    /// restorePurchases, aboutWhatWeSave, help) or web page (privacyPolicy, termsOfUse); `menu` = the menu itself.
+    /// `-PTReplayIntroRow` shows the hidden "Replay the intro" row; `-PTRestoreShowResult` shows a restore result.
+    static var showReplayIntroRow: Bool { ProcessInfo.processInfo.arguments.contains("-PTReplayIntroRow") }
+
     /// `-PTShot closeUp|medium|wide` (hunt = medium): hold the conversation camera on one shot (screenshots).
     static var forcedShot: PTCameraShot? {
         let args = ProcessInfo.processInfo.arguments

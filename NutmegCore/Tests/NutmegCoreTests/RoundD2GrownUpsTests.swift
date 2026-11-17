@@ -89,14 +89,9 @@ struct RoundD2GrownUpsTests {
 
     // MARK: Sections and copy
 
-    @Test func onlySavedGamesSectionsShowUntilSectionE() {
-        #expect(GrownUpsFeatures.storeSections == false)
-        #expect(GrownUpsSection.visible() == [.savedGames, .aboutSavedGames])
-        #expect(GrownUpsSection.visible(storeSections: true) == [.savedGames, .aboutSavedGames, .subscription,
-                                                                  .restorePurchases, .privacyPolicy, .help])
+    // Round 32 replaced D2's two sections with the menu (see Round32GrownUpsMenuTests).
+    @Test func deleteCopy() {
         #expect(GrownUpsCopy.deleteConfirm("Moon Crumbs Bakery") == "Delete Moon Crumbs Bakery? This can't be undone.")
-        let about = GrownUpsCopy.about.map { $0.title + " " + $0.body }.joined(separator: " ")
-        #expect(about.contains("this iPad") && about.contains("no accounts") && about.contains("never saves your child"))
     }
 
     // MARK: Deleting from the store

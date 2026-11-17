@@ -1379,6 +1379,12 @@ final class AppModel {
         refreshShelf()
     }
     func grownUpRows() -> [SavedGameRow] { savedGames.rows() }
+    /// Round 32 stub for the Grown-ups "Replay the intro" row (hidden while `GrownUpsFeatures.replayIntro` is off).
+    /// Round 33 (parent onboarding) wires it: close Grown-ups, then present the onboarding from its first screen.
+    func replayParentIntro() {
+        rtLog("grown-ups: replay the intro (stub until round 33's parent onboarding)")
+        closeGrownUps()
+    }
     /// Deletes a saved game for good (its folder: game.json, art, cover). After the last one, My games goes away.
     func deleteSavedGame(_ id: UUID) {
         let gone = savedGames.deleteGame(id)
