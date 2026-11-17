@@ -39,7 +39,8 @@ final class Listener {
         }
         readiness = forceUnavailable ? .onDeviceUnavailable
             : SpeechReadiness.decide(speech: permission, mic: mic, recognizerExists: recognizer != nil,
-                                     supportsOnDevice: recognizer?.supportsOnDeviceRecognition ?? false)
+                                     // Round 34: or the model the app downloaded itself (iPadOS 26+).
+                                     supportsOnDevice: (recognizer?.supportsOnDeviceRecognition ?? false) || KidSpeechCapture.useAnalyzer)
         rtLog("speech: \(readiness) (on-device supported: \(recognizer?.supportsOnDeviceRecognition ?? false))")
     }
 

@@ -51,6 +51,7 @@ extension AppModel {
         if debugDriving {
             aiConsent = true   // in memory only: the drivers need the voice
             await listener.requestAuth()
+            await refreshSpeechModel()
             return
         }
         if !parentSettings.onboardingDone {
@@ -64,6 +65,7 @@ extension AppModel {
             return
         }
         if aiConsent { await listener.requestAuth() } else { listener.refresh() }
+        await refreshSpeechModel()   // round 34: the in-app model (iPadOS 26+) counts as on-device speech
         if aiConsent { preconnect() }
     }
 
@@ -105,6 +107,14 @@ extension AppModel {
         listener.refresh(speech: speech, mic: micOK)
         let granted = micOK && speech == .authorized
         rtLog("ONBOARDING mic: \(micOK ? "granted" : "denied"), speech: \(speech == .authorized ? "granted" : "denied")")
+        // Round 34 (Haylee): start the on-device speech model download quietly now, so it's usually ready before the
+        // first press (iPadOS 26+; already installed or older OS: nothing happens).
+        if granted {
+            Task { @MainActor in
+                await refreshSpeechModel()
+                if !listener.available && speechModel.state.canStart { speechModel.start(quiet: true) }
+            }
+        }
         onboardingUpdate { $0.micAnswered(granted: granted) }
     }
 
@@ -168,7 +178,7 @@ extension AppModel {
         let clipSeconds: Double
         if case .clip = route, let c = clipStore.clip(for: line) { clipSeconds = Double(c.samples.count) / Realtime.sampleRate } else { clipSeconds = 0 }
         rtLog("GREETING \(line == GameGreeting.firstIntro ? "first-game intro" : "short") (\(route)): \"\(line)\"")
-        realtime.kickOff(games: games, greetingClip: clipSeconds)
+        realtime.kickOff(games: games, greetingClip: clipSeconds, returning: line != GameGreeting.firstIntro)
     }
 }
 

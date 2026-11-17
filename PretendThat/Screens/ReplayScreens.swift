@@ -64,38 +64,3 @@ struct PTReplayCover: View {
             .accessibilityLabel(title)
     }
 }
-
-/// Props on a replay: the first play's hunt card, one saved prop at a time, with its big ✓ / ✗ (✗ offers the saved
-/// alternate first, then pretends). The answered props sit above it as small round thumbnails.
-struct ReplayPropsView: View {
-    let model: AppModel
-    private var store: AdventureStore { model.store }
-
-    private func item(_ p: Prop, index: Int, hunting: Bool) -> PTStageItem {
-        let art = p.libraryID.flatMap { UIImage(named: PropLibrary.asset($0)) }
-        return PTStageItem(id: "prop-\(p.id)", title: p.householdItem, subtitle: p.becomes, image: art,
-                           tint: Theme.playerColor(index), flipKey: p.libraryID ?? p.householdItem, isPretend: p.isSkipped,
-                           chip: p.isSkipped ? .pretend : (store.foundProps.contains(p.id) ? .found : (p.swapped == true ? .swapped : .none)),
-                           huntButtons: hunting)
-    }
-
-    var body: some View {
-        let props = store.props?.props ?? []
-        VStack(spacing: Theme.Space.m) {
-            let done = props.enumerated().filter { store.foundProps.contains($0.element.id) || $0.element.isSkipped }
-            if !done.isEmpty {
-                HStack(spacing: 10) {
-                    ForEach(done, id: \.element.id) { i, p in PTPropDoneThumb(item: item(p, index: i, hunting: false)) }
-                }
-                .transition(.opacity)
-            }
-            if let cur = store.replayCurrentProp, let i = props.firstIndex(where: { $0.id == cur.id }) {
-                PTPropActiveCard(item: item(cur, index: i, hunting: true), width: 340) { model.replayHunt(found: $0) }
-                    .id(cur.id + (cur.libraryID ?? ""))
-                    .transition(.scale(scale: 0.3).combined(with: .opacity))
-            }
-        }
-        .animation(Theme.stageMove, value: store.replayCurrentProp?.id)
-        .animation(Theme.stageMove, value: store.replayCurrentProp?.libraryID)
-    }
-}

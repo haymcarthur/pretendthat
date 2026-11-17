@@ -2,6 +2,7 @@ import SwiftUI
 import NutmegCore
 import QuartzCore
 import AVFoundation
+import Speech
 
 /// Wires the state machine to Nutmeg's voice, ears and kit art. One per app run. Round D1: only games the kids choose
 /// to save are kept, on this iPad (`SavedGameStore`), and only their game content; nothing about kids.
@@ -10,6 +11,21 @@ final class AppModel {
     let store: AdventureStore
     let voice = NutmegVoice()
     let listener = Listener()
+    /// Round 34: Apple's on-device English speech model, downloaded in the app on iPadOS 26+.
+    let speechModel = SpeechModelInstaller()
+    /// Round 34: check the in-app model, and use it when the older recognizer can't listen on the device.
+    func refreshSpeechModel() async {
+        speechModel.onInstalled = { [weak self] in
+            guard let self else { return }
+            let sfOK = SFSpeechRecognizer(locale: SpeechModelInstaller.locale)?.supportsOnDeviceRecognition ?? false
+            KidSpeechCapture.useAnalyzer = !sfOK
+            self.listener.refresh()
+        }
+        await speechModel.refresh()
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-PTSpeechModelSheet") { speechModel.showingSheet = true }
+        #endif
+    }
     /// Round 27 (Haylee): the kit is drawn in BOTH styles during the hunt: the full-color set and the outline set,
     /// plus one text-free bookshelf cover, all on one limiter (≤3 image calls at once). The printer prints `printArt`.
     let colorArt: KitArtService
@@ -126,6 +142,8 @@ final class AppModel {
         for k in ["voice", "method", "pitchCents", "rate", "speed", "echo"] { UserDefaults.standard.removeObject(forKey: "nutmeg.v4.\(k)") }
         realtime.onTurnDone = { [weak self] text in
             guard let self, self.planningNow, !self.realtime.propLinePending else { return nil }
+            // Round 34: an app-written prop line is a complete turn (never nudged).
+            if self.appPropLines.contains(ClipText.normalize(text)) { return nil }
             // Round 7: roles set but no prop yet → she continues straight into the first prop (no "Sound good?" wait).
             return TurnCheck.review(text, step: self.store.planningStep, rolesSet: self.store.plan != nil,
                                     propsShown: self.store.props?.props.count ?? 0, currentPropDone: self.store.currentPropDone,
@@ -865,6 +883,15 @@ final class AppModel {
             return ("(Silent coaching, don't mention it.) That was undone. Say nothing more.", false)
         }
         realtime.markTrace("checked \(name)")
+        // Round 34: "what do I do, Pet Trainer?": the app reads that row's spoken task (same as tapping the row).
+        if case .readJob = call {
+            let out = await store.apply(call)
+            if let k = store.lastReadJobRow { store.lastReadJobRow = nil; rtLog("scene: read job (voice) row \(k + 1)"); readTask(k) }
+            return (out, false)
+        }
+        // Round 34 (Haylee): on a live first play the app writes and says the prop lines (recorded as clips), so a
+        // replay of the saved game says the same words.
+        store.appSaysPropLines = realtime.isLive && !store.isReplay
         // Round 29: "next scene" / "we're done" in a scene: the same as the green ▶ (the app says the next scene).
         if case .nextScene = call {
             guard case .scene = store.phase else { return ("There's no scene right now. Answer in ONE short line.", true) }
@@ -923,6 +950,12 @@ final class AppModel {
                 realtime.holdFirstPropLine()
             } else {
                 revealProps(after: before)
+            }
+            // Round 34: the app says this prop's line (cheer / pretend lead + the ask) once her turn is quiet; she says
+            // nothing (the tool output told her the words).
+            if let line = store.takePendingPropLine() {
+                sayAppPropLine(line)
+                return (output, false)
             }
         }
         if store.props == nil { shownProps = 0 }
@@ -1046,7 +1079,34 @@ final class AppModel {
         shownProps = store.props?.props.count ?? 0
         pointAtCard()
         let p = store.props?.props.first
+        // Round 34: the app says the first prop line itself (recorded, so a replay says the same words); the session
+        // gets a silent note so the conversation knows what was asked, and asks her for nothing.
+        store.appSaysPropLines = realtime.isLive && !store.isReplay
+        if store.appSaysPropLines, let line = store.firstPropAppLine {
+            realtime.addNote(Realtime.systemNote("(Silent note, don't mention it.) The app said the first prop line for you, in "
+                + "your voice: \"\(line)\" Wait for the kids: found → mark_found then show_next_prop; missing → swap_prop "
+                + "(one alternate) or skip_prop, then show_next_prop."))
+            sayAppPropLine(line, now: true)
+            return ""
+        }
         return AdventureStore.firstPropLine(item: p?.householdItem ?? "prop", becomes: p?.becomes ?? "something fun", reason: p?.reason)
+    }
+
+    /// Round 34: the prop lines the app said this hunt (normalized), so the turn check doesn't nudge after them.
+    @ObservationIgnored private var appPropLines: Set<String> = []
+    /// Round 34 (Haylee): a prop line written by the app (`PropLines`), in her voice: her recorded clip if this game has
+    /// one, else live through `sayExactly`, recorded with the game (D3b). It waits for her turn to go quiet first.
+    func sayAppPropLine(_ line: String, now: Bool = false) {
+        appPropLines.insert(ClipText.normalize(line))
+        speaker.remember(line)
+        Task { @MainActor in
+            if !now {
+                for _ in 0..<200 where realtime.isSpeaking || realtime.isBusy || beat != .none { try? await Task.sleep(for: .milliseconds(50)) }   // ≤ 10 s
+            }
+            guard store.huntActive, realtime.isLive else { return }
+            rtLog("PROPLINE app says: \(line)")
+            speaker.say(line)
+        }
     }
 
     /// Backup buttons on the current prop card (noisy rooms): the one planning tap.
@@ -1064,8 +1124,18 @@ final class AppModel {
         let next = last ? ["finish_planning"] : ["show_next_prop"]
         let then = last ? "call finish_planning (that was the last prop; the app says the kit line)"
             : "call show_next_prop for the next prop (prop \(count + 1) of \(store.propTarget))"
+        // Round 34: the app says the next prop line itself (with the cheer or the pretend lead): she only picks it.
+        store.appSaysPropLines = !store.isReplay
+        let appLines = store.appSaysPropLines && !last
         Task { @MainActor in
-            if found {
+            if found && appLines {
+                _ = await store.apply(.markFound(p.id))
+                releasePointIfNoCard()
+                realtime.tapTurn(kidLine: "We found the \(name)!",
+                                 note: "(Silent coaching, don't mention it.) The kids tapped the green check (found it): the \(name) is ALREADY checked off "
+                                    + "on screen (don't call mark_found). \(then) now and say NOTHING: the app cheers and says the new prop's line.",
+                                 requiring: next)
+            } else if found {
                 _ = await store.apply(.markFound(p.id))
                 releasePointIfNoCard()
                 realtime.tapTurn(kidLine: "We found the \(name)!",
@@ -1092,7 +1162,11 @@ final class AppModel {
                 releasePointIfNoCard()
                 store.kitLeadIn = (PropSkip.reassurance(item: p.householdItem, becomes: p.becomes, deck: &lineDeck, using: &rng), Date())
                 realtime.tapTurn(kidLine: "We don't have a \(name).",
-                                 note: PropSkip.note(item: p.householdItem, becomes: p.becomes, then: then),
+                                 note: appLines
+                                    ? "(Silent coaching, don't mention it.) The kids tapped the X again (don't have it): the \(name) is ALREADY "
+                                        + "marked as pretend on screen (don't call skip_prop or swap_prop). \(then) now and say NOTHING: the app "
+                                        + "says the pretend line and the new prop's line."
+                                    : PropSkip.note(item: p.householdItem, becomes: p.becomes, then: then),
                                  requiring: next)
             }
             realtime.huntMode = store.huntActive
@@ -1669,6 +1743,7 @@ final class AppModel {
 
     /// Round 26: the count on a replay's Pick (voice: set_player_count; the tiles only without a voice session). It
     /// goes straight on to Props, the first saved card.
+    @ObservationIgnored private var lastReplayCardKey: String?
     func replayPick(_ n: Int) {
         userAction(.replayPick)
         store.replayPick(n)
@@ -1684,6 +1759,10 @@ final class AppModel {
     /// A silent note so the replay's session knows where the kids are.
     /// Round 26: with the card that's up during Props (her app lines aren't in the conversation).
     private func noteReplayStep() {
+        // Round 34 (Haylee: replays look like new games): a new card on a replay gets the first play's point too.
+        let key = store.replayCurrentProp.map { $0.id + ($0.libraryID ?? "") }
+        if store.isReplay, let key, key != lastReplayCardKey { pointAtCard() }
+        lastReplayCardKey = key
         guard store.isReplay, realtime.isLive else { return }
         let props = store.props?.props ?? [], card = store.replayCurrentProp
         let n = card.flatMap { c in props.firstIndex { $0.id == c.id } }.map { $0 + 1 } ?? 0
@@ -1763,6 +1842,12 @@ final class AppModel {
     func talkPressed(touchHost: Double = CACurrentMediaTime()) {
         wakeUp()
         guard listener.available else {
+            // Round 34: iPadOS 26+: the one-tap in-app download sheet instead of the Settings note.
+            if listener.readiness == .onDeviceUnavailable && speechModel.offersDownload {
+                speechModel.showingSheet = true
+                rtLog("mic: on-device model missing: the in-app download sheet (\(speechModel.state))")
+                return
+            }
             speechHelp = listener.readiness   // a friendly note for a grown-up, then typing
             rtLog("mic: can't listen on this iPad (\(listener.readiness)): grown-up note + typing")
             return
@@ -1781,6 +1866,7 @@ final class AppModel {
     func speechUnavailableNow() {
         guard listener.available else { return }
         listener.markUnavailable()
+        if speechModel.offersDownload && !speechModel.state.isReady { speechModel.showingSheet = true; return }   // round 34
         speechHelp = listener.readiness
     }
 

@@ -96,8 +96,9 @@ struct PTSceneCard: View {
                 .accessibilityAddTraits(.isHeader)
             ForEach(Array(scene.steps.enumerated()), id: \.offset) { i, step in
                 if let role = step.role.role.flatMap({ store.plan?.role(for: $0) }) {
-                    PTTaskRow(text: step.text, tint: Theme.playerColor(role.id.index), fontSize: t.font, padding: t.padding,
-                              speakLabel: "Hear \(role.spoken)'s task", onSpeak: { model.readTask(i) }) {
+                    // Round 34 (Haylee): the row SHOWS the short task; a tap anywhere on it SAYS the specifics (`text`).
+                    PTTaskRow(text: step.short ?? step.text, tint: Theme.playerColor(role.id.index), fontSize: t.font, padding: t.padding,
+                              speakLabel: SceneRowTap.accessibilityLabel(roleName: role.roleName), onSpeak: { model.readTask(i) }) {
                         PTCharacterPicture(role: role, image: model.characterPicture(role), size: t.picture)
                     }
                 }
