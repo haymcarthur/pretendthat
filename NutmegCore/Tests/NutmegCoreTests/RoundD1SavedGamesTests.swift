@@ -163,7 +163,7 @@ struct RoundD1SavedGamesTests {
         #expect(store.phase == .players)
         let voice = await store.apply(.setPlayerCount(3))
         #expect(voice == ReplayLines.appSaysOutput && store.playerCount == 3 && store.phase == .props)
-        #expect(store.kit?.scenes.allSatisfy { $0.steps.compactMap(\.role.role).count == 3 } == true)
+        #expect(store.kit?.scenes.count == (store.fullKit?.scenes.count ?? 0) * 3 && store.kit?.scenes.allSatisfy { sc in sc.steps.allSatisfy { $0.role == sc.owner } } == true)   // round 28: a turn per role
         let props = g.props.map(\.replayProp)
         #expect(store.replayHuntActive && store.replayCurrentProp?.id == props[0].id && store.foundProps.isEmpty)
         #expect(store.nutmegLine.hasPrefix("Three friends!") && store.nutmegLine.contains(ReplayLines.propAsk(props[0], first: true)))
@@ -201,7 +201,7 @@ struct RoundD1SavedGamesTests {
         #expect(store.goTo(.game) && store.phase == .players)
         store.replayPick(5)
         #expect(store.phase == .props && store.replayCurrentProp?.id == props[0].id && store.foundProps.isEmpty)
-        #expect(store.kit?.scenes.allSatisfy { $0.steps.compactMap(\.role.role).count == 5 } == true)
+        #expect(store.kit?.scenes.count == (store.fullKit?.scenes.count ?? 0) * 5 && store.kit?.scenes.allSatisfy { sc in sc.steps.allSatisfy { $0.role == sc.owner } } == true)   // round 28: a turn per role
         // The rail's Props restarts the hunt with the first card's line.
         store.replayAllFound()
         #expect(store.goTo(.getReady) && store.replayCurrentProp?.id == props[0].id)
@@ -230,7 +230,7 @@ struct RoundD1SavedGamesTests {
     @Test func replayNoteIsASystemNoteWithTheSavedGame() {
         let note = ReplayLines.note(title: "Airplane", roles: a.plan.roles, players: 2, props: a.props.props, step: .getReady,
                                     scenes: a.kit.scenes.map(\.title))
-        #expect(note.contains("REPLAY") && note.contains("playing now: Captain, Flight Attendant") && note.contains("Current step: Props"))
+        #expect(note.contains("REPLAY") && note.contains("playing now: Captain, Passenger") && note.contains("Current step: Props"))
         #expect(note.contains(ReplayLines.savedGame))
         #expect(note.contains("mark_found") && note.contains("skip_prop") && note.contains("print_kit"))
     }

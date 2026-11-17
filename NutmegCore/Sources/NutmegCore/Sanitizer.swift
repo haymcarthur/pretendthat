@@ -3,8 +3,8 @@ import Foundation
 public enum Sanitizer {
     public enum Limits {
         public static let ideas = 3, propsMax = 5, itemsMax = 6, scenesMax = 6, choicesMax = 4
-        /// Round C1: 6 role steps + 2 group steps a scene (N players see at most `PlayCast.maxVisibleSteps`).
-        public static let stepsMax = 8, legacyStepsMax = 5
+        /// Round 28: 2 steps for each of the 6 roles a scene, none for everyone (a role's checklist is only theirs).
+        public static let stepsMax = 12, legacyStepsMax = 5
         public static let copies = 1...8
     }
 
@@ -28,14 +28,15 @@ public enum Sanitizer {
         return k
     }
 
-    /// Round C1: one step per role (the first one), at most `PlayCast.groupStepsMax` steps for everyone. A scene with no
-    /// role steps (older JSON) keeps its first `stepsMax` steps.
+    /// Round 28: at most `PlayCast.stepsPerRole` steps per role (the first ones); steps for everyone are dropped (a
+    /// role's checklist is only theirs). A scene with no role steps (older JSON) keeps its first `legacyStepsMax` steps.
     static func roleSteps(_ steps: [Step]) -> [Step] {
         guard steps.contains(where: { $0.role.role != nil }) else { return Array(steps.prefix(Limits.legacyStepsMax)) }
-        var seen = Set<SceneOwner>(), groups = 0
+        var seen: [SceneOwner: Int] = [:]
         return steps.filter { st in
-            if st.role == .all { groups += 1; return groups <= PlayCast.groupStepsMax }
-            return seen.insert(st.role).inserted
+            if st.role == .all { return false }
+            seen[st.role, default: 0] += 1
+            return seen[st.role]! <= PlayCast.stepsPerRole
         }
     }
 
@@ -91,7 +92,9 @@ public enum Sanitizer {
     public static func clean(_ plan: GamePlan, playerCount: Int) -> GamePlan {
         var plan = plan
         // Round C1: always 6 ranked roles; `playerCount` only says how many of them play (RoleCast.playing).
-        plan.roles = RoleCast.rank(plan.roles).map { var r = $0; r.symbol = PrintSymbols.safe(r.symbol); return r }
+        // Round 28 (Haylee): customers are roles too (R2 = the customer counterpart for a game that has customers).
+        let ranked = CustomerRoles.arrange(RoleCast.rank(plan.roles), game: plan.gameTitle + " " + plan.setting)
+        plan.roles = ranked.map { var r = $0; r.symbol = PrintSymbols.safe(r.symbol); return r }
         return plan
     }
 

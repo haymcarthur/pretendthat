@@ -21,7 +21,7 @@ import Testing
 @Test func planAlwaysGivesSixRankedRoles() {
     // Round C1: 6 distinct ranked roles whatever the count; repeats are dropped and the gap is filled from the extras.
     let roles = ["A", "B", "C", "D"].enumerated().map { Role(id: RoleID.allCases[$0.offset], roleName: $0.element, emoji: "⭐️", symbol: "bogus", job: "j") }
-    let plan = Sanitizer.clean(GamePlan(gameTitle: "Airplane", gameEmoji: "✈️", setting: "sky", roles: roles + roles, nutmegSays: "Hi"), playerCount: 3)
+    let plan = Sanitizer.clean(GamePlan(gameTitle: "Pirate Ship", gameEmoji: "✈️", setting: "sea", roles: roles + roles, nutmegSays: "Hi"), playerCount: 3)
     #expect(plan.roles.map(\.id) == RoleID.allCases)
     #expect(Array(plan.roles.map(\.roleName).prefix(4)) == ["A", "B", "C", "D"])
     #expect(Set(plan.roles.map { $0.roleName.lowercased() }).count == 6)

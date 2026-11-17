@@ -58,20 +58,17 @@ import Testing
     }
 
     @Test func aCorrectionCancelsAndNewRolesRestart() async {
+        // Round 28 (Haylee): after the yes a theme fix is refused, so the pages being written stay.
         let llm = FakeLLM()
         let store = AdventureStore(service: PhaseService(llm: llm))
         await hunting(store)
         await waitFor { store.draftItems != nil }
         let gen = store.draftGeneration
-        // A theme fix mid-hunt: the roles are cleared, so the pages for them are dropped.
-        _ = await store.apply(.setTheme("Bakery Under the Sea"))
-        #expect(store.draftItems == nil && store.draftGeneration > gen && store.draftStartedAt == nil)
-        _ = await store.apply(.confirmPlan)                                       // straight to roles (round 26: no color question)
-        _ = await store.apply(.setRoles([.init(roleName: "Baker", job: ""), .init(roleName: "Diver", job: "")]))
-        await waitFor { store.draftItems != nil }
-        #expect(store.draftItems != nil)
+        let out = await store.apply(.setTheme("Bakery Under the Sea"))
+        #expect(out.contains("Refused"))
+        #expect(store.draftItems != nil && store.draftGeneration == gen)
         let pages = llm.users.filter { $0.contains("Phase: printable kit pages") }
-        #expect(pages.count == 2 && pages.last?.contains("Bakery Under the Sea") == true)
+        #expect(pages.count == 1 && pages.last?.contains("Bakery Under the Sea") == false)
         // A new game drops everything.
         store.newGame()
         #expect(store.draftItems == nil && store.draftStartedAt == nil)

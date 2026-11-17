@@ -77,7 +77,7 @@ struct Round19ConfirmTests {
         #expect(store.context.plan?.gameTitle == "Bug Movie Theater")
     }
 
-    /// A fix after the roles and props were made: they're cleared, the count is kept, and the recap comes again.
+    /// Round 28 (Haylee): after the yes, the game and theme can't change (the roles and props stay); only the count can.
     @MainActor @Test func lateFixRedoesRolesAndProps() async {
         let store = AdventureStore(service: nil)
         store.beginConversation()
@@ -86,19 +86,17 @@ struct Round19ConfirmTests {
         _ = await store.apply(.setRoles([.init(roleName: "Conductor", job: ""), .init(roleName: "Passenger", job: "")]))
         _ = await store.apply(.showNextProp(.init(itemID: "hat", becomes: "conductor's cap", forRole: "Conductor")))
         #expect(store.huntActive)
-        #expect(Realtime.kidTurnTools(step: .props, huntActive: true)?.contains("set_theme") == true)
         let out = await store.apply(.setTheme("Jungle Train"))
-        #expect(store.plan == nil && store.props == nil && store.playerCount == 2 && !store.huntActive)
-        #expect(store.planningStep == .confirm && store.presenting == .none)
-        #expect(out.contains("redo the roles and props") && out.contains("So it's a jungle train for two friends!"))
-        // Even a plan made from a stale title stays in step with the current one.
-        _ = await store.confirmYes()
-        _ = await store.apply(.setRoles([.init(roleName: "Explorer", job: ""), .init(roleName: "Driver", job: "")]))
-        #expect(store.context.plan?.gameTitle == "Jungle Train" && store.context.gameTitle == "Jungle Train")
+        #expect(out.contains("Refused") && out.contains("Our game stays Snowy Train! But you can change how many friends are playing."))
+        #expect(store.plan != nil && store.props != nil && store.huntActive && store.gameTitle == "Snowy Train")
+        let game = await store.apply(.setGame("Pirate Ship"))
+        #expect(game.contains("Refused") && store.gameTitle == "Snowy Train")
+        // The count still changes, with no remake.
+        let count = await store.apply(.setPlayerCount(3))
+        #expect(count.contains("Nothing is remade") && store.playerCount == 3 && store.plan != nil)
     }
 
-    /// A fix while the kit waits to print: the kit is remade for the new title (and said out loud); after play starts
-    /// the adventure stays as printed.
+    /// Round 28: at the print step and in play too, the game stays (no remake); the count changes with no AI call.
     @MainActor @Test func fixAtPrintStepRemakesTheKit() async {
         let llm = FakeLLM(responses: ["Kit": Fallback.airplane.kit])
         let store = AdventureStore(service: PhaseService(llm: llm))
@@ -109,21 +107,15 @@ struct Round19ConfirmTests {
         _ = await store.apply(.finishPlanning)
         for _ in 0..<100 where store.phase != .kitReady { try? await Task.sleep(for: .milliseconds(10)) }
         #expect(store.phase == .kitReady)
-        let remakes = store.kitRemakes
+        let remakes = store.kitRemakes, calls = llm.calls
         let out = await store.apply(.setTheme("Candy Shop"))
-        #expect(out.contains("remaking the kit") && out.contains("Say nothing"))
-        #expect(store.kitRemakes == remakes + 1 && store.kit == nil)
-        for _ in 0..<100 where store.phase != .kitReady { try? await Task.sleep(for: .milliseconds(10)) }
-        #expect(store.phase == .kitReady && store.kit != nil)
-        #expect(store.nutmegLine == AdventureStore.remakeLine("Candy Shop") && store.nutmegLine.contains("a candy shop"))
-        #expect(llm.users.last?.contains("Candy Shop") == true)
-        // Round C1: the kit is written for 6, so a count change at Paper is applied with no AI call.
-        let calls = llm.calls
+        #expect(out.contains("Refused") && out.contains("Our game stays Toy Shop!"))
+        #expect(store.kitRemakes == remakes && store.kit != nil && store.gameTitle == "Toy Shop" && llm.calls == calls)
         let count = await store.apply(.setPlayerCount(3))
         #expect(count.contains("Nothing is remade") && store.playerCount == 3 && llm.calls == calls && store.phase == .kitReady)
         store.beginPlay()
         let late = await store.apply(.setTheme("Pet Shop"))
-        #expect(late.contains("new game") && store.gameTitle == "Candy Shop")
+        #expect(late.contains("Refused") && store.gameTitle == "Toy Shop")
     }
 
     @Test func outputSuffixNeverFightsAWordForWordLine() {
@@ -131,7 +123,7 @@ struct Round19ConfirmTests {
         #expect(Realtime.outputSuffix(name: "confirm_plan", output: "Confirmed", spokeFirst: false) == "")
         #expect(Realtime.outputSuffix(name: "set_game", output: "Game set: Zoo.", spokeFirst: false).contains("Speak once now"))
         #expect(Realtime.outputSuffix(name: "set_roles", output: "", spokeFirst: false).contains("show_next_prop"))
-        #expect(Realtime.instructions.contains("CORRECTIONS AT ANY POINT"))
+        #expect(Realtime.instructions.contains("CORRECTIONS (before the yes)"))
         #expect(Realtime.instructions.contains("3b. CONFIRM"))
         let desc = Realtime.json(["t": Realtime.tools])
         #expect(desc.contains("If the kid corrects it at ANY point later"))

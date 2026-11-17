@@ -66,8 +66,8 @@ public enum GuideWeave {
         For EACH prop, pick 1 or 2 steps (in different scenes, where it fits the scene best) and rewrite ONLY those steps \
         so the kids use the prop as what it becomes (e.g. "Captain, steer with the steering wheel!"). Pick steps of the \
         roles that are playing (\(playing)) and spread the props over them: first a playing role with no (taken) step \
-        yet, then the prop's own role, then an everyone step. Never pick a step marked (taken), and at most one prop per step. Keep the step for the same role: a role's step still starts \
-        with that role's title; an everyone step starts with "Everyone". Name the prop by what it becomes (never the \
+        yet, then the prop's own role. Never pick a step marked (taken), and at most one prop per step. Keep the step for the same role: a role's step still starts \
+        with that role's title. Name the prop by what it becomes (never the \
         household item), at most 9 words, gentle and kid-safe. Return PropWeave (scene and step are the numbers above).
         """
     }
@@ -160,16 +160,21 @@ public enum GuideWeave {
     }
 }
 
-/// The early play guide's answer in a FIXED shape: exactly 6 scenes (scene1 … scene6), each with exactly one step per
-/// ranked role (R1 … R6) and two for everyone (all1, all2), as required fields rather than arrays. At low effort the
-/// array form sometimes came back cut short (seen live: ONE scene, or scenes with ONE step, about 1 call in 3); a fixed
-/// shape can't be. The step's role comes from its field. Decoded into the usual scene list.
+/// The early play guide's answer in a FIXED shape: exactly `count` scenes (scene1 … scene4), each with exactly two
+/// steps per ranked role (R1a, R1b … R6a, R6b), as required fields rather than arrays. At low effort the array form
+/// sometimes came back cut short (seen live: ONE scene, or scenes with ONE step, about 1 call in 3); a fixed shape
+/// can't be. The step's role comes from its field. Decoded into the usual scene list.
+/// Round 28 (Haylee, "one role per checklist"): 4 scenes × 2 steps for each of the 6 roles (48 steps, the same size as
+/// round C1's 6 × 8), no steps for everyone: each playing role gets a hand-off and its own 2-step checklist per scene.
+/// (The type keeps its name: it is the guide for SIX ranked roles.)
 public struct KitScenesSix: Decodable, Sendable, SafetyText {
     public var nutmegSays: String
     public var scenes: [Scene]
     public init(nutmegSays: String, scenes: [Scene]) { self.nutmegSays = nutmegSays; self.scenes = scenes }
-    public static let count = 6
-    static let stepKeys: [(key: String, role: SceneOwner)] = RoleID.allCases.map { ($0.rawValue, SceneOwner($0)) } + [("all1", .all), ("all2", .all)]
+    public static let count = 4
+    static let stepKeys: [(key: String, role: SceneOwner)] = RoleID.allCases.flatMap { r in
+        ["a", "b"].map { ("\(r.rawValue)\($0)", SceneOwner(r)) }
+    }
 
     struct Key: CodingKey {
         var stringValue: String; var intValue: Int? { nil }
@@ -202,8 +207,7 @@ public struct KitScenesSix: Decodable, Sendable, SafetyText {
         var sceneProps: [String: Any] = ["id": Schemas.str, "title": Schemas.str, "picture": ["$ref": "#/$defs/picture"], "nutmegSays": Schemas.str]
         for k in stepKeys {
             var st = ["$ref": "#/$defs/step"] as [String: Any]
-            st["description"] = k.role == .all ? "A step for everyone together (text starts with \"Everyone\")."
-                : "The \(k.key) role's own step (its text starts with that role's title)."
+            st["description"] = "One of the \(k.role.rawValue) role's own 2 steps in this scene (its text starts with that role's title)."
             sceneProps[k.key] = st
         }
         var props: [String: Any] = ["nutmegSays": Schemas.str]

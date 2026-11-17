@@ -17,8 +17,8 @@ import Testing
 
     static let weave = PropWeave(uses: [
         .init(propID: "bowl", scene: 0, step: 0, text: "Captain, hand out snacks from the snack bowl!"),
-        .init(propID: "bowl", scene: 0, step: 1, text: "Flight Attendant, fill the snack bowl!"),
-        .init(propID: "pot", scene: 1, step: 1, text: "Flight Attendant, bake treats in the big oven!"),
+        .init(propID: "bowl", scene: 0, step: 2, text: "Passenger, grab a snack from the snack bowl!"),
+        .init(propID: "pot", scene: 1, step: 3, text: "Passenger, peek in the big oven!"),
     ])
 
     private func hunting(_ store: AdventureStore, title: String = "Airplane to the Beach") async {
@@ -43,16 +43,16 @@ import Testing
         let woven = GuideWeave.apply(Self.weave, to: scenes, props: props, taken: [])
         scenes = woven.scenes
         #expect(woven.uses.count == 3)                       // bowl ×2 (cap), pot ×1
-        #expect(scenes[1].steps[1].picture == .prop("pot") && scenes[0].steps[0].picture == .prop("bowl"))
+        #expect(scenes[1].steps[3].picture == .prop("pot") && scenes[0].steps[0].picture == .prop("bowl"))
         // The hunt ends: the pot was skipped.
         var final = props; final[0].skipped = true
         let items = KitDraft.finalItems(a.kit.items, props: Props(nutmegSays: "", props: final))
         let cut = items.first { $0.recipe == .cutouts }!
         let out = GuideWeave.finalize(scenes, uses: woven.uses, props: Props(nutmegSays: "", props: final), items: items)
-        #expect(out[1].steps[1].text == "Flight Attendant, bake treats in the pretend big oven!")
-        #expect(out[1].steps[1].picture == .kit("cutout:\(cut.lines.firstIndex(of: "big oven")!)"))
+        #expect(out[1].steps[3].text == "Passenger, peek in the pretend big oven!")
+        #expect(out[1].steps[3].picture == .kit("cutout:\(cut.lines.firstIndex(of: "big oven")!)"))
         #expect(out[0].steps[0] == scenes[0].steps[0])       // found: unchanged
-        #expect(out[1].steps[1].role == a.kit.scenes[1].steps[1].role)   // same role: hand-offs and coverage unchanged
+        #expect(out[1].steps[3].role == a.kit.scenes[1].steps[3].role)   // same role: hand-offs and coverage unchanged
         // Never "pretend pretend"; the household item's name is replaced too.
         #expect(GuideWeave.pretend("Everyone, peek in the pretend big oven!", item: "Pot", becomes: "the big oven", label: "big oven")
                 == "Everyone, peek in the pretend big oven!")
@@ -65,7 +65,7 @@ import Testing
         #expect(sw[0].steps[0].text == scenes[0].steps[0].text)   // named by what it becomes: still true
         // A prop that's gone: the picture falls back, the text stays.
         let gone = GuideWeave.finalize(scenes, uses: woven.uses, props: Props(nutmegSays: "", props: [props[1]]), items: items)
-        #expect(gone[1].steps[1].picture == .point)
+        #expect(gone[1].steps[3].picture == .point)
     }
 
     @Test func weaveAnswersAreChecked() {
@@ -87,20 +87,23 @@ import Testing
     }
 
     @Test func theEarlyGuideHasAFixedShape() throws {
+        // Round 28: 4 scenes, each with 2 steps for each of the 6 roles (R1a … R6b), no steps for everyone.
         let schema = KitScenesSix.schema()
         let req = (schema["required"] as? [String]) ?? []
-        #expect(req == ["nutmegSays", "scene1", "scene2", "scene3", "scene4", "scene5", "scene6"])
+        #expect(req == ["nutmegSays", "scene1", "scene2", "scene3", "scene4"])
         let scene = ((schema["$defs"] as? [String: Any])?["scene"] as? [String: Any])?["required"] as? [String]
-        #expect(scene?.contains("R6") == true && scene?.contains("all2") == true)
+        #expect(scene?.contains("R6b") == true && scene?.contains("R1a") == true && scene?.contains("all1") == false)
         // No prop pictures before the props are known.
         let pic = ((schema["$defs"] as? [String: Any])?["picture"] as? [String: Any]).flatMap { ($0["properties"] as? [String: Any])?["kind"] as? [String: Any] }
         #expect((pic?["enum"] as? [String]) == ["action", "kit"])
+        let keys = RoleID.allCases.flatMap { ["\($0.rawValue)a", "\($0.rawValue)b"] }
         let one = #"{"id":"s","title":"Liftoff","picture":{"kind":"action","id":"wave"},"nutmegSays":"Pretend that we fly!","#
-            + (["all1", "all2"] + RoleID.allCases.map(\.rawValue)).map { #""\#($0)":{"picture":{"kind":"action","id":"cheer"},"text":"\#($0) step"}"# }.joined(separator: ",") + "}"
-        let json = #"{"nutmegSays":"Hi!","# + (1...6).map { #""scene\#($0)":"# + one }.joined(separator: ",") + "}"
-        let six = try JSONDecoder().decode(KitScenesSix.self, from: Data(json.utf8))
-        #expect(six.scenes.count == 6 && six.scenes.allSatisfy { $0.steps.map(\.role) == [.R1, .R2, .R3, .R4, .R5, .R6, .all, .all] })
-        #expect(Validate.scenes(six.scenes, roles: 6) == nil)
+            + keys.map { #""\#($0)":{"picture":{"kind":"action","id":"cheer"},"text":"\#($0) step"}"# }.joined(separator: ",") + "}"
+        let json = #"{"nutmegSays":"Hi!","# + (1...4).map { #""scene\#($0)":"# + one }.joined(separator: ",") + "}"
+        let four = try JSONDecoder().decode(KitScenesSix.self, from: Data(json.utf8))
+        let roles = RoleID.allCases.flatMap { r in [SceneOwner(r), SceneOwner(r)] }
+        #expect(four.scenes.count == 4 && four.scenes.allSatisfy { $0.steps.map(\.role) == roles })
+        #expect(Validate.scenes(four.scenes, roles: 6) == nil)
     }
 
     // MARK: The store
@@ -124,28 +127,29 @@ import Testing
         #expect(llm.calls == calls)                                          // no regeneration on the skip
         #expect(guidePrompts(llm).count == 1 && store.guideCalls == 1)
         let steps = store.fullKit?.scenes.flatMap(\.steps) ?? []
-        #expect(steps.contains { $0.text == "Flight Attendant, bake treats in the pretend big oven!" && $0.picture.kind == .kit })
+        #expect(steps.contains { $0.text == "Passenger, peek in the pretend big oven!" && $0.picture.kind == .kit })
         #expect(steps.contains { $0.picture == .prop("bowl") })
-        // Every playing role still has its own step in every scene; the hand-offs still rotate.
-        #expect(store.kit?.scenes.allSatisfy { Set($0.steps.compactMap(\.role.role)) == [.R1, .R2] } == true)
-        #expect(store.kit?.scenes.map(\.owner) == [.R1, .R2, .R1, .R2, .R1, .R2])
+        // Round 28: the playing roles are Captain + the customer counterpart (Passenger); each scene, a turn for each
+        // with ONLY its own steps.
+        #expect(store.playingRoles.map(\.roleName) == ["Captain", "Passenger"])
+        #expect(store.kit?.scenes.allSatisfy { sc in sc.steps.allSatisfy { $0.role == sc.owner } } == true)
+        #expect(store.kit?.scenes.map(\.owner) == [.R1, .R2, .R1, .R2, .R1, .R2, .R1, .R2])
     }
 
     @Test func aCorrectionRestartsTheGuide() async {
+        // Round 28 (Haylee): after the yes the game and theme can't change, so a mid-hunt theme fix is refused and the
+        // guide written for this game stays (no new guide call).
         let llm = FakeLLM(responses: ["PropWeave": Self.weave])
         let store = AdventureStore(service: PhaseService(llm: llm))
         await hunting(store)
         await waitFor { store.guideWrittenAt != nil }
-        _ = await store.apply(.setTheme("Airplane to the Moon"))           // mid-hunt fix: roles cleared, guide dropped
-        #expect(store.guideWrittenAt == nil && store.guideStartedAt == nil)
-        _ = await store.apply(.confirmPlan)
-        _ = await store.apply(.setRoles([.init(roleName: "Captain", job: ""), .init(roleName: "Moon Guide", job: "")]))
-        await waitFor { store.guideWrittenAt != nil }
-        #expect(guidePrompts(llm).count == 2 && guidePrompts(llm).last?.contains("Airplane to the Moon") == true)
+        let out = await store.apply(.setTheme("Airplane to the Moon"))
+        #expect(out.contains("Refused") && out.contains("Our game stays Airplane to the Beach!"))
+        #expect(store.guideWrittenAt != nil && store.gameTitle == "Airplane to the Beach" && store.plan != nil)
         _ = await store.apply(.showNextProp(.init(itemID: "bowl", becomes: "the snack bowl", forRole: "all")))
         _ = await store.apply(.finishPlanning)
         await waitFor { store.phase == .kitReady && !store.guidePending }
-        #expect(guidePrompts(llm).count == 2 && (store.fullKit?.scenes.count ?? 0) >= 4)
+        #expect(guidePrompts(llm).count == 1 && (store.fullKit?.scenes.count ?? 0) >= 4)
     }
 
     @Test func paperGoesAheadAndPlayWaitsForTheGuide() async {
@@ -162,7 +166,7 @@ import Testing
         #expect(await store.apply(.startPlay) == AdventureStore.playQueuedOutput)
         await waitFor { !store.guidePending }
         #expect(store.phase == .handoff(sceneIndex: 0) || store.phase == .scene(0))   // play started by itself
-        #expect(!store.playQueued && (store.kit?.scenes.count ?? 0) == 6)
+        #expect(!store.playQueued && (store.kit?.scenes.count ?? 0) == 8)   // round 28: 4 scenes × 2 playing roles
         #expect(store.fullKit?.scenes.flatMap(\.steps).contains { $0.picture == .prop("bowl") } == true)
     }
 

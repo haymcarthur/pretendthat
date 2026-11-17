@@ -51,8 +51,8 @@ public enum Schemas {
              "scenes": nonEmpty(obj(["id": str, "title": str,
                                 "picture": picture("the scene title"), "nutmegSays": str,
                                 "steps": nonEmpty(obj(["picture": picture("the main object or action named in this step's text"), "text": str,
-                                                       "role": ["type": "string", "enum": roleIDs + ["all"],
-                                                                "description": "The role this step is for (its text calls that role by its title), or all for everyone together."]]))]))])
+                                                       "role": ["type": "string", "enum": roleIDs,
+                                                                "description": "The role this step is for (its text calls that role by its title). Round 28: every step belongs to one role (2 per role per scene)."]]))]))])
     }
     /// Round 20: the kit in two parts, the pages (at the roles) and the play guide (when the hunt ends).
     public static func kitPages() -> [String: Any] {

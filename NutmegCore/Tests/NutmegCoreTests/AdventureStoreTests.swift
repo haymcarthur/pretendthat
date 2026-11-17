@@ -52,7 +52,7 @@ func walk(_ store: AdventureStore) async -> [Phase] {
     store.autoCheckStep = .zero; store.autoCheckHold = .zero
     store.beginPlay(); store.badgeTapped(.R1)
     await store.sceneDone()
-    #expect(store.nutmegLine.hasSuffix("Pass the iPad to the Flight Attendant! Tap the green check when you have the iPad!"))
+    #expect(store.nutmegLine.hasSuffix("Pass the iPad to the Passenger! Tap the green check when you have the iPad!"))   // round 28: R2 is the Passenger
 }
 
 @Test @MainActor func handoffsRotateThroughThePlayingRoles() async {

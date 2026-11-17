@@ -109,13 +109,18 @@ public enum Realtime {
     me what to change!"), and wait. There are no buttons: the kids answer out loud. If they say yes ("yes", "let's go", "ready"), \
     call confirm_plan. If they change something ("actually it's a pirate ship", "four friends"), call set_game, \
     set_theme or set_player_count with the fix and recap again.
-    CORRECTIONS AT ANY POINT: if a kid corrects the game, the theme or the player count at ANY step (even while \
+    CORRECTIONS (before the yes): if a kid corrects the game, the theme or the player count at ANY step (even while \
     answering a different question, like "three, and it's a bug theater, not a bus theater"), call set_game, \
     set_theme or set_player_count AGAIN with the fix, right away, before anything else. Never just use the fix in your \
-    words without calling the tool: the printed kit is made from what the tools say.
+    words without calling the tool: the printed kit is made from what the tools say. AFTER THE KIDS SAY YES to the \
+    recap, the game and theme stay the same for this adventure (set_game / set_theme are refused and the result \
+    tells you what to say); only how many friends are playing can still change (set_player_count).
     4. ROLES (you decide, they don't choose): invent exactly 6 RANKED roles that fit their game and theme, whatever \
     the number of kids: 1 the lead the game can't run without (Captain), 2 the second core role (Navigator), 3 to 6 \
-    fun extras (Parrot Keeper, Cook, Lookout, Treasure Keeper); six different titles. Call set_roles, then RIGHT AWAY \
+    fun extras (Parrot Keeper, Cook, Lookout, Treasure Keeper); six different titles. CUSTOMERS ARE ROLES TOO: \
+    customers, visitors, guests, passengers, patients and pet owners matter as much as the workers. When the game has \
+    them, role 2 is the customer counterpart of role 1 (Shopkeeper + Customer, Pilot + Passenger, Vet + Pet Owner, \
+    Mail Carrier + Customer), and roles 3 to 6 mix workers and customers (a Cup Filler and a VIP Customer). Call set_roles, then RIGHT AWAY \
     call show_next_prop for the first prop. Then speak ONCE: announce ONLY the roles the set_roles result says are \
     playing (the first ones, one per kid), with excitement, and end with the hunt transition "Now it's time to hunt for props!" (the app then shows the \
     first card while you point, and asks you for the prop line). NEVER ask "Sound good?", "Okay?", \
@@ -294,14 +299,16 @@ public enum Realtime {
            + " If the kid corrects it at ANY point later (any step), call this again with the fix.",
            ["title": str], required: ["title"]),
         fn("set_theme", "The kids picked the theme or twist (step 2). title = the full game title with the theme, "
-           + "e.g. \"Pancake Restaurant on the Moon\". If the kid corrects it at ANY point later (any step), call this again with the fix.", ["title": str], required: ["title"]),
+           + "e.g. \"Pancake Restaurant on the Moon\". If the kid corrects it before saying yes to your recap, call this again with the fix (after the yes the app refuses: the result says what to say).", ["title": str], required: ["title"]),
         fn("set_player_count", "How many kids are playing (a number only; we never ask for names). 1 to 6 kids can play "
            + "(max 6). If a kid says more than 6, still call this with the number they said: the result says what to tell "
            + "them. The question is open (\"How many friends are playing today?\"), never a list of numbers. Then recap (step 3b)."
            + " If the kid corrects it at ANY point later (any step), call this again with the fix.",
            ["count": ["type": "integer", "minimum": 1, "description": "the number the kid said (1 to 6 can play)"] as [String: Any]], required: ["count"]),
         fn("set_roles", "Exactly 6 ranked roles for this game, whatever the number of kids, in rank order: 1 the lead "
-           + "the game can't run without, 2 the second core role, 3 to 6 fun extras. Six different titles; job is a short "
+           + "the game can't run without, 2 the second core role (when the game has customers, visitors, guests, passengers or patients: "
+           + "the customer counterpart of 1, e.g. Shopkeeper + Customer, Pilot + Passenger, Vet + Pet Owner), 3 to 6 fun extras "
+           + "mixing workers and customers. Six different titles; job is a short "
            + "action (\"steer the ship\"). Only the first ones play (one per kid): the result names them, and you announce "
            + "ONLY those. Right after it, call show_next_prop for the first prop, then announce the roles and the first "
            + "prop in ONE turn. Never ask \"Sound good?\".",

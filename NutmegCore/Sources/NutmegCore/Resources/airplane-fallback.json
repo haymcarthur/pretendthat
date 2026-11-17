@@ -33,23 +33,23 @@
       },
       {
         "id": "R2",
+        "roleName": "Passenger",
+        "symbol": "ticket",
+        "job": "Find your seat and enjoy the trip",
+        "count": 1
+      },
+      {
+        "id": "R3",
         "roleName": "Flight Attendant",
         "symbol": "cup.and.saucer",
         "job": "Check tickets and bring snacks",
         "count": 1
       },
       {
-        "id": "R3",
+        "id": "R4",
         "roleName": "Co-Pilot",
         "symbol": "map",
         "job": "Read the map and help the captain",
-        "count": 1
-      },
-      {
-        "id": "R4",
-        "roleName": "Passenger",
-        "symbol": "ticket",
-        "job": "Find your seat and enjoy the trip",
         "count": 1
       },
       {
@@ -61,9 +61,9 @@
       },
       {
         "id": "R6",
-        "roleName": "Weather Watcher",
-        "symbol": "sun.max",
-        "job": "Look out the window for clouds",
+        "roleName": "VIP Passenger",
+        "symbol": "star",
+        "job": "Ask for a snack and a blanket",
         "count": 1
       }
     ]
@@ -91,7 +91,7 @@
         "id": "tray",
         "householdItem": "Tray",
         "becomes": "Snack cart",
-        "forRole": "R2",
+        "forRole": "R3",
         "safetyOK": true,
         "libraryID": "tray"
       },
@@ -99,7 +99,7 @@
         "id": "backpack",
         "householdItem": "Backpack",
         "becomes": "Suitcase",
-        "forRole": "R3",
+        "forRole": "R6",
         "safetyOK": true,
         "libraryID": "backpack"
       }
@@ -211,457 +211,429 @@
     "scenes": [
       {
         "id": "s1",
-        "owner": "all",
-        "title": "Get the plane ready",
-        "nutmegSays": "Pretend that the plane is waiting at the gate! Captain, let's check it!",
+        "title": "Boarding Time",
         "picture": {
-          "kind": "prop",
-          "id": "chair"
+          "kind": "action",
+          "id": "cheer"
         },
+        "nutmegSays": "Pretend that the passengers just arrived at the gate!",
         "steps": [
           {
             "role": "R1",
-            "text": "Captain, hold the steering wheel",
             "picture": {
               "kind": "prop",
               "id": "plate"
-            }
+            },
+            "text": "Captain, hold the steering wheel"
+          },
+          {
+            "role": "R1",
+            "picture": {
+              "kind": "action",
+              "id": "listen"
+            },
+            "text": "Captain, say hello to the passengers"
           },
           {
             "role": "R2",
-            "text": "Flight Attendant, line up the seats",
+            "picture": {
+              "kind": "kit",
+              "id": "ticket"
+            },
+            "text": "Passenger, show your boarding pass"
+          },
+          {
+            "role": "R2",
             "picture": {
               "kind": "prop",
               "id": "chair"
-            }
+            },
+            "text": "Passenger, find your airplane seat"
           },
           {
             "role": "R3",
-            "text": "Co-Pilot, check the map",
             "picture": {
               "kind": "kit",
-              "id": "cutout:5"
-            }
+              "id": "ticket"
+            },
+            "text": "Flight Attendant, check each boarding pass"
+          },
+          {
+            "role": "R3",
+            "picture": {
+              "kind": "action",
+              "id": "point"
+            },
+            "text": "Flight Attendant, point to the seats"
           },
           {
             "role": "R4",
-            "text": "Passenger, pack your suitcase",
             "picture": {
               "kind": "kit",
-              "id": "cutout:0"
-            }
+              "id": "cutout:5"
+            },
+            "text": "Co-Pilot, check the map"
           },
           {
-            "role": "R5",
-            "text": "Snack Chef, stack the snacks",
-            "picture": {
-              "kind": "prop",
-              "id": "tray"
-            }
-          },
-          {
-            "role": "R6",
-            "text": "Weather Watcher, look for the sun",
-            "picture": {
-              "kind": "action",
-              "id": "look"
-            }
-          },
-          {
-            "role": "all",
-            "text": "Everyone, wave to the plane",
+            "role": "R4",
             "picture": {
               "kind": "action",
               "id": "wave"
-            }
+            },
+            "text": "Co-Pilot, wave to the passengers"
           },
           {
-            "role": "all",
-            "text": "Say: Welcome aboard!",
+            "role": "R5",
+            "picture": {
+              "kind": "prop",
+              "id": "tray"
+            },
+            "text": "Snack Chef, stack the snacks on the snack cart"
+          },
+          {
+            "role": "R5",
             "picture": {
               "kind": "action",
-              "id": "cheer"
-            }
+              "id": "count"
+            },
+            "text": "Snack Chef, count the juice boxes"
+          },
+          {
+            "role": "R6",
+            "picture": {
+              "kind": "kit",
+              "id": "cutout:0"
+            },
+            "text": "VIP Passenger, roll in your suitcase"
+          },
+          {
+            "role": "R6",
+            "picture": {
+              "kind": "prop",
+              "id": "chair"
+            },
+            "text": "VIP Passenger, pick the comfiest seat"
           }
         ]
       },
       {
         "id": "s2",
-        "owner": "all",
-        "title": "Boarding time",
-        "nutmegSays": "Pretend that the passengers just arrived at the gate!",
+        "title": "Takeoff!",
         "picture": {
-          "kind": "kit",
-          "id": "ticket"
+          "kind": "action",
+          "id": "cheer"
         },
+        "nutmegSays": "Pretend that we're zooming up into the clouds!",
         "steps": [
           {
             "role": "R1",
-            "text": "Captain, say hello on the speaker",
+            "picture": {
+              "kind": "prop",
+              "id": "plate"
+            },
+            "text": "Captain, push the steering wheel"
+          },
+          {
+            "role": "R1",
             "picture": {
               "kind": "action",
               "id": "listen"
-            }
+            },
+            "text": "Captain, say: Here we go!"
           },
           {
             "role": "R2",
-            "text": "Flight Attendant, check each ticket",
-            "picture": {
-              "kind": "kit",
-              "id": "ticket"
-            }
-          },
-          {
-            "role": "R3",
-            "text": "Co-Pilot, point to the seats",
-            "picture": {
-              "kind": "action",
-              "id": "point"
-            }
-          },
-          {
-            "role": "R4",
-            "text": "Passenger, show your ticket",
-            "picture": {
-              "kind": "kit",
-              "id": "ticket"
-            }
-          },
-          {
-            "role": "R5",
-            "text": "Snack Chef, count the juice boxes",
-            "picture": {
-              "kind": "action",
-              "id": "count"
-            }
-          },
-          {
-            "role": "R6",
-            "text": "Weather Watcher, check the sky",
-            "picture": {
-              "kind": "action",
-              "id": "look"
-            }
-          },
-          {
-            "role": "all",
-            "text": "Everyone, find a seat",
-            "picture": {
-              "kind": "prop",
-              "id": "chair"
-            }
-          },
-          {
-            "role": "all",
-            "text": "Buckle up!",
             "picture": {
               "kind": "action",
               "id": "listen"
-            }
+            },
+            "text": "Passenger, buckle up nice and tight"
+          },
+          {
+            "role": "R2",
+            "picture": {
+              "kind": "action",
+              "id": "cheer"
+            },
+            "text": "Passenger, lean back and say whoosh"
+          },
+          {
+            "role": "R3",
+            "picture": {
+              "kind": "prop",
+              "id": "chair"
+            },
+            "text": "Flight Attendant, sit down and buckle up"
+          },
+          {
+            "role": "R3",
+            "picture": {
+              "kind": "action",
+              "id": "point"
+            },
+            "text": "Flight Attendant, check that everyone is buckled"
+          },
+          {
+            "role": "R4",
+            "picture": {
+              "kind": "action",
+              "id": "count"
+            },
+            "text": "Co-Pilot, count down from 5"
+          },
+          {
+            "role": "R4",
+            "picture": {
+              "kind": "kit",
+              "id": "cutout:5"
+            },
+            "text": "Co-Pilot, steer around the clouds"
+          },
+          {
+            "role": "R5",
+            "picture": {
+              "kind": "prop",
+              "id": "tray"
+            },
+            "text": "Snack Chef, hold the snack cart tight"
+          },
+          {
+            "role": "R5",
+            "picture": {
+              "kind": "action",
+              "id": "look"
+            },
+            "text": "Snack Chef, peek out the window"
+          },
+          {
+            "role": "R6",
+            "picture": {
+              "kind": "kit",
+              "id": "cutout:2"
+            },
+            "text": "VIP Passenger, hug your pillow"
+          },
+          {
+            "role": "R6",
+            "picture": {
+              "kind": "action",
+              "id": "wave"
+            },
+            "text": "VIP Passenger, wave at the clouds"
           }
         ]
       },
       {
         "id": "s3",
-        "owner": "all",
-        "title": "Takeoff!",
-        "nutmegSays": "Pretend that we're zooming up into the clouds!",
+        "title": "Snack Cart",
         "picture": {
           "kind": "action",
           "id": "cheer"
         },
+        "nutmegSays": "Pretend that it's snack time high in the sky! Yum!",
         "steps": [
           {
             "role": "R1",
-            "text": "Captain, push the steering wheel",
-            "picture": {
-              "kind": "prop",
-              "id": "plate"
-            }
-          },
-          {
-            "role": "R2",
-            "text": "Flight Attendant, sit down and buckle up",
-            "picture": {
-              "kind": "prop",
-              "id": "chair"
-            }
-          },
-          {
-            "role": "R3",
-            "text": "Co-Pilot, count down from 5",
             "picture": {
               "kind": "action",
-              "id": "count"
-            }
+              "id": "listen"
+            },
+            "text": "Captain, say: Snack time!"
           },
           {
-            "role": "R4",
-            "text": "Passenger, lean back and say whoosh",
-            "picture": {
-              "kind": "action",
-              "id": "cheer"
-            }
-          },
-          {
-            "role": "R5",
-            "text": "Snack Chef, hold the snacks tight",
-            "picture": {
-              "kind": "prop",
-              "id": "tray"
-            }
-          },
-          {
-            "role": "R6",
-            "text": "Weather Watcher, spot a fluffy cloud",
+            "role": "R1",
             "picture": {
               "kind": "action",
               "id": "look"
-            }
+            },
+            "text": "Captain, tell everyone the weather"
           },
           {
-            "role": "all",
-            "text": "Everyone, wave at the clouds",
+            "role": "R2",
             "picture": {
-              "kind": "action",
-              "id": "wave"
-            }
+              "kind": "kit",
+              "id": "menu"
+            },
+            "text": "Passenger, pick a snack from the menu"
           },
           {
-            "role": "all",
-            "text": "Clap for a smooth takeoff",
+            "role": "R2",
+            "picture": {
+              "kind": "kit",
+              "id": "money"
+            },
+            "text": "Passenger, pay with Sky Dollars"
+          },
+          {
+            "role": "R3",
+            "picture": {
+              "kind": "prop",
+              "id": "tray"
+            },
+            "text": "Flight Attendant, push the snack cart"
+          },
+          {
+            "role": "R3",
+            "picture": {
+              "kind": "kit",
+              "id": "money"
+            },
+            "text": "Flight Attendant, take the Sky Dollars"
+          },
+          {
+            "role": "R4",
+            "picture": {
+              "kind": "kit",
+              "id": "cutout:4"
+            },
+            "text": "Co-Pilot, ask for a cookie"
+          },
+          {
+            "role": "R4",
             "picture": {
               "kind": "action",
-              "id": "clap"
-            }
+              "id": "cheer"
+            },
+            "text": "Co-Pilot, say thank you"
+          },
+          {
+            "role": "R5",
+            "picture": {
+              "kind": "kit",
+              "id": "cutout:1"
+            },
+            "text": "Snack Chef, hand out juice boxes"
+          },
+          {
+            "role": "R5",
+            "picture": {
+              "kind": "kit",
+              "id": "cutout:4"
+            },
+            "text": "Snack Chef, make cloud cookies"
+          },
+          {
+            "role": "R6",
+            "picture": {
+              "kind": "kit",
+              "id": "menu"
+            },
+            "text": "VIP Passenger, order the cloud cookies"
+          },
+          {
+            "role": "R6",
+            "picture": {
+              "kind": "action",
+              "id": "cheer"
+            },
+            "text": "VIP Passenger, pretend to munch and crunch"
           }
         ]
       },
       {
         "id": "s4",
-        "owner": "all",
-        "title": "Snack cart",
-        "nutmegSays": "Pretend that it's snack time high in the sky! Yum!",
-        "picture": {
-          "kind": "prop",
-          "id": "tray"
-        },
-        "steps": [
-          {
-            "role": "R1",
-            "text": "Captain, say: Snack time!",
-            "picture": {
-              "kind": "action",
-              "id": "listen"
-            }
-          },
-          {
-            "role": "R2",
-            "text": "Flight Attendant, push the snack cart",
-            "picture": {
-              "kind": "prop",
-              "id": "tray"
-            }
-          },
-          {
-            "role": "R3",
-            "text": "Co-Pilot, ask for a cookie",
-            "picture": {
-              "kind": "kit",
-              "id": "cutout:4"
-            }
-          },
-          {
-            "role": "R4",
-            "text": "Passenger, pay with Sky Dollars",
-            "picture": {
-              "kind": "kit",
-              "id": "money"
-            }
-          },
-          {
-            "role": "R5",
-            "text": "Snack Chef, hand out pretend snacks",
-            "picture": {
-              "kind": "kit",
-              "id": "cutout:1"
-            }
-          },
-          {
-            "role": "R6",
-            "text": "Weather Watcher, tell everyone the weather",
-            "picture": {
-              "kind": "action",
-              "id": "look"
-            }
-          },
-          {
-            "role": "all",
-            "text": "Everyone, say thank you",
-            "picture": {
-              "kind": "action",
-              "id": "wave"
-            }
-          },
-          {
-            "role": "all",
-            "text": "Pretend to munch and crunch",
-            "picture": {
-              "kind": "action",
-              "id": "cheer"
-            }
-          }
-        ]
-      },
-      {
-        "id": "s5",
-        "owner": "all",
-        "title": "Bumpy clouds",
-        "nutmegSays": "Pretend that the plane is bouncing through bumpy clouds!",
+        "title": "Time to Land",
         "picture": {
           "kind": "action",
-          "id": "look"
+          "id": "cheer"
         },
-        "steps": [
-          {
-            "role": "R1",
-            "text": "Captain, say: Hold on tight!",
-            "picture": {
-              "kind": "action",
-              "id": "listen"
-            }
-          },
-          {
-            "role": "R2",
-            "text": "Flight Attendant, check that everyone is buckled",
-            "picture": {
-              "kind": "action",
-              "id": "point"
-            }
-          },
-          {
-            "role": "R3",
-            "text": "Co-Pilot, steer around the clouds",
-            "picture": {
-              "kind": "kit",
-              "id": "cutout:5"
-            }
-          },
-          {
-            "role": "R4",
-            "text": "Passenger, hug your pillow",
-            "picture": {
-              "kind": "kit",
-              "id": "cutout:2"
-            }
-          },
-          {
-            "role": "R5",
-            "text": "Snack Chef, keep the cups steady",
-            "picture": {
-              "kind": "prop",
-              "id": "tray"
-            }
-          },
-          {
-            "role": "R6",
-            "text": "Weather Watcher, say when it's smooth",
-            "picture": {
-              "kind": "action",
-              "id": "look"
-            }
-          },
-          {
-            "role": "all",
-            "text": "Everyone, bounce in your seat",
-            "picture": {
-              "kind": "action",
-              "id": "cheer"
-            }
-          },
-          {
-            "role": "all",
-            "text": "Count to 3 and stop bouncing",
-            "picture": {
-              "kind": "action",
-              "id": "count"
-            }
-          }
-        ]
-      },
-      {
-        "id": "s6",
-        "owner": "all",
-        "title": "Landing",
         "nutmegSays": "Pretend that you can see the beach! Time to land, Captain!",
-        "picture": {
-          "kind": "action",
-          "id": "look"
-        },
         "steps": [
           {
             "role": "R1",
-            "text": "Captain, say: Get ready to land!",
             "picture": {
               "kind": "action",
               "id": "listen"
-            }
+            },
+            "text": "Captain, say: Get ready to land!"
+          },
+          {
+            "role": "R1",
+            "picture": {
+              "kind": "prop",
+              "id": "plate"
+            },
+            "text": "Captain, turn the steering wheel slowly"
           },
           {
             "role": "R2",
-            "text": "Flight Attendant, collect the trash",
-            "picture": {
-              "kind": "prop",
-              "id": "tray"
-            }
-          },
-          {
-            "role": "R3",
-            "text": "Co-Pilot, point to the runway",
-            "picture": {
-              "kind": "action",
-              "id": "point"
-            }
-          },
-          {
-            "role": "R4",
-            "text": "Passenger, put on your sunglasses",
             "picture": {
               "kind": "kit",
               "id": "cutout:3"
-            }
+            },
+            "text": "Passenger, put on your sunglasses"
           },
           {
-            "role": "R5",
-            "text": "Snack Chef, pack up the snacks",
-            "picture": {
-              "kind": "kit",
-              "id": "cutout:1"
-            }
-          },
-          {
-            "role": "R6",
-            "text": "Weather Watcher, say: Sunny and warm!",
-            "picture": {
-              "kind": "action",
-              "id": "look"
-            }
-          },
-          {
-            "role": "all",
-            "text": "Everyone, lean forward",
-            "picture": {
-              "kind": "action",
-              "id": "look"
-            }
-          },
-          {
-            "role": "all",
-            "text": "Clap for a soft landing",
+            "role": "R2",
             "picture": {
               "kind": "action",
               "id": "clap"
-            }
+            },
+            "text": "Passenger, clap for a soft landing"
+          },
+          {
+            "role": "R3",
+            "picture": {
+              "kind": "prop",
+              "id": "tray"
+            },
+            "text": "Flight Attendant, roll the snack cart away"
+          },
+          {
+            "role": "R3",
+            "picture": {
+              "kind": "action",
+              "id": "wave"
+            },
+            "text": "Flight Attendant, wave goodbye at the door"
+          },
+          {
+            "role": "R4",
+            "picture": {
+              "kind": "action",
+              "id": "point"
+            },
+            "text": "Co-Pilot, point to the runway"
+          },
+          {
+            "role": "R4",
+            "picture": {
+              "kind": "action",
+              "id": "count"
+            },
+            "text": "Co-Pilot, count down to landing"
+          },
+          {
+            "role": "R5",
+            "picture": {
+              "kind": "kit",
+              "id": "cutout:1"
+            },
+            "text": "Snack Chef, pack up the snacks"
+          },
+          {
+            "role": "R5",
+            "picture": {
+              "kind": "action",
+              "id": "wave"
+            },
+            "text": "Snack Chef, wave to the passengers"
+          },
+          {
+            "role": "R6",
+            "picture": {
+              "kind": "kit",
+              "id": "cutout:0"
+            },
+            "text": "VIP Passenger, grab your suitcase"
+          },
+          {
+            "role": "R6",
+            "picture": {
+              "kind": "action",
+              "id": "cheer"
+            },
+            "text": "VIP Passenger, say: What a great flight!"
           }
         ]
       }

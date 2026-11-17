@@ -86,15 +86,16 @@ import Testing
     #expect(store.playerCount == 2)
     _ = await store.apply(.setRoles([.init(roleName: "Zookeeper", job: "Feed the lion"),
                                      .init(roleName: "Lion", job: "Roar")]))
-    #expect(store.plan?.roles.count == 6 && store.playingRoles.map(\.roleName) == ["Zookeeper", "Lion"])
-    #expect(store.plan?.role(for: .R2)?.roleName == "Lion")
+    // Round 28: customers are roles too: a zoo's R2 is the Visitor (the Lion moves to R3).
+    #expect(store.plan?.roles.count == 6 && store.playingRoles.map(\.roleName) == ["Zookeeper", "Visitor"])
+    #expect(store.plan?.role(for: .R3)?.roleName == "Lion")
     #expect(store.presenting == .none)   // no role cards (Haylee): roles are spoken, then printed on badges
     _ = await store.apply(.showProps([.init(itemID: "pillow", becomes: "Lion bed", forRole: "lion", alternates: ["cushion"]),
                                       .init(itemID: "kitchen knife", becomes: "Sword", forRole: "all"),
                                       .init(itemID: "tray", becomes: "Feeding tray", forRole: "all"),
                                       .init(itemID: "paper crown", becomes: "Lion crown", forRole: "all")]))
     #expect(store.props?.props.map(\.householdItem) == ["Pillow", "Tray"])   // off-list items (unsafe or not) dropped
-    #expect(store.props?.props.first?.forRole == .R2)
+    #expect(store.props?.props.first?.forRole == .R3)
     #expect(store.props?.props.first?.libraryID == "pillow")
     _ = await store.apply(.swapProp(oldID: "tray", newID: "books", becomes: "Snack tray"))
     #expect(store.props?.props[1].id == "tray" && store.props?.props[1].libraryID == "books" && store.props?.props[1].becomes == "Snack tray")
@@ -113,7 +114,8 @@ import Testing
     _ = await store.apply(.setRoles(["Captain", "Flight Attendant", "Co-Pilot", "Passenger", "Passenger", "Passenger"]
         .map { .init(roleName: $0, job: "") }))
     // Round C1: repeats are dropped and generic extras fill in: 6 different titles, one kid each.
-    #expect(store.plan?.roles.map(\.roleName) == ["Captain", "Flight Attendant", "Co-Pilot", "Passenger", "Helper", "Lookout"])
+    // Round 28: the customer the model wrote moves up to R2.
+    #expect(store.plan?.roles.map(\.roleName) == ["Captain", "Passenger", "Flight Attendant", "Co-Pilot", "Helper", "Lookout"])
     #expect(store.plan?.roles.allSatisfy { $0.count == 1 } == true && store.playingRoles.count == 6)
 }
 

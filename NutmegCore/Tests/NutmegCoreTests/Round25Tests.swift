@@ -84,7 +84,10 @@ import Testing
         scenes[0].steps[0].text = "Head Baker, stir the mixing bowl!"; scenes[0].steps[0].picture = .prop("bowl")
         scenes[1].steps[1].text = "Oven Watcher, wave the big stirrer!"; scenes[1].steps[1].picture = .prop("flashlight")
         scenes[2].steps[6].text = "Everyone, fill the display tray!"; scenes[2].steps[6].picture = .prop("tray")
-        #expect(GuideRepair.repair(scenes, roles: Self.roles, props: Self.props, title: "Magic Bakery") == scenes)
+        // Round 28: the cakes are on the printed cut-outs, so every object named is real.
+        var items = Fallback.airplane.kit.items
+        if let c = items.firstIndex(where: { $0.recipe == .cutouts }) { items[c].lines.append("Cakes") }
+        #expect(GuideRepair.repair(scenes, roles: Self.roles, props: Self.props, title: "Magic Bakery", items: items) == scenes)
     }
 
     @Test func aSkippedPropIsWovenInAsPretend() {
@@ -142,10 +145,10 @@ import Testing
             #expect(scenes.map(\.owner) == scenes.indices.map { Optional(playing[$0 % n]) }, "N=\(n)")
             #expect(Set(scenes.compactMap(\.owner)) == Set(playing))
             for s in scenes {
-                // One step per playing role, called out; nothing for a role that isn't playing.
-                let roleSteps = s.roles.compactMap(\.role)
-                #expect(roleSteps.sorted { $0.rank < $1.rank } == playing, "N=\(n): \(roleSteps)")
+                // Round 28: each turn's checklist is ONLY the holder's steps.
+                #expect(!s.roles.isEmpty && s.roles.allSatisfy { $0.role == s.owner }, "N=\(n): \(s.roles)")
             }
+            #expect(scenes.count == (store.fullKit?.scenes.count ?? 0) * n)
         }
         // And the count change in the middle of one replay (1 → 2 at Pick) needs no reload.
         store.loadReplay(Self.bakeryGame)

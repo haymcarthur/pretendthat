@@ -51,7 +51,7 @@ public enum ConfirmStep {
     /// What she does once the kids say yes (confirm_plan; round 26: voice only).
     public static func confirmedOutput(playerCount: Int) -> String {
         // Round C1: always 6 ranked roles; the set_roles result says which ones to announce (the first N).
-        "Confirmed: \(playerCount) kid\(playerCount == 1 ? "" : "s"). Say ONE short line like \"Great, let me put some plans together!\" and call start_planning (topic roles) now (nothing longer, no other narration); after it, invent exactly 6 ranked roles for this game (R1 the lead, R2 the second core role, R3 to R6 fun extras; six different titles), call set_roles, then show_next_prop, and only then announce ONLY the roles the set_roles result says are playing, ending with \"\(AdventureStore.huntTransition)\" in ONE turn (the first prop card and line follow). Never ask for names."
+        "Confirmed: \(playerCount) kid\(playerCount == 1 ? "" : "s"). Say ONE short line like \"Great, let me put some plans together!\" and call start_planning (topic roles) now (nothing longer, no other narration); after it, invent exactly 6 ranked roles for this game (R1 the lead, R2 the second core role: the customer, visitor, guest, passenger or patient counterpart of R1 when the game has one, like Shopkeeper + Customer or Pilot + Passenger; R3 to R6 fun extras mixing workers and customers; six different titles), call set_roles, then show_next_prop, and only then announce ONLY the roles the set_roles result says are playing, ending with \"\(AdventureStore.huntTransition)\" in ONE turn (the first prop card and line follow). Never ask for names."
     }
 
     /// The output for a fix while she's waiting on the recap: she recaps again.

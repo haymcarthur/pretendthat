@@ -72,7 +72,7 @@ public final class AdventureStore {
     public private(set) var fullKit: Kit? {
         didSet {
             guard let k = fullKit, !k.scenes.isEmpty else { return }
-            let fixed = GuideRepair.repair(k.scenes, roles: plan?.roles ?? [], props: props?.props ?? [], title: currentTitle)
+            let fixed = GuideRepair.repair(k.scenes, roles: plan?.roles ?? [], props: props?.props ?? [], title: currentTitle, items: k.items)
             if fixed != k.scenes { fullKit?.scenes = fixed }
         }
     }
@@ -469,7 +469,7 @@ public final class AdventureStore {
         // Round 25: a saved guide with a placeholder title, too few scenes or no props in it (seen in a round 24
         // Draw it! game: ONE scene titled "x") is repaired here, with no AI call (`GuideRepair`).
         let items = g.kit.items
-        replayBase = GuideRepair.repair(g.kit.scenes, roles: g.roles, props: g.props.map(\.replayProp), title: g.title)
+        replayBase = GuideRepair.repair(g.kit.scenes, roles: g.roles, props: g.props.map(\.replayProp), title: g.title, items: g.kit.items)
         fullKit = Kit(nutmegSays: g.kit.nutmegSays, items: g.kit.items,
                       scenes: ReplayProps.apply(replayBase, saved: g.props, current: list, items: items))
         planningStep = .finish
@@ -706,7 +706,7 @@ public final class AdventureStore {
             phase = .pickGame; presenting = .none
             return "Noted (there are no idea cards; the chat shows your words). Say the ideas in a fun way and end by asking which one they want to play."
         case .setGame(let title):
-            if let late = lateCorrection(title: title, what: "game") { return late }
+            if let refused = afterYesRefusal() { return refused }
             if planningStep >= .players {
                 // A fix while the count is asked or the plan is being confirmed (or after the roles): stay on track.
                 return correct(title: title, what: "Game fixed: \(title).")
@@ -717,7 +717,7 @@ public final class AdventureStore {
                 : "suggesting ONLY today's theme ideas, and make it sound open (\"Any twist you like! Maybe \(Suggestions.spoken(themeIdeas))?\"; say them so they fit this game; no other examples)"
             return "Game set: \(title). Step 2: react in one short sentence, then ask what theme or twist it should have, \(ideas). If the kids say their own theme, take it. Call set_theme when they pick."
         case .setTheme(let title):
-            if let late = lateCorrection(title: title, what: "theme") { return late }
+            if let refused = afterYesRefusal() { return refused }
             if planningStep >= .players { return correct(title: title, what: "Theme fixed: \(title).") }
             gameTitle = title; plan = nil; props = nil
             phase = .players; presenting = .none; planningStep = .players
@@ -901,7 +901,7 @@ public final class AdventureStore {
                 return "Back to the last checklist. Say exactly this and nothing else: \"\(HandOffLines.backToChecklist)\""
             }
             let moved = goTo(step)
-            return BackNav.output(moved: moved, to: step, current: from)
+            return BackNav.output(moved: moved, to: step, current: from, line: arrivalLine(step))
         }
     }
 
@@ -991,22 +991,19 @@ public final class AdventureStore {
         return redo ? ConfirmStep.redoOutput(what: what, recap: recapLine) : ConfirmStep.recapAgainOutput(what: what, recap: recapLine)
     }
 
-    /// A game or theme fix after planning: while the kit is being made or waits to print, the kit is remade for the
-    /// new title (the app says so out loud); once play has started the adventure stays as printed.
-    private func lateCorrection(title: String, what: String) -> String? {
-        switch phase {
-        case .makingKit, .kitReady:
-            gameTitle = title
-            fullKit = nil; kitRemakes += 1; phase = .makingKit
-            presenting = .none; planningStep = .finish
-            Task { await self.makeKit(remakeFor: title) }
-            return "The \(what) is now \(title): the app is remaking the kit to match and says so. Say nothing."
-        case .handoff, .scene, .end:
-            return "The kit is printed and the game is on. Say in ONE short, kind line that this adventure is all set, and "
-                + "a new game starts from home (the house at the end, or the X in the corner)."
-        default:
-            return nil
-        }
+    /// Round 28 (Haylee): once the kids said yes to the recap (the first Pick is done), the game and theme can't change,
+    /// only how many are playing. set_game / set_theme are refused and she says so kindly. Before the yes, corrections
+    /// still work (round 19).
+    public var gameLocked: Bool { planningStep > .confirm || phase.step == .print || phase.step == .play }
+    private func afterYesRefusal() -> String? {
+        guard gameLocked else { return nil }
+        return BackNav.gameStaysOutput(title: currentTitle)
+    }
+
+    /// What she says arriving on a step (tap or voice). Round 28: back on Pick she names the game and asks the count.
+    public func arrivalLine(_ step: JourneyStep) -> String {
+        if step == .game, gameTitle != nil || isReplay { return BackNav.pickLine(title: currentTitle) }
+        return BackNav.arrivalLine(step)
     }
 
     #if DEBUG

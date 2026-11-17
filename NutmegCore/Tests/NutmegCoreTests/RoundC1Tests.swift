@@ -15,7 +15,7 @@ struct RoundC1Tests {
         #expect(RoleID.allCases.map(\.rawValue) == ["R1", "R2", "R3", "R4", "R5", "R6"])
         #expect(Schemas.roleIDs == ["R1", "R2", "R3", "R4", "R5", "R6"])
         let json = String(decoding: try JSONSerialization.data(withJSONObject: Schemas.kitScenes(), options: [.sortedKeys]), as: UTF8.self)
-        #expect(json.contains(#""enum":["R1","R2","R3","R4","R5","R6","all"]"#))
+        #expect(json.contains(#""enum":["R1","R2","R3","R4","R5","R6"]"#))   // round 28: no steps for everyone
         #expect(!json.contains("\"owner\""))                       // the app rotates the hand-offs
         #expect(json.contains("badge:R1..R6"))
         #expect(PictureResolver.kitIDs.contains("badge:R6"))
@@ -31,8 +31,9 @@ struct RoundC1Tests {
         let ctx = AdventureContext(gameTitle: "Pirate Ship", plan: Fallback.airplane.plan, playerCount: 2)
         #expect(Prompts.plan(game: "Pirate Ship", ctx: ctx).contains("exactly 6 different roles, ranked"))
         for p in [Prompts.kitScenes(ctx: ctx, items: kit.items), Prompts.kit(ctx: ctx)] {
-            #expect(p.contains("exactly 6 scenes") && p.contains("ONE step for EACH role R1, R2, R3, R4, R5 and R6"))
-            #expect(p.contains("2 steps for everyone"))
+            // Round 28: 4 scenes × 2 steps per role, a role's checklist is only theirs.
+            #expect(p.contains("exactly 4 scenes") && p.contains("TWO steps for EACH role R1, R2, R3, R4, R5 and R6"))
+            #expect(p.contains("No steps for everyone"))
         }
         #expect(Prompts.system.contains("6 RANKED roles"))
         #expect(Realtime.instructions.contains("exactly 6 RANKED roles"))
@@ -51,12 +52,13 @@ struct RoundC1Tests {
     }
 
     @Test func sanitizerKeepsOneStepPerRoleAndTwoForEveryone() {
+        // Round 28: two steps per role (the first two), none for everyone.
         var s = kit.scenes[0]
         s.steps += [Step(picture: .point, text: "Captain, again", role: .R1), Step(picture: .point, text: "All three", role: .all)]
         let clean = Sanitizer.clean(Kit(nutmegSays: "", items: [], scenes: [s])).scenes[0]
-        #expect(clean.steps.count == 8)
-        #expect(clean.steps.filter { $0.role == .R1 }.map(\.text) == ["Captain, hold the steering wheel"])
-        #expect(clean.steps.filter { $0.role == .all }.count == 2)
+        #expect(clean.steps.count == 12)
+        #expect(clean.steps.filter { $0.role == .R1 }.map(\.text) == ["Captain, hold the steering wheel", "Captain, say hello to the passengers"])
+        #expect(clean.steps.filter { $0.role == .all }.isEmpty)
         #expect(clean.owner == .all)
         // Older JSON (no role on steps) still decodes: everyone's steps, no owner needed.
         let old = try? JSONDecoder().decode(Scene.self, from: Data(#"{"id":"a","title":"T","nutmegSays":"Pretend that!","steps":[{"text":"Wave"}]}"#.utf8))
@@ -66,19 +68,22 @@ struct RoundC1Tests {
     // MARK: Per-role coverage at every count
 
     @Test func everyPlayingRoleHasItsOwnCalledOutStepInEveryScene() {
+        // Round 28 (Haylee, "one role per checklist"): each scene, every playing role gets a turn (a hand-off, then a
+        // checklist of ONLY its own steps). The N-player view's scenes are those turns.
         for n in 1...6 {
             let view = PlayCast.kit(kit, roles: roles, players: n)
-            for scene in view.scenes {
-                let tagged = scene.steps.compactMap(\.role.role)
-                #expect(Set(tagged) == Set(RoleID.allCases.prefix(n)), "n=\(n) \(scene.title)")
-                #expect(tagged.count == n)                                  // exactly one each
-                for step in scene.steps { if let r = step.role.role {
-                    #expect(PlayCast.names(step.text, roles[r.index].roleName), "\(step.text)")
-                } }
-                #expect((3...PlayCast.maxVisibleSteps).contains(scene.steps.count), "n=\(n): \(scene.steps.count) steps")
+            #expect(view.scenes.count == kit.scenes.count * n, "n=\(n)")
+            #expect(view.scenes.map(\.owner.role) == Array(repeating: Array(RoleID.allCases.prefix(n)), count: kit.scenes.count).flatMap { $0 })
+            for (t, turn) in view.scenes.enumerated() {
+                let owner = turn.owner.role!
+                #expect(turn.steps.count == PlayCast.stepsPerRole, "n=\(n) \(turn.title)")
+                #expect(turn.steps.allSatisfy { $0.role.role == owner }, "only the holder's steps")
+                for step in turn.steps { #expect(PlayCast.names(step.text, roles[owner.index].roleName), "\(step.text)") }
+                // The scene's intro on its first turn only.
+                #expect(turn.nutmegSays.isEmpty == (t % n != 0))
                 // Nothing on screen names a role that isn't playing.
                 for away in roles.dropFirst(n) {
-                    let texts = [scene.title, scene.nutmegSays] + scene.steps.map(\.text)
+                    let texts = [turn.title, turn.nutmegSays] + turn.steps.map(\.text)
                     #expect(!texts.contains { PlayCast.names($0, away.roleName) }, "n=\(n) names \(away.roleName)")
                 }
             }
@@ -86,12 +91,15 @@ struct RoundC1Tests {
     }
 
     @Test func groupStepsFillTheRoomAndTheFinaleIsKept() {
-        let s = kit.scenes[0]
-        #expect(PlayCast.visibleSteps(s, roles: roles, players: 1).map(\.role) == [.R1, .all, .all])
-        #expect(PlayCast.visibleSteps(s, roles: roles, players: 4).count == 6)
-        let five = PlayCast.visibleSteps(s, roles: roles, players: 5)
-        #expect(five.count == 6 && five.last?.text == "Say: Welcome aboard!")   // the last group step stays
-        #expect(PlayCast.visibleSteps(s, roles: roles, players: 6).allSatisfy { $0.role != .all })
+        // Round 28: an older guide's "everyone" steps never show on a role's checklist.
+        var s = kit.scenes[0]
+        s.steps += [Step(picture: .action("wave"), text: "Everyone, wave to the plane"), Step(picture: .action("cheer"), text: "Say: Welcome aboard!")]
+        for n in 1...6 {
+            for turn in PlayCast.turns(s, index: 0, roles: roles, players: n) {
+                #expect(!turn.steps.contains { $0.role == .all } && turn.steps.allSatisfy { $0.role == turn.owner })
+            }
+        }
+        #expect(PlayCast.groupStepsMax == 0)
     }
 
     @Test func aMissingRoleStepIsWrittenFromTheJobAndUncalledStepsGetTheTitle() {
@@ -100,15 +108,15 @@ struct RoundC1Tests {
         s.steps[0].text = "Hold the steering wheel"   // R1's step forgot to call the Captain
         let v = PlayCast.visibleSteps(s, roles: roles, players: 3)
         #expect(v.first?.text == "Captain, hold the steering wheel")
-        #expect(v.contains { $0.role == .R3 && $0.text == "Co-Pilot, read the map and help the captain!" })
+        #expect(v.filter { $0.role == .R3 }.map(\.text) == ["Flight Attendant, check tickets and bring snacks!"])
     }
 
     @Test func linesNamingAnAbsentRoleAreRewritten() {
         let r = roles
-        #expect(PlayCast.unname("Captain, give the map to the Weather Watcher", roles: r, players: 2) == "Captain, give the map to a friend")
+        #expect(PlayCast.unname("Captain, give the map to the VIP Passenger", roles: r, players: 2) == "Captain, give the map to a friend")
         #expect(PlayCast.unname("The Snack Chef's tray is ready!", roles: r, players: 4) == "A friend's tray is ready!")
-        #expect(PlayCast.unname("Co-Pilot, wave", roles: r, players: 3) == "Co-Pilot, wave")          // playing: unchanged
-        #expect(PlayCast.sceneLine("Pretend that it's stormy! Weather Watcher, look out!", roles: r, players: 2) == "Pretend that it's stormy!")
+        #expect(PlayCast.unname("Co-Pilot, wave", roles: r, players: 4) == "Co-Pilot, wave")          // playing: unchanged
+        #expect(PlayCast.sceneLine("Pretend that it's stormy! Snack Chef, look out!", roles: r, players: 2) == "Pretend that it's stormy!")
         #expect(!PlayCast.names("Co-Pilot, wave", "Pilot"))
     }
 
@@ -133,16 +141,20 @@ struct RoundC1Tests {
         for _ in 0..<100 where store.phase != .kitReady { try? await Task.sleep(for: .milliseconds(10)) }
         store.autoCheckStep = .zero; store.autoCheckHold = .zero
         store.beginPlay()
+        // Round 28: each scene, every playing role in turn: a hand-off, then ONLY its own checklist.
         var lines: [String] = []
-        for i in 0..<6 {
+        let turns = kit.scenes.count * 3
+        for i in 0..<turns {
             #expect(store.phase == .handoff(sceneIndex: i))
             lines.append(store.nutmegLine)
             _ = await store.apply(.confirmHandoff)
             #expect(store.phase == .scene(i))
+            let holder = store.kit?.scenes[i].owner.role
+            #expect(store.kit?.scenes[i].steps.allSatisfy { $0.role.role == holder } == true)
             await store.sceneDone()
         }
         #expect(store.phase == .end)
-        let who = ["Captain", "Flight Attendant", "Co-Pilot", "Captain", "Flight Attendant", "Co-Pilot"]
+        let who = Array(repeating: ["Captain", "Passenger", "Flight Attendant"], count: kit.scenes.count).flatMap { $0 }
         for (line, role) in zip(lines, who) { #expect(line.contains("Pass the iPad to the \(role)! Tap the green check when you have the iPad!"), "\(line)") }
     }
 
@@ -174,7 +186,7 @@ struct RoundC1Tests {
         let gen = store.draftGeneration, calls = llm.calls
         // During the hunt: the roles, props and the pages being written all stay.
         let hunt = await store.apply(.setPlayerCount(5))
-        #expect(hunt.contains("Nothing is remade") && hunt.contains("Five friends! Our crew is a Captain, a Flight Attendant, a Co-Pilot, a Passenger and a Snack Chef!"))
+        #expect(hunt.contains("Nothing is remade") && hunt.contains("Five friends! Our crew is a Captain, a Passenger, a Flight Attendant, a Co-Pilot and a Snack Chef!"))
         #expect(store.playerCount == 5 && store.plan?.roles.count == 6 && store.planningStep == .props)
         #expect(store.draftGeneration == gen && llm.calls == calls)
         _ = await store.apply(.finishPlanning)
@@ -185,7 +197,8 @@ struct RoundC1Tests {
         for n in [1, 6, 3] {
             _ = await store.apply(.setPlayerCount(n))
             #expect(store.playerCount == n && store.phase == .kitReady && store.fullKit == full)
-            #expect(store.kit?.scenes.allSatisfy { $0.steps.compactMap(\.role.role).count == n } == true)
+            #expect(store.kit?.scenes.count == (store.fullKit?.scenes.count ?? 0) * n)   // round 28: a turn per playing role
+            #expect(store.kit?.scenes.allSatisfy { sc in sc.steps.allSatisfy { $0.role == sc.owner } } == true)
             let badges = KitLayout.pages(for: store.kit!, roles: store.plan!.roles, playerCount: n).filter { $0.item.recipe == .badges }
             #expect(badges.flatMap(\.slots).count == n)
         }
@@ -256,7 +269,7 @@ struct RoundC1Tests {
 
     @Test func countChangeLines() {
         #expect(PlayCast.countChangeLine(roles: roles, players: 1) == "Just you! You'll be the Captain!")
-        #expect(PlayCast.countChangeLine(roles: roles, players: 2) == "Two friends! Our crew is a Captain and a Flight Attendant!")
-        #expect(PlayCast.crewList(Array(roles.prefix(3))) == "a Captain, a Flight Attendant and a Co-Pilot")
+        #expect(PlayCast.countChangeLine(roles: roles, players: 2) == "Two friends! Our crew is a Captain and a Passenger!")
+        #expect(PlayCast.crewList(Array(roles.prefix(3))) == "a Captain, a Passenger and a Flight Attendant")
     }
 }

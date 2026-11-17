@@ -173,12 +173,12 @@ public enum Validate {
     }
     /// `roles`: how many ranked roles the game has (round C1: each needs its own step in every scene; 0 = no check).
     public static func scenes(_ scenes: [Scene], roles: Int = 0) -> Problem? {
-        if scenes.count < 4 { return short("scenes", scenes.count, want: "4 to 6 scenes", fatal: scenes.isEmpty) }
+        if scenes.count < 4 { return short("scenes", scenes.count, want: "exactly 4 scenes", fatal: scenes.isEmpty) }
         if let s = scenes.first(where: { GuideRepair.isPlaceholderTitle($0.title) }) {
             return Problem(message: "scene \"\(s.id)\" had no real title", fatal: false)
         }
         if let s = scenes.first(where: { $0.steps.count < 3 }) {
-            return short("steps in scene \"\(s.title)\"", s.steps.count, want: "one step for each role plus 2 for everyone in every scene", fatal: s.steps.isEmpty)
+            return short("steps in scene \"\(s.title)\"", s.steps.count, want: "two steps for each role in every scene", fatal: s.steps.isEmpty)
         }
         // Round C1 (Haylee): every role gets its OWN step in every scene (non-fatal: the app writes one as a last resort).
         let ids = RoleID.allCases.prefix(min(roles, RoleCast.count))
@@ -187,6 +187,6 @@ public enum Validate {
             return missing.isEmpty ? nil : "scene \"\(s.title)\" had no step for \(missing.map(\.rawValue).joined(separator: ", "))"
         }
         return gaps.isEmpty ? nil : Problem(message: gaps.joined(separator: "; ")
-            + "; give EVERY role (R1 to R6) its own step in EVERY scene, tagged with its role id and calling it by its title", fatal: false)
+            + "; give EVERY role (R1 to R6) its own 2 steps in EVERY scene, tagged with its role id and calling it by its title", fatal: false)
     }
 }

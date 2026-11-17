@@ -13,7 +13,7 @@ public enum Prompts {
 
     We never ask for kids' names. Refer to kids only by their role ("the Captain", "a Passenger"). Never invent or ask for names. \
     Every game has exactly 6 RANKED roles, ids R1 to R6: R1 is the lead the game can't run without, R2 the second \
-    core role, R3 to R6 fun extras. With N kids, only the first N roles play (R1 always plays). Props and checklist \
+    core role, R3 to R6 fun extras; customers, visitors, guests, passengers, patients and pet owners are roles too, just as important as the workers: when the game has them, R2 is the customer counterpart of R1 (Shopkeeper + Customer, Pilot + Passenger, Vet + Pet Owner), and R3 to R6 mix more workers and more customers. With N kids, only the first N roles play (R1 always plays). Props and checklist \
     steps belong to a role id or "all".
 
     Voice rules for every nutmegSays line and every choice label:
@@ -36,8 +36,11 @@ public enum Prompts {
     cords, food, medicine, or anything up high. Set safetyOK to false if an item breaks these rules.
 
     Limits: game ideas exactly 3; props 3 to 5; the kit is always the same 6 item types (badges, sign, money, tickets, menu, cutouts), at most 7 printed pages; \
-    scenes exactly 6; checklist steps per scene: exactly one for EACH role R1 to R6 plus 2 for everyone, each step a \
-    short action a kid can do; choices 2 to 4. \
+    scenes exactly 4; checklist steps per scene: exactly TWO for EACH role R1 to R6 (no steps for everyone: each \
+    role's 2 steps are its own checklist), each step a short action a kid can do; choices 2 to 4. \
+    Steps name ONLY objects the kids really have: the household props they found, the printed kit (badges, sign, \
+    money, tickets, menu, cut-outs) and their own bodies (hands, feet, voice). Never any other object (no bell, wand, \
+    phone, cash register or basket unless it is one of their props): make it a pretend action instead. \
     Never use emoji anywhere. Props always come from the household-prop list (their id is the list id). \
     Kids read pictures before words: every checklist step and scene title gets exactly ONE picture showing the main \
     object or action in its OWN text: kind "kit" when the step hands out or uses a printed item of this kit \
@@ -64,7 +67,7 @@ public enum Prompts {
     public static func plan(game: String, ctx: AdventureContext) -> String {
         let n = PlayCast.players(ctx.playerCount)
         let who = "Make exactly 6 different roles, ranked (ids R1 to R6 in order): R1 the lead the game can't run without, "
-            + "R2 the second core role, R3 to R6 fun extras that add to the game. Six different titles (never the same "
+            + "R2 the second core role, R3 to R6 fun extras that add to the game; customers, visitors, guests, passengers, patients and pet owners are roles too, just as important as the workers: when the game has them, R2 is the customer counterpart of R1 (Shopkeeper + Customer, Pilot + Passenger, Vet + Pet Owner), and R3 to R6 mix more workers and more customers (e.g. VIP Customer). Six different titles (never the same "
             + "title twice). job is a short action (\"steer the ship\"). There \(n == 1 ? "is 1 kid" : "are \(n) kids"), "
             + "so the first \(n) role\(n == 1 ? "" : "s") play now; nutmegSays names ONLY \(n == 1 ? "R1" : "R1 to R\(n)")."
         return "Phase: roles. Game: \"\(game)\". \(who) Kids pick their own badge after printing, so don't assign roles to anyone. Return GamePlan.\n\(contextJSON(ctx))"
@@ -116,7 +119,7 @@ public enum Prompts {
         cutout:N is the Nth line of the cutouts item (0-based). Props the kids found are real household props (kind \
         prop); props marked skipped are pretend (the kids don't have them; if a cutouts line names one, use that cut-out).
         \(sceneRules) \
-        \(huntPending ? "The kids are still hunting for household props, so none are known yet: use NO household props (no prop pictures, no household things), only the printed pages, actions and pretend play; the app works their props into the steps later. Return the 6 scenes as scene1 to scene6 (each with its R1 to R6 steps and all1, all2), all of them in this one answer." : "Use the found props and the printed pages in the steps: work EVERY household prop into at least one role's step, named by what it becomes. Every scene needs a real, specific title of 2 to 5 words about what happens in it (never a placeholder like x or Scene 1). Return KitScenes.")
+        \(huntPending ? "The kids are still hunting for household props, so none are known yet: use NO household props (no prop pictures, no household things), only the printed pages, actions and pretend play; the app works their props into the steps later. Return the 4 scenes as scene1 to scene4 (each with R1a, R1b, R2a, R2b … R6a, R6b), all of them in this one answer." : "Use the found props and the printed pages in the steps: work EVERY household prop into at least one role's step, named by what it becomes. Every scene needs a real, specific title of 2 to 5 words about what happens in it (never a placeholder like x or Scene 1). Return KitScenes.")
         \(contextJSON(ctx))
         """
     }
@@ -131,15 +134,24 @@ public enum Prompts {
 
     /// Round C1 (Haylee's answer 2): the play guide is written for all 6 ranked roles, so any count from 1 to 6 has a
     /// complete checklist with no new call. Every role gets its OWN step in every scene.
-    static let sceneRules = "Write exactly 6 scenes for the play guide (never fewer than 4), each scene and step with ONE picture. "
-        + "The game is written for up to 6 kids: the roles R1 to R6 are ranked, and with N kids only R1 to RN play. In "
-        + "EVERY scene write exactly 8 steps: ONE step for EACH role R1, R2, R3, R4, R5 and R6 (role = that id; its text "
+    /// Round 28 (Haylee): "one role per checklist" and "props must be real". Each scene, every playing role gets a
+    /// hand-off and a checklist of ONLY its own steps (2), so there are no steps for everyone; and steps name only
+    /// objects the kids have (the found props, the printed kit, their bodies); `GuideRepair` enforces it too.
+    static let sceneRules = "Write exactly 4 scenes for the play guide (never fewer than 4), each scene and step with ONE picture. "
+        + "The game is written for up to 6 kids: the roles R1 to R6 are ranked, and with N kids only R1 to RN play. Each "
+        + "scene, every playing role takes a turn holding the iPad and does ITS OWN 2 steps (its own checklist). In EVERY "
+        + "scene write exactly 12 steps: TWO steps for EACH role R1, R2, R3, R4, R5 and R6 (role = that id; each text "
         + "starts by calling that role by its title and gives it its own fun job in this scene, e.g. \"Lookout, spot the "
-        + "island with your telescope!\"), plus 2 steps for everyone together (role all, e.g. \"Everyone, cheer for the "
-        + "ship!\"). Keep each step short (at most 9 words). A role's step may name only that role or roles ranked above "
-        + "it (a lower R number). The scene titles, every nutmegSays and the \"all\" steps name no role except R1. The app "
-        + "decides who holds the iPad, so scenes have no owner. Every scene's nutmegSays MUST start with \"Pretend that\" "
-        + "(e.g. \"Pretend that the first passengers just arrived!\"), with different words after it in each scene."
+        + "island!\" then \"Lookout, shout land ho!\"). No steps for everyone. Customers, visitors, guests, passengers "
+        + "and patients get real things to do (order, pay with the money, show a ticket, wait in line), not just watch. "
+        + "Keep each step short (at most 9 words). A role's step may name only that role or roles ranked above it (a lower "
+        + "R number). The scene titles and every nutmegSays name no role except R1. The app decides who holds the iPad, so "
+        + "scenes have no owner. Every scene's nutmegSays MUST start with \"Pretend that\" (e.g. \"Pretend that the first "
+        + "passengers just arrived!\"), with different words after it in each scene. ONLY REAL PROPS: a step may name ONLY "
+        + "objects the kids really have: the household props (by what they become), the printed pages above (badges, "
+        + "sign, money, tickets, menu, the cut-outs) and their own bodies (hands, feet, voice). Never any other object "
+        + "(no bell, wand, phone, basket, cash register, cup, unless it is one of the props or printed pages): if a step "
+        + "needs one, make it a pretend action (\"pretend to ring a bell\") or use a printed page instead."
 
     static func contextJSON(_ ctx: AdventureContext) -> String {
         let enc = JSONEncoder(); enc.outputFormatting = [.sortedKeys]

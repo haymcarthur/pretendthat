@@ -46,13 +46,16 @@ public enum RoleCast {
 public enum PlayCast {
     /// The most steps a checklist shows (the checklist fit is built for 3 to 6 rows).
     public static let maxVisibleSteps = 6
-    /// Steps for everyone together, per scene (shown while there's room).
-    public static let groupStepsMax = 2
+    /// Round 28 (Haylee): a role's checklist is only theirs, so no steps for everyone are shown (kept at 0 for older
+    /// callers; a guide that still has "all" steps keeps them in the data, never on screen).
+    public static let groupStepsMax = 0
+    /// Round 28: each role has this many steps of its own in every scene (its checklist when it holds the iPad).
+    public static let stepsPerRole = 2
 
     /// 1…6.
     public static func players(_ n: Int) -> Int { max(1, min(n, RoleCast.count)) }
 
-    /// Who holds the iPad in scene `i`: the playing roles in turn (R1, R2, …, RN, R1, …).
+    /// Who holds the iPad in turn `i` of a guide written before round C1 (no role steps): the playing roles in turn.
     public static func owner(scene i: Int, players n: Int) -> RoleID {
         RoleID.allCases[((i % players(n)) + players(n)) % players(n)]
     }
@@ -60,33 +63,25 @@ public enum PlayCast {
     /// A scene written before round C1 (no step belongs to a role): shown as it is.
     static func isLegacy(_ s: Scene) -> Bool { !s.steps.contains { $0.role.role != nil } }
 
-    /// The checklist for N players: one step for each playing role (its own, or one the app writes from the role's
-    /// job if the scene has none), then as many group steps as fit (the last ones are kept: they're often the finale).
-    /// Steps for roles that aren't playing never show. Order is the scene's own order.
+    /// Round 28 (Haylee, "one role per checklist"): the checklist for ONE playing role in a scene: that role's own
+    /// steps (at most `stepsPerRole`), or one the app writes from the role's job if the scene has none. No other
+    /// role's steps and no steps for everyone. Order is the scene's own order.
+    public static func turnSteps(_ scene: Scene, role: Role, roles: [Role], players n: Int) -> [Step] {
+        let n = players(n)
+        var own = scene.steps.filter { $0.role.role == role.id }
+        if own.isEmpty { own = [filler(role)] }
+        return own.prefix(stepsPerRole).map { st in
+            var s = st
+            s.text = calledOut(unname(s.text, roles: roles, players: n), role: role)
+            return s
+        }
+    }
+
+    /// Every playing role's steps in a scene, in role order (tests and the guide view; play uses `turnSteps`).
     public static func visibleSteps(_ scene: Scene, roles: [Role], players n: Int) -> [Step] {
         let n = players(n)
         if isLegacy(scene) { return scene.steps.map { var s = $0; s.text = unname(s.text, roles: roles, players: n); return s } }
-        let playing = roles.isEmpty ? [] : RoleCast.playing(roles, kids: n)
-        var picked: [(order: Int, step: Step)] = []
-        var covered = Set<RoleID>()
-        for (i, step) in scene.steps.enumerated() {
-            guard let r = step.role.role, r.rank <= n, !covered.contains(r) else { continue }
-            covered.insert(r)
-            picked.append((i, step))
-        }
-        // A playing role with no step of its own still gets one (Validate asks Claude first; this is the last resort).
-        for role in playing where !covered.contains(role.id) {
-            picked.append((scene.steps.count + role.id.index, filler(role)))
-        }
-        let groups = scene.steps.enumerated().filter { $0.element.role == .all }
-        let room = max(0, min(groupStepsMax, maxVisibleSteps - picked.count))
-        picked += groups.suffix(room).map { ($0.offset, $0.element) }
-        return picked.sorted { $0.order < $1.order }.map { o in
-            var s = o.step
-            s.text = unname(s.text, roles: roles, players: n)
-            if let r = s.role.role, let role = roles.first(where: { $0.id == r }) { s.text = calledOut(s.text, role: role) }
-            return s
-        }
+        return RoleCast.playing(roles, kids: n).flatMap { turnSteps(scene, role: $0, roles: roles, players: n) }
     }
 
     /// The step the app writes for a role that has none in a scene ("Lookout, look out for surprises!").
@@ -96,21 +91,46 @@ public enum PlayCast {
         return Step(picture: .action("cheer"), text: text, role: SceneOwner(role.id))
     }
 
-    /// The scene as N players see it: the visible steps, the hand-off owner from the rotation, and no line naming a
-    /// role that isn't playing.
-    public static func scene(_ s: Scene, index i: Int, roles: [Role], players n: Int) -> Scene {
-        var out = s
-        out.steps = visibleSteps(s, roles: roles, players: n)
-        out.owner = SceneOwner(owner(scene: i, players: n))
-        out.title = unname(s.title, roles: roles, players: n, title: true)
-        out.nutmegSays = sceneLine(s.nutmegSays, roles: roles, players: n)
-        return out
+    /// Round 28: a second step the app writes (template scenes): a body action, no object.
+    static func filler2(_ role: Role, variant k: Int) -> Step {
+        let moves: [(String, String)] = [("give a friend a big wave", "wave"), ("clap for your team", "clap"),
+                                         ("point to where the fun is", "point"), ("count to five out loud", "count")]
+        let m = moves[((k % moves.count) + moves.count) % moves.count]
+        return Step(picture: .action(m.1), text: "\(role.roleName), \(m.0)!", role: SceneOwner(role.id))
     }
 
-    /// The whole kit as N players see it (the pages are unchanged; KitLayout prints N badges).
+    /// Round 28 (Haylee, "one role per checklist"): the play TURNS for N players. For each scene, each playing role in
+    /// rank order gets a turn: a hand-off to that role, then a checklist of only that role's steps. The first turn of
+    /// a scene carries the scene's "Pretend that" intro; the others start straight at the role's first step.
+    /// A guide written before round C1 (no role steps) keeps one turn per scene, rotating as before.
+    public static func turns(_ s: Scene, index i: Int, roles: [Role], players n: Int) -> [Scene] {
+        let n = players(n)
+        let title = unname(s.title, roles: roles, players: n, title: true)
+        let intro = sceneLine(s.nutmegSays, roles: roles, players: n)
+        let playing = roles.isEmpty ? [] : RoleCast.playing(roles, kids: n)
+        if isLegacy(s) || playing.isEmpty {
+            var out = s
+            out.steps = visibleSteps(s, roles: roles, players: n)
+            out.owner = SceneOwner(owner(scene: i, players: n))
+            out.title = title; out.nutmegSays = intro
+            return [out]
+        }
+        return playing.enumerated().map { k, role in
+            Scene(id: "\(s.id)#\(role.id.rawValue)", owner: SceneOwner(role.id), title: title, picture: s.picture,
+                  nutmegSays: k == 0 ? intro : "", steps: turnSteps(s, role: role, roles: roles, players: n))
+        }
+    }
+
+    /// The scene as N players see it, for the first playing role (kept for older callers).
+    public static func scene(_ s: Scene, index i: Int, roles: [Role], players n: Int) -> Scene {
+        turns(s, index: i, roles: roles, players: n)[0]
+    }
+
+    /// The whole kit as N players see it: `scenes` is the list of play TURNS (scene 1: R1, R2, …, RN; scene 2: R1, …).
+    /// The pages are unchanged (KitLayout prints N badges).
     public static func kit(_ k: Kit, roles: [Role], players n: Int) -> Kit {
         var out = k
-        out.scenes = k.scenes.enumerated().map { scene($0.element, index: $0.offset, roles: roles, players: n) }
+        out.scenes = k.scenes.enumerated().flatMap { turns($0.element, index: $0.offset, roles: roles, players: n) }
         return out
     }
 
