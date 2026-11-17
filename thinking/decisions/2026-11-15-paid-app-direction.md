@@ -49,3 +49,13 @@
 - **Relay cap:** $50 (Haylee's current setting) is enough for App Review; keep the per-IP limits.
 
 - **Update (Haylee, 2026-11-16):** AI is REQUIRED; there's no AI-off sample-adventure mode. Onboarding asks the parent for clear AI consent; if they decline, the app explains PretendThat needs it to work and shows how to turn it on later in Grown-ups (no nagging). Publisher: Haylee will use an LLC and is considering an umbrella studio LLC for her apps (Tittl stays in its own LLC for now).
+
+## Cost cuts and pricing direction (Haylee, 2026-11-16); see research/2026-11-16-cost-per-game-v3.md
+- **Use the mini realtime voice for scripted (app-written) lines;** the conversation stays on gpt-realtime-2.1. **Sonnet 5.5 for the play guide and per-prop weave;** Opus stays for the kit pages.
+- **Keep the game counts Haylee likes:** Show Pass 10 a month, Season Pass 30 a month ("one a day"). Set LIST prices that cover heavy use, launch at a discounted "launch price", watch real usage, and make the discount permanent if usage allows.
+- **Yearly ~15% off** (comparable to other apps).
+- Usage visibility needs anonymous counts at the relay (new games per subscription per month, no kid data); this ties into the cap enforcement planned with StoreKit.
+- **Pricing (Haylee, 2026-11-16), tentative:** Show Pass list $14.99/mo with an introductory price of $9.99; Season Pass list $24.99/mo with an introductory price of $19.99. Use Apple introductory offers rather than "changing" the price. Yearly about 15% off. 10 and 30 new shows a month. To confirm: the intro offer duration (Apple caps pay-as-you-go intros at 12 billing periods per new subscriber) and the re-measured cost after rounds 34/35.
+- **Mini voice:** Haylee heard the WRONG voice in the A/B samples. Mini must match coral at 1.20 exactly before shipping (round 35).
+- **Intro offer length (Haylee, 2026-11-16):** 12 months (Apple's maximum for pay-as-you-go). Show Pass $9.99 for 12 months, then $14.99; Season Pass $19.99 for 12 months, then $24.99. Yearly: $149.99 / $249.99 (about 15% off). Pricing page updated.
+- **Season Pass regular price (Haylee, 2026-11-16):** $29.99/mo (intro $19.99 for 12 months), yearly $299.99. Reason: the bigger plan should earn more; $1/game vs Show Pass $1.50/game. Idea for later: Season Pass extras (iCloud sync across devices, early themes/outfits, more saved games). Decide with real usage counts from the relay.
