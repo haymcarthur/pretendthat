@@ -164,24 +164,16 @@ struct PTScenePinnedCard: View {
     }
 }
 
-/// The End. Round 26 (Haylee's button audit): two big icon buttons, no text. ⭐ saves the game and goes home (once
-/// her shelf line ends); 🏠 goes home without saving (the round 19 hang-up rules: silence, the voice session closes).
-/// A replay is already saved, so it shows only 🏠. The step rail's Play (finished, ↺) reopens the last scene.
+/// The End. Round 39 (Haylee, auto-save): no star (every game is already on the bookshelf). Two big icon buttons, no
+/// text: the green round arrow plays it again (the scenes from the top, same kids and props) and the house goes home
+/// (the round 19 hang-up rules). Nutmeg's End line mentions the bookshelf. The same for a new game and a replay.
 struct EndView: View {
     let model: AppModel
     var body: some View {
-        let store = model.store
-        let saving = model.saveState == .saving || (store.savedAs != nil && !store.isReplay)
         VStack(spacing: Theme.Space.l) {
             PTText("The End!", .hero)
             HStack(spacing: Theme.Space.xl) {
-                if store.canSave || saving {
-                    PTBigIconButton(kind: .star, size: 96, label: model.saveState == .failed ? "Try saving again" : "Save it and go home") {
-                        model.tapSave()
-                    }
-                    .disabled(saving)
-                    .opacity(saving ? 0.6 : 1)
-                }
+                PTBigIconButton(kind: .again, size: 96, label: "Play it again") { model.tapPlayAgain() }
                 PTBigIconButton(kind: .home, size: 96, label: "Go home") { model.tapNewGame() }
             }
             .padding(.bottom, Theme.depth)

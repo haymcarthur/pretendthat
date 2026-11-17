@@ -90,3 +90,20 @@ public struct ResponseGate: Equatable, Sendable {
         return true
     }
 }
+
+/// Round 39 (the ~10 s pause after a spoken/typed "found it"): whether her spoken reply to the kid's turn is still due.
+/// The session used to clear this only when her audio started. A turn that ends with a tool-only (silent) pass and NO
+/// spoken follow-up (show_next_prop / finish_planning: the app says the next line itself) never plays audio, so it
+/// stayed "due" forever, `isBusy` stayed true, and the app's prop line waited out its 10 s limit. Now a response that
+/// ends with nothing more requested (the gate is idle) also closes it: no reply is coming.
+public struct ReplyWait: Equatable, Sendable {
+    public private(set) var due = false
+    public init() {}
+    /// The kid's turn ended (hold released, typed line, tap): her reply is due.
+    public mutating func kidTurnEnded() { due = true }
+    /// Her first audio for the turn played.
+    public mutating func replyBegan() { due = false }
+    /// `response.done` was handled. `gateActive` = a follow-up (or the next turn's response) was already requested.
+    public mutating func responseDone(gateActive: Bool) { if !gateActive { due = false } }
+    public mutating func reset() { due = false }
+}

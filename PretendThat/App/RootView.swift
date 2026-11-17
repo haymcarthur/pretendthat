@@ -177,8 +177,22 @@ struct RootView: View {
                     .transition(.opacity)
                     .zIndex(19)
             }
+            // Round 39: the bookshelf moment (kit made) and "sounds like a game you have" (Pick confirm).
+            if let m = model.shelfMoment {
+                PTShelfMomentOverlay(moment: m)
+                    .transition(.opacity)
+                    .zIndex(17)
+            }
+            if let g = model.soundsLike {
+                PTSoundsLikeCard(game: g, cover: model.cover(for: g),
+                                 onReplay: { model.chooseSavedInstead() }, onNew: { model.chooseNewGame() })
+                    .transition(.opacity)
+                    .zIndex(18)
+            }
             if confirmLeave {
-                PTLeaveDialog(onStay: { confirmLeave = false },
+                PTLeaveDialog(onShelf: LeaveDialogMode.current(isReplay: store.isReplay, savedAs: store.savedAs) == .onShelf
+                                ? (model.currentCoverPicture(), model.currentCoverProps) : nil,
+                              onStay: { confirmLeave = false },
                               onLeave: { confirmLeave = false; chatOpen = false; model.leave() })
                     .transition(.opacity.combined(with: .scale(scale: 0.96)))
                     .zIndex(20)

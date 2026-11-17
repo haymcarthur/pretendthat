@@ -45,6 +45,9 @@ public final class AdventureStore {
     /// Where the planning conversation is (conversation-structure.md); driven by the function calls.
     public private(set) var planningStep: PlanningStep = .game
     public private(set) var gameTitle: String?
+    /// Round 39: the game type as set_game named it ("Pizza Restaurant"), before the theme renamed the title (the
+    /// "sounds like a game you have" check matches type + theme). Never saved.
+    public private(set) var gameType: String?
     /// Round 20 (Haylee): full color, or pages to color in. Asked after the confirm step's yes; nil = not asked yet.
     /// The one source of truth for every kit image prompt.
     public private(set) var printStyle: PrintStyle?
@@ -388,7 +391,7 @@ public final class AdventureStore {
 
     public func newGame() {
         phase = .hello
-        playerCount = 0; gameTitle = nil; printStyle = nil; planningStep = .game; themeIdeas = []
+        playerCount = 0; gameTitle = nil; gameType = nil; printStyle = nil; planningStep = .game; themeIdeas = []
         printSet = PrintStyle.defaultSet; availableSets = PrintStyle.sets   // round 27
         ideas = nil; plan = nil; props = nil; fullKit = nil
         choices = []; lastError = nil; usingFallback = false
@@ -414,10 +417,14 @@ public final class AdventureStore {
         countedNewGame = true
         ledger.newGameStarted(id: gameID)
     }
-    /// The first play was saved at The End (its id): The End offers "Play it again" (a replay of it).
+    /// Round 39: the first play was auto-saved (its id) once the kit was made; later saves update it.
     public private(set) var savedAs: UUID?
-    /// A first play can be saved at The End (round D1: never mid-game; a replay is already saved).
-    public var canSave: Bool { phase == .end && !isReplay && savedAs == nil && fullKit?.scenes.isEmpty == false && plan != nil }
+    /// Round 39 (auto-save): a NEW game can be saved from the moment its kit is made (the roles, the kit and its play
+    /// guide exist), on any step after that; a replay is already saved.
+    public var canAutoSave: Bool {
+        guard !isReplay, plan != nil, fullKit?.scenes.isEmpty == false else { return false }
+        switch phase { case .kitReady, .scene, .end: return true; default: return false }
+    }
     public func markSaved(_ id: UUID) { savedAs = id }
 
     /// The saved game being replayed (nil on a first play).
@@ -707,6 +714,7 @@ public final class AdventureStore {
             return "Noted (there are no idea cards; the chat shows your words). Say the ideas in a fun way and end by asking which one they want to play."
         case .setGame(let title):
             if let refused = afterYesRefusal() { return refused }
+            gameType = title
             if planningStep >= .players {
                 // A fix while the count is asked or the plan is being confirmed (or after the roles): stay on track.
                 return correct(title: title, what: "Game fixed: \(title).")

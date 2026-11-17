@@ -37,8 +37,9 @@ import Testing
     @Test func linesNameThePictureButtons() {
         #expect(HandOffLines.printReady == "Your kit is ready! Want them in color, or plain to color yourself? Tap the ones you like, then the printer! Tap the green play button when you're set!")
         #expect(HandOffLines.nextSceneHowTo == "Tap the green play button for the next scene!")
-        #expect(HandOffLines.end() == "The end! What a show! Take a bow! Tap the star to save it, or the house to go home!")
-        #expect(HandOffLines.end(replay: true) == "The end! What a show! Take a bow! Tap the house to go home!")
+        // Round 39: no star (every game is already on the bookshelf): the arrow plays it again, the house goes home.
+        #expect(HandOffLines.end() == "The end! What a show! Take a bow! It's on your bookshelf. Tap the arrow to play again, or the house to go home!")
+        #expect(HandOffLines.end(replay: true) == HandOffLines.end())
         #expect(BackNav.arrivalLine(.print) == "Back to Print! Tap the printer to print it again.")
         #expect(AdventureStore.firstPropLine(item: "bowl", becomes: "the mixing bowl").contains("tap the green check"))
         // No line names a button that's gone.
@@ -51,15 +52,15 @@ import Testing
         }
     }
 
-    @Test func theEndSavesOnlyAFirstPlay() async {
+    @Test func theEndKeepsTheAutoSaveOfAFirstPlay() async {
         let store = await storeWithKit(owners: [.R1, .R2], players: 2)
         store.beginPlay()
         for _ in 0..<12 where store.phase != .end { store.nextScene() }
         #expect(store.phase == .end && store.nutmegLine.hasSuffix(HandOffLines.end()))
-        // The star is offered only while the first play can be saved; once saved (or on a replay) only the house.
-        #expect(store.canSave)
+        // Round 39: no star; the first play stays saveable (its auto-save is kept up to date) to The End.
+        #expect(store.canAutoSave)
         store.markSaved(UUID())
-        #expect(!store.canSave)
+        #expect(store.canAutoSave && store.savedAs != nil)
     }
 
     // MARK: Replays reuse the first-play flows (decisions 8, 9, 10)

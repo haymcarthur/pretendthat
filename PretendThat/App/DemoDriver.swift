@@ -320,10 +320,9 @@ enum DemoDriver {
                 rtLog("ART: color=\(model.colorArt.finished) outline=\(model.outlineArt.finished) cover=\(model.coverArt.image != nil) set=\(model.store.printSet.toolValue)")
                 continue
             }
-            if turn == "#saveGame" {
-                model.tapSave()
+            if turn == "#saveGame" {   // round 39: the game saved itself at the kit; this only waits and logs it
                 for _ in 0..<100 where model.store.savedAs == nil { try? await Task.sleep(for: .milliseconds(100)) }
-                rtLog("SAVE: \(model.store.savedAs.map { "saved \($0)" } ?? "NOT saved (\(model.saveState))") shelf=\(model.shelfGames.count)")
+                rtLog("SAVE: \(model.store.savedAs.map { "saved \($0)" } ?? "NOT saved") shelf=\(model.shelfGames.count)")
                 continue
             }
             if turn == "#tohome" {
@@ -459,6 +458,15 @@ enum DemoDriver {
         if !target.hasPrefix("conv") { model.realtime.debugSeedTranscript(demoTranscript) }
         if target.hasPrefix("conv") { await conversation(store, model: model, to: target); return }
         if target == "seed2" { await seedGames(store, model: model); return }
+        // Round 39: `-PTDemo soundsLike`: a few saved games (the bundled airplane game auto-saves on its way), then the
+        // Pick confirm with the "sounds like a game you have" card up.
+        if target == "soundsLike" {
+            await seedGames(store, model: model, count: 3)
+            try? await Task.sleep(for: .seconds(1))
+            await conversation(store, model: model, to: "convConfirm")
+            model.debugSoundsLike()
+            return
+        }
         // Shelf fix (round 27 follow-up): `-PTDemo shelf` seeds 5 games (env PT_SEED_COUNT for more) (cover from env PT_SEED_COVER on every other
         // one, so both the cover and the fallback show) and opens the bookshelf (two shelves + a second page at 10+).
         if target == "shelf" || target == "seed5" {

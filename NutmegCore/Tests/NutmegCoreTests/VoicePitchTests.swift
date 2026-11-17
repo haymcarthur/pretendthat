@@ -145,7 +145,9 @@ import Testing
     }
 
     @Test func theCreditsNameBothLibrariesWithTheirLicense() throws {
-        #expect(GrownUpsCopy.credits.map(\.line) == ["Signalsmith Stretch 1.4.0 · MIT License", "Signalsmith Linear 0.6.6 · MIT License"])
+        #expect(GrownUpsCopy.credits.map(\.line).prefix(2) == ["Signalsmith Stretch 1.4.0 · MIT License", "Signalsmith Linear 0.6.6 · MIT License"])
+        // Round 39: TelemetryDeck (MIT) and Poppins (OFL) are credited too.
+        #expect(GrownUpsCopy.credits.map(\.line).dropFirst(2) == ["TelemetryDeck SwiftSDK 2.14.2 · MIT License", "Poppins 4.004 · SIL Open Font License 1.1"])
         // The shipped notice matches the vendored LICENSE files (whitespace aside).
         let vendor = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
             .appendingPathComponent("Sources/SignalsmithShift/vendor")

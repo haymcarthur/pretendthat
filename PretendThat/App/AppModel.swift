@@ -107,8 +107,6 @@ final class AppModel {
     @ObservationIgnored private var replayConnecting = false
     /// AI calls (Claude, images, moderation) when the replay started: the live check logs the difference.
     @ObservationIgnored private var replayStartCalls: [AICallLog.Kind: Int] = [:]
-    enum SaveState: Equatable { case idle, saving, failed }
-    private(set) var saveState: SaveState = .idle
     /// Round D3b: Nutmeg's recorded lines for the current game (her app lines only), the speaker's clip source.
     @ObservationIgnored let clipStore: ClipStore
     /// Round D3b: the network (an unrecorded replay line offline pauses the game with the Wi-Fi note).
@@ -304,8 +302,8 @@ final class AppModel {
             kidBlock = purchases.entitlement == nil ? .needsPlan : .outOfShows
             return
         }
-        // Round 33 / 38: a NEW game counts toward the Free Preview or the plan's month (replays never do).
-        countNewShow()
+        // Round 39: a NEW game counts toward the Free Preview or the plan's month only once its kit is made
+        // (`kitMadeIfNew`); closing before that costs nothing. Replays never count.
         gameStats.begin(kind: .new)
         Analytics.send(.newGameStarted)
         // Consent was given later in Grown-ups (the onboarding's mic screen was skipped): the system prompts now.
@@ -450,6 +448,7 @@ final class AppModel {
     func guidePendingChanged(_ pending: Bool) {
         if pending { rtLog("TIMING Paper went ahead while the play guide is still being finished") }
         if !pending && kitFinal { endKitBackgroundTask() }
+        if !pending { autoSave(reason: "play guide ready") }   // round 39: a save that waited for the guide
         if !pending, let at = playWaitStartedAt {
             rtLog(String(format: "TIMING Play waited %.1f s for the play guide", Date().timeIntervalSince(at)))
             playWaitStartedAt = nil
@@ -506,7 +505,8 @@ final class AppModel {
         resetArt()
         stickers.reset()
         gate.reset(); safeSnap = nil; screenedTurns = [:]
-        replayGame = nil; replayConnecting = false; saveState = .idle
+        replayGame = nil; replayConnecting = false
+        resetAutoSave()   // round 39: what was saved stays saved; the watchers and the moments stop
         // Round 37: the game just played stays reportable from Grown-ups → Report a problem until the app quits (in
         // memory only: its title and AI-made text, never anything about the kids).
         if let k = store.fullKit, !(k.items.isEmpty && k.scenes.isEmpty) {
@@ -575,6 +575,9 @@ final class AppModel {
     }
 
     func phaseChanged() {
+        // Round 39: the kit of a new game was made (the end of Props): count the show and save the game.
+        if store.phase == .kitReady || { if case .scene = store.phase { return true } else { return false } }() { kitMadeIfNew() }
+        if store.phase == .end { autoSave(reason: "the end") }
         watchStory()
         sendPhaseAnalytics()
         // Round 19: home (the start screen) is always silent.
@@ -650,6 +653,7 @@ final class AppModel {
     /// as soon as the kids tapped "Let's play!" (or the stage re-rendered), which cancelled every image request
     /// and left the pages app-drawn.
     func kitChanged() {
+        if store.savedAs != nil { autoSave(reason: "kit changed") }   // round 39: a remade kit or the play guide
         guard let kit = store.kit else { return }
         // Round D1: a replay prints the saved art: never an image call.
         if store.isReplay { return }
@@ -934,6 +938,8 @@ final class AppModel {
             guard !Task.isCancelled else { return }
             kitBeat = .papers                                   // zoom out; the papers fly once the camera settles
             papersShown = true
+            // Round 39: the bookshelf moment (once per new game), then the ready line.
+            if !kitReadySaid { await runShelfMoment() }
             // Round 7: the ready line only now that the whole kit exists; about printing, never "go play".
             // Round 9: exactly once, even across a lock/background (deferred until the session is back).
             guard !kitReadySaid else { return }
@@ -972,6 +978,8 @@ final class AppModel {
             if let k = store.lastReadJobRow { store.lastReadJobRow = nil; rtLog("scene: read job (voice) row \(k + 1)"); readTask(k, wholeRole: true) }
             return (out, false)
         }
+        // Round 39 (Haylee): the yes to the recap: a close saved game is offered first (suggest, never block).
+        if case .confirmPlan = call, let out = soundsLikeCheck() { return (out, false) }
         // Round 34 (Haylee): on a live first play the app writes and says the prop lines (recorded as clips), so a
         // replay of the saved game says the same words.
         store.appSaysPropLines = realtime.isLive && !store.isReplay
@@ -1590,61 +1598,195 @@ final class AppModel {
         rtLog("grown-ups: deleted a saved game (\(gone ? "files removed" : "FILES LEFT")), \(shelfGames.count) left")
     }
 
-    /// The End's star (round 26; was "Save it to play again"): the game is written to this iPad at once (game content
-    /// only), she says its title and that it's on the shelf, then the game goes home (the round 19 hang-up rules).
-    func tapSave() {
-        guard store.canSave, saveState != .saving else { return }
-        userAction(.saveGame)
-        saveState = .saving
-        let started = Date()
+    // MARK: Auto-save (round 39, Haylee: every new game saves itself when the kit is made; no Save button)
+
+    /// The kit of a NEW game was made: the show counts now (not at Let's play!), and the game saves itself. Once per game.
+    private func kitMadeIfNew() {
+        guard kitLatch.claim(gameID: store.gameID, isReplay: store.isReplay, kitExists: store.fullKit != nil) else { return }
+        #if DEBUG
+        if DemoDriver.autoStart { return }   // frame strips: no counting, no saving
+        #endif
+        rtLog("KIT MADE: the show counts now and the game saves itself")
+        countNewShow()
+        autoSave(reason: "kit made")
+        watchArtForSave()
+    }
+
+    /// Writes (or updates) the current new game on this iPad: game content only (rule 6). The first write takes this
+    /// play's recorded clips along; later writes keep them and add the art and the cover as they land. Writes run one
+    /// at a time, in order. A game whose play guide is still being finished waits for it (`guidePendingChanged`).
+    func autoSave(reason: String) {
+        guard kitLatch.claimed(store.gameID), !store.isReplay else { return }
+        guard store.canAutoSave else { rtLog("SAVE waits (\(reason)): the play guide isn't ready yet"); return }
         let id = store.gameID
+        let first = store.savedAs == nil
         // Round 27: both sets (the outline set's keys are o-prefixed) and the generated cover.
         let images = colorArt.artByKey.merging(outlineArt.artByKey) { a, _ in a }
-        // The shelf card: the text-free cover, else the color sign page, else the outline one.
+        let keep = Set(images.keys)
+        let todo = images.filter { !savedArtKeys.contains($0.key) }
         let signID = store.kit?.items.first { $0.recipe == .sign }?.id
         let generated = coverArt.image
         let sign = CoverArt.pick(cover: nil, colorSign: signID.flatMap { colorArt.images[$0] }, outlineSign: signID.flatMap { outlineArt.images[$0] })
-        Task { @MainActor in
-            let (files, cover) = await Task.detached(priority: .userInitiated) { () -> ([String: Data], Data?) in
+        // The cover: the generated one (written once), else the sign page until the generated one arrives.
+        let coverSource: UIImage? = generated != nil && !savedGeneratedCover ? generated : (savedAnyCover ? nil : sign)
+        let coverIsGenerated = generated != nil && coverSource === generated
+        guard var game = store.savedGame(id: id, art: keep.sorted(), cover: nil) else { return }
+        let recorded = first ? clipStore.pendingForSave() : (clips: [], data: [:])
+        if first { game.clips = recorded.clips }
+        let previous = saveTask
+        saveTask = Task { @MainActor in
+            await previous?.value
+            let started = Date()
+            let (files, cover) = await Task.detached(priority: .utility) { () -> ([String: Data], Data?) in
                 var files: [String: Data] = [:]
-                for (key, img) in images { if let d = img.heicData() ?? img.jpegData(compressionQuality: 0.9) { files[key] = d } }
-                return (files, generated.flatMap { CoverArtService.jpeg($0) } ?? sign.flatMap { Self.coverData($0) })
+                for (key, img) in todo { if let d = img.heicData() ?? img.jpegData(compressionQuality: 0.9) { files[key] = d } }
+                let c = coverSource.flatMap { coverIsGenerated ? CoverArtService.jpeg($0) : Self.coverData($0) }
+                return (files, c)
             }.value
-            guard store.canSave, var game = store.savedGame(id: id, art: files.keys.sorted(), cover: cover == nil ? nil : "cover.jpg") else { saveState = .failed; return }
-            // Round D3b: her lines recorded on this play are saved with it.
-            let recorded = clipStore.pendingForSave()
-            game.clips = recorded.clips
-            do {
-                try savedGames.save(game, art: files, cover: cover, clips: recorded.data)
-                clipStore.didSave(game.id)
-                rtLog("SAVE cover: \(generated != nil ? "the generated cover" : sign != nil ? "the sign page (no cover)" : "none")")
-                rtLog("SAVE clips: \(recorded.clips.count) recorded lines, \(recorded.data.values.reduce(0) { $0 + $1.count } / 1024) KB AAC")
-            } catch {
-                rtLog("save: failed (\(error.localizedDescription))")
+            let store = self.savedGames
+            let ok: Bool
+            if first && store.game(id) == nil {
+                ok = (try? store.save(game, art: files, cover: cover, clips: recorded.data)) != nil
+            } else {
+                ok = store.update(game, art: files, keep: keep, cover: cover)
+            }
+            guard ok else {
+                rtLog("SAVE failed (\(reason))")
                 Analytics.send(.error(.saveFailed))
-                saveState = .failed
                 return
             }
-            store.markSaved(game.id)
-            Analytics.send(.gameSaved(PlayersValue(count: store.playerCount), GameCategory.from(title: game.title)))
-            saveState = .idle
+            savedArtKeys.formUnion(files.keys)
+            if cover != nil { savedAnyCover = true; if coverIsGenerated { savedGeneratedCover = true } }
+            if first {
+                clipStore.didSave(id)   // her next recorded lines go straight into the saved game
+                if self.store.gameID == id { self.store.markSaved(id) }
+                Analytics.send(.gameSaved(PlayersValue(count: self.store.playerCount), GameCategory.from(title: game.title)))
+            }
             refreshShelf()
-            rtLog(String(format: "SAVE game saved in %.2f s: %d art files, %d KB on disk, %d on the shelf", Date().timeIntervalSince(started),
-                         files.count, savedGames.size(of: game.id) / 1024, shelfGames.count))
-            gesture(.celebrate); celebrations += 1
-            // Design: "<Title>!" then the shelf line. Round 26 (Haylee): the star saves AND goes home, once her line ends.
-            speak("\(game.title)! It's on your shelf now. Play it again anytime!")
-            homeAfterSave = Task { @MainActor in
-                for _ in 0..<30 where !(isSpeaking || realtime.voiceBusy) && !Task.isCancelled { try? await Task.sleep(for: .milliseconds(100)) }
-                for _ in 0..<100 where (isSpeaking || realtime.voiceBusy) && !Task.isCancelled { try? await Task.sleep(for: .milliseconds(100)) }
-                try? await Task.sleep(for: .milliseconds(400))
-                guard !Task.isCancelled, store.phase == .end, store.savedAs == game.id else { return }
-                rtLog("SAVE: home after the shelf line")
-                leave()
+            rtLog(String(format: "SAVE %@ (%@) in %.2f s: %d new art files, cover %@, %d clips, %d KB on disk, %d on the shelf",
+                         first ? "auto-saved" : "updated", reason, Date().timeIntervalSince(started), files.count,
+                         cover == nil ? "unchanged" : (coverIsGenerated ? "generated" : "sign page"), recorded.clips.count,
+                         savedGames.size(of: id) / 1024, shelfGames.count))
+        }
+    }
+    @ObservationIgnored private var kitLatch = KitMadeLatch()
+    @ObservationIgnored private var saveTask: Task<Void, Never>?
+    @ObservationIgnored private var savedArtKeys: Set<String> = []
+    @ObservationIgnored private var savedAnyCover = false
+    @ObservationIgnored private var savedGeneratedCover = false
+    @ObservationIgnored private var artSaveWatch: Task<Void, Never>?
+
+    /// After the kit is made the page art and the cover keep landing: the save is updated when both sets are final and
+    /// again when the cover settles (at most ~5 minutes; leaving the game stops watching, what was written stays).
+    private func watchArtForSave() {
+        artSaveWatch?.cancel()
+        let id = store.gameID
+        artSaveWatch = Task { @MainActor in
+            var setsDone = false, coverDone = false
+            for _ in 0..<600 where !Task.isCancelled && !(setsDone && coverDone) {
+                try? await Task.sleep(for: .milliseconds(500))
+                guard store.gameID == id else { return }
+                if !setsDone, colorArt.finished, outlineArt.finished { setsDone = true; autoSave(reason: "art landed") }
+                if !coverDone, coverArt.settledAt != nil { coverDone = true; if coverArt.image != nil { autoSave(reason: "cover drawn") } }
             }
         }
     }
-    @ObservationIgnored private var homeAfterSave: Task<Void, Never>?
+    private func resetAutoSave() {
+        artSaveWatch?.cancel(); artSaveWatch = nil
+        savedArtKeys = []; savedAnyCover = false; savedGeneratedCover = false
+        shelfMoment = nil; soundsLike = nil
+    }
+
+    // MARK: The bookshelf moment (round 39)
+
+    /// What the bookshelf moment shows: the game's cover card (or its prop stickers) shrinking onto the little shelf.
+    struct ShelfMoment: Equatable {
+        let id = UUID()
+        let cover: UIImage?
+        let props: [String]
+        static func == (a: ShelfMoment, b: ShelfMoment) -> Bool { a.id == b.id }
+    }
+    /// The moment on screen (nil = none).
+    private(set) var shelfMoment: ShelfMoment?
+    /// The card's picture right now: the generated cover, else the sign page, else nil (the props).
+    func currentCoverPicture() -> UIImage? {
+        if store.isReplay, let g = replayGame { return cover(for: g) }
+        if let c = coverArt.image { return c }
+        let signID = store.kit?.items.first { $0.recipe == .sign }?.id
+        return CoverArt.pick(cover: nil, colorSign: signID.flatMap { colorArt.images[$0] }, outlineSign: signID.flatMap { outlineArt.images[$0] })
+    }
+    var currentCoverProps: [String] { Array((store.props?.props ?? []).compactMap(\.libraryID).prefix(3)) }
+
+    /// The card shrinks into the little shelf with a pop and she says the one shelf line (the same every game). She is
+    /// on screen (the Print stage). Returns when her line is done (≤ ~6 s), so the ready line follows.
+    private func runShelfMoment() async {
+        guard !store.isReplay, kitLatch.claimed(store.gameID), store.phase == .kitReady else { return }
+        let m = ShelfMoment(cover: currentCoverPicture(), props: currentCoverProps)
+        shelfMoment = m
+        rtLog("SHELF moment: the cover card goes onto the bookshelf")
+        try? await Task.sleep(for: PTShelfMomentTiming.pop)   // the card has shrunk onto the shelf: the pop
+        guard !Task.isCancelled, shelfMoment == m, store.phase == .kitReady else { if shelfMoment == m { shelfMoment = nil }; return }
+        speak(ShelfLines.onTheShelf)
+        for _ in 0..<20 where !(isSpeaking || realtime.voiceBusy) && !Task.isCancelled { try? await Task.sleep(for: .milliseconds(100)) }
+        for _ in 0..<60 where (isSpeaking || realtime.voiceBusy) && !Task.isCancelled { try? await Task.sleep(for: .milliseconds(100)) }
+        try? await Task.sleep(for: .milliseconds(500))
+        if shelfMoment == m { shelfMoment = nil }
+    }
+
+    // MARK: "Sounds like a game you have" (round 39, Haylee)
+
+    /// The saved game the kids might want instead (the card is on screen), or nil.
+    private(set) var soundsLike: SavedGame?
+    @ObservationIgnored private var soundsLikeAskedFor: UUID?
+
+    /// At the Pick confirm's yes (before anything is made or counted): a close saved game (on-device word match, no AI
+    /// call) shows its card and she asks. Returns the tool output, or nil to confirm as usual.
+    private func soundsLikeCheck() -> String? {
+        guard !store.isReplay, store.planningStep == .confirm, soundsLikeAskedFor != store.gameID else { return nil }
+        soundsLikeAskedFor = store.gameID
+        guard let match = GameMatch.closest(gameType: store.gameType, title: store.currentTitle, in: savedGames.list()) else { return nil }
+        rtLog("SOUNDS LIKE: \"\(store.currentTitle)\" is close to a saved game (\(match.title)): asking")
+        soundsLike = match
+        let line = ShelfLines.soundsLike(title: match.title)
+        speaker.remember(line)
+        Task { @MainActor in
+            for _ in 0..<60 where realtime.isSpeaking { try? await Task.sleep(for: .milliseconds(50)) }
+            guard soundsLike?.id == match.id else { return }
+            speaker.say(line, record: false)   // names a saved game: never kept with this game
+        }
+        return ShelfLines.soundsLikeOutput
+    }
+
+    #if DEBUG
+    /// `-PTDemo soundsLike`: the card for the closest saved game (else the first on the shelf), no voice.
+    func debugSoundsLike() {
+        refreshShelf()
+        soundsLike = GameMatch.closest(gameType: store.gameType, title: store.currentTitle, in: shelfGames) ?? shelfGames.first
+        rtLog("SOUNDS LIKE (demo): \(soundsLike?.title ?? "no saved game")")
+    }
+    #endif
+
+    /// The kids tapped the saved game's card: that game's replay starts (nothing was made or counted).
+    func chooseSavedInstead() {
+        guard let g = soundsLike else { return }
+        soundsLike = nil
+        rtLog("SOUNDS LIKE: the kids picked their saved game")
+        clipStore.reset()
+        tapSavedGame(g)
+    }
+
+    /// The kids tapped "make a new one": their yes to the recap stands, the roles come next.
+    func chooseNewGame() {
+        guard soundsLike != nil else { return }
+        soundsLike = nil
+        userAction(.confirmYes)
+        rtLog("SOUNDS LIKE: the kids want a new game")
+        Task { @MainActor in
+            _ = await store.apply(.confirmPlan)
+            realtime.tapTurn(kidLine: "Let's make a new one!", note: ShelfLines.newGameNote(playerCount: max(1, store.playerCount)),
+                             requiring: nil, speakWithTools: true)
+        }
+    }
 
     /// A 600 px wide JPEG of the sign art for the shelf card.
     nonisolated static func coverData(_ image: UIImage) -> Data? {

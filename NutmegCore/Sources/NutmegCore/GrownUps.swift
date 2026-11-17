@@ -222,15 +222,20 @@ public enum GrownUpsLinks {
 
 /// The Saved games screen's sort (newest first is the default).
 public enum SavedGameSort: String, CaseIterable, Identifiable, Sendable {
-    case newest, name
+    case newest, lastPlayed, name
     public var id: String { rawValue }
-    public var label: String { self == .newest ? "Newest" : "Name" }
+    public var label: String {
+        switch self { case .newest: "Newest"; case .lastPlayed: "Last played"; case .name: "Name" }
+    }
 
     /// Newest first (ties A to Z), or A to Z ignoring case and accents, numbers in number order (ties newest first).
     public func apply(_ rows: [SavedGameRow]) -> [SavedGameRow] {
         switch self {
         case .newest:
             return rows.sorted { a, b in a.savedAt != b.savedAt ? a.savedAt > b.savedAt : Self.compare(a.title, b.title) == .orderedAscending }
+        case .lastPlayed:
+            // Round 39: most recently played first (a new game counts as played when it was saved); ties newest first.
+            return rows.sorted { a, b in a.lastPlayedAt != b.lastPlayedAt ? a.lastPlayedAt > b.lastPlayedAt : a.savedAt > b.savedAt }
         case .name:
             return rows.sorted { a, b in
                 let c = Self.compare(a.title, b.title)
@@ -330,9 +335,16 @@ public enum GrownUpsCopy {
     public static let menuFooter = "Only grown-ups can open this corner. Nutmeg stays quiet in here."
     public static func deleteTitle(_ gameTitle: String) -> String { "Delete \(gameTitle)?" }
     public static let deleteMessage = "This can't be undone."
+    /// Round 39: the one confirm for the checked games ("Delete Pet Vet?" / "Delete 3 games?").
+    public static func deleteTitle(for titles: [String]) -> String {
+        titles.count == 1 ? deleteTitle(titles[0]) : "Delete \(titles.count) games?"
+    }
+    /// Round 39: Saved games search with no match.
+    public static func noSearchResults(_ query: String) -> String { "No saved games match \u{201C}\(query)\u{201D}." }
     /// "Delete Moon Crumbs Bakery? This can't be undone."
     public static func deleteConfirm(_ gameTitle: String) -> String { "\(deleteTitle(gameTitle)) \(deleteMessage)" }
-    public static let emptySavedGames = "No saved games yet. Tap the star at the end of a game to keep it here."
+    /// Round 39: every new game saves itself once its kit is made.
+    public static let emptySavedGames = "No saved games yet. Every new game is saved here by itself once its printable kit is made."
     public static let savedGamesFooter = "Saved on this \(DeviceWord.noun). Kids can't delete games; only you can, here."
     public static let subscriptionIntro = "PretendThat plans are subscriptions through Apple. To change your plan, see when it renews, or cancel, use Apple's subscription settings. Cancel at least a day before it renews to avoid the next charge."
     public static let manageButton = "Open Apple's subscription settings"
@@ -358,17 +370,27 @@ public enum GrownUpsCopy {
         // Round 37 (Anthropic's rule for products used by minors + App Store 1.2 / 5.1.2(i)): say plainly that Nutmeg is AI.
         ("Nutmeg is an AI helper", "Nutmeg is a computer character, not a person. Her words, the story and the printed pages are made by AI and checked for kid safety. The first time your child plays, she tells them she's a pretend helper made by a computer. AI can get things wrong: if something seems off, use Report a problem in Grown-ups."),
         ("No accounts, ads or tracking", "There's nothing to sign up for. PretendThat has no ads and doesn't track you or your child."),
-        ("You're in charge", "Delete any game in Saved games. Unsaved games are gone when you leave them."),
+        // Round 39 (auto-save): every new game saves itself once its printable kit is made.
+        ("You're in charge", "Every new game saves itself once its printable kit is made, so it's on the bookshelf to play again. A game closed before that isn't kept. Delete any game in Saved games."),
     ]
 
     /// Voice pitch build (2026-11-17): open-source credits at the end of About (the MIT notice must ship with the app).
     public static let creditsTitle = "Credits"
-    public static let creditsFooter = "Nutmeg's voice is made a little higher on this \(DeviceWord.noun) with these open-source libraries."
+    /// Round 39: + TelemetryDeck (MIT) and the Poppins font (SIL Open Font License 1.1).
+    public static let creditsFooter = "Thank you to these open-source projects: Signalsmith makes Nutmeg's voice a little higher on this \(DeviceWord.noun), TelemetryDeck sends the anonymous counts (only if you turn them on), and Poppins is the font on these grown-up pages."
+    /// The licenses the credits use (the full text of each is in About).
+    public static let mitLicenseName = "MIT License"
+    public static let oflLicenseName = "SIL Open Font License 1.1"
     public static let credits: [Credit] = [
         Credit(name: "Signalsmith Stretch", version: "1.4.0", license: "MIT License",
                copyright: "Copyright (c) 2022 Geraint Luff / Signalsmith Audio Ltd.", url: "github.com/Signalsmith-Audio/signalsmith-stretch"),
         Credit(name: "Signalsmith Linear", version: "0.6.6", license: "MIT License",
                copyright: "Copyright (c) 2025 Signalsmith Audio", url: "github.com/Signalsmith-Audio/linear"),
+        // Round 39: the analytics SDK (MIT, from its LICENSE file) and the grown-up font (OFL; Fonts/Poppins-OFL.txt).
+        Credit(name: "TelemetryDeck SwiftSDK", version: "2.14.2", license: "MIT License",
+               copyright: "Copyright (c) 2020 Daniel Jilg", url: "github.com/TelemetryDeck/SwiftSDK"),
+        Credit(name: "Poppins", version: "4.004", license: "SIL Open Font License 1.1",
+               copyright: "Copyright 2020 The Poppins Project Authors", url: "github.com/itfoundry/Poppins"),
     ]
     public struct Credit: Equatable, Sendable, Identifiable {
         public let name, version, license, copyright, url: String
@@ -399,6 +421,11 @@ public struct SavedGameRow: Identifiable, Equatable, Sendable {
     public let title: String
     public let savedAt: Date
     public let bytes: Int
+    /// Round 39: for the "Last played" sort.
+    public let lastPlayedAt: Date
+    public init(id: UUID, title: String, savedAt: Date, bytes: Int, lastPlayedAt: Date? = nil) {
+        self.id = id; self.title = title; self.savedAt = savedAt; self.bytes = bytes; self.lastPlayedAt = lastPlayedAt ?? savedAt
+    }
 
     public var sizeText: String { ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file) }
     public func dateText(locale: Locale = .current) -> String {
@@ -411,7 +438,7 @@ public struct SavedGameRow: Identifiable, Equatable, Sendable {
 extension SavedGameStore {
     /// The Saved games rows, newest first.
     public func rows() -> [SavedGameRow] {
-        list().map { SavedGameRow(id: $0.id, title: $0.title, savedAt: $0.createdAt, bytes: size(of: $0.id)) }
+        list().map { SavedGameRow(id: $0.id, title: $0.title, savedAt: $0.createdAt, bytes: size(of: $0.id), lastPlayedAt: $0.lastPlayedAt) }
     }
 
     /// The start screen's My games button shows only while at least one game is saved.

@@ -34,7 +34,7 @@ struct PTGrownUpGate: View {
                 .font(.system(size: 30, weight: .semibold)).foregroundStyle(Theme.purple)
                 .frame(width: 64, height: 64).background(Circle().fill(Theme.lavender))
                 .accessibilityHidden(true)
-            Text(title).font(Theme.headlineFont(Theme.TextSize.headline)).foregroundStyle(Theme.ink)
+            Text(title).font(GrownUpFont.heading(Theme.TextSize.headline, relativeTo: .title)).kerning(GrownUpFont.headingKerning(Theme.TextSize.headline)).foregroundStyle(Theme.ink)
                 .accessibilityAddTraits(.isHeader)
             switch gate.step {
             case .hold: holdStep
@@ -53,7 +53,7 @@ struct PTGrownUpGate: View {
     private var holdStep: some View {
         VStack(spacing: Theme.Space.m) {
             Text(gate.misses > 0 ? "Not quite. Let's try again." : "Press and hold the button for 2 seconds.")
-                .font(Theme.bodyFont(Theme.TextSize.body)).foregroundStyle(Theme.inkMuted)
+                .font(GrownUpFont.font(.medium, size: Theme.TextSize.body, relativeTo: .title3)).foregroundStyle(Theme.inkMuted)
                 .multilineTextAlignment(.center)
             holdButton
         }
@@ -69,7 +69,7 @@ struct PTGrownUpGate: View {
                 Image(systemName: "hand.tap").font(.system(size: 18, weight: .semibold)).foregroundStyle(Theme.white)
             }
             .frame(width: 44, height: 44)
-            Text(pressing ? "Keep holding…" : "Hold for 2 seconds").font(Theme.uiFont(22)).foregroundStyle(Theme.white)
+            Text(pressing ? "Keep holding…" : "Hold for 2 seconds").font(GrownUpFont.heading(22, relativeTo: .title2)).foregroundStyle(Theme.white)
         }
         .padding(.leading, Theme.Space.s).padding(.trailing, Theme.Space.l)
         .frame(minHeight: 72)
@@ -106,13 +106,13 @@ struct PTGrownUpGate: View {
         VStack(spacing: Theme.Space.m) {
             (Text("Tap the number ").foregroundStyle(Theme.inkMuted)
              + Text(gate.words ?? "").foregroundStyle(Theme.purple))
-                .font(Theme.bodyFont(Theme.TextSize.headline))
+                .font(GrownUpFont.font(.medium, size: Theme.TextSize.headline, relativeTo: .title))
                 .multilineTextAlignment(.center)
                 .accessibilityLabel("Tap the number \(gate.words ?? "")")
             LazyVGrid(columns: Array(repeating: GridItem(.fixed(104), spacing: Theme.Space.s), count: 3), spacing: Theme.Space.s) {
                 ForEach(options, id: \.self) { n in
                     Button { gate.answer(n) } label: {
-                        Text("\(n)").font(Theme.displayFont(34)).foregroundStyle(Theme.ink)
+                        Text("\(n)").font(GrownUpFont.heading(34, relativeTo: .largeTitle)).foregroundStyle(Theme.ink)
                             .frame(width: 104, height: 76)
                     }
                     .buttonStyle(NumberKey())
@@ -120,7 +120,7 @@ struct PTGrownUpGate: View {
                 }
             }
             if let onCancel {
-                Button("Cancel", action: onCancel).font(Theme.uiFont(18)).foregroundStyle(Theme.inkMuted)
+                Button("Cancel", action: onCancel).font(GrownUpFont.font(.medium, size: 18, relativeTo: .body)).foregroundStyle(Theme.inkMuted)
                     .frame(minHeight: 44)
             }
         }

@@ -595,27 +595,30 @@ struct PTTypingBubble: View {
 /// what to tap ("Tap the green check…", "Tap the star…").
 struct PTBigIconButton: View {
     enum Kind {
-        case check, cross, print, play, star, home
+        /// Round 39: `again` = Play it again (The End), a round arrow; `fresh` = make a new game (sparkles).
+        case check, cross, print, play, star, home, again, fresh
         var symbol: String {
             switch self {
             case .check: "checkmark"; case .cross: "xmark"; case .print: "printer.fill"
             case .play: "play.fill"; case .star: "star.fill"; case .home: "house.fill"
+            case .again: "arrow.counterclockwise"; case .fresh: "sparkles"
             }
         }
         var face: Color {
             switch self {
-            case .check, .play: Theme.lime; case .print: Theme.cta; case .cross, .star, .home: Theme.white
+            case .check, .play, .again: Theme.lime; case .print: Theme.cta; case .cross, .star, .home: Theme.white
+            case .fresh: Theme.yellow
             }
         }
         var shade: Color {
             switch self {
-            case .check, .play: Theme.limeShade; case .print: Color.black; case .star: Theme.yellowShade
+            case .check, .play, .again: Theme.limeShade; case .print: Color.black; case .star, .fresh: Theme.yellowShade
             case .cross: Theme.line; case .home: Theme.lavenderShade
             }
         }
         var ink: Color {
             switch self {
-            case .check, .play: Theme.ink; case .print: Theme.white; case .star: Theme.yellow
+            case .check, .play, .again, .fresh: Theme.ink; case .print: Theme.white; case .star: Theme.yellow
             case .cross: Theme.coralStrong; case .home: Theme.purple
             }
         }

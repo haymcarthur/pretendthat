@@ -6,14 +6,15 @@ import NutmegCore
 
 /// Grown-up type: Dynamic Type text styles in the rounded face, a size up from the Grown-ups menu.
 enum OBType {
-    static let title = Font.system(.largeTitle, design: .rounded, weight: .heavy)
-    static let lead = Font.system(.title2, design: .rounded, weight: .bold)
-    static let section = Font.system(.title3, design: .rounded, weight: .heavy)
-    static let body = Font.system(.title3, design: .rounded, weight: .medium)
-    static let small = Font.system(.body, design: .rounded, weight: .medium)
-    static let button = Font.system(.title3, design: .rounded, weight: .bold)
-    static let price = Font.system(.title, design: .rounded, weight: .heavy)
-    static let footnote = Font.system(.footnote, design: .rounded, weight: .medium)
+    // Round 39: Poppins on the grown-up side (headings SemiBold, body Regular / Medium), Dynamic Type relative sizes.
+    static let title = GrownUpFont.heading(34, relativeTo: .largeTitle)
+    static let lead = GrownUpFont.font(.medium, size: 22, relativeTo: .title2)
+    static let section = GrownUpFont.heading(20, relativeTo: .title3)
+    static let body = GrownUpFont.font(.regular, size: 20, relativeTo: .title3)
+    static let small = GrownUpFont.font(.regular, size: 17, relativeTo: .body)
+    static let button = GrownUpFont.heading(20, relativeTo: .title3)
+    static let price = GrownUpFont.heading(28, relativeTo: .title)
+    static let footnote = GrownUpFont.font(.regular, size: 13, relativeTo: .footnote)
 }
 
 /// The theater's big yellow pressable capsule (the start button's look), full width.
@@ -277,7 +278,7 @@ struct KidBlockCard: View {
                     .accessibilityHidden(true)
                 // Kids never see prices or plan names: just "ask a grown-up" (round 38: also when the month ran out).
                 Text(block == .needsConsent ? OnboardingCopy.kidNeedsGrownUp : OnboardingCopy.kidOutOfShows)
-                    .font(Theme.headlineFont(Theme.TextSize.headline)).foregroundStyle(Theme.ink)
+                    .font(GrownUpFont.heading(Theme.TextSize.headline, relativeTo: .title)).kerning(GrownUpFont.headingKerning(Theme.TextSize.headline)).foregroundStyle(Theme.ink)
                     .multilineTextAlignment(.center)
                 if block == .needsConsent {
                     VStack(spacing: Theme.Space.xs) {
