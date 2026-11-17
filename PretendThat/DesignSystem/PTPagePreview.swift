@@ -14,11 +14,15 @@ struct PTPagePreview<Page: View>: View {
     @State private var drag: CGFloat = 0
     @State private var shown = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// iPhone version: the page fills the width (the chevrons move under it, the count and X stay on top).
+    @Environment(\.layoutMetrics) private var metrics
 
     var body: some View {
         GeometryReader { geo in
             let pad: CGFloat = 32
-            let scale = min((geo.size.width - 2 * 120) / pageSize.width, (geo.size.height - 2 * pad) / pageSize.height)
+            let scale = metrics.isPhone
+                ? min((geo.size.width - 24) / pageSize.width, (geo.size.height - 2 * 84) / pageSize.height)
+                : min((geo.size.width - 2 * 120) / pageSize.width, (geo.size.height - 2 * pad) / pageSize.height)
             ZStack {
                 Theme.scrim.opacity(shown ? max(0.3, 1 - Double(drag) / 400) : 0)
                     .ignoresSafeArea()
@@ -64,7 +68,9 @@ struct PTPagePreview<Page: View>: View {
                     Spacer()
                     chevron("chevron.right", label: "Next page", enabled: index < count - 1) { index += 1 }
                 }
-                .padding(.horizontal, Theme.Space.l)
+                .padding(.horizontal, metrics.isPhone ? Theme.Space.xl : Theme.Space.l)
+                .frame(maxHeight: .infinity, alignment: metrics.isPhone ? .bottom : .center)
+                .padding(.bottom, metrics.isPhone ? 8 : 0)
                 .opacity(shown && count > 1 ? 1 : 0)
 
                 VStack {

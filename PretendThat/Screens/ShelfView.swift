@@ -9,31 +9,38 @@ import NutmegCore
 struct ShelfView: View {
     let model: AppModel
     @State private var page = 0
+    /// iPhone version (mockup screen 7): the tall phone bookshelf (bookshelf-iphone.svg), 2 games a shelf on 4
+    /// shelves, Nutmeg sitting on top of it looking down at the games.
+    @Environment(\.layoutMetrics) private var metrics
 
     static let perShelf = 3
     static let perPage = 9
+    private var perPage: Int { metrics.isPhone ? PTBookshelf.phonePerPage : Self.perPage }
 
     private var pages: [[SavedGame]] {
         let g = model.shelfGames
-        return stride(from: 0, to: max(g.count, 1), by: Self.perPage).map { Array(g[$0..<min($0 + Self.perPage, g.count)]) }
+        let n = perPage
+        return stride(from: 0, to: max(g.count, 1), by: n).map { Array(g[$0..<min($0 + n, g.count)]) }
     }
 
     var body: some View {
         GeometryReader { geo in
             let full = CGSize(width: geo.size.width + geo.safeAreaInsets.leading + geo.safeAreaInsets.trailing,
                               height: geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom)
-            let L = PTShelfLayout(full)
+            let L = metrics.isPhone ? PTShelfLayout(phone: full, safe: geo.safeAreaInsets) : PTShelfLayout(full)
             ZStack(alignment: .topLeading) {
                 PTStageBackdrop()
+                if !metrics.isPhone {
                 // Nutmeg stands on the stage beside the shelf, pointing at it (the point pose points right).
                 NutmegCharacter(state: .excited, forcedPose: .point, showsGround: true)
                     .frame(width: L.nutmeg.width, height: L.nutmeg.height)
                     .position(x: L.nutmeg.midX, y: L.nutmeg.midY)
                     .allowsHitTesting(false)
+                }
                 // The bookshelf: one page of 9 games, swiped or arrowed through.
                 TabView(selection: $page) {
                     ForEach(Array(pages.enumerated()), id: \.offset) { i, games in
-                        PTBookshelf(games: games, size: L.shelf.size, cover: { model.cover(for: $0) },
+                        PTBookshelf(games: games, size: L.shelf.size, phone: metrics.isPhone, cover: { model.cover(for: $0) },
                                     onTap: { model.tapSavedGame($0) })
                             .tag(i)
                     }
@@ -41,6 +48,13 @@ struct ShelfView: View {
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 .frame(width: L.shelf.width, height: L.shelf.height)
                 .position(x: L.shelf.midX, y: L.shelf.midY)
+                if metrics.isPhone {
+                    // Phone (mockup screen 7): she sits on top of the bookshelf, legs dangling, looking down at the games.
+                    NutmegCharacter(state: .idle, forcedPose: .sit)
+                        .frame(width: L.nutmeg.width, height: L.nutmeg.height)
+                        .position(x: L.nutmeg.midX, y: L.nutmeg.midY)
+                        .allowsHitTesting(false)
+                }
                 if pages.count > 1 {
                     PTPageDots(count: pages.count, current: page)
                         .position(x: L.shelf.midX, y: L.dotsY)
@@ -68,6 +82,31 @@ struct ShelfView: View {
 struct PTShelfLayout {
     let shelf: CGRect, nutmeg: CGRect, back: CGRect
     let nextArrow: CGPoint, prevArrow: CGPoint, dotsY: CGFloat
+    /// iPhone version (mockup screen 7): the tall phone bookshelf centered under Nutmeg (sitting on its top), the back
+    /// arrow top-left under the valance, the dots under it and the yellow arrow bottom-right.
+    init(phone s: CGSize, safe: EdgeInsets) {
+        let curtain = PTCurtain.metrics(s)
+        let art = CGSize(width: 689, height: 1446)
+        let top = max(curtain.valance, safe.top) + 8
+        let back: CGFloat = 52
+        self.back = CGRect(x: max(16, curtain.visible * 0.25), y: top, width: back, height: back)
+        // Room: her sitting picture above the shelf, the dots + arrow row below it.
+        let nutH: CGFloat = min(190, s.height * 0.2)
+        let bottomRoom = max(safe.bottom, 12) + 78
+        let maxH = s.height - top - nutH * 0.62 - bottomRoom
+        var w = min(s.width * 0.84, 360)
+        var h = w * art.height / art.width
+        if h > maxH { h = maxH; w = h * art.width / art.height }
+        let shelfTop = top + nutH * 0.62
+        shelf = CGRect(x: (s.width - w) / 2, y: shelfTop, width: w, height: h)
+        // The sit pose's seat is ~83% down her canvas: she sits on the arch's crest.
+        let nw = nutH * 1178 / 1335
+        nutmeg = CGRect(x: s.width / 2 - nw / 2 + nutH * 0.04, y: shelfTop + h * 0.035 - nutH * 0.83, width: nw, height: nutH)
+        dotsY = shelf.maxY + 26
+        nextArrow = CGPoint(x: min(shelf.maxX + 8, s.width - 44), y: shelf.maxY + 34)
+        prevArrow = CGPoint(x: max(shelf.minX - 8, 44), y: shelf.maxY + 34)
+    }
+
     init(_ s: CGSize) {
         let curtain = PTCurtain.metrics(s)
         let floor = PTStage.floor(s)
@@ -95,6 +134,8 @@ struct PTShelfLayout {
 struct PTBookshelf: View {
     let games: [SavedGame]
     let size: CGSize
+    /// iPhone version: the phone art (bookshelf-iphone.svg + bookshelf-iphone-slots.json), 4 shelves of 2.
+    var phone = false
     var cover: (SavedGame) -> UIImage?
     var onTap: (SavedGame) -> Void
 
@@ -106,11 +147,21 @@ struct PTBookshelf: View {
         Slot(x: 0.1061, y: 0.5977, width: 0.7869, height: 0.16, shelfBackY: 0.7188, shelfFrontY: 0.7577)
     ]
 
+    /// The phone shelf's 4 compartments (design/export/stage/bookshelf-iphone-slots.json).
+    static let phoneSlots = [
+        Slot(x: 0.1335, y: 0.1535, width: 0.7344, height: 0.1238, shelfBackY: 0.258, shelfFrontY: 0.2773),
+        Slot(x: 0.1335, y: 0.3043, width: 0.7344, height: 0.139, shelfBackY: 0.4219, shelfFrontY: 0.4433),
+        Slot(x: 0.1335, y: 0.4703, width: 0.7344, height: 0.1425, shelfBackY: 0.5913, shelfFrontY: 0.6127),
+        Slot(x: 0.1335, y: 0.6404, width: 0.7344, height: 0.1452, shelfBackY: 0.76, shelfFrontY: 0.7856)
+    ]
+    static let phonePerShelf = 2
+    static let phonePerPage = 8
+
     var body: some View {
         ZStack(alignment: .topLeading) {
-            Image("bookshelf").resizable().frame(width: size.width, height: size.height).accessibilityHidden(true)
+            Image(phone ? "bookshelf-iphone" : "bookshelf").resizable().frame(width: size.width, height: size.height).accessibilityHidden(true)
             ForEach(Array(games.enumerated()), id: \.element.id) { i, g in
-                let r = Self.card(i, in: size)
+                let r = phone ? Self.phoneCard(i, in: size) : Self.card(i, in: size)
                 PTGameCard(game: g, cover: cover(g), size: r.card.size) { onTap(g) }
                     .position(x: r.card.midX, y: r.card.midY)
                 PTShelfLabel(title: g.title, width: r.label.width, height: r.label.height)
@@ -119,6 +170,24 @@ struct PTBookshelf: View {
             }
         }
         .frame(width: size.width, height: size.height)
+    }
+
+    /// iPhone: card i on the phone shelf (2 a shelf, the same rules as `card`: they stand on the board and fill the
+    /// compartment; the name label on the board's front face).
+    static func phoneCard(_ i: Int, in size: CGSize) -> (card: CGRect, label: CGRect) {
+        let slot = phoneSlots[min(i / phonePerShelf, phoneSlots.count - 1)], col = i % phonePerShelf
+        let innerX = slot.x * size.width, innerW = slot.width * size.width
+        let bottom = (slot.shelfBackY + slot.shelfFrontY) / 2 * size.height
+        let shortest = phoneSlots.map { $0.shelfFrontY - $0.y }.min() ?? 0.12
+        let side = min(shortest * 0.9 * size.height, bottom - slot.y * size.height)
+        let gap = innerW * 0.05
+        let w = (innerW - 3 * gap) / 2
+        let x = innerX + gap + CGFloat(col) * (w + gap)
+        let card = CGRect(x: x, y: bottom - side, width: w, height: side)
+        // The board's front face (shelfFrontY → boardFaceBottomY ≈ +0.027 of the art) holds the label.
+        let lh = max(16, size.height * 0.024), lw = w + gap * 0.5
+        let label = CGRect(x: card.midX - lw / 2, y: (slot.shelfFrontY + 0.0135) * size.height - lh / 2, width: lw, height: lh)
+        return (card, label)
     }
 
     /// Card i's frame (it stands on its shelf, bottom between the board's back and front edges) and its label's

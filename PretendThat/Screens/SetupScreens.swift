@@ -14,6 +14,7 @@ struct HelloView: View {
         #endif
         return Array(PTStartArt.toys.shuffled().prefix(6))
     }()
+    @Environment(\.layoutMetrics) private var metrics
 
 
     var body: some View {
@@ -37,6 +38,8 @@ struct HelloView: View {
     /// Where the conversation screen will draw Nutmeg for `frame` (chrome showing), in global coordinates: this view has
     /// the same frame the conversation stage gets, so she lands exactly there.
     private func handoff(_ geo: GeometryProxy, _ frame: PTStageFrame) -> CGRect {
+        // iPhone version: the phone stage's first framing (whole body, filling the stage under the top bar).
+        let frame = metrics.isPhone ? phoneFrame(geo) : frame
         let L = PTStageCamera.layout(frame, stageGeometry(geo), faceFocus: model.nutmegRestPose.faceFocus)
         let o = geo.frame(in: .global).origin
         return CGRect(x: o.x + L.origin.x, y: o.y + L.origin.y, width: L.canvas.width, height: L.canvas.height)
@@ -46,7 +49,7 @@ struct HelloView: View {
     /// and the game stage takes them over in place (no pop after the landing). Same math as `PTStageView`.
     private func stageStars(_ geo: GeometryProxy) -> [PTStartStageStar] {
         let g = stageGeometry(geo)
-        let comp = PTStageCamera.compose(firstFrame, g, faceFocus: model.nutmegRestPose.faceFocus)
+        let comp = PTStageCamera.compose(metrics.isPhone ? phoneFrame(geo) : firstFrame, g, faceFocus: model.nutmegRestPose.faceFocus)
         let o = geo.frame(in: .global).origin
         return PTStageCamera.stars.compactMap { star in
             let side = star.size * comp.nutmeg.k   // round 11: same transform as Nutmeg (PTStageView)
@@ -56,10 +59,20 @@ struct HelloView: View {
         }
     }
 
+    private func fullSize(_ geo: GeometryProxy) -> CGSize {
+        CGSize(width: geo.size.width + geo.safeAreaInsets.leading + geo.safeAreaInsets.trailing,
+               height: geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom)
+    }
+
+    /// iPhone version: the same frame RootView's phone stage starts on.
+    private func phoneFrame(_ geo: GeometryProxy) -> PTStageFrame {
+        metrics.phoneFirstFrame(stage: geo.size, screen: fullSize(geo), safeTop: geo.safeAreaInsets.top)
+    }
+
     private func stageGeometry(_ geo: GeometryProxy) -> PTStageGeometry {
-        let full = CGSize(width: geo.size.width + geo.safeAreaInsets.leading + geo.safeAreaInsets.trailing,
-                          height: geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom)
-        let g = PTStageGeometry(size: geo.size, leadingInset: PTStageCamera.chromeLeading, bottomInset: PTStageCamera.chromeBottom,
+        let full = fullSize(geo)
+        let g = PTStageGeometry(size: geo.size, leadingInset: metrics.isPhone ? 0 : PTStageCamera.chromeLeading,
+                                bottomInset: metrics.isPhone ? metrics.phoneChromeBottom : PTStageCamera.chromeBottom,
                                 floor: PTStage.floor(full).offsetBy(dx: -geo.safeAreaInsets.leading, dy: -geo.safeAreaInsets.top))
         return g
     }

@@ -23,15 +23,19 @@ struct SceneView: View {
     static let pad = Theme.Space.m
     /// The paper's reveal slack and the ▶ under it.
     static let chrome: CGFloat = 20 + 76 + Theme.Space.m + Theme.depth
+    /// iPhone version: a shorter ▶ (still a big target) so the rows get the room under Nutmeg.
+    @Environment(\.layoutMetrics) private var metrics
+    private var buttonHeight: CGFloat { metrics.isPhone ? 60 : 76 }
+    private var chrome: CGFloat { metrics.isPhone ? 20 + buttonHeight + Theme.Space.s + Theme.depth : Self.chrome }
 
     var body: some View {
         if let scene = store.kit?.scenes[index] {
-            let avail = maxHeight - Self.chrome - 2 * Self.pad
+            let avail = maxHeight - chrome - 2 * Self.pad
             let fits = PTSceneCard.tiers.indices.first { (heights[$0] ?? .infinity) <= avail }
             let tier = fits ?? PTSceneCard.tiers.count - 1
             let natural = (heights[tier] ?? 300) + 2 * Self.pad
             let paper = CGSize(width: width, height: fits == nil && avail.isFinite ? max(200, avail + 2 * Self.pad) : natural)
-            VStack(spacing: Theme.Space.m) {
+            VStack(spacing: metrics.isPhone ? Theme.Space.s : Theme.Space.m) {
                 GeometryReader { geo in
                     PTPaperReveal(count: 1, isRevealed: revealed, origin: CGPoint(x: -geo.size.width / 2 - 150, y: 60),
                                   slot: { _ in (.zero, -1.5) }, paperSize: paper,
@@ -49,7 +53,7 @@ struct SceneView: View {
                     .frame(width: geo.size.width, height: geo.size.height)
                 }
                 .frame(height: paper.height + 20)
-                PTNextSceneButton { model.tapNextScene() }
+                PTNextSceneButton(height: buttonHeight) { model.tapNextScene() }
                     .padding(.bottom, Theme.depth)
                     .opacity(revealed ? 1 : 0)
             }

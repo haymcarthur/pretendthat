@@ -35,7 +35,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: app.pretendthat.ios
         PRODUCT_NAME: PretendThat
         INFOPLIST_FILE: PretendThat/Resources/Info.plist
-        TARGETED_DEVICE_FAMILY: "2"
+        TARGETED_DEVICE_FAMILY: "1,2"
         SWIFT_VERSION: "6.0"
         SWIFT_STRICT_CONCURRENCY: complete
         CODE_SIGN_STYLE: Automatic
@@ -64,7 +64,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: app.pretendthat.ios.uitests
         TEST_TARGET_NAME: PretendThat
         GENERATE_INFOPLIST_FILE: YES
-        TARGETED_DEVICE_FAMILY: "2"
+        TARGETED_DEVICE_FAMILY: "1,2"
         SWIFT_VERSION: "5.0"
         CODE_SIGN_STYLE: Automatic
 schemes:

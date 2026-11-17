@@ -40,6 +40,10 @@ struct RootView: View {
     @State private var rootTop: CGFloat = 0
     /// Onboarding v2: "Go to the home page" restarts the start screen's intro (it ran unseen under the onboarding).
     @State private var homeIntroRun = 0
+    /// iPhone version (2026-11-17): the ONE layout decision (`LayoutMetrics`), from the size class: regular = the iPad
+    /// (every iPad layout unchanged), compact = the iPhone in portrait (Nutmeg on top, cards below, top bar, sheet chat).
+    @Environment(\.horizontalSizeClass) private var horizontalSize
+    private var metrics: LayoutMetrics { LayoutMetrics(horizontal: horizontalSize) }
 
     private var store: AdventureStore { model.store }
 
@@ -88,7 +92,7 @@ struct RootView: View {
                 // (Round 26, Haylee's button audit: the confirm and color steps are voice only; their button row is gone.)
                 // The chat panel's slot (the panel itself is drawn in its own layer below, so it can rise above the
                 // keyboard while the stage can't).
-                if chatOpen && chromeVisible {
+                if chatOpen && chromeVisible && !metrics.isPhone {
                     Color.clear.frame(width: PTChatPanel.width)
                         .padding([.vertical, .trailing], Theme.Space.m)
                         .transition(.move(edge: .trailing))
@@ -99,6 +103,14 @@ struct RootView: View {
             // keyboard inset still reached it and Nutmeg rezoomed tiny).
             .ignoresSafeArea(.keyboard)
             // Only the chat panel (and its text field) rises above the keyboard.
+            if metrics.isPhone {
+                // iPhone (Haylee): the chat is a full-height sheet under the top bar that covers the stage; the pill
+                // stays on top of it. Her small live head sits in its header (she's never heard unless she's visible).
+                if chatOpen && chromeVisible {
+                    phoneChatSheet
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            } else {
             HStack(spacing: Theme.Space.m) {
                 Spacer(minLength: 0)
                 if chatOpen && chromeVisible {
@@ -112,7 +124,22 @@ struct RootView: View {
                         .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
             }
-            if chromeVisible {
+            }
+            if chromeVisible && metrics.isPhone {
+                // iPhone (mockups): the X and the compact step rail in one row under the valance.
+                HStack(spacing: Theme.Space.s) {
+                    PTCornerClose(size: LayoutMetrics.phoneClose) { confirmLeave = true }
+                    Spacer(minLength: 0)
+                    PTStepRail(current: store.phase.step, reached: store.reachedStep, allDone: store.playFinished) { model.tapStepRail($0) }
+                }
+                .frame(height: LayoutMetrics.phoneTopBar)
+                .padding(.horizontal, LayoutMetrics.phoneSide)
+                .padding(.top, LayoutMetrics.phoneTopInset(screen: screenSize == .zero ? rootSize : screenSize, safeTop: rootTop))
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .ignoresSafeArea(.keyboard)
+            }
+            if chromeVisible && !metrics.isPhone {
                 PTStepRail(current: store.phase.step, reached: store.reachedStep, allDone: store.playFinished) { model.tapStepRail($0) }
                     .padding(.leading, Theme.Space.m)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
@@ -125,12 +152,14 @@ struct RootView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .transition(.move(edge: .leading).combined(with: .opacity))
                     .ignoresSafeArea(.keyboard)
+            }
+            if chromeVisible {
                 PTControlBar(chatOpen: chatOpen, mic: micMode, canRepeat: model.repeatTarget.isAvailable,
                              onChat: { chatOpen.toggle() },
                              onMicPress: { model.talkPressed(touchHost: $0) },
                              onMicRelease: { model.talkReleased() },
                              onRepeat: { model.repeatTapped() })
-                    .padding(.bottom, Theme.Space.m)
+                    .padding(.bottom, metrics.pillBottom)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                     // Writing moment: the pill steps aside so the screen's bottom edge crops just below the clipboard
                     // top (her paws out of frame, the crayon's top end visible). Hiding it releases a held mic.
@@ -243,6 +272,7 @@ struct RootView: View {
             #if DEBUG
             if DemoDriver.chatOpen { chatOpen = true }
             if let demo = DemoDriver.requestedPhase { await DemoDriver.drive(store, model: model, to: demo) }
+            if ProcessInfo.processInfo.arguments.contains("-PTLeaveDialog") { try? await Task.sleep(for: .seconds(2)); confirmLeave = true }
             if let turns = DemoDriver.liveTurns { await DemoDriver.live(model, turns: turns) }
             if DemoDriver.grownUps != nil { try? await Task.sleep(for: .seconds(4)); model.openGrownUps() }   // round D2 shots
             #endif
@@ -267,6 +297,91 @@ struct RootView: View {
         }
         .preferredColorScheme(.light)
         .statusBarHidden()
+        // iPhone version: Nutmeg holds her clipboard (no pointing) while a card is below her on the phone.
+        .onChange(of: metrics.isPhone, initial: true) { _, phone in model.phoneLayout = phone }
+        .onChange(of: phoneCardBelow, initial: true) { _, below in model.phoneCardBelow = below }
+        .environment(\.layoutMetrics, metrics)
+    }
+
+    // MARK: iPhone (portrait)
+
+    /// The phone's chat sheet: full width under the top bar, down to the bottom edge, its field above the pill.
+    private var phoneChatSheet: some View {
+        let safeBottom = max(0, (screenSize == .zero ? rootSize.height : screenSize.height) - rootSize.height - rootTop)
+        return PTChatPanel(lines: model.realtime.transcript.map { PTChatPanel.Line(id: $0.id, fromNutmeg: $0.fromNutmeg, text: $0.text) },
+                           onSend: { text in Task { await model.typed(text) } },
+                           onClose: { chatOpen = false },
+                           pinnedKey: pinnedKey, pinned: pinnedCard, typing: model.realtime.thinkingGap,
+                           tab: tabbed ? Binding(get: { chatTabs.tab }, set: { chatTabs.select($0) }) : nil,
+                           stepTab: stepTab ?? .scene,
+                           header: AnyView(PTNutmegAvatar(model: model)),
+                           bottomClearance: keyboardUp ? 0 : metrics.pillHeight + metrics.pillBottom + safeBottom)
+            .padding(.horizontal, Theme.Space.s)
+            .padding(.top, LayoutMetrics.phoneTopInset(screen: screenSize == .zero ? rootSize : screenSize, safeTop: rootTop)
+                     + LayoutMetrics.phoneTopBar + Theme.Space.xs)
+            .ignoresSafeArea(.container, edges: .bottom)
+    }
+
+    /// What the phone shows in the content zone under Nutmeg right now (its height comes from `LayoutMetrics`).
+    private var phoneContent: LayoutMetrics.PhoneContent {
+        if model.isWriting { return .none }
+        if model.inConversation {
+            if huntOnStage { return stageItems.isEmpty ? .none : .hunt }
+            if shot == .wide && !stageItems.isEmpty { return .cards }
+            return .none
+        }
+        if replayHuntOnStage { return .hunt }
+        switch store.phase {
+        case .players: return store.isReplay ? .cover : .players
+        case .props: return store.isReplay ? .none : .propsGrid
+        case .makingKit, .kitReady: return (model.kitBeat == .papers || store.isReplay) ? .print : .none
+        case .scene(let i):
+            if store.inStory { return .none }
+            let rows = store.kit?.scenes.indices.contains(i) == true ? store.kit!.scenes[i].steps.count : 3
+            return .scene(rows: rows)
+        case .end: return .end
+        default: return .none
+        }
+    }
+
+    /// A card she should hold her clipboard and look at (The End's buttons aren't one: she celebrates there).
+    private var phoneCardBelow: Bool {
+        guard metrics.isPhone else { return false }
+        switch phoneContent { case .none, .end: return false; default: return true }
+    }
+
+    /// Her box and the content zone on the phone stage (stage coordinates).
+    private func phoneSplit(_ g: PTStageGeometry) -> (nutmeg: CGRect, content: CGRect) {
+        let band = metrics.phoneBand(stage: g.size, screen: screenSize == .zero ? g.size : screenSize, safeTop: rootTop)
+        let split = PTPhoneStage.split(width: g.size.width, top: band.top, bottom: band.bottom,
+                                       content: LayoutMetrics.phoneContentHeight(phoneContent, noVoice: model.noVoiceSession))
+        return (split.nutmeg, split.content.insetBy(dx: LayoutMetrics.phoneSide, dy: 0))
+    }
+
+    /// The phone stage's overlay: the hunt card, the legacy prop grid, or the phase content in the zone under her.
+    @ViewBuilder private func phoneOverlay(_ g: PTStageGeometry, _ L: PTStageCamera.Layout) -> some View {
+        let zone = phoneSplit(g).content
+        if model.inConversation {
+            if huntOnStage {
+                PTPhonePropHunt(items: stageItems, total: store.props?.props.count, onHunt: { model.huntReply(found: $0) })
+                    .frame(width: zone.width, height: zone.height)
+                    .position(x: zone.midX, y: zone.midY)
+                    .opacity(model.isWriting ? 0 : 1)
+                    .transition(.opacity)
+            } else if shot == .wide && !model.isWriting && !stageItems.isEmpty {
+                PTPhoneCardGrid(items: stageItems, onHunt: { _, found in model.huntReply(found: found) })
+                    .frame(width: zone.width, height: zone.height)
+                    .position(x: zone.midX, y: zone.midY)
+                    .transition(.opacity)
+            }
+        } else if replayHuntOnStage {
+            PTPhonePropHunt(items: propListItems, total: store.props?.props.count, onHunt: { model.replayHunt(found: $0) })
+                .frame(width: zone.width, height: zone.height)
+                .position(x: zone.midX, y: zone.midY)
+                .transition(.opacity)
+        } else {
+            classicContent(g, L)
+        }
     }
 
     // MARK: The shared stage (every phase)
@@ -274,16 +389,20 @@ struct RootView: View {
     private var sharedStage: some View {
         PTStageView(referenceSize: rootSize == .zero ? nil : rootSize,
                     screenSize: screenSize == .zero ? nil : screenSize,
-                    leadingInset: chromeVisible ? PTStageCamera.chromeLeading : 0,
-                    bottomInset: chromeVisible ? PTStageCamera.chromeBottom : 0,
-                    chatOpen: chatOpen && chromeVisible,
+                    // iPhone: no side rail (it's in the top bar); the pill's room at the bottom; the chat is a sheet over
+                    // the stage, so the stage never narrows for it.
+                    leadingInset: chromeVisible && !metrics.isPhone ? PTStageCamera.chromeLeading : 0,
+                    bottomInset: metrics.isPhone ? metrics.phoneChromeBottom : (chromeVisible ? PTStageCamera.chromeBottom : 0),
+                    chatOpen: chatOpen && chromeVisible && !metrics.isPhone,
                     faceFocus: (debugPose ?? model.nutmegRestPose).faceFocus,
                     frame: { g in stageFrame(g) }, itemCount: stageItems.count, keyboardUp: keyboardUp) {
             NutmegCharacter(state: model.nutmegState, mouthLevel: model.mouthLevel, mouthShape: model.mouthShape,
                             isSpeaking: model.isSpeaking, cue: model.cue, forcedPose: debugPose, showsGround: true,
                             holdsClipboard: model.nutmegHoldsClipboard, writing: model.isWriting)
         } overlay: { g, L in
-            if model.inConversation {
+            if metrics.isPhone {
+                phoneOverlay(g, L)
+            } else if model.inConversation {
                 if huntOnStage {
                     // Hidden while she writes in the close shot (the cards are laid out for the hunt's medium shot).
                     PTPropHuntStage(items: stageItems, geometry: g, nutmeg: L, curtainInset: curtainInset(g), namespace: huntSpace,
@@ -317,7 +436,12 @@ struct RootView: View {
     /// Round 11 (Haylee: one way everywhere): every phase goes through `PTStageDirector.preset` (talk, writing, prop
     /// card, prop card + chat, hop, presented cards); no per-screen framing here.
     private func stageFrame(_ g: PTStageGeometry) -> PTStageFrame {
-        directorFrame(g)
+        if metrics.isPhone {
+            // iPhone: whole body in her box (the band above the content zone; the whole band when nothing's below her).
+            let d = directorFrame(g)
+            return PTStageFrame(shot: d.shot, writing: model.isWriting, phoneRegion: phoneSplit(g).nutmeg)
+        }
+        return directorFrame(g)
     }
     private func directorFrame(_ g: PTStageGeometry) -> PTStageFrame {
         return PTStageDirector.frame(phase: store.phase, conversation: model.inConversation, conversationShot: shot,
@@ -383,7 +507,8 @@ struct RootView: View {
                 withTransaction(tx) { kitPreview = PTPreviewTarget(index: i) }
             }))
         case .cover:
-            return AnyView(ReplayPickView(model: model, coverWidth: PTChatPanel.width - 2 * Theme.Space.m - 24).padding(.top, Theme.Space.s))
+            let panelW = metrics.isPhone ? min(360, rootSize.width - 2 * Theme.Space.s) : PTChatPanel.width
+            return AnyView(ReplayPickView(model: model, coverWidth: panelW - 2 * Theme.Space.m - 24).padding(.top, Theme.Space.s))
         case .scene, .setup, .cleanup, nil: break
         }
         if case .scene(let i) = store.phase, !store.inStory, !huntOnStage, !model.kitPapersOut { return AnyView(PTScenePinnedCard(model: model, index: i)) }
@@ -494,7 +619,8 @@ struct RootView: View {
     /// whole kit, no-text-overlays.md); the papers fly off her clipboard once the camera has zoomed out.
     @ViewBuilder private func classicContent(_ g: PTStageGeometry, _ L: PTStageCamera.Layout) -> some View {
         // Round 11: every phase's content sits in the prop-card step's card zone (one framing, one zone).
-        let r = PTStageDirector.huntContent(g, nutmeg: L, curtainInset: curtainInset(g))
+        // iPhone: the content zone under her.
+        let r = metrics.isPhone ? phoneSplit(g).content : PTStageDirector.huntContent(g, nutmeg: L, curtainInset: curtainInset(g))
         // Round 14 (Haylee: the cards got smaller): every phase's content draws at its NATURAL size in the shared card
         // zone (`PTStageDirector.cardZoneWidth`); it only scales down on a stage too narrow for ~300 pt.
         let fit = min(1, r.width / Self.minContentWidth)

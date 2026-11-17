@@ -115,8 +115,17 @@ enum PTEase {
 /// The shared stage every kid screen stands on (Haylee): sky, a cream floor oval, tied-back curtains and the valance.
 /// The start screen draws the same pieces (with its curtains animating), so the hand-off into the game is seamless.
 enum PTStage {
+    /// iPhone version: a portrait stage is the phone's (the iPad app is landscape only, full screen).
+    static func isPortrait(_ size: CGSize) -> Bool { size.height > size.width * 1.2 }
+
     /// The cream floor oval for a full-screen size.
     static func floor(_ size: CGSize) -> CGRect {
+        if isPortrait(size) {
+            // iPhone (the phone mockups): a broad floor across the lower stage, wider than the screen; it is drawn with
+            // an apron (`PTStageFloor.apron`) so the floor reaches the bottom edge behind the cards and the pill.
+            let w = size.width * 1.6, h = size.height * 0.30
+            return CGRect(x: (size.width - w) / 2, y: size.height * 0.78 - h / 2, width: w, height: h)
+        }
         let m = PTCurtain.metrics(size)
         let w = min(size.width - 2 * m.visible + 40, size.height * 1.25)
         let h = size.height * 0.2
@@ -127,10 +136,19 @@ enum PTStage {
 /// The wooden stage floor in a rect: a flat darker front rim peeking out below the floor ellipse (no gradient).
 struct PTStageFloor: View {
     let rect: CGRect
+    /// iPhone version: the floor runs on down to the bottom of the screen (its top stays the oval's curve), so the
+    /// cards and the pill below Nutmeg stand on the stage floor (the phone mockups).
+    var apron = false
     var body: some View {
         ZStack(alignment: .topLeading) {
+            if apron {
+                Rectangle().fill(Theme.stageFloor)
+                    .frame(width: 6000, height: 3000)
+                    .position(x: rect.midX, y: rect.midY + 1500)
+            } else {
             Ellipse().fill(Theme.stageFloorEdge).frame(width: rect.width, height: rect.height)
                 .position(x: rect.midX, y: rect.midY + rect.height * 0.07)
+            }
             Ellipse().fill(Theme.stageFloor).frame(width: rect.width, height: rect.height)
                 .position(x: rect.midX, y: rect.midY)
         }
@@ -147,7 +165,7 @@ struct PTStageBackdrop: View {
         GeometryReader { geo in
             ZStack(alignment: .topLeading) {
                 Theme.startSky
-                if floor { PTStageFloor(rect: PTStage.floor(geo.size)) }
+                if floor { PTStageFloor(rect: PTStage.floor(geo.size), apron: PTStage.isPortrait(geo.size)) }
                 if curtains { PTCurtain(progress: 1) }
             }
         }
@@ -467,6 +485,8 @@ struct PTToyChestScene<Nutmeg: View>: View {
 
     private typealias T = PTStartTimeline
     private typealias X = PTStartExit
+    /// iPhone version: the window's safe area (this scene ignores it; the phone layout keeps its buttons inside).
+    private var safeArea: UIEdgeInsets { PTWindow.safeInsets }
 
     var body: some View {
         let paused = (frozenAt != nil || skipped || finished || reduceMotion) && exitStart == nil
@@ -526,11 +546,46 @@ struct PTToyChestScene<Nutmeg: View>: View {
         let myGames: CGRect?
         /// Both buttons together (toys keep clear of them).
         var buttons: CGRect { myGames.map { button.union($0) } ?? button }
+        /// iPhone version (screens 1 and 1b of the phone mockups): one tall stage, the Grown-ups pill over the logo
+        /// card, a bigger chest, two toys, and New game (+ Saved games under it) at the bottom where a thumb rests.
+        let phone: Bool
+        /// Phone: the Grown-ups pill's top (it sits above the card instead of beside it).
+        let pillTop: CGFloat
 
-        init(_ s: CGSize, pair: Bool = false) {
+        init(_ s: CGSize, pair: Bool = false, safeTop: CGFloat = 0, safeBottom: CGFloat = 0) {
             size = s
             curtain = PTCurtain.metrics(s)
             floor = PTStage.floor(s)
+            phone = PTStage.isPortrait(s)
+            if phone {
+                chestW = min(s.width * 0.62, s.height * 0.3)
+                chestH = chestW * 620 / 650
+                cx = s.width / 2
+                chestBottom = floor.minY + floor.height * 0.36
+                chestTop = chestBottom - chestH * 616 / 620
+                frontY = chestTop + chestH * 378 / 620
+                nutmegScale = 0.6 * chestW * 0.945 / 730
+                earsTop = frontY - (1030 - 10) * nutmegScale
+                toy = chestW * 0.3
+                let bw = min(320, s.width * 0.66)
+                let bottom = s.height - max(safeBottom, 16) - 22
+                if pair {
+                    // Screen 1b: New game moves up a little; a smaller Saved games sits under it.
+                    let sw = min(260, s.width * 0.52), sh: CGFloat = 60
+                    myGames = CGRect(x: cx - sw / 2, y: bottom - sh, width: sw, height: sh)
+                    button = CGRect(x: cx - bw / 2, y: bottom - sh - Theme.Space.m - 76, width: bw, height: 76)
+                } else {
+                    button = CGRect(x: cx - bw / 2, y: bottom - 80, width: bw, height: 80)
+                    myGames = nil
+                }
+                pillTop = max(curtain.valance, safeTop) + Theme.Space.s
+                cardTop = pillTop + 44 + Theme.Space.s
+                let pad = 2 * Theme.Space.m
+                let maxCardH = max(earsTop - Theme.Space.m - 8 - cardTop, 80) / 1.05
+                logoW = max(min(s.width * 0.6, 300, (maxCardH - pad) * PTLogo.size.width / PTLogo.size.height), 120)
+                return
+            }
+            pillTop = 0
             chestW = min(s.width * 0.36, s.height * 0.38)
             chestH = chestW * 620 / 650
             cx = s.width / 2
@@ -565,6 +620,11 @@ struct PTToyChestScene<Nutmeg: View>: View {
         /// Where toy i lands (its bottom center): left and right of the chest, inside the floor, clear of the curtains
         /// and of the start button.
         func spot(_ i: Int) -> CGPoint {
+            if phone {
+                // Two toys at the chest's front corners (the phone is too narrow for six).
+                let dx: CGFloat = i % 2 == 0 ? -0.5 : 0.5
+                return CGPoint(x: cx + dx * chestW, y: chestBottom + chestW * 0.1)
+            }
             let spots: [(CGFloat, CGFloat)] = [(-0.64, 0.05), (0.66, 0.06), (-0.96, -0.14), (0.98, -0.13), (-1.16, 0.12), (1.16, 0.13)]
             let (dx, dy) = spots[i % spots.count]
             let maxDx = min(floor.width / 2 - toy * 0.6, size.width / 2 - curtain.visible * 1.25 - toy * 0.6)
@@ -600,17 +660,17 @@ struct PTToyChestScene<Nutmeg: View>: View {
     // MARK: Drawing
 
     @ViewBuilder private func scene(t: Double, e: Double, size: CGSize, origin: CGPoint) -> some View {
-        let L = Layout(size, pair: onMyGames != nil)
+        let L = Layout(size, pair: onMyGames != nil, safeTop: safeArea.top, safeBottom: safeArea.bottom)
         ZStack(alignment: .topLeading) {
             // Round 11: the floor is under the exit's camera (the same transform as Nutmeg), so it ends exactly where the
             // game stage draws it for its first framing.
             PTStageBackdrop(curtains: false, floor: false)
-            PTStageFloor(rect: exitCamera(e, origin: origin).apply(L.floor))
+            PTStageFloor(rect: exitCamera(e, origin: origin).apply(L.floor), apron: L.phone)
             sky(L, e: e)
             chest(t: t, e: e, L, origin: origin)
                 .position(x: L.cx, y: L.chestTop + L.chestH / 2)
             ZStack {
-                ForEach(Array(toys.prefix(6).enumerated()), id: \.offset) { i, name in
+                ForEach(Array(toys.prefix(L.phone ? 2 : 6).enumerated()), id: \.offset) { i, name in
                     toyView(name, i: i, t: t, e: e, L).zIndex(Double(L.spot(i).y))   // nearer toys in front
                 }
             }
@@ -840,8 +900,8 @@ struct PTToyChestScene<Nutmeg: View>: View {
                 .fixedSize()
                 .opacity(min(k * 3, 1) * (1 - away))
                 .allowsHitTesting(t >= T.pop.upperBound && e < 0)
-                .frame(width: L.size.width - L.curtain.visible * 1.15, alignment: .trailing)
-                .padding(.top, L.cardTop + Theme.Space.xs)
+                .frame(width: L.size.width - L.curtain.visible * (L.phone ? 0.75 : 1.15), alignment: .trailing)
+                .padding(.top, L.phone ? L.pillTop : L.cardTop + Theme.Space.xs)
                 .frame(width: L.size.width, height: L.size.height, alignment: .topLeading)
         }
     }

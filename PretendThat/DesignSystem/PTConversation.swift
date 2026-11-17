@@ -48,6 +48,7 @@ struct PTStageView<Character: View, Overlay: View>: View {
     @ViewBuilder var character: Character
     @ViewBuilder var overlay: (PTStageGeometry, PTStageCamera.Layout) -> Overlay
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.layoutMetrics) private var metrics
     @State private var calm: KeyboardProofGeometry.Calm?
 
     var body: some View {
@@ -62,13 +63,14 @@ struct PTStageView<Character: View, Overlay: View>: View {
                                     // Round 14: the floor belongs to the REFERENCE stage (the full chat-closed one the arrival
                                     // framing is computed on); taking it from the narrower chat-open stage put it ~200 pt left
                                     // of her (the floor cut off on the left).
-                                    floor: PTStage.floor(referenceSize ?? full).offsetBy(dx: -geo.safeAreaInsets.leading, dy: -geo.safeAreaInsets.top),
+                                    // iPhone version: the full screen's floor, exactly the start screen's (its hand-off).
+                                    floor: PTStage.floor(metrics.isPhone ? screen : (referenceSize ?? full)).offsetBy(dx: -geo.safeAreaInsets.leading, dy: -geo.safeAreaInsets.top),
                                     chatOpen: chatOpen, referenceSize: referenceSize)
             let f = frame(g)
             let comp = PTStageCamera.compose(f, g, faceFocus: faceFocus)
             let L = comp.nutmeg
             ZStack(alignment: .topLeading) {
-                PTStageFloor(rect: comp.floor)
+                PTStageFloor(rect: comp.floor, apron: metrics.isPhone)
                 // Round 15 (Haylee: the floor ran in front of the curtains on The End): the proscenium (curtains,
                 // tie-backs, valance) draws ABOVE the floor at every camera position. Same curtains as the backdrop's,
                 // placed in screen space (the full-screen backdrop's frame, wherever this stage sits), so they line up

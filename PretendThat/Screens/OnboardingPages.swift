@@ -20,12 +20,14 @@ struct OnboardingView: View {
     @State private var planPeriod: BillingPeriod = PlanCatalog.defaultPeriod
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.openURL) private var openURL
+    /// iPhone version: the same pages stacked (the art card over the text), at a phone scale.
+    @Environment(\.layoutMetrics) private var metrics
 
     private var flow: OnboardingFlow { model.onboarding ?? OnboardingFlow() }
 
     var body: some View {
         GeometryReader { geo in
-            let s = min(geo.size.width / 1194, geo.size.height / 834)
+            let s = metrics.isPhone ? min(0.82, geo.size.width / 480) : min(geo.size.width / 1194, geo.size.height / 834)
             ZStack {
                 (flow.screen == .howItWorks ? OB.warm : OB.paper).ignoresSafeArea()
                 page(s: s, size: geo.size)
@@ -83,7 +85,28 @@ struct OnboardingView: View {
 
     // MARK: 2 · How it works (the one full-width page)
 
-    private func howItWorks(_ s: CGFloat) -> some View {
+    @ViewBuilder private func howItWorks(_ s: CGFloat) -> some View {
+        if metrics.isPhone {
+            // iPhone: the four steps in one scrolling column (each card a little shorter), Next at the bottom.
+            let safe = PTWindow.safeInsets
+            VStack(spacing: 0) {
+                OBTopBar(s: s, back: backAction, dot: flow.screen.dot)
+                    .padding(.horizontal, 20).padding(.top, safe.top + 4)
+                ScrollView {
+                    VStack(spacing: 14) {
+                        OBTitle(s: s, text: OnboardingCopy.howTitle, size: 46).multilineTextAlignment(.center)
+                        Text(OnboardingCopy.tagline).font(OB.font(20 * s, .bold)).foregroundStyle(Theme.inkMuted)
+                            .multilineTextAlignment(.center)
+                        ForEach(Array(OnboardingCopy.steps.enumerated()), id: \.offset) { i, step in
+                            stepCard(s * 0.9, number: i + 1, title: step.title, body: step.body, picture: 130)
+                        }
+                    }
+                    .padding(.horizontal, 20).padding(.vertical, 12)
+                }
+                OBButton(s: s, label: OnboardingCopy.next) { go { $0.next() } }
+                    .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, max(safe.bottom, 12) + 4)
+            }
+        } else {
         VStack(spacing: 0) {
             OBTopBar(s: s, back: backAction, dot: flow.screen.dot)
             VStack(spacing: 12 * s) {
@@ -106,9 +129,10 @@ struct OnboardingView: View {
         .padding(.horizontal, 48 * s)
         .padding(.top, 40 * s)
         .padding(.bottom, 40 * s)
+        }
     }
 
-    private func stepCard(_ s: CGFloat, number: Int, title: String, body: String) -> some View {
+    private func stepCard(_ s: CGFloat, number: Int, title: String, body: String, picture: CGFloat? = nil) -> some View {
         VStack(spacing: 0) {
             ZStack(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: 24 * s, style: .continuous).fill(OB.stepTint[number - 1])
@@ -118,7 +142,7 @@ struct OnboardingView: View {
                     .frame(width: 40 * s, height: 40 * s).background(Circle().fill(Theme.white))
                     .padding(12 * s)
             }
-            .frame(height: 230 * s)
+            .frame(height: picture ?? 230 * s)
             .clipShape(RoundedRectangle(cornerRadius: 24 * s, style: .continuous))
             .accessibilityHidden(true)
             Text(title).font(OB.font(34 * s, .black)).foregroundStyle(Theme.ink).padding(.top, 18 * s)
@@ -320,7 +344,7 @@ struct OnboardingView: View {
                         micWorking = true
                         Task { await model.onboardingMicContinue(); micWorking = false }
                     }
-                    .accessibilityHint("Next, your iPad asks to use the microphone and speech recognition")
+                    .accessibilityHint("Next, your \(DeviceWord.noun) asks to use the microphone and speech recognition")
                     Text(OnboardingCopy.micFine).font(OB.font(16 * s, .bold)).foregroundStyle(Theme.inkMuted)
                         .frame(maxWidth: .infinity).multilineTextAlignment(.center).padding(.top, 6 * s)
                 }
@@ -548,12 +572,38 @@ struct OBSplit<Art: View, Column: View>: View {
     var artWidth: CGFloat = 560
     @ViewBuilder var art: () -> Art
     @ViewBuilder var column: () -> Column
+    @Environment(\.layoutMetrics) private var metrics
     var body: some View {
+        if metrics.isPhone {
+            // iPhone (Haylee: stack art over text): the art card on top (laid out at its iPad proportions, then
+            // scaled to ~38% of the screen and widened to the screen), the text column scrolling below it.
+            GeometryReader { geo in
+                let safe = PTWindow.safeInsets
+                let cardW = geo.size.width - 24
+                let cardH = min(geo.size.height * 0.38, 380)
+                let natural = 786 * s
+                let f = cardH / natural
+                VStack(spacing: 0) {
+                    art()
+                        .frame(width: cardW / f, height: natural)
+                        .scaleEffect(f)
+                        .frame(width: cardW, height: cardH)
+                        .padding(.top, safe.top + 4)
+                    ScrollView {
+                        column()
+                            .frame(minHeight: max(0, geo.size.height - cardH - safe.top - 4))
+                    }
+                    .scrollBounceBehavior(.basedOnSize)
+                }
+                .frame(width: geo.size.width)
+            }
+        } else {
         HStack(spacing: 0) {
             art().frame(width: artWidth * s).frame(maxHeight: .infinity)
             column().frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .padding(24 * s)
+        }
     }
 }
 
@@ -567,7 +617,20 @@ struct OBColumn<Content: View, Actions: View>: View {
     var bottom: CGFloat = 20
     @ViewBuilder var content: () -> Content
     @ViewBuilder var actions: () -> Actions
+    @Environment(\.layoutMetrics) private var metrics
     var body: some View {
+        if metrics.isPhone {
+            // iPhone: under the art card, phone margins, the actions above the home indicator.
+            VStack(alignment: .leading, spacing: 0) {
+                OBTopBar(s: s, back: back, dot: dot)
+                VStack(alignment: .leading, spacing: 0) { content() }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 4)
+                Spacer(minLength: 16)
+                VStack(spacing: 8 * s) { actions() }
+            }
+            .padding(.top, 8).padding(.horizontal, 20).padding(.bottom, max(PTWindow.safeInsets.bottom, 12) + 4)
+        } else {
         VStack(alignment: .leading, spacing: 0) {
             OBTopBar(s: s, back: back, dot: dot)
             Spacer(minLength: 12 * s)
@@ -577,6 +640,7 @@ struct OBColumn<Content: View, Actions: View>: View {
             VStack(spacing: 8 * s) { actions() }
         }
         .padding(.top, 28 * s).padding(.leading, leading * s).padding(.trailing, trailing * s).padding(.bottom, bottom * s)
+        }
     }
 }
 
@@ -626,6 +690,9 @@ struct OBArt<Content: View>: View {
     var warmGlow = false
     var width: CGFloat = 560
     @ViewBuilder var content: () -> Content
+    /// iPhone version: the card is wider than the iPad's (it spans the screen), so the valance spans it too.
+    @Environment(\.layoutMetrics) private var metrics
+    private var phoneWide: Bool { metrics.isPhone }
     var body: some View {
         ZStack {
             sky
@@ -656,7 +723,8 @@ struct OBArt<Content: View>: View {
             }
             content()
             if valance {
-                Image("stage-valance").resizable().frame(width: width * s, height: width * s * 104 / 550)
+                Image("stage-valance").resizable().frame(width: phoneWide ? nil : width * s, height: width * s * 104 / 550)
+                    .frame(maxWidth: phoneWide ? .infinity : nil)
                     .offset(y: -14 * s)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }

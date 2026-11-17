@@ -17,6 +17,8 @@ struct KitView: View {
     /// The papers have landed: RootView throws the confetti as its topmost overlay (above the chat panel, rail, pill).
     var onCelebrate: () -> Void = {}
     @State private var landed = false
+    /// iPhone version (mockup screen 5): the two sets side by side under Nutmeg, the printer and ▶ under them.
+    @Environment(\.layoutMetrics) private var metrics
     /// The papers fly out once the kit is final (round 27: one set final; the other may still be drawing).
     /// Round 11: the papers launch in the same frame as the camera's zoom-out (one move; round 10 waited 60 ms).
     private var revealed: Bool { model.kitFinal && model.kitBeat == .papers }
@@ -40,6 +42,7 @@ struct KitView: View {
     private var printBody: some View {
         VStack(spacing: Theme.Space.l) {
             GeometryReader { geo in
+                if metrics.isPhone { phoneFans(geo) } else {
                 let sets = model.printSets
                 let rowH = Self.buttonRow + Theme.depth
                 let row = rowH + Self.buttonGap
@@ -79,6 +82,7 @@ struct KitView: View {
                     .animation(Theme.stageMove, value: revealed)
                     .position(x: geo.size.width / 2, y: rowH / 2 + 4)
                 }
+                }
             }
             .frame(maxHeight: .infinity)
             .opacity(chatOpen ? 0 : 1)
@@ -96,6 +100,44 @@ struct KitView: View {
         #endif
         .onChange(of: revealed) { _, r in if !r { landed = false } }
         .onChange(of: landed) { _, l in if l && store.phase == .kitReady { onCelebrate() } }
+    }
+
+    /// iPhone: the sets side by side (each one row of pages like a hand of cards, its chip under it), then the printer
+    /// and the green ▶ along the bottom of the content zone, under the pages (mockup screen 5).
+    @ViewBuilder private func phoneFans(_ geo: GeometryProxy) -> some View {
+        let sets = model.printSets
+        let button: CGFloat = 72
+        let rowH = button + Theme.depth
+        let n = CGFloat(max(1, sets.count))
+        let setW = (geo.size.width - Self.setGap * (n - 1)) / n
+        let setH = max(120, geo.size.height - rowH - 14)
+        let fanBox = CGSize(width: setW - 16, height: max(80, setH - Self.chip - 18))
+        let g = PTPageFan(count: pages.count, in: fanBox, oneRow: true, step: 0.42)
+        ZStack {
+            ForEach(Array(sets.enumerated()), id: \.element) { k, style in
+                let cx = -geo.size.width / 2 + setW / 2 + CGFloat(k) * (setW + Self.setGap)
+                let cy = -geo.size.height / 2 + setH / 2
+                setPanel(style, fan: g, box: CGSize(width: setW, height: setH), fanBox: fanBox,
+                         origin: CGPoint(x: clipboard.x - cx, y: clipboard.y - cy + (Self.chip + 10) / 2), single: sets.count < 2)
+                    .offset(x: cx, y: cy)
+            }
+        }
+        .frame(width: geo.size.width, height: geo.size.height)
+        .overlay {
+            HStack(spacing: Theme.Space.xl) {
+                PTBigIconButton(kind: .print, size: button, label: "Print") { model.tapPrint() }
+                    .opacity(model.printReady ? 1 : 0.45)
+                    .overlay { if !model.printReady { ProgressView().tint(Theme.white).controlSize(.large) } }
+                    .allowsHitTesting(model.printReady)
+                PTBigIconButton(kind: .play, size: button, label: "Let's play") { model.tapLetsPlay() }
+            }
+            .frame(height: rowH)
+            .opacity(revealed && !chatOpen && preview == nil ? 1 : 0)
+            .scaleEffect(revealed && !chatOpen ? 1 : 0.8)
+            .allowsHitTesting(revealed && !chatOpen && preview == nil)
+            .animation(Theme.stageMove, value: revealed)
+            .position(x: geo.size.width / 2, y: geo.size.height - rowH / 2)
+        }
     }
 
     /// One set: its fan of pages over a selection card (highlighted when chosen), and a chip saying which look it is.

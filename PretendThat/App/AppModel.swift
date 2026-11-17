@@ -1107,7 +1107,13 @@ final class AppModel {
 
     /// Kit step (round 3): she holds the clipboard in front with both hands from "let me make your pages" until the
     /// whole kit is final, then pops back to idle (excited) for the paper reveal.
-    var nutmegHoldsClipboard: Bool { PoseRules.holdsClipboard(phase: store.phase, kitBeat: kitBeat) || beat != .none }
+    var nutmegHoldsClipboard: Bool {
+        PoseRules.holdsClipboard(phase: store.phase, kitBeat: kitBeat) || beat != .none || (phoneLayout && phoneCardBelow)
+    }
+    /// iPhone version (2026-11-17, Haylee): no pointing on the phone. When a card is below her she holds her clipboard
+    /// and looks at it (the existing clipboardBoth pose; gestures only play over the idle pose). Set by RootView.
+    var phoneLayout = false
+    var phoneCardBelow = false
     /// The writing moment is on (planning beat or the kit being made): clipboardBoth, focus face, crayon top, scribble.
     var isWriting: Bool {
         #if DEBUG
@@ -1270,7 +1276,10 @@ final class AppModel {
     var cue: NutmegCue?
     /// Bumped on celebration moments; stage props bounce once.
     var celebrations = 0
-    func gesture(_ g: NutmegGesture, hold: TimeInterval? = nil) { cue = NutmegCue(gesture: g, hold: hold) }
+    func gesture(_ g: NutmegGesture, hold: TimeInterval? = nil) {
+        if phoneLayout && g == .point { return }   // iPhone: no pointing (the card is below her, not beside her)
+        cue = NutmegCue(gesture: g, hold: hold)
+    }
 
     /// Round 7 choreography: the card appears and she points; the point holds through her prop line (until it has
     /// finished playing) plus a few seconds, then she rests.
