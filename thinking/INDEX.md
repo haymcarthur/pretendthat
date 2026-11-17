@@ -114,15 +114,17 @@ The map. Read this first, then open only what you need.
 
 - [Kids' voices stay on the iPad: on-device speech to text, text-only turns to the AI, Nutmeg's voice unchanged](decisions/2026-11-16-on-device-speech.md): Haylee
 - [Round 31 build: on-device speech (no kid audio leaves the iPad, words name-scrubbed + screened, sent as text; grown-up note + typing when on-device speech is missing), instant mic press (UIKit touch view: 750–850 ms → 12–15 ms), latency and what still needs a real iPad, suggested privacy wording](decisions/2026-11-16-round31-on-device-speech-build.md): Haylee (design), Claude's calls noted
+- [Round 32 build: the Grown-ups menu behind the D2 gate (Saved games with Newest/Name sort, Manage subscription + Restore purchases via StoreKit 2, Privacy policy + Terms in an in-app Safari view, About what we save with round 31 wording, Help & contact + Apple billing link, Replay the intro hidden for round 33)](decisions/2026-11-16-round32-grownups-menu.md): Haylee (spec), Claude's calls noted
 
 ## Work queue
-- [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–31 (31: on-device speech + instant mic) + C1 + D1 + D2 + D3a + D3b done (round 27's mockups separate); next: D4 iCloud
+- [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–32 (31: on-device speech + instant mic; 32: Grown-ups menu) + C1 + D1 + D2 + D3a + D3b done (round 27's mockups separate); next: D4 iCloud
 
 ## Research
 - [Cost per game (2026-11-15)](research/2026-11-15-cost-per-game.md): about $1.60/game, OpenAI voice is the biggest share; levers ranked
 - [Cost per game v2, measured (2026-11-16)](research/2026-11-16-cost-per-game-v2.md): about $1.20 per new game (voice $0.60–0.78, images $0.28–0.33, Claude $0.15), replay $0.14 first then $0.03; mini model $0.65 but skipped steps; margin table and plan limits
 - [Parent onboarding + plans (2026-11-16)](research/2026-11-16-onboarding-research.md): how kids' apps onboard parents, Apple's Kids/paywall/permission rules, a proposed 6-screen flow, 5 decisions for Haylee
 - [App Store compliance gap list (2026-11-16)](research/2026-11-16-app-store-compliance.md): 29 requirements → status → fix; blockers: release builds embed personal API keys, 5.1.2(i) third-party-AI consent, OpenAI/Anthropic ZDR for COPPA, privacy manifest, StoreKit + Terms, AI content reporting; 8 questions for Haylee
+- [Terms of use draft (2026-11-16)](research/2026-11-16-terms-draft.html): DRAFT for pretendthat.app/terms (Apple billing, auto-renew and cancel via Apple ID, refunds via Apple, grown-up supervision, AI-content disclaimer, simple no-warranty, Apple EULA link); needs Haylee's and legal review
 - [Competitor analysis](research/competitor-analysis.md): competitors, white space, novelty angles, pricing
 - [Name check: Boxley](research/name-check-boxley.md): why Boxley is out
 
