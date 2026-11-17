@@ -1,5 +1,6 @@
 # PretendThat relay: a stateless Cloudflare Worker. See README.md for the deploy steps.
-# Secrets (never in this file): OPENAI_API_KEY, ANTHROPIC_API_KEY, APP_TOKEN. Set them with `npx wrangler secret put`.
+# Secrets (never in this file): OPENAI_API_KEY, ANTHROPIC_API_KEY, APP_TOKEN (and SHOWS_SECRET for round 38's show
+# counts). Set them with `npx wrangler secret put`.
 name = "pretendthat-relay"
 main = "src/index.ts"
 compatibility_date = "2026-10-01"
@@ -32,3 +33,19 @@ simple = { limit = 6, period = 60 }
 name = "MODERATION_LIMIT"
 namespace_id = "7104"
 simple = { limit = 60, period = 60 }
+
+# Round 38: anonymous show counts (README "Show counts"). OFF until Haylee turns it on:
+#   1. npx wrangler kv namespace create SHOWS   → paste the printed id below and uncomment the [[kv_namespaces]] block
+#   2. npx wrangler secret put SHOWS_SECRET     → any long random string (openssl rand -hex 32)
+#   3. set SHOW_LIMITS to "count" (count only), later "enforce" (block over the plan + require the show ticket)
+[vars]
+SHOW_LIMITS = "off"
+
+# [[kv_namespaces]]
+# binding = "SHOWS"
+# id = "<paste the id from step 1>"
+
+[[ratelimits]]
+name = "SHOWS_LIMIT"
+namespace_id = "7105"
+simple = { limit = 10, period = 60 }

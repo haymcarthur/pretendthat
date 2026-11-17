@@ -114,6 +114,7 @@ public final class ClaudeClient: LLM {
         case .relay(let url, let token):
             req = URLRequest(url: url.appendingPathComponent("v1/messages"))
             req.setValue(token, forHTTPHeaderField: RelayConfig.tokenHeader)
+            ShowTicket.attach(to: &req)   // round 38: this new show's relay ticket (server-side show counts)
         }
         req.httpMethod = "POST"
         req.timeoutInterval = 90  // live kit calls took 15–25 s; leave room for a slow day

@@ -272,6 +272,9 @@ public enum NewGameGate: Equatable, Sendable {
     case needsConsent
     /// The Free Preview is used up and there's no plan: the plans screen (behind the gate), not a new game.
     case needsPlan
+    /// Round 38: a paid plan's new shows for this month are used up: the plans screen (behind the gate) says when more
+    /// arrive. Kids see only "That's all the new shows for now! Ask a grown-up."
+    case outOfShows
 
     /// New game. Consent first (no AI calls without it), then the Free Preview count unless a plan is active.
     public static func newGame(consent: Bool, plan: PlanStatus, freeRemaining: Int) -> NewGameGate {
@@ -455,6 +458,22 @@ public enum OnboardingCopy {
     public static let restore = "Restore purchases"
     public static let terms = "Terms of Use"
     public static let privacy = "Privacy Policy"
+    // Round 38: real purchases.
+    public static let plansGrownUpsTitle = "Plans"
+    public static let plansGrownUpsBody = "Every plan includes unlimited replays of saved games. Plans are billed by Apple to your Apple ID."
+    public static func planOutTitle(_ tier: PlanTier) -> String { "This month's new shows are used up" }
+    public static func planOutBody(_ tier: PlanTier, refill: String?) -> String {
+        "\(tier.name) includes \(tier.allowance) new shows a month. \(refill ?? "More arrive when your plan renews.") Saved games are still free to replay."
+            + (tier == .showPass ? " Want more? Season Pass has up to \(PlanTier.seasonPass.allowance) a month." : "")
+    }
+    public static let buying = "Talking to the App Store…"
+    public static let loadingPrices = "Loading prices from the App Store…"
+    public static let pricesUnavailable = "Prices couldn't be loaded from the App Store. Check the Wi-Fi and try again."
+    public static let currentPlan = "Your plan"
+    public static let manage = "Manage subscription"
+    public static let introNote = "Introductory price for new subscribers"
+    public static let yearlyLink = "Yearly plans"
+    public static let monthlyLink = "Monthly plans"
     public static let outOfShowsTitle = "Your Free Preview is used up"
     public static let outOfShowsBody = "Your 2 free new shows are done. Pick a plan for more new shows. Saved games are still free to replay."
 

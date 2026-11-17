@@ -15,6 +15,9 @@ struct OnboardingView: View {
     @State private var micWorking = false
     @State private var restoring = false
     @State private var restoreResult: RestoreOutcome?
+    /// Round 38: page 6's purchases (no gate inside first-launch onboarding, Haylee) and the billing period.
+    @State private var purchaseOutcome: PurchaseOutcome?
+    @State private var planPeriod: BillingPeriod = PlanCatalog.defaultPeriod
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.openURL) private var openURL
 
@@ -319,7 +322,7 @@ struct OnboardingView: View {
     // MARK: 6 · Plans (Free Preview first; prices from PlanCatalog, the one config place)
 
     private func plans(_ s: CGFloat) -> some View {
-        let continueOnly = flow.isReplay && model.freePreview.exhausted
+        let continueOnly = (flow.isReplay && model.freePreview.exhausted) || model.purchases.entitlement != nil   // round 38: a plan is active
         return OBSplit(s: s, artWidth: 470, art: {
             OBArt(s: s, sky: OB.sky, valance: true, curtains: false, floor: false, glow: false, width: 470) {
                 // The mockup's perky sit (clipboard on her lap), a still picture of her real art on the same sky: the
@@ -347,10 +350,18 @@ struct OnboardingView: View {
             OBColumn(s: s, back: backAction, dot: flow.screen.dot, leading: 48, trailing: 36, bottom: 18) {
                 OBTitle(s: s, text: OnboardingCopy.plansV2Title, size: 48)
                 OBLead(s: s, text: OnboardingCopy.plansV2Lead, size: 21, top: 10, maxWidth: 600)
+                Picker("Billing", selection: $planPeriod) {
+                    ForEach(BillingPeriod.allCases, id: \.self) { Text($0.label).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .frame(maxWidth: 260 * s)
+                .padding(.top, 16 * s)
+                .accessibilityLabel("Billing period")
                 HStack(alignment: .top, spacing: 14 * s) {
                     ForEach(PlanCatalog.offers) { planCard(s, $0) }
                 }
-                .padding(.top, 22 * s)
+                .padding(.top, 18 * s)
+                .task { if model.purchases.products.isEmpty { await model.purchases.loadProducts() } }
             } actions: {
                 OBButton(s: s, label: continueOnly ? OnboardingCopy.continueButton : OnboardingCopy.freePreviewButton,
                          symbol: continueOnly ? nil : "ticket") { go { $0.startFreePreview() } }
@@ -358,7 +369,12 @@ struct OnboardingView: View {
                 HStack(spacing: 28 * s) {
                     Button {
                         restoring = true
-                        Task { restoreResult = await PTStore.restore(); restoring = false; model.planStatus = await PTStore.planStatus() }
+                        Task {
+                            restoreResult = await PTStore.restore()
+                            await model.purchases.refresh()
+                            model.planStatus = model.purchases.status
+                            restoring = false
+                        }
                     } label: { Text(restoring ? GrownUpsCopy.restoring : OnboardingCopy.restore) }
                         .disabled(restoring)
                     Button(OnboardingCopy.terms) { webPage = GUWebPage(url: GrownUpsLinks.terms) }
@@ -367,6 +383,11 @@ struct OnboardingView: View {
                 .buttonStyle(.plain)
                 .font(OB.font(15 * s, .heavy)).foregroundStyle(Theme.inkMuted)
                 .frame(maxWidth: .infinity, minHeight: 44)
+                if let o = purchaseOutcome, !o.succeeded {
+                    Text(o.message).font(OB.font(15 * s, .bold)).foregroundStyle(Theme.ink)
+                        .frame(maxWidth: .infinity).multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 if let r = restoreResult {
                     Text(r.message).font(OB.font(15 * s, .bold)).foregroundStyle(Theme.ink)
                         .frame(maxWidth: .infinity).multilineTextAlignment(.center)
@@ -377,18 +398,46 @@ struct OnboardingView: View {
 
     private func planCard(_ s: CGFloat, _ offer: PlanOffer) -> some View {
         let season = offer.id == PlanCatalog.seasonPass.id
+        let tier: PlanTier = season ? .seasonPass : .showPass
+        // Round 38: StoreKit's localized price and intro offer (PlanCatalog's numbers until the App Store answers).
+        let price = PlanPrice(tier, planPeriod, purchases: model.purchases)
+        let isCurrent = model.purchases.entitlement?.productID == price.productID
+        let busy = model.purchases.buying != nil
         return VStack(alignment: .leading, spacing: 0) {
             Text(offer.name).font(OB.font(22 * s, .black)).foregroundStyle(Theme.ink)
-            (Text(PlanCatalog.dollarsText(offer.monthlyIntro)).font(OB.font(30 * s, .black))
-             + Text("/month").font(OB.font(17 * s, .heavy)))
+            (Text(price.billedAmount).font(OB.font(30 * s, .black))
+             + Text("/\(PriceText.unit(planPeriod))").font(OB.font(17 * s, .heavy)))
                 .foregroundStyle(Theme.ink).padding(.top, 8 * s)
-            Text(offer.introThenText).font(OB.font(15 * s, .bold)).foregroundStyle(Theme.inkMuted)
-                .fixedSize(horizontal: false, vertical: true).padding(.top, 2 * s)
+            if let then = price.introThen {
+                Text(then).font(OB.font(15 * s, .bold)).foregroundStyle(Theme.inkMuted)
+                    .fixedSize(horizontal: false, vertical: true).padding(.top, 2 * s)
+            }
             VStack(alignment: .leading, spacing: 5 * s) {
                 bullet(s, OnboardingCopy.cardShows(offer))
                 bullet(s, OnboardingCopy.replaysBullet)
             }
             .padding(.top, 10 * s)
+            Button {
+                Task {
+                    purchaseOutcome = nil
+                    let o = await model.purchases.purchase(price.productID)
+                    purchaseOutcome = o
+                    model.planStatus = model.purchases.status
+                    // Bought (or already theirs): on to the hand-off page.
+                    if o.succeeded { go { $0.startFreePreview() } }
+                }
+            } label: {
+                Text(isCurrent ? "Your plan" : (model.purchases.buying == price.productID ? "One moment…" : "Get \(offer.name)"))
+                    .font(OB.font(17 * s, .black)).foregroundStyle(isCurrent ? Theme.inkMuted : Theme.purple)
+                    .frame(maxWidth: .infinity).frame(height: max(48 * s, 44))
+                    .background(Capsule().strokeBorder(isCurrent ? Theme.line : Theme.purple, lineWidth: 2.5 * s))
+                    .contentShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .disabled(busy || isCurrent || !price.loaded)
+            .opacity(price.loaded ? 1 : 0.5)
+            .padding(.top, 12 * s)
+            .accessibilityLabel(isCurrent ? "\(offer.name) is your plan" : "Get \(offer.name), \(price.full)")
         }
         .padding(.top, 18 * s).padding(.horizontal, 18 * s).padding(.bottom, 16 * s)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -402,8 +451,8 @@ struct OnboardingView: View {
                     .offset(x: -16 * s, y: -14 * s)
             }
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(offer.name), \(offer.introOfferText). \(OnboardingCopy.cardShows(offer)). \(OnboardingCopy.replaysBullet).")
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("\(offer.name), \(price.full). \(OnboardingCopy.cardShows(offer)). \(OnboardingCopy.replaysBullet).")
     }
 
     private func bullet(_ s: CGFloat, _ text: String) -> some View {

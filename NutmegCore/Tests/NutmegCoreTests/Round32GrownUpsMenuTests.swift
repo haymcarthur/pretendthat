@@ -10,10 +10,10 @@ import Testing
     @Test func menuRowsInOrderWithReplayIntroHidden() {
         // Round 33: the intro row is on, and the AI partners row joins the privacy group.
         #expect(GrownUpsFeatures.replayIntro == true)
-        #expect(GrownUpsSection.visible(replayIntro: false) == [.savedGames, .subscription, .restorePurchases, .aiPartners,
+        #expect(GrownUpsSection.visible(replayIntro: false) == [.savedGames, .plans, .subscription, .restorePurchases, .aiPartners,
                                               .privacyPolicy, .aboutWhatWeSave, .termsOfUse, .help, .reportProblem])
         #expect(GrownUpsSection.visible(replayIntro: true).last == .replayIntro)
-        #expect(GrownUpsSection.groups(replayIntro: false) == [[.savedGames], [.subscription, .restorePurchases],
+        #expect(GrownUpsSection.groups(replayIntro: false) == [[.savedGames], [.plans, .subscription, .restorePurchases],
                                              [.aiPartners, .privacyPolicy, .aboutWhatWeSave, .termsOfUse], [.help, .reportProblem]])
         #expect(GrownUpsSection.groups().last == [.help, .reportProblem, .replayIntro])   // round 37: Report a problem
         #expect(GrownUpsSection.groups(replayIntro: true).last == [.help, .reportProblem, .replayIntro])

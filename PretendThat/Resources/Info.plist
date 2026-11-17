@@ -28,5 +28,6 @@
 	<key>OPENAI_API_KEY</key><string>$(OPENAI_API_KEY)</string>
 	<key>RELAY_HOST</key><string>$(RELAY_HOST)</string>
 	<key>RELAY_TOKEN</key><string>$(RELAY_TOKEN)</string>
+	<key>RELAY_SHOW_LIMITS</key><string>$(RELAY_SHOW_LIMITS)</string>
 </dict>
 </plist>

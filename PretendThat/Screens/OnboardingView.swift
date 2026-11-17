@@ -49,31 +49,32 @@ struct OBPrimaryButton: View {
     }
 }
 
-// MARK: - Plans (screen 5, and again behind the gate when the Free Preview runs out)
+// MARK: - Plans (behind the gate: the Free Preview or the month ran out, and Grown-ups → Plans)
 
+/// Round 38: real products. Localized prices and the intro offer (when eligible) come from StoreKit; Buy runs Apple's
+/// purchase sheet; Restore (AppStore.sync) and Manage (showManageSubscriptions). Always behind the grown-up gate here.
 struct PlansContent: View {
-    enum Mode { case onboarding, replay, outOfShows }
+    enum Mode { case outOfShows, grownUps }
     let model: AppModel
     let mode: Mode
-    var onPrimary: () -> Void
     @Binding var webPage: GUWebPage?
     @State private var period: BillingPeriod = PlanCatalog.defaultPeriod
-    @State private var selected = PlanCatalog.showPass.id
+    @State private var selected: PlanTier = .showPass
     @State private var restoring = false
     @State private var restoreResult: RestoreOutcome?
+    @State private var outcome: PurchaseOutcome?
+    @State private var manageFailed = false
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    private var purchases: PTPurchases { model.purchases }
+    private var allowance: ShowAllowance { model.allowance }
+    private var current: PlanEntitlement? { purchases.entitlement }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Space.m) {
-            Text(mode == .outOfShows ? OnboardingCopy.outOfShowsTitle : OnboardingCopy.plansTitle)
-                .font(OBType.title).foregroundStyle(Theme.ink).accessibilityAddTraits(.isHeader)
-            Text(mode == .outOfShows ? OnboardingCopy.outOfShowsBody : OnboardingCopy.plansBody)
-                .font(OBType.body).foregroundStyle(Theme.ink).fixedSize(horizontal: false, vertical: true)
-            if mode != .outOfShows {
-                OBPrimaryButton(label: mode == .replay ? OnboardingCopy.continueButton : OnboardingCopy.freePreviewButton,
-                                symbol: mode == .replay ? nil : "ticket.fill", action: onPrimary)
-                    .accessibilityHint("\(PlanCatalog.freePreviewShows) free new shows, no card")
-            }
+            Text(title).font(OBType.title).foregroundStyle(Theme.ink).accessibilityAddTraits(.isHeader)
+            Text(bodyText).font(OBType.body).foregroundStyle(Theme.ink).fixedSize(horizontal: false, vertical: true)
+            yourPlan
             Picker("Billing", selection: $period) {
                 ForEach(BillingPeriod.allCases, id: \.self) { Text($0.label).tag($0) }
             }
@@ -86,15 +87,36 @@ struct PlansContent: View {
             } else {
                 HStack(alignment: .top, spacing: Theme.Space.s) { cards }
             }
-            OBPrimaryButton(label: OnboardingCopy.comingSoon, enabled: false) {}
-                .accessibilityLabel("\(PlanCatalog.offers.first { $0.id == selected }?.name ?? "Plan"): coming soon")
-            Text(OnboardingCopy.comingSoonNote).font(OBType.small).foregroundStyle(Theme.inkMuted)
+            buyButton
+            if purchases.productsFailed && !purchases.loadingProducts {
+                Text(OnboardingCopy.pricesUnavailable).font(OBType.small).foregroundStyle(Theme.coralStrong)
+            }
+            if let outcome {
+                Text(outcome.message).font(OBType.small.weight(.bold)).foregroundStyle(Theme.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if purchases.pendingProductID != nil {
+                Text(PurchaseOutcome.pending.message).font(OBType.small).foregroundStyle(Theme.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             HStack(spacing: Theme.Space.m) {
                 Button {
                     restoring = true
-                    Task { restoreResult = await PTStore.restore(); restoring = false; model.planStatus = await PTStore.planStatus() }
+                    Task {
+                        restoreResult = await PTStore.restore()
+                        await purchases.refresh()
+                        model.planStatus = purchases.status
+                        restoring = false
+                    }
                 } label: { Text(restoring ? GrownUpsCopy.restoring : OnboardingCopy.restore) }
                     .disabled(restoring)
+                if current != nil {
+                    Button(OnboardingCopy.manage) {
+                        Task {
+                            manageFailed = !(await PTStore.showManageSubscriptions())
+                            await purchases.refresh()
+                        }
+                    }
+                }
                 Button(OnboardingCopy.terms) { webPage = GUWebPage(url: GrownUpsLinks.terms) }
                 Button(OnboardingCopy.privacy) { webPage = GUWebPage(url: GrownUpsLinks.privacy) }
             }
@@ -104,29 +126,95 @@ struct PlansContent: View {
                 Text(r.message).font(OBType.small).foregroundStyle(Theme.ink)
                     .accessibilityAddTraits(.updatesFrequently)
             }
+            if manageFailed { Text(GrownUpsCopy.manageFailed).font(OBType.small).foregroundStyle(Theme.coralStrong) }
             Text(OnboardingCopy.plansFooter).font(OBType.footnote).foregroundStyle(Theme.inkMuted)
                 .fixedSize(horizontal: false, vertical: true)
         }
+        .onAppear {
+            if let c = current {
+                // Suggest the step up when the month ran out on Show Pass; else the plan they have.
+                selected = mode == .outOfShows && c.tier == .showPass ? .seasonPass : c.tier
+                period = StoreProducts.period(for: c.productID) ?? period
+            }
+        }
+        .task { if purchases.products.isEmpty { await purchases.loadProducts() } }
+    }
+
+    private var title: String {
+        switch mode {
+        case .grownUps: OnboardingCopy.plansGrownUpsTitle
+        case .outOfShows: current.map { OnboardingCopy.planOutTitle($0.tier) } ?? OnboardingCopy.outOfShowsTitle
+        }
+    }
+
+    private var bodyText: String {
+        switch mode {
+        case .grownUps: OnboardingCopy.plansGrownUpsBody
+        case .outOfShows: current.map { OnboardingCopy.planOutBody($0.tier, refill: allowance.refillText()) } ?? OnboardingCopy.outOfShowsBody
+        }
+    }
+
+    /// The current plan and what's left (the Free Preview's count, or this month's).
+    private var yourPlan: some View {
+        HStack(spacing: Theme.Space.s) {
+            Image(systemName: "ticket.fill").font(.title2).foregroundStyle(Theme.purple).accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(OnboardingCopy.currentPlan): \(allowance.tier.name)").font(OBType.section).foregroundStyle(Theme.ink)
+                Text([allowance.summary, allowance.refillText()].compactMap { $0 }.joined(separator: ". "))
+                    .font(OBType.small).foregroundStyle(Theme.inkMuted)
+            }
+        }
+        .padding(Theme.Space.s)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: Theme.smallRadius).fill(Theme.lavender.opacity(0.6)))
+        .accessibilityElement(children: .combine)
+    }
+
+    private var selectedPrice: PlanPrice { PlanPrice(selected, period, purchases: purchases) }
+    private var selectedIsCurrent: Bool { current?.productID == selectedPrice.productID }
+
+    @ViewBuilder private var buyButton: some View {
+        let p = selectedPrice
+        let busy = purchases.buying != nil
+        OBPrimaryButton(label: busy ? OnboardingCopy.buying : (selectedIsCurrent ? "\(selected.name) is your plan" : PriceText.buyLabel(selected, billed: p.billed)),
+                        symbol: selectedIsCurrent ? "checkmark" : "ticket.fill",
+                        enabled: !busy && !selectedIsCurrent && p.loaded) {
+            Task {
+                outcome = nil
+                let o = await purchases.purchase(p.productID)
+                outcome = o
+                model.planStatus = purchases.status
+                UIAccessibility.post(notification: .announcement, argument: o.message)
+            }
+        }
+        .accessibilityLabel(selectedIsCurrent ? "\(selected.name) is your plan" : "Get \(selected.name), \(p.full)")
     }
 
     @ViewBuilder private var cards: some View {
-        ForEach(PlanCatalog.offers) { offer in
-            let on = selected == offer.id
-            Button { selected = offer.id } label: {
+        ForEach([PlanTier.showPass, .seasonPass], id: \.self) { tier in
+            let on = selected == tier
+            let price = PlanPrice(tier, period, purchases: purchases)
+            let isCurrent = current?.productID == price.productID
+            Button { selected = tier; outcome = nil } label: {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
-                        Text(offer.name).font(OBType.section).foregroundStyle(Theme.ink)
+                        Text(tier.name).font(OBType.section).foregroundStyle(Theme.ink)
+                        if isCurrent {
+                            Text("Current").font(OBType.footnote.weight(.heavy)).foregroundStyle(Theme.ink)
+                                .padding(.horizontal, 8).padding(.vertical, 2).background(Capsule().fill(Theme.yellow))
+                        }
                         Spacer()
                         Image(systemName: on ? "checkmark.circle.fill" : "circle")
                             .font(.title2).foregroundStyle(on ? Theme.purple : Theme.line)
                     }
-                    Text(offer.billedText(period)).font(OBType.price).foregroundStyle(Theme.ink)
-                    // Monthly: the renewal price in body text (Apple: the regular price stays visible); yearly: the
-                    // per-month line, smaller.
-                    Text(offer.detailText(period)).font(period == .monthly ? OBType.small : OBType.footnote)
-                        .foregroundStyle(period == .monthly ? Theme.ink : Theme.inkMuted)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Text("\(offer.showsText) (\(OnboardingCopy.plannedNote))").font(OBType.small).foregroundStyle(Theme.ink)
+                    Text(price.billed).font(OBType.price).foregroundStyle(Theme.ink)
+                        .redacted(reason: price.loaded ? [] : .placeholder)
+                    // The renewal price in body text (Apple: the regular price stays visible).
+                    if let then = price.introThen {
+                        Text(then).font(OBType.small).foregroundStyle(Theme.ink).fixedSize(horizontal: false, vertical: true)
+                    }
+                    Text(OnboardingCopy.cardShows(tier == .seasonPass ? PlanCatalog.seasonPass : PlanCatalog.showPass))
+                        .font(OBType.small).foregroundStyle(Theme.ink)
                     Text(OnboardingCopy.replaysLine).font(OBType.small).foregroundStyle(Theme.inkMuted)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -138,7 +226,7 @@ struct PlansContent: View {
             }
             .buttonStyle(.plain)
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("\(offer.name), \(period == .monthly ? offer.introOfferText : offer.billedText(period)), \(offer.showsText), planned")
+            .accessibilityLabel("\(tier.name), \(price.full), \(tier.allowance) new shows a month\(isCurrent ? ", your current plan" : "")")
             .accessibilityAddTraits(on ? .isSelected : [])
         }
     }
@@ -154,7 +242,7 @@ struct PlansSheet: View {
             ScrollView {
                 Group {
                     if unlocked {
-                        PlansContent(model: model, mode: .outOfShows, onPrimary: {}, webPage: $webPage)
+                        PlansContent(model: model, mode: .outOfShows, webPage: $webPage)
                     } else {
                         PTGrownUpGate(onPass: { withAnimation(Theme.gentle) { unlocked = true } }).frame(maxWidth: .infinity)
                     }
@@ -180,11 +268,12 @@ struct KidBlockCard: View {
         ZStack {
             Theme.scrim.ignoresSafeArea().onTapGesture { model.kidBlock = nil }
             VStack(spacing: Theme.Space.m) {
-                Image(systemName: block == .needsPlan ? "ticket.fill" : "person.2.fill")
+                Image(systemName: block == .needsConsent ? "person.2.fill" : "ticket.fill")
                     .font(.system(size: 34, weight: .bold)).foregroundStyle(Theme.purple)
                     .frame(width: 76, height: 76).background(Circle().fill(Theme.lavender))
                     .accessibilityHidden(true)
-                Text(block == .needsPlan ? OnboardingCopy.kidOutOfShows : OnboardingCopy.kidNeedsGrownUp)
+                // Kids never see prices or plan names: just "ask a grown-up" (round 38: also when the month ran out).
+                Text(block == .needsConsent ? OnboardingCopy.kidNeedsGrownUp : OnboardingCopy.kidOutOfShows)
                     .font(Theme.headlineFont(Theme.TextSize.headline)).foregroundStyle(Theme.ink)
                     .multilineTextAlignment(.center)
                 if block == .needsConsent {
@@ -195,7 +284,7 @@ struct KidBlockCard: View {
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
                 }
-                if block == .needsPlan && !model.shelfGames.isEmpty {
+                if block != .needsConsent && !model.shelfGames.isEmpty {
                     Text("You can still play your saved games!").font(OBType.small).foregroundStyle(Theme.inkMuted)
                 }
                 HStack(spacing: Theme.Space.s) {
@@ -206,6 +295,7 @@ struct KidBlockCard: View {
                     }
                     .buttonStyle(.plain)
                     OBPrimaryButton(label: OnboardingCopy.kidGrownUpsButton, symbol: "lock") { model.openGrownUpsFromKidCard() }
+                        .accessibilityIdentifier("kidCard.grownUps")
                         .frame(maxWidth: 240)
                 }
             }

@@ -40,10 +40,37 @@ targets:
           - $(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)
           - $(SRCROOT)/tools/check-release-keys.sh
         basedOnDependencyAnalysis: false
+  # Round 38: StoreKit UI tests (SKTestSession with StoreKit/PretendThat.storekit): Free Preview → paywall, buy,
+  # restore, Ask to Buy, expire, refund, free replays. Screenshots go to /tmp/pt-round38/ (simulator only).
+  PretendThatUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: PretendThatUITests
+      - path: StoreKit/PretendThat.storekit
+        buildPhase: resources
+    dependencies:
+      - target: PretendThat
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.pretendthat.ios.uitests
+        TEST_TARGET_NAME: PretendThat
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "2"
+        SWIFT_VERSION: "5.0"
+        CODE_SIGN_STYLE: Automatic
 schemes:
   PretendThat:
     build:
       targets:
         PretendThat: all
+        PretendThatUITests: [test]
     run:
       config: Debug
+      # Round 38: local StoreKit testing when run from Xcode (the four plans, one group, the 12-month intro offers).
+      storeKitConfiguration: StoreKit/PretendThat.storekit
+    test:
+      config: Debug
+      targets:
+        - PretendThatUITests
