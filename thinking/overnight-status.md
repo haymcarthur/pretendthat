@@ -14,8 +14,10 @@ Updated as each step finishes. Newest at the bottom.
 
 - **Round 36 merged + pushed** (478 tests pass). New arc: story opener → setup scene → 3 play scenes → clean-up scene → The End. Every prop and printout is checked in code to have a job (test games: bakery with 3 kids, space station solo; nothing unused). Replays reuse the recorded story/setup lines with zero AI calls. Cost: about +7.5¢ per new game (guide 5.6¢ → 7.9¢, plus ~4¢ of voice). Screens: /tmp/pt-round36/. One flaw I caught: with few players, a setup row crams many items into one long task labeled "...and more"; fixing that first in the next round. Details: decisions/2026-11-16-round36-story-setup-cleanup-build.md.
 
+- **Round 37 merged + pushed** (491 tests pass). Setup/clean-up rows: a role can have several short rows (max 2 items each, real 2–7 word labels, never "and more"); solo gets ~4 rows. Compliance: privacy manifest, the encryption answer, Grown-ups → Report a problem (email with only the game title and that text; nothing on kid screens), "Nutmeg is an AI helper" in About. Privacy policy additions drafted on branch `privacy-additions` in the site repo (NOT published; fill the bracketed bits). Your App Store Connect answers: decisions/2026-11-17-setup-rows-and-compliance.md.
+
 ## In progress
-- Step 5: setup-row fix (more short rows instead of "and more") + App Store compliance items.
+- Step 6: StoreKit subscriptions (real products with a local test file, show allowances, paywall, restore) + relay show-count code for you to deploy. Also checking whether the blue "C" letter on scene rows in one test (instead of the character art) is a bug.
 
 ## Needs you in the morning
 - **Listen to the voice A/B:** open design/voice-ab-v2/index.html (8 pairs, A/B hidden, reveal key at the bottom). Both are coral at 1.20 (server confirmed the voice; rate measured ×1.19–1.20). Note: on 3 lines the mini sounded flatter/lower in pitch. If it passes, I flip the mini on.
