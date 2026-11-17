@@ -113,7 +113,7 @@ struct PTSceneCard: View {
                     PTTaskRow(text: step.short ?? step.text, tint: Theme.playerColor(role.id.index), fontSize: t.font, padding: t.padding,
                               speaker: metrics.isPhone ? 44 : 56,
                               speakLabel: SceneRowTap.accessibilityLabel(roleName: role.roleName), onSpeak: { model.readTask(i) }) {
-                        PTCharacterPicture(role: role, image: model.characterPicture(role), size: t.picture)
+                        PTCharacterPicture(role: role, image: model.characterPicture(role), size: t.picture, ring: PTRowLook.current.rings)
                     }
                 }
             }
