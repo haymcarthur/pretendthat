@@ -357,3 +357,14 @@ Game arc becomes: Print → **story opener** → **setup scene** → 3 play scen
 ## Printables overhaul (queued 2026-11-17, Haylee approved): its own round, after the small-fixes round
 - Spec: decisions/2026-11-17-printables-library.md + research/2026-11-17-printables-library.md + design/printables-library/index.html.
 - Big enough to be a round on its own. Build the picture-only art rule and app-drawn text first (it fixes the double frames on its own), then the library, the per-game shortlists and the variants. Test with no keys via fixtures; at most one live game (rule 7) for a real kit.
+
+## Haylee's answers on round 40 (2026-11-17)
+- Keep the soft tinted rows. No done/checked state: the rows aren't checklists anymore, just things kids can listen to. Row counts are right: fewer players get more rows each, 3+ players get one each.
+
+## Bugs from Haylee's fresh-install test (2026-11-17)
+1. **iPhone chat + keyboard:** when the keyboard opens, the chat shelf rises to sit on top of the keyboard, leaving a gap. The shelf must stay flush with the screen bottom, white behind the keyboard; only the input row moves up above the keyboard.
+2. **Props must never be things the kit prints:** Nutmeg asked for "Paper → boarding passes", but boarding passes come from the print step. The prop hunt must never ask for an item whose pretend use is something the kit will print (tickets, passes, money, menus, signs, badges, maps, ...). Enforce in the prompt and in code (cross-check prop uses against kit item types), with a test.
+3. **Curtains during a game:** on the start screen the side curtains run to the bottom of the screen; during a game they stop short above the floor. Make the in-game curtains reach the bottom like the start screen (iPhone and iPad).
+4. **Remove the bookshelf moment entirely:** no "I put it on your bookshelf!" line, no first-game line, no card-to-shelf animation at kit time. The auto-save still happens silently. The End line becomes: "The end! What a show! Take a bow! This game is saved, so you can play it again later. Tap the arrow to play it again, or the house to go home!" (no "bookshelf" anywhere kids hear it). This replaces the queued wording. Record only this End line as a built-in clip.
+5. **Step rail too close to the top** (iPhone), especially the active step's ring. Add breathing room below the Dynamic Island / safe area.
+6. **iPad: Nutmeg zooms out during steps with a panel or card** (props hunt, chat panel). She should stay framed like the plain talking view. Same as the queued "too zoomed out on iPad when the chat panel is open" item.

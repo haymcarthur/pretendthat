@@ -145,12 +145,14 @@ The map. Read this first, then open only what you need.
 - [Grown-up font: Poppins (Bold 700 headings, lighter than ExtraBold) on site, onboarding and Grown-ups; kid screens keep SF Rounded](decisions/2026-11-17-brand-font-poppins.md): Haylee
 - [Setup/clean-up rows are goals ("Get the pet room ready"); her spoken line gives the props + printables; every item used; ~one goal per role](decisions/2026-11-17-setup-rows-as-goals.md): Haylee
 - [Printables overhaul: picture-only art (app draws all text/frames), 17-type library with layout variants, per-game shortlists, one picture per printable, no sign without a place](decisions/2026-11-17-printables-library.md): Haylee
+- [No bookshelf moment; auto-save stays silent; End line: "This game is saved, so you can play it again later"](decisions/2026-11-17-no-shelf-moment.md): Haylee
 - [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–32 (31: on-device speech + instant mic; 32: Grown-ups menu) + C1 + D1 + D2 + D3a + D3b done (round 27's mockups separate); next: D4 iCloud
 
 ## Research
 - [Cost per game (2026-11-15)](research/2026-11-15-cost-per-game.md): about $1.60/game, OpenAI voice is the biggest share; levers ranked
 - [Cost per game v2, measured (2026-11-16)](research/2026-11-16-cost-per-game-v2.md): about $1.20 per new game (voice $0.60–0.78, images $0.28–0.33, Claude $0.15), replay $0.14 first then $0.03; mini model $0.65 but skipped steps; margin table and plan limits
 - [Printables library (2026-11-17)](research/2026-11-17-printables-library.md): why badges/tickets show a frame on a frame (the prompt asks the model to draw blank banners and spell the ticket text; the app draws its own banners on top), a 17-type library with per-game picks (4–6, badges always), app-drawn layout variants, 7–9 images a game instead of 13, how the kit call would pick; overview page design/printables-library/
+- [No bookshelf moment; auto-save stays silent; End line: "This game is saved, so you can play it again later"](decisions/2026-11-17-no-shelf-moment.md): Haylee
 - [Cost per game v3 (2026-11-16)](research/2026-11-16-cost-per-game-v3.md): current build about $1.03/game; Sonnet 5.5 for the play guide + weave saves ~$0.09 (keep Opus for pages; Haiku not good enough); mini voice for the scripted lines saves ~$0.16 with exact words (A/B audio in design/voice-ab/ for Haylee to hear); both ≈ $0.78; limits 8/12 now, 10/15 after both
 - [Parent onboarding + plans (2026-11-16)](research/2026-11-16-onboarding-research.md): how kids' apps onboard parents, Apple's Kids/paywall/permission rules, a proposed 6-screen flow, 5 decisions for Haylee
 - [App Store compliance gap list (2026-11-16)](research/2026-11-16-app-store-compliance.md): 29 requirements → status → fix; blockers: release builds embed personal API keys, 5.1.2(i) third-party-AI consent, OpenAI/Anthropic ZDR for COPPA, privacy manifest, StoreKit + Terms, AI content reporting; 8 questions for Haylee
