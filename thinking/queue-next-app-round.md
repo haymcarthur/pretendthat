@@ -341,6 +341,9 @@ Game arc becomes: Print → **story opener** → **setup scene** → 3 play scen
 ## Bug: Nutmeg too zoomed out on iPad when the chat panel is open (queued 2026-11-17, Haylee, screenshot during Props): FIXED in round 41 (the talking framing with the panel open)
 - With the chat panel open on iPad, the stage camera pulls back, so Nutmeg stands small on a big platform. Keep her framed like the normal talking view: zoomed in, with her full body comfortably filling the stage area left of the panel. iPad only; the iPhone chat shelf is handled separately.
 
+## Prop sense + prop variety (queued 2026-11-17, Haylee: the prop audit, "only soft or flat things can be cloths", "box is always used"): DONE in round 43
+- Built as decisions/2026-11-17-round43.md: the audit's F1–F6 (cloths need fabric, identity items, swap/replay fixes, prompts), the hard no-repeat rule, and the per-game prop shortlist.
+
 ## Suggestions feel stuck (queued 2026-11-17, Haylee): FIXED in round 42 (the returning greeting said only 2; fixed examples removed; last 3 sessions avoided; checked in live logs)
 - What she sees: Nutmeg opens with only TWO game ideas ("Maybe a bakery or a doctor's office?") but gives three theme twists, and the twists feel like the same ones every time (e.g. "nighttime under the stars, up in the clouds, or with robots").
 - What the code has: NutmegCore/Suggestions.swift holds 42 games and 32 twists. The app samples 3 of each (games at session start, injected into the instructions; twists in the set_game result) and avoids last session's picks.
