@@ -966,7 +966,9 @@ final class RealtimeSession {
     // MARK: Off-main helpers
 
     nonisolated private static func installMicTap(on input: AVAudioInputNode, format: AVAudioFormat, pump: MicPump) {
-        input.installTap(onBus: 0, bufferSize: 2400, format: format) { buffer, _ in pump.push(buffer) }
+        input.installTap(onBus: 0, bufferSize: 2400, format: format) { buffer, when in
+            pump.push(buffer, host: when.isHostTimeValid ? AVAudioTime.seconds(forHostTime: when.hostTime) : nil)
+        }
     }
 }
 
@@ -995,9 +997,10 @@ final class MicPump: @unchecked Sendable {
 
     func stop() { lock.withLock { _open = false; converter = nil; socket = nil } }
 
-    func push(_ buffer: AVAudioPCMBuffer) {
+    func push(_ buffer: AVAudioPCMBuffer, host: Double? = nil) {
         let (isOpen, converter, socket) = lock.withLock { (_open, self.converter, self.socket) }
         guard isOpen, let converter, let socket else { return }
+        MicTiming.captured(bufferHost: host)
         let ratio = outFormat.sampleRate / buffer.format.sampleRate
         let capacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio + 64)
         guard let out = AVAudioPCMBuffer(pcmFormat: outFormat, frameCapacity: capacity) else { return }

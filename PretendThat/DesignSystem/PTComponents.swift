@@ -322,6 +322,7 @@ struct PTMicButton: View {
     var body: some View {
         ZStack {
             if listening {
+                Color.clear.frame(width: 1, height: 1).onAppear { MicTiming.visible() }   // round 31: press timing
                 if reduceMotion {
                     Circle().strokeBorder(Theme.micRed.opacity(0.5), lineWidth: 5).padding(-9)
                 } else {
@@ -349,7 +350,10 @@ struct PTMicButton: View {
         .scaleEffect(listening ? 0.92 : 1)
         .shadow(color: Theme.panelShadow, radius: 8, y: 3)
         .contentShape(Circle())
-        .gesture(DragGesture(minimumDistance: 0).updating($pressing) { _, state, _ in state = true },
+        .gesture(DragGesture(minimumDistance: 0).updating($pressing) { value, state, _ in
+                    if !state { MicTiming.touchDown(event: value.time) }   // round 31: press timing (DEBUG log)
+                    state = true
+                 },
                  including: enabled ? .all : .none)
         .onChange(of: pressing) { _, isDown in isDown ? onPress() : onRelease() }
         .sensoryFeedback(.impact(weight: .medium), trigger: pressing) { _, new in new }
