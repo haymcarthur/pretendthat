@@ -106,6 +106,8 @@ struct PTTaskRow<Picture: View>: View {
     var tint: Color = Theme.coral
     var fontSize: CGFloat = Theme.TextSize.body
     var padding: CGFloat = Theme.Space.s
+    /// iPhone version: the 🔊's size (the whole row is the button, so 44 pt still reads as the cue on the phone).
+    var speaker: CGFloat = 56
     let speakLabel: String
     let onSpeak: () -> Void
     @ViewBuilder var picture: Picture
@@ -122,8 +124,8 @@ struct PTTaskRow<Picture: View>: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)   // the text takes all the room between picture and 🔊
                 Image(systemName: "speaker.wave.2.fill")
-                    .font(.system(size: 24, weight: .bold)).foregroundStyle(Theme.ink)
-                    .frame(width: 56, height: 56)
+                    .font(.system(size: speaker == 56 ? 24 : speaker * 0.43, weight: .bold)).foregroundStyle(Theme.ink)
+                    .frame(width: speaker, height: speaker)
                     .background(Circle().fill(Theme.chipGray))
                     .overlay(Circle().strokeBorder(tint, lineWidth: 3))
             }

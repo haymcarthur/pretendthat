@@ -25,7 +25,7 @@ struct SceneView: View {
     static let chrome: CGFloat = 20 + 76 + Theme.Space.m + Theme.depth
     /// iPhone version: a shorter ▶ (still a big target) so the rows get the room under Nutmeg.
     @Environment(\.layoutMetrics) private var metrics
-    private var buttonHeight: CGFloat { metrics.isPhone ? 60 : 76 }
+    private var buttonHeight: CGFloat { metrics.isPhone ? 56 : 76 }
     private var chrome: CGFloat { metrics.isPhone ? slack + buttonHeight + Theme.Space.s + Theme.depth : Self.chrome }
     /// Phone: a tighter paper padding and reveal slack, so the rows get the room under Nutmeg.
     private var pad: CGFloat { metrics.isPhone ? Theme.Space.s : Self.pad }
@@ -111,6 +111,7 @@ struct PTSceneCard: View {
                 if let role = step.role.role.flatMap({ store.plan?.role(for: $0) }) {
                     // Round 34 (Haylee): the row SHOWS the short task; a tap anywhere on it SAYS the specifics (`text`).
                     PTTaskRow(text: step.short ?? step.text, tint: Theme.playerColor(role.id.index), fontSize: t.font, padding: t.padding,
+                              speaker: metrics.isPhone ? 44 : 56,
                               speakLabel: SceneRowTap.accessibilityLabel(roleName: role.roleName), onSpeak: { model.readTask(i) }) {
                         PTCharacterPicture(role: role, image: model.characterPicture(role), size: t.picture)
                     }
