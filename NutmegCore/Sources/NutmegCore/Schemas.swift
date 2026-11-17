@@ -46,7 +46,9 @@ public enum Schemas {
                                "kind": enumStr(["card", "sheet"]),
                                "size": enumStr(["ticket", "badge", "bill", "keycard", "fullPage"]),
                                "title": str, "symbol": str, "lines": arr(str), "bigNumber": ["type": ["string", "null"]],
-                               "perPlayer": bool, "copies": int, "colorMe": bool])),
+                               "perPlayer": bool, "copies": int, "colorMe": bool,
+                               // Round 36 (Haylee): every page is used on purpose; the play guide receives it.
+                               "purpose": ["type": "string", "description": "ONE short sentence: what the kids do with this page while they play."]])),
              // Round 29 (ensemble scenes): no scene owner and no pictures (the rows show each role's character);
              // every task belongs to one role, or is the scene's solo task.
              "scenes": nonEmpty(obj(["id": str, "title": str, "nutmegSays": str,

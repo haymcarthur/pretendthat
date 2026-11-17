@@ -137,12 +137,13 @@ import Testing
         let calls = llm.calls
         for n in [1, 6, 4] {
             store.changePlayerCount(n)
-            #expect(store.kit?.scenes.allSatisfy { $0.steps.count == n } == true)
+            #expect(store.kit?.scenes.filter { $0.arc != .story }.allSatisfy { $0.steps.count == n } == true)
         }
         #expect(llm.calls == calls)
         store.beginPlay()
-        #expect(store.phase == .scene(0) && store.nutmegLine == HandOffLines.sceneOpen(store.kit!.scenes[0], first: true))
-        #expect(store.sceneLine(1) == HandOffLines.sceneOpen(store.kit!.scenes[1]))   // Repeat re-reads the whole scene
+        #expect(store.phase == .scene(0) && store.inStory && store.nutmegLine == store.sceneLine(0))   // round 36: the story first
+        #expect(store.sceneLine(1) == HandOffLines.sceneOpen(store.kit!.scenes[1], first: true))
+        #expect(store.sceneLine(2) == HandOffLines.sceneOpen(store.kit!.scenes[2]))   // Repeat re-reads the whole scene
     }
 
     @Test func thereAreNoHandOffOrChecklistTools() {
@@ -161,14 +162,14 @@ import Testing
                           props: a.props.props.map(SavedProp.init), kit: a.kit, printStyle: .fullColor, art: [],
                           voiceID: VoiceConfig.nutmeg.voiceID)
         let back = try SavedGame.decode(SavedGame.encoder().encode(g))
-        #expect(back == g && back.schemaVersion == 2)
+        #expect(back == g && back.schemaVersion == SavedGame.currentSchema)
         #expect(back.kit.scenes.allSatisfy { $0.steps.map(\.role) == RoleID.allCases.map { SceneOwner($0) } + [.solo] })
         // A replay at 4: the same 3 scenes, 4 rows each; the plate skipped makes its tasks (solo too) say "pretend".
         let store = AdventureStore(service: nil)
         store.loadReplay(back)
         store.replayPick(4)
-        #expect(store.kit?.scenes.count == 3 && store.kit?.scenes.allSatisfy { $0.steps.count == 4 } == true)
-        #expect(store.kit?.scenes.map(\.title) == a.kit.scenes.map(\.title))
+        #expect(store.kit?.playScenes.count == 3 && store.kit?.scenes.filter { $0.arc != .story }.allSatisfy { $0.steps.count == 4 } == true)
+        #expect(store.kit?.playScenes.map(\.title) == a.kit.scenes.map(\.title))
         while store.replayHuntActive {
             let id = store.replayCurrentProp!.id
             store.replayHunt(found: id != "plate")
@@ -178,8 +179,8 @@ import Testing
         #expect(s2.steps[0].text.contains("pretend steering wheel") && s2.steps[6].text.contains("pretend steering wheel"), "\(s2.steps.map(\.text))")
         store.beginPlay()
         var seen: [Phase] = []
-        while store.phase != .end && seen.count < 5 { seen.append(store.phase); store.nextScene() }
-        #expect(seen == [.scene(0), .scene(1), .scene(2)])
+        while store.phase != .end && seen.count < 8 { seen.append(store.phase); store.nextScene() }
+        #expect(seen == (0..<6).map { .scene($0) })   // round 36: story, setup, 3 play scenes, clean-up
     }
 
     // MARK: The character picture (cropped from the color badge slice)

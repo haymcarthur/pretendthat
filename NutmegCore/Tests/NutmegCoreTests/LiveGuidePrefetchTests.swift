@@ -34,6 +34,8 @@ func liveGuidePrefetchTimings() async throws {
         let w = try await svc.weaveProps(scenes: kit.scenes, props: [p], taken: uses, ctx: ctx)
         let r = GuideWeave.apply(w, to: kit.scenes, props: [p], taken: uses)
         kit.scenes = r.scenes; uses += r.uses
+        kit = Bookends.merge(w.jobs ?? [], into: kit, props: [p])   // round 36: its setup + clean-up jobs, as the store does
+        for j in w.jobs ?? [] { print("LIVEGUIDE weave jobs \(j.item) [\(j.role)] setup [\(j.setupShort)] \(j.setupSay) | clean-up [\(j.cleanupShort)] \(j.cleanupSay)") }
         print("LIVEGUIDE weave \(p.id) \(String(format: "%.1f", Date().timeIntervalSince(t))) s, \(r.uses.count) step(s): "
               + r.uses.map { "s\($0.scene).\($0.step) \(kit.scenes[$0.scene].steps[$0.step].role.rawValue): \(kit.scenes[$0.scene].steps[$0.step].text)" }.joined(separator: " | "))
     }
@@ -44,6 +46,22 @@ func liveGuidePrefetchTimings() async throws {
     let safe = await svc.guideIsSafe(scenes)
     for u in uses { print("LIVEGUIDE final s\(u.scene).\(u.step) [\(scenes[u.scene].steps[u.step].picture.kind.rawValue):\(scenes[u.scene].steps[u.step].picture.id)] \(scenes[u.scene].steps[u.step].text)") }
     print("LIVEGUIDE safe \(safe)")
+    // Round 36: the story, the arc's jobs (pages from the guide, props from their weaves), and the coverage per count.
+    print("LIVEGUIDE story: \(kit.story ?? "-")")
+    for item in items { print("LIVEGUIDE purpose \(item.recipe?.rawValue ?? "?"): \(item.purpose ?? "-")") }
+    for j in kit.setup?.jobs ?? [] { print("LIVEGUIDE setup job \(j.item) [\(j.role?.rawValue ?? "-")] [\(j.short)] \(j.say)") }
+    for j in kit.cleanup?.jobs ?? [] { print("LIVEGUIDE clean-up job \(j.item) [\(j.role?.rawValue ?? "-")] [\(j.short)] \(j.say)") }
+    let arcKit = Bookends.repair(Kit(nutmegSays: "", items: final, scenes: scenes, story: kit.story, setup: kit.setup, cleanup: kit.cleanup),
+                                 props: props.props, roles: plan.roles, title: "Pirate Ship on the Moon")
+    print("LIVEGUIDE arc repaired by the app: \(arcKit.repaired)")
+    for n in [1, 3] {
+        let view = PlayCast.kit(arcKit.kit, roles: plan.roles, players: n, props: props.props)
+        for sc in view.scenes where sc.arc != .play {
+            print("LIVEGUIDE n=\(n) \(sc.arc.rawValue) \"\(sc.title)\": \(sc.nutmegSays)")
+            for st in sc.steps { print("LIVEGUIDE n=\(n)   [\(st.short ?? "-")] \(st.text)") }
+        }
+        for l in SetupCoverage.log(view.scenes, items: Bookends.coverItems(items: final, props: props.props), roles: plan.roles) { print("LIVEGUIDE n=\(n) map \(l)") }
+    }
     for n in [2, 5] {
         let view = PlayCast.kit(Kit(nutmegSays: "", items: final, scenes: scenes), roles: plan.roles, players: n)
         let shown = view.scenes.flatMap(\.steps).filter { $0.picture.kind == .prop || $0.picture.id.hasPrefix("cutout:") && $0.text.contains("pretend") }

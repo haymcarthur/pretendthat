@@ -43,12 +43,14 @@ private func clean(_ line: String) {
 @Test @MainActor func playLinesUseTheSceneBuilders() async {
     let store = await storeWithKit(owners: [.R1, .R2], players: 2)
     store.beginPlay()
-    #expect(store.nutmegLine == HandOffLines.sceneOpen(store.kit!.scenes[0], first: true))
-    for _ in 0..<5 where store.phase != .end { store.nextScene() }
+    #expect(store.inStory && store.nutmegLine == store.sceneLine(0))   // round 36: the story, then the setup
+    store.nextScene()
+    #expect(store.nutmegLine == HandOffLines.sceneOpen(store.kit!.scenes[1], first: true))
+    for _ in 0..<8 where store.phase != .end { store.nextScene() }
     #expect(store.phase == .end)
     #expect(store.nutmegLine == HandOffLines.end())
     #expect(store.goTo(.play))   // the rail's Play at The End: the last scene again
-    #expect(store.nutmegLine == HandOffLines.sceneOpen(store.kit!.scenes[2]))
+    #expect(store.nutmegLine == HandOffLines.sceneOpen(store.kit!.scenes[5]))   // round 36: the clean-up scene
 }
 
 // Round 24 (Haylee): naming the "Let's play!" button is fine; telling the kids to go play at kit time is not.

@@ -102,12 +102,37 @@ public final class PhaseService: Sendable {
         var c = ctx; c.props = nil
         let roles = ctx.plan?.roles.count ?? 0
         let made = try await safe({ try await self.ask(KitScenesSix.self, $0, KitScenesSix.schema(), Self.scenesEffort,
-                                   clean: { s in KitScenesSix(nutmegSays: s.nutmegSays, scenes: Sanitizer.clean(Kit(nutmegSays: "", items: [], scenes: s.scenes)).scenes) },
+                                   clean: { s in KitScenesSix(nutmegSays: s.nutmegSays, scenes: Sanitizer.clean(Kit(nutmegSays: "", items: [], scenes: s.scenes)).scenes,
+                                                              story: s.story, setup: s.setup, cleanup: s.cleanup) },
                                    problem: { Validate.scenes($0.scenes, roles: roles) }) },
                                   Prompts.kitScenes(ctx: c, items: items, huntPending: true))
         // There's time during the hunt: a guide still short after its one fix is written again (RetryOnce).
         if made.scenes.count < KitScenesSix.count { throw ClaudeError.decoding("the play guide had \(made.scenes.count) scenes") }
-        return Kit(nutmegSays: made.nutmegSays, items: items, scenes: made.scenes)
+        // Round 36: the story and the setup / clean-up scenes come with it (empty if the answer had none: repaired later).
+        return Bookends.ensure(Kit(nutmegSays: made.nutmegSays, items: items, scenes: made.scenes,
+                                   story: made.story.map { $0.replacingOccurrences(of: "\"", with: "") }, setup: made.setup, cleanup: made.cleanup))
+        }
+    }
+
+    /// Round 36 (Haylee: every prop and printed item used on purpose): the ONE re-ask for items whose setup or clean-up
+    /// job is missing or unusable (small and fast, like the weave). Its jobs pass the kid-safety check.
+    public func itemJobs(_ items: [CoverItem], ctx: AdventureContext) async throws -> ItemJobs {
+        try await ClaudeRouting.$call.withValue(.weave) {
+        let ids = items.map(\.id)
+        let list = items.map { "- \($0.id): \($0.label)" + ($0.purpose.map { " (its purpose: \($0))" } ?? "") }.joined(separator: "\n")
+        let roles = (ctx.plan?.roles ?? []).map { "\($0.id.rawValue) \($0.roleName)" }.joined(separator: ", ")
+        let user = """
+        Phase: setup and clean-up jobs. Before the play starts, the kids set up their play space with these printed pages \
+        and household props; at the end they put them away. Items:
+        \(list)
+        Roles: \(roles).
+        For EACH item write one entry (item = its id): setupSay = an imperative phrase of 5 to 15 words, no role title, \
+        that NAMES the item and gives it a clear purpose in the play space; setupShort = 2 to 5 words; cleanupSay = how \
+        they tidy or put it back at the end, framed in the story, naming it; cleanupShort = 2 to 5 words; role = the role \
+        it suits best. No quotes. Return ItemJobs.
+        \(Prompts.contextJSON(ctx))
+        """
+        return try await safe({ try await self.ask(ItemJobs.self, $0, ItemJobs.schema(ids: ids), .low, clean: { $0 }, problem: { _ in nil }) }, user)
         }
     }
 
@@ -124,8 +149,8 @@ public final class PhaseService: Sendable {
 
     /// Guide prefetch: the final guide's text (after the hunt's skips and swaps were applied) passes the kid-safety
     /// check before it's shown.
-    public func guideIsSafe(_ scenes: [Scene]) async -> Bool {
-        await safety.check(scenes.flatMap { [$0.title, $0.nutmegSays] + $0.steps.flatMap { [$0.text] + ($0.short.map { [$0] } ?? []) } }, pretend: true) == nil
+    public func guideIsSafe(_ scenes: [Scene], extra: [String] = []) async -> Bool {
+        await safety.check(scenes.flatMap { [$0.title, $0.nutmegSays] + $0.steps.flatMap { [$0.text] + ($0.short.map { [$0] } ?? []) } } + extra, pretend: true) == nil
     }
 
     /// One call, sanitized. If the answer is under the spec's minimums (e.g. 1 scene), ask once more with a

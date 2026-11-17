@@ -334,9 +334,10 @@ public enum PTStageDirector {
 
     /// Which preset a phase uses. `chatOpen` picks the prop-card variant; the keyboard never changes it.
     public static func preset(phase: Phase, conversation: Bool, conversationShot: PTCameraShot, cards: Int, hunt: Bool,
-                              kitBeat: KitBeat, writing: Bool = false, chatOpen: Bool) -> Preset {
+                              kitBeat: KitBeat, writing: Bool = false, chatOpen: Bool, story: Bool = false) -> Preset {
         let card: Preset = chatOpen ? .propCardChat : .propCard
         if writing { return .writing }
+        if story { return .talk }   // round 36: the story opener is Nutmeg alone, in the talking close-up (no card zone)
         if conversation {
             if hunt { return card }
             switch conversationShot {
@@ -367,9 +368,9 @@ public enum PTStageDirector {
     /// - conversationShot: the planning camera's current pick (close-up, wide with cards, arrival).
     /// - writing: the writing moment (planning beat or the kit being made) overrides every other shot.
     public static func frame(phase: Phase, conversation: Bool, conversationShot: PTCameraShot, cards: Int,
-                             hunt: Bool, kitBeat: KitBeat, curtainInset: CGFloat, writing: Bool = false, _ g: PTStageGeometry) -> PTStageFrame {
+                             hunt: Bool, kitBeat: KitBeat, curtainInset: CGFloat, writing: Bool = false, story: Bool = false, _ g: PTStageGeometry) -> PTStageFrame {
         frame(preset(phase: phase, conversation: conversation, conversationShot: conversationShot, cards: cards, hunt: hunt,
-                     kitBeat: kitBeat, writing: writing, chatOpen: g.chatOpen), cards: cards, curtainInset: curtainInset,
+                     kitBeat: kitBeat, writing: writing, chatOpen: g.chatOpen, story: story), cards: cards, curtainInset: curtainInset,
               doneStack: hunt, g)
     }
 

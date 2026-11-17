@@ -15,15 +15,22 @@ public enum PTStepTab: String, CaseIterable, Sendable {
     case scene
     /// A saved game's cover on a replay's Pick (a first play's Pick is Chat only).
     case cover
+    /// Round 36: the setup and clean-up scenes' cards (the same card as a scene: a row per role, 🔊, Next scene).
+    case setup, cleanup
+    /// The tab shows a scene card (play, setup or clean-up).
+    public var isSceneCard: Bool { self == .scene || self == .setup || self == .cleanup }
 
     /// Which step tab this moment has (nil = Chat only). `propsShown`: hunt cards on screen; `papersOut`: the kit
     /// papers have landed (the print panel has something to show).
-    public static func forPhase(_ phase: Phase, replay: Bool, propsShown: Int, papersOut: Bool) -> PTStepTab? {
+    /// Round 36: `arc` is the scene's place in the game: the story has no rows (Chat only); the setup and clean-up
+    /// scenes have their own tab names.
+    public static func forPhase(_ phase: Phase, replay: Bool, propsShown: Int, papersOut: Bool, arc: SceneKind = .play) -> PTStepTab? {
         switch phase {
         case .players where replay: .cover
         case .props where propsShown > 0: .props
         case .makingKit, .kitReady: papersOut ? .print : nil
-        case .scene: .scene
+        case .scene:
+            switch arc { case .story: nil; case .setup: .setup; case .cleanup: .cleanup; case .play: .scene }
         default: nil
         }
     }
@@ -51,7 +58,7 @@ public struct PTChatTabState: Equatable, Sendable {
     /// The tabbed card's key: one per step tab, and one per scene (the next scene starts on its card again).
     public static func cardKey(for tab: PTStepTab?, phase: Phase) -> String? {
         guard let tab else { return nil }
-        if case .scene(let i) = phase, tab == .scene { return "scene-\(i)" }
+        if case .scene(let i) = phase, tab.isSceneCard { return "scene-\(i)" }
         return tab.rawValue
     }
 

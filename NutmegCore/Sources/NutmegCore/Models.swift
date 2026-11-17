@@ -134,9 +134,13 @@ public struct Props: Codable, Equatable, Sendable {
 public struct KitItem: Codable, Equatable, Sendable, Identifiable {
     public var id: String; public var recipe: KitRecipe?; public var kind: KitKind; public var size: KitSize; public var title: String; public var symbol: String
     public var lines: [String]; public var bigNumber: String?; public var perPlayer: Bool; public var copies: Int; public var colorMe: Bool
-    public init(id: String, recipe: KitRecipe? = nil, kind: KitKind, size: KitSize, title: String, symbol: String, lines: [String], bigNumber: String?, perPlayer: Bool, copies: Int, colorMe: Bool) {
+    /// Round 36 (Haylee: every printed item is used on purpose): what this page is FOR in the game, one short sentence
+    /// written with the page ("Hang it by the door so customers know the bakery is open"). The play guide receives it and
+    /// the setup scene uses it. Nil in older kits.
+    public var purpose: String?
+    public init(id: String, recipe: KitRecipe? = nil, kind: KitKind, size: KitSize, title: String, symbol: String, lines: [String], bigNumber: String?, perPlayer: Bool, copies: Int, colorMe: Bool, purpose: String? = nil) {
         self.id = id; self.recipe = recipe; self.kind = kind; self.size = size; self.title = title; self.symbol = symbol; self.lines = lines
-        self.bigNumber = bigNumber; self.perPlayer = perPlayer; self.copies = copies; self.colorMe = colorMe
+        self.bigNumber = bigNumber; self.perPlayer = perPlayer; self.copies = copies; self.colorMe = colorMe; self.purpose = purpose
     }
     // bigNumber must encode as an explicit null (schema requires the key).
     public func encode(to encoder: Encoder) throws {
@@ -145,6 +149,7 @@ public struct KitItem: Codable, Equatable, Sendable, Identifiable {
         try c.encode(title, forKey: .title); try c.encode(symbol, forKey: .symbol); try c.encode(lines, forKey: .lines)
         try c.encode(bigNumber, forKey: .bigNumber); try c.encode(perPlayer, forKey: .perPlayer)
         try c.encode(copies, forKey: .copies); try c.encode(colorMe, forKey: .colorMe)
+        try c.encodeIfPresent(purpose, forKey: .purpose)
     }
 }
 /// One play-guide task. Round 29 (ensemble scenes): ONE task per role per scene (R1…R6, called out by its title) plus a
@@ -181,20 +186,37 @@ public typealias KitScene = Scene
 
 public struct Scene: Codable, Equatable, Sendable, Identifiable {
     public var id: String; public var owner: SceneOwner; public var title: String; public var picture: Picture; public var nutmegSays: String; public var steps: [Step]
-    public init(id: String, owner: SceneOwner, title: String, picture: Picture, nutmegSays: String, steps: [Step]) {
-        self.id = id; self.owner = owner; self.title = title; self.picture = picture; self.nutmegSays = nutmegSays; self.steps = steps
+    /// Round 36: what this scene is in the game's arc (nil = a play scene). Only the scenes the app composes for the
+    /// players (`Bookends.compose`) carry story / setup / cleanup; the guide's own scenes are the play scenes.
+    public var kind: SceneKind?
+    public init(id: String, owner: SceneOwner, title: String, picture: Picture, nutmegSays: String, steps: [Step], kind: SceneKind? = nil) {
+        self.id = id; self.owner = owner; self.title = title; self.picture = picture; self.nutmegSays = nutmegSays; self.steps = steps; self.kind = kind
     }
+    /// The arc position (a scene without a kind is a play scene).
+    public var arc: SceneKind { kind ?? .play }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         // Round C1: the app picks who holds the iPad (hand-offs rotate), so newer JSON has no owner.
         id = try c.decode(String.self, forKey: .id); owner = (try? c.decodeIfPresent(SceneOwner.self, forKey: .owner)) ?? .all
         title = try c.decode(String.self, forKey: .title); picture = try c.decodeIfPresent(Picture.self, forKey: .picture) ?? .point
         nutmegSays = try c.decode(String.self, forKey: .nutmegSays); steps = try c.decode([Step].self, forKey: .steps)
+        kind = try? c.decodeIfPresent(SceneKind.self, forKey: .kind)
     }
 }
 public struct Kit: Codable, Equatable, Sendable {
     public var nutmegSays: String; public var items: [KitItem]; public var scenes: [Scene]
-    public init(nutmegSays: String, items: [KitItem], scenes: [Scene]) { self.nutmegSays = nutmegSays; self.items = items; self.scenes = scenes }
+    /// Round 36 (Haylee): the story Nutmeg tells after printing (3 to 4 sentences: where we are, who they are, what's
+    /// about to happen), the setup scene's and the clean-up scene's item jobs. All nil in a game saved before round 36
+    /// (it replays as it was: its 3 play scenes).
+    public var story: String?
+    public var setup: Bookend?
+    public var cleanup: Bookend?
+    public init(nutmegSays: String, items: [KitItem], scenes: [Scene], story: String? = nil, setup: Bookend? = nil, cleanup: Bookend? = nil) {
+        self.nutmegSays = nutmegSays; self.items = items; self.scenes = scenes
+        self.story = story; self.setup = setup; self.cleanup = cleanup
+    }
+    /// Round 36: this kit has the story / setup / clean-up arc.
+    public var hasBookends: Bool { setup != nil || cleanup != nil || !(story ?? "").isEmpty }
 }
 
 public struct Choice: Codable, Equatable, Sendable, Identifiable {

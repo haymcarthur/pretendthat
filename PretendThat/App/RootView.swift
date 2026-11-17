@@ -322,7 +322,7 @@ struct RootView: View {
     private func directorFrame(_ g: PTStageGeometry) -> PTStageFrame {
         return PTStageDirector.frame(phase: store.phase, conversation: model.inConversation, conversationShot: shot,
                               cards: stageItems.count, hunt: huntOnStage || replayHuntOnStage, kitBeat: model.kitBeat,
-                              curtainInset: curtainInset(g), writing: model.isWriting, g)
+                              curtainInset: curtainInset(g), writing: model.isWriting, story: store.inStory, g)
     }
 
     /// What's docked at the top of the chat panel: the hunt's active prop, or the kit papers once they're out.
@@ -330,7 +330,7 @@ struct RootView: View {
         if let key = PTChatTabState.cardKey(for: stepTab, phase: store.phase) { return key }   // round 30: the step tab
         if huntOnStage, let active = stageItems.last(where: { !$0.isDone }) { return active.id }
         if model.kitPapersOut { return "kit-papers" }
-        if case .scene(let i) = store.phase { return "scene-\(i)" }   // round 8: the scene card docks in the chat panel
+        if case .scene(let i) = store.phase, !store.inStory { return "scene-\(i)" }   // round 8: the scene card docks in the chat panel (round 36: not the story)
         if store.phase == .end { return "end" }   // round 11: and the finale (the chat-open prop-card framing has no side zone)
         return nil
     }
@@ -339,7 +339,7 @@ struct RootView: View {
     /// replay's Pick shows the cover. A first play's Pick is Chat only.
     private var tabbed: Bool { stepTab != nil }
     private var stepTab: PTStepTab? {
-        PTStepTab.forPhase(store.phase, replay: store.isReplay, propsShown: propListItems.count, papersOut: model.kitPapersOut)
+        PTStepTab.forPhase(store.phase, replay: store.isReplay, propsShown: propListItems.count, papersOut: model.kitPapersOut, arc: store.currentArc ?? .play)
     }
 
     /// Round 30: the Props tab's rows: a first play's shown hunt cards (one at a time, as on the stage), or a replay's
@@ -384,9 +384,9 @@ struct RootView: View {
             }))
         case .cover:
             return AnyView(ReplayPickView(model: model, coverWidth: PTChatPanel.width - 2 * Theme.Space.m - 24).padding(.top, Theme.Space.s))
-        case .scene, nil: break
+        case .scene, .setup, .cleanup, nil: break
         }
-        if case .scene(let i) = store.phase, !huntOnStage, !model.kitPapersOut { return AnyView(PTScenePinnedCard(model: model, index: i)) }
+        if case .scene(let i) = store.phase, !store.inStory, !huntOnStage, !model.kitPapersOut { return AnyView(PTScenePinnedCard(model: model, index: i)) }
         if store.phase == .end { return AnyView(EndView(model: model).padding(.vertical, Theme.Space.s).ptPinnedCard()) }
         if huntOnStage, let active = stageItems.last(where: { !$0.isDone }) {
             return AnyView(PTPropPinnedCard(item: active, onHunt: active.huntButtons ? { model.huntReply(found: $0) } : nil)
@@ -539,7 +539,8 @@ struct RootView: View {
         case .props: if store.isReplay { EmptyView() } else { PropsView(model: model) }
         case .makingKit, .kitReady: KitView(model: model, clipboard: clipboard, chatOpen: chatOpen && chromeVisible, preview: $kitPreview,
                                             onCelebrate: { celebrate() })
-        case .scene(let i): if !(chatOpen && chromeVisible) { SceneView(model: model, index: i, width: width, maxHeight: height) }   // chat open: pinned in the panel
+        // Round 36: the story is Nutmeg alone (the talking close-up), no card.
+        case .scene(let i): if !(chatOpen && chromeVisible) && !store.inStory { SceneView(model: model, index: i, width: width, maxHeight: height) }   // chat open: pinned in the panel
         case .end: if !(chatOpen && chromeVisible) { EndView(model: model) }   // chat open: pinned in the panel
         }
     }

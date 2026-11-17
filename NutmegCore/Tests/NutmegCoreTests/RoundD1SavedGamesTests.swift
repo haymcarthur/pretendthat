@@ -29,7 +29,7 @@ struct RoundD1SavedGamesTests {
         let data = try SavedGame.encoder().encode(g)
         let back = try SavedGame.decode(data)
         #expect(back == g)
-        #expect(back.schemaVersion == 2 && back.roles.count == 6 && back.kit.scenes.count == g.kit.scenes.count)
+        #expect(back.schemaVersion == SavedGame.currentSchema && back.roles.count == 6 && back.kit.scenes.count == g.kit.scenes.count)
         #expect(g.voiceID == "coral@gpt-realtime-2.1")
         // A newer schema than this build knows is refused (never half-read).
         var future = try JSONSerialization.jsonObject(with: data) as! [String: Any]
@@ -161,7 +161,7 @@ struct RoundD1SavedGamesTests {
         #expect(store.phase == .players)
         let voice = await store.apply(.setPlayerCount(3))
         #expect(voice == ReplayLines.appSaysOutput && store.playerCount == 3 && store.phase == .props)
-        #expect(store.kit?.scenes.count == store.fullKit?.scenes.count && store.kit?.scenes.allSatisfy { $0.steps.count == 3 } == true)   // round 29: a row per role
+        #expect(store.kit?.playScenes.count == store.fullKit?.scenes.count && store.kit?.scenes.filter { $0.arc != .story }.allSatisfy { $0.steps.count == 3 } == true)   // round 29: a row per role
         let props = g.props.map(\.replayProp)
         #expect(store.replayHuntActive && store.replayCurrentProp?.id == props[0].id && store.foundProps.isEmpty)
         // Round 34: the count line, then the first prop line as its own line (so its first-play clip plays again).
@@ -200,7 +200,7 @@ struct RoundD1SavedGamesTests {
         #expect(store.goTo(.game) && store.phase == .players)
         store.replayPick(5)
         #expect(store.phase == .props && store.replayCurrentProp?.id == props[0].id && store.foundProps.isEmpty)
-        #expect(store.kit?.scenes.count == store.fullKit?.scenes.count && store.kit?.scenes.allSatisfy { $0.steps.count == 5 } == true)   // round 29: a row per role
+        #expect(store.kit?.playScenes.count == store.fullKit?.scenes.count && store.kit?.scenes.filter { $0.arc != .story }.allSatisfy { $0.steps.count == 5 } == true)   // round 29: a row per role
         // The rail's Props restarts the hunt with the first card's line.
         store.replayAllFound()
         #expect(store.goTo(.getReady) && store.replayCurrentProp?.id == props[0].id)
