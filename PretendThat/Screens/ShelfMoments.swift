@@ -1,13 +1,8 @@
 import SwiftUI
 import NutmegCore
 
-// Round 39 (Haylee, auto-save): the bookshelf moment when the kit is made, the "sounds like a game you have" card at
-// the Pick confirm, and the little shelf in the leave dialog. Pictures only on the kid side (kids can't read).
-
-enum PTShelfMomentTiming {
-    /// The card appears (0.35 s), waits, then slides and shrinks onto the shelf (0.6 s): the pop lands here.
-    static let pop: Duration = .milliseconds(1300)
-}
+// Round 39 (Haylee, auto-save): the "sounds like a game you have" card at the Pick confirm and the little shelf in the
+// leave dialog (round 41: the kit-time bookshelf moment was removed). Pictures only on the kid side (kids can't read).
 
 /// A game's card picture (the shelf look without the button): its cover, else its prop stickers on cream.
 struct PTCoverPicture: View {
@@ -106,23 +101,7 @@ struct PTStageCardZone {
     }
 }
 
-/// The bookshelf moment on the Print stage (kit made).
-struct PTShelfMomentOverlay: View {
-    let moment: AppModel.ShelfMoment
-    @Environment(\.layoutMetrics) private var metrics
-    var body: some View {
-        GeometryReader { geo in
-            let h = metrics.isPhone ? min(170, geo.size.height * 0.2) : min(240, geo.size.height * 0.3)
-            PTShelfMomentView(cover: moment.cover, props: moment.props, shelfHeight: h, delay: 0.6,
-                              bigCardWidth: metrics.isPhone ? min(240, geo.size.width * 0.62) : 300)
-                .id(moment.id)
-                .position(PTStageCardZone.center(in: geo.size, isPhone: metrics.isPhone))
-        }
-        .allowsHitTesting(false)
-    }
-}
-
-/// "We already have <title> on your shelf! Want to play that one?" Two big picture buttons: the saved game's card
+/// "We already have <title> saved! Want to play that one?" Two big picture buttons: the saved game's card
 /// with a green ▶ (play that one) and the yellow sparkles (make a new one). No words on it; Nutmeg says the question.
 /// It never blocks: the leave X still works, and the sparkles carry on with the new game.
 struct PTSoundsLikeCard: View {

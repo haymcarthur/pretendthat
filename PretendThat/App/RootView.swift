@@ -179,12 +179,7 @@ struct RootView: View {
                     .transition(.opacity)
                     .zIndex(19)
             }
-            // Round 39: the bookshelf moment (kit made) and "sounds like a game you have" (Pick confirm).
-            if let m = model.shelfMoment {
-                PTShelfMomentOverlay(moment: m)
-                    .transition(.opacity)
-                    .zIndex(17)
-            }
+            // Round 39: "sounds like a game you have" (Pick confirm). (Round 41: the kit-time bookshelf moment is gone.)
             if let g = model.soundsLike {
                 PTSoundsLikeCard(game: g, cover: model.cover(for: g),
                                  onReplay: { model.chooseSavedInstead() }, onNew: { model.chooseNewGame() })

@@ -4,21 +4,21 @@ import Foundation
 // itself when the kit is made (free and paid alike) and the show counts only then; the save is kept up to date as play
 // goes. No Save button, no "save?" question. Still game content only (rule 6: nothing about kids).
 
-/// Nutmeg's fixed lines for the bookshelf moments (same words every game, so they can ship as bundled clips).
+/// Nutmeg's lines about saved games. Round 41 (Haylee, decisions/2026-11-17-no-shelf-moment.md): no bookshelf moment
+/// when the kit is made (the game saves itself silently), and kids never hear "bookshelf" (or "shelf"): she says the
+/// game is saved.
 public enum ShelfLines {
-    /// The one bookshelf moment, when the kit is made: the cover card pops onto the little shelf.
-    public static let onTheShelf = "I put it on your bookshelf!"
     /// "Sounds like a game you have" at the Pick confirm (said live: it names the saved game).
     public static func soundsLike(title: String) -> String {
-        "We already have \(title) on your shelf! Want to play that one?"
+        "We already have \(title) saved! Want to play that one?"
     }
     /// The model's tool output while the kids choose (they tap a picture; she says nothing more).
     public static let soundsLikeOutput = "(Silent coaching, don't mention it.) The app is showing the kids a game they already "
-        + "have on their bookshelf and asking if they want to play it instead. Say NOTHING now. If the kids talk before "
+        + "already saved and asking if they want to play it instead. Say NOTHING now. If the kids talk before "
         + "they tap, say ONLY: \"Tap the one you want!\""
     /// The note after the kids picked a NEW game (the yes to the recap stands; carry on to the roles).
     public static func newGameNote(playerCount: Int) -> String {
-        "(Silent coaching, don't mention it.) The kids chose to make a NEW game (not the one on their shelf). The plan is "
+        "(Silent coaching, don't mention it.) The kids chose to make a NEW game (not the saved one). The plan is "
             + "ALREADY confirmed: don't call confirm_plan. " + ConfirmStep.confirmedOutput(playerCount: playerCount)
     }
 }

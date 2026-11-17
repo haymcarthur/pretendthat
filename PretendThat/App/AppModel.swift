@@ -938,8 +938,7 @@ final class AppModel {
             guard !Task.isCancelled else { return }
             kitBeat = .papers                                   // zoom out; the papers fly once the camera settles
             papersShown = true
-            // Round 39: the bookshelf moment (once per new game), then the ready line.
-            if !kitReadySaid { await runShelfMoment() }
+            // Round 41 (Haylee): no bookshelf moment here any more; the game saved itself silently (autoSave).
             // Round 7: the ready line only now that the whole kit exists; about printing, never "go play".
             // Round 9: exactly once, even across a lock/background (deferred until the session is back).
             guard !kitReadySaid else { return }
@@ -1694,20 +1693,11 @@ final class AppModel {
     private func resetAutoSave() {
         artSaveWatch?.cancel(); artSaveWatch = nil
         savedArtKeys = []; savedAnyCover = false; savedGeneratedCover = false
-        shelfMoment = nil; soundsLike = nil
+        soundsLike = nil
     }
 
-    // MARK: The bookshelf moment (round 39)
+    // MARK: The game's card (the leave dialog's little shelf)
 
-    /// What the bookshelf moment shows: the game's cover card (or its prop stickers) shrinking onto the little shelf.
-    struct ShelfMoment: Equatable {
-        let id = UUID()
-        let cover: UIImage?
-        let props: [String]
-        static func == (a: ShelfMoment, b: ShelfMoment) -> Bool { a.id == b.id }
-    }
-    /// The moment on screen (nil = none).
-    private(set) var shelfMoment: ShelfMoment?
     /// The card's picture right now: the generated cover, else the sign page, else nil (the props).
     func currentCoverPicture() -> UIImage? {
         if store.isReplay, let g = replayGame { return cover(for: g) }
@@ -1716,22 +1706,6 @@ final class AppModel {
         return CoverArt.pick(cover: nil, colorSign: signID.flatMap { colorArt.images[$0] }, outlineSign: signID.flatMap { outlineArt.images[$0] })
     }
     var currentCoverProps: [String] { Array((store.props?.props ?? []).compactMap(\.libraryID).prefix(3)) }
-
-    /// The card shrinks into the little shelf with a pop and she says the one shelf line (the same every game). She is
-    /// on screen (the Print stage). Returns when her line is done (≤ ~6 s), so the ready line follows.
-    private func runShelfMoment() async {
-        guard !store.isReplay, kitLatch.claimed(store.gameID), store.phase == .kitReady else { return }
-        let m = ShelfMoment(cover: currentCoverPicture(), props: currentCoverProps)
-        shelfMoment = m
-        rtLog("SHELF moment: the cover card goes onto the bookshelf")
-        try? await Task.sleep(for: PTShelfMomentTiming.pop)   // the card has shrunk onto the shelf: the pop
-        guard !Task.isCancelled, shelfMoment == m, store.phase == .kitReady else { if shelfMoment == m { shelfMoment = nil }; return }
-        speak(ShelfLines.onTheShelf)
-        for _ in 0..<20 where !(isSpeaking || realtime.voiceBusy) && !Task.isCancelled { try? await Task.sleep(for: .milliseconds(100)) }
-        for _ in 0..<60 where (isSpeaking || realtime.voiceBusy) && !Task.isCancelled { try? await Task.sleep(for: .milliseconds(100)) }
-        try? await Task.sleep(for: .milliseconds(500))
-        if shelfMoment == m { shelfMoment = nil }
-    }
 
     // MARK: "Sounds like a game you have" (round 39, Haylee)
 

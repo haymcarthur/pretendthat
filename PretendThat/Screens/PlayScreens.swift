@@ -166,7 +166,7 @@ struct PTScenePinnedCard: View {
 
 /// The End. Round 39 (Haylee, auto-save): no star (every game is already on the bookshelf). Two big icon buttons, no
 /// text: the green round arrow plays it again (the scenes from the top, same kids and props) and the house goes home
-/// (the round 19 hang-up rules). Nutmeg's End line mentions the bookshelf. The same for a new game and a replay.
+/// (the round 19 hang-up rules). Nutmeg says the game is saved (round 41, never "bookshelf"). The same for a new game and a replay.
 struct EndView: View {
     let model: AppModel
     var body: some View {

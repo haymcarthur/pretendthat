@@ -308,10 +308,8 @@ public enum CommonLines {
         "Almost ready!",
         OnboardingCopy.getAGrownUp,   // round 33: the parent onboarding's two lines (screen 1 and the hand-off)
         OnboardingCopy.greetKid,
+        HandOffLines.endLine,   // round 41: The End (the same words every game), recorded with -PTRecordCommon
     ] + GameGreeting.all   // round 33: the New game greetings (first-game intro + short variants)
-    // Round 39: `ShelfLines.onTheShelf` and the new `HandOffLines.end()` are the same every game and could ship as
-    // bundled clips, but recording them needs a live session (`-PTRecordCommon`), not run in round 39. Until then she
-    // says them live once per game and the game keeps that recording (the D3b per-game clips).
     /// The bundled clip key (the current voice).
     public static func key(_ line: String) -> String { ClipKey.make(line: line, voiceID: VoiceConfig.nutmeg.voiceID) }
 }
