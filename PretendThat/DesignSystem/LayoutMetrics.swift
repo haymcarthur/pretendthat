@@ -30,13 +30,15 @@ struct LayoutMetrics: Equatable, Sendable {
     // MARK: Phone chrome (top bar = the X + the compact step rail)
 
     /// The compact rail's height (and the X's row).
-    static let phoneTopBar: CGFloat = 68
+    static let phoneTopBar: CGFloat = 74   // round 41: the rail's taller padding (the ring has air)
     static let phoneClose: CGFloat = 48
     static let phoneSide: CGFloat = 12
 
-    /// The top bar's distance from the top of the safe area: just under the valance.
+    /// The top bar's distance from the top of the safe area: just under the valance. Round 41 (Haylee: the rail sat
+    /// too close to the Dynamic Island, the active step's ring crowded): 18 pt of air below the safe area (was 6).
+    static let phoneTopGap: CGFloat = 18
     static func phoneTopInset(screen: CGSize, safeTop: CGFloat) -> CGFloat {
-        max(0, PTCurtain.metrics(screen).valance - safeTop) + 6
+        max(0, PTCurtain.metrics(screen).valance - safeTop) + phoneTopGap
     }
 
     /// The phone stage's free band (stage coordinates, the stage = the safe area): from under the top bar to above the

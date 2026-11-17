@@ -109,9 +109,10 @@ struct PTStepRail: View {
                     stepButton(step)
                 }
             }
-            .padding(.vertical, 4)
+            // Round 41 (Haylee: the active step's ring touched the rail's edge): room above and below the ring.
+            .padding(.vertical, 8)
             .padding(.horizontal, 6)
-            .ptPanel(radius: 24)
+            .ptPanel(radius: 26)
             .animation(Theme.springy, value: current)
         } else {
         VStack(spacing: 0) {
