@@ -79,6 +79,12 @@ public final class ImageClient: @unchecked Sendable {
                   let png = Data(base64Encoded: b64) else { throw ClaudeError.decoding("no b64_json") }
             if let u = obj["usage"] as? [String: Any] {   // round 27: cost measurement (token counts only)
                 ImageUsageLog.usage(input: u["input_tokens"] as? Int ?? 0, output: u["output_tokens"] as? Int ?? 0)
+                #if DEBUG   // cost v2 (2026-11-16): one count line per image (model, size, quality; numbers only)
+                let d = u["input_tokens_details"] as? [String: Any]
+                NSLog("[IMAGE] usage: model=%@ size=%@ quality=%@ bg=%@ in=%d (text %d, image %d) out=%d", model, size, quality,
+                      background ?? "-", u["input_tokens"] as? Int ?? 0, d?["text_tokens"] as? Int ?? 0, d?["image_tokens"] as? Int ?? 0,
+                      u["output_tokens"] as? Int ?? 0)
+                #endif
             }
             lock.withLock { working = model }
             return png

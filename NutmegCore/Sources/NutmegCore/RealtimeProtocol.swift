@@ -9,7 +9,15 @@ import Foundation
 /// `response.create` with `conversation: "none"`.
 /// Pure data: no audio and no sockets here, so it is unit-testable.
 public enum Realtime {
-    public static let model = "gpt-realtime-2.1"
+    /// Cost v2 (2026-11-16): DEBUG live tests can try another model with `-PTRealtimeModel <id>` (personal keys only;
+    /// the relay pins its own model).
+    public static let model: String = {
+        #if DEBUG
+        let a = ProcessInfo.processInfo.arguments
+        if let i = a.firstIndex(of: "-PTRealtimeModel"), i + 1 < a.count { return a[i + 1] }
+        #endif
+        return "gpt-realtime-2.1"
+    }()
     public static let sampleRate: Double = 24_000
     /// Built-in voices (OpenAI Realtime docs, checked 2026-11-13: alloy, ash, ballad, coral, echo, sage, shimmer, verse,
     /// marin, cedar; "for best quality, we recommend marin or cedar"). Marin is the natural, expressive female voice;

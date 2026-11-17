@@ -106,6 +106,10 @@ public final class ClaudeClient: LLM {
         // Round C1: token usage is metered (in memory only, no content) so the cost per game can be measured.
         if let u = obj["usage"] as? [String: Any] {
             ClaudeUsageMeter.shared.record(input: u["input_tokens"] as? Int ?? 0, output: u["output_tokens"] as? Int ?? 0)
+            #if DEBUG   // cost v2 (2026-11-16): cache counts and effort too (numbers only, never content)
+            NSLog("[CLAUDE] usage detail: effort=%@ cache_read=%d cache_write=%d model=%@", effort.rawValue,
+                  u["cache_read_input_tokens"] as? Int ?? 0, u["cache_creation_input_tokens"] as? Int ?? 0, obj["model"] as? String ?? "?")
+            #endif
         }
         // After a server-side fallback, content can hold fallback/thinking blocks; the answer is the last text block.
         let blocks = obj["content"] as? [[String: Any]] ?? []

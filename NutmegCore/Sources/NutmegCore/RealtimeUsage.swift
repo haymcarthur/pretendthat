@@ -31,7 +31,7 @@ public struct RealtimeUsage: Equatable, Sendable {
 
     /// One log line of counts.
     public var line: String {
-        "in \(input) (text \(textIn), audio \(audioIn)), cached \(cached) (text \(cachedText), audio \(cachedAudio)), out \(output)"
+        "in \(input) (text \(textIn), audio \(audioIn)), cached \(cached) (text \(cachedText), audio \(cachedAudio)), out \(output) (text \(outText), audio \(outAudio))\(outOfBand ? " oob" : "")"
     }
 }
 

@@ -243,6 +243,14 @@ enum DemoDriver {
             // Round 25 (button audit): "#leavedialog" / "#stay" (the X's leave dialog on / off).
             if turn == "#leavedialog" { model.debugLeaveDialog = true; try? await Task.sleep(for: .seconds(1)); continue }
             if turn == "#stay" { model.debugLeaveDialog = false; try? await Task.sleep(for: .seconds(1)); continue }
+            // Cost v2 (2026-11-16): "#cost": the AI call counts and token totals so far (numbers only).
+            if turn == "#cost" {
+                let c = ClaudeUsageMeter.shared.calls, im = ImageUsageLog.snapshot(), r = model.realtime.usageTotals
+                rtLog("COST calls: \(AICallLog.summary()); claude \(c.count) calls, in \(c.map(\.input).reduce(0, +)), out \(c.map(\.output).reduce(0, +)); "
+                      + "images \(im.requests) requests, in \(im.inputTokens), out \(im.outputTokens); realtime \(r.responses) responses, "
+                      + "in \(r.input) (text \(r.textIn), audio \(r.audioIn)), cached \(r.cached), out \(r.output) (audio \(r.outAudio))")
+                continue
+            }
             if turn == "#props" {
                 rtLog("PROPS " + (model.store.props?.props.map { "\($0.id)=\($0.householdItem)\($0.isSkipped ? "(pretend)" : "")" }.joined(separator: ", ") ?? "-"))
                 continue
