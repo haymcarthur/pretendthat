@@ -169,3 +169,47 @@ Next: the full button audit with Haylee.
 3. **A bookshelf cover image per game:** one extra full-color square image of the game's scene, with NO text in the image, generated during the hunt and kept only if the game is saved. All bookshelf cards use the cover (the same size for every game), with the name on the shelf-edge label. Fallback: the color sign page. **DONE R27.** See [decision](decisions/2026-11-16-round27-both-styles-covers.md).
 4. **Update the iPad and iPhone mockups** to show cover cards on the bookshelves.
 (Round 26 removed the color question; the kit defaults to outline until this round.)
+
+## Round 29 (queued 2026-11-16, Haylee): Grown-ups menu restructure
+The Grown-ups page (behind the gate) becomes a MENU of rows; tapping one opens its own screen:
+1. **Saved games:** a list of just the games (cover thumbnail, name, date, size) with delete and confirm. It scales to many games (scrolling list, optional search/sort if long).
+2. **Manage subscription:** opens Apple's subscription management sheet (StoreKit `showManageSubscriptions` / `AppStore.showManageSubscriptions(in:)`), with a friendly empty state until plans exist.
+3. **Restore purchases:** `AppStore.sync()` with a result message (StoreKit 2; no products yet, so it just reports nothing to restore).
+4. **Privacy policy:** opens pretendthat.app/privacy (a new page on the site; Claude drafts it from the real data practices: no accounts, no kid data, game content only on device/iCloud later, the relay forwards to OpenAI/Anthropic, nothing logged). External links stay behind the gate.
+5. **About what we save:** the current plain privacy copy, on its own screen.
+6. **Terms of use:** Apple requires terms for subscriptions (the standard Apple EULA link or our own page on the site).
+7. **Help & contact:** a support email or page (needs Haylee's support address).
+Rows for E (subscription and restore) become fully functional when the paid app is built; this round adds the structure and the Apple sheets.
+
+## Next after round 28 (Haylee, 2026-11-16): re-measure the cost per game
+Measure the REAL cost per new game on the current build: typed live runs of 2–3 full games (3 and 5 players, one skipped prop), plus one replay. Count Realtime tokens (text/audio in/out, cached), Claude tokens, image calls (both styles plus the cover) and moderation calls, using `response.done` usage and the API usage fields (counts only, never content). Price them with the CURRENT official prices (claude-api skill for Claude; OpenAI's pricing page, cited). Compare against research/2026-11-15-cost-per-game.md. Then a side-by-side test of the smaller realtime voice model (report only, no switch). Output: research/2026-11-16-cost-per-game-v2.md, plus the margin table for Show Pass and Season Pass, monthly and yearly.
+
+## Round 29a (queued 2026-11-16, Haylee): hand-off art: **SUPERSEDED by [ensemble scenes](decisions/2026-11-16-ensemble-scenes.md), built in [round 29](decisions/2026-11-16-round29-ensemble-scenes-build.md)** (no hand-off card; the character crop moved into the scene rows; the 4-steps-per-role play structure below is replaced by 3 scenes × one task per role)
+- The hand-off card shows the role's badge as a full badge (lanyard frame + two blank name boxes), which looks odd. Instead show ONLY the character illustration from the color badge: crop it to the art between the blank boxes (no badge frame, no blank fields). Remove the white rectangle card too: the character art floats on the stage (soft rounded edges or a circle crop with a gentle shadow; Claude's call), with the green ✓ below it and the small role name. Fallback is the role color chip.
+(Waits until the cost-measurement agent finishes, since it uses the same simulator and build folder.)
+- **Play structure (Haylee, 2026-11-16), which replaces round 28's 4 scenes × 2 steps:** each role's checklist has **4 steps**. With 2 or more players, cycle through every playing role **twice** (2 scenes × each role's 4-step turn). With **1 player**, give **3 checklists of 4 steps**. Generate 3 scenes × 4 steps for all 6 ranked roles, so any count from 1 to 6 works with no AI call: multi-player uses scenes 1–2, solo uses scenes 1–3. GuideRepair and the real-props validator keep applying. This is about 50% more guide text (72 vs 48 steps); measure the Claude cost change.
+
+## Round 30 (queued 2026-11-16, Haylee): step tabs in the chat panel
+The chat panel gets a step tab on every step, like Play's Checklist | Chat:
+- **Props:** a **Props | Chat** tab pair. The Props tab lists the hunt's props as cards (the current one highlighted with ✓/✗; found ones checked; missing ones showing their pretend stand-in), updating live as they're checked off.
+- **Print:** a **Print | Chat** tab pair. The Print tab holds the full print panel: both sets (color and outline) with the selection, the pages, the 🖨️ printer and the ▶ play button, roomier than the stage card.
+- **Play:** the round 29 Scene | Chat (the scene rows with 🔊 and Next scene).
+- **Pick:** Chat only (nothing to show), unless a saved-game replay shows the cover.
+- Opening the panel defaults to the step tab; the transcript is one tap away. With the chat open, the stage hides its duplicate card (as round 14 did for the checklist). Kid-sized tabs with icons.
+(Starts after round 29, which is reworking the Play panel.)
+- **Props per game (Haylee, 2026-11-16):** a firm **4 props for 1–2 players and 5 for 3+** (today it's 3–5, often 3). Update the prompt/schema limits, the hunt and the tests.
+- **Prop anti-repeat (Haylee, 2026-11-16):** remember the prop IDs suggested in the last ~5 games (UserDefaults; prop IDs only, never kid data, like Suggestions does for game ideas) and steer the prop prompt/selection away from recent ones (prefer unused props that fit). Tests.
+- **New prop art (in progress):** about 28 new household props are being generated in ChatGPT (two sprite sheets). Once vectorized: slice, add them to the library with shape/function tags and plausible pretend uses (paper → map, paper towel tube → telescope/microphone, etc.), and verify.
+- **URGENT before any release/TestFlight build (from the compliance research):** Release builds must NOT include personal keys. project.yml uses Relay.xcconfig for Release, and that `#include?`s Secrets.xcconfig, so OPENAI/ANTHROPIC keys would ship in the app and bypass the relay. Fix: a separate Release xcconfig with only RELAY_HOST/RELAY_TOKEN (no Secrets include), plus a build-phase check that fails a Release build if OPENAI_API_KEY or ANTHROPIC_API_KEY is non-empty in Info.plist. Debug keeps personal keys for dev.
+
+## Round 31 (queued 2026-11-16, Haylee): on-device speech
+See decisions/2026-11-16-on-device-speech.md. Kid audio is transcribed on the device; only text goes to the Realtime session as text turns; Nutmeg's voice output is unchanged. Starts after round 30.
+- **Mic press feels delayed (Haylee, 2026-11-16):** the recording state shows late after pressing the mic. Show it INSTANTLY on touch-down (optimistic UI: the red/listening look and a haptic tick), and start or warm the audio input in parallel. Keep the input engine pre-warmed while the game is open so capture starts at once. Buffer from touch-down so the first syllable isn't lost. Measure touch-down → visible state (target under 50 ms) and touch-down → first captured audio, before and after. (Part of round 31, since it reworks the mic pipeline.)
+
+## Autonomous run plan (Haylee, 2026-11-16, while away)
+Once round 29 and the cost measurement finish, run these back to back, one build agent at a time (each starts when the previous is checked, pushed and installed):
+1. **Round 30:** release-key safety, the chat panel step tabs, 4/5 props, prop anti-repeat, the 30 new props wired in.
+2. **Round 31:** on-device speech (text-only turns) plus the instant mic press.
+3. **Round 32:** the Grown-ups menu restructure (Round 29 spec above: Saved games, Manage subscription (Apple sheet), Restore (AppStore.sync), Privacy policy link, About what we save, Terms, Help & contact → pretendthat.app/support). Add a /terms page on the site if needed (Apple standard EULA link plus a short page).
+4. **Round 33:** parent onboarding per research/2026-11-16-onboarding-research.md and Haylee's decisions: the gate on screen 1, how it works, private by design plus REQUIRED AI consent (decline → explain it's needed and how to enable it later in Grown-ups), the mic explainer, then the plans screen (Free Preview the main button; Show Pass/Season Pass shown but purchase wired later with StoreKit), and the hand-off. Nutmeg speaks only on screen 1 and at the hand-off. Replayable from Grown-ups.
+Everything else (StoreKit, compliance items, iCloud, iPhone) waits for Haylee.

@@ -24,3 +24,28 @@
 - Offline replay needing an unrecorded line: ask to go online and pause; never silent text, never a different voice.
 - Every playing role gets its own called-out checklist steps in every scene, and hand-offs rotate (changed from "extras optional").
 - Parental gate: hold 2 s plus tap the spelled-out number.
+
+## Plan names (Haylee, 2026-11-16)
+- **Free Preview** (trial), **Show Pass** (10 new shows a month), **Season Pass** (up to 30 a month). "Unlimited" is never a plan name, since both paid plans include unlimited replays. Theater framing: "new shows", "replay your favorites as often as you like".
+
+## Onboarding decisions (Haylee, 2026-11-16); see research/2026-11-16-onboarding-research.md
+- **Free Preview with no card:** 2 free new shows counted by the app; not an Apple trial.
+- **The plan screen appears in onboarding** ("Start my Free Preview" is the main button) **and when the free shows run out.**
+- **Nutmeg speaks only on the first screen** (asking a kid to get a grown-up) **and at the hand-off.**
+- The gate goes once, on screen 1 (the research recommendation; Claude's default unless Haylee objects).
+- **Open:** the default billing period. Haylee asked whether yearly loses money; it can if heavy users max out their monthly game cap at today's cost per game. To be settled after re-measuring the cost per game.
+- **Fixed in round 28:** the mic permission text wrongly said "Your voice stays on this iPad".
+
+## Tagline (Haylee, 2026-11-16)
+- Tagline: **"Turn your living room into a pretend-play adventure."** Nutmeg intro: **"Meet Nutmeg, your pretend-play stage manager."** This replaces "The game master for real-world pretend play"; avoid "I'm bored" in copy.
+
+## Compliance answers (Haylee, 2026-11-16; Claude recommendations where she asked)
+- **ZDR:** yes, apply for zero data retention with OpenAI and Anthropic now (Haylee does the applications).
+- **Category (Claude's recommendation, Haylee: "whatever you suggest"):** launch OUTSIDE the Kids Category, as Education (or Entertainment), marketed to parents of kids 4–8. Why: Kids Category apps may not send personal or device data to third parties, and the core of the app is voice to a third-party AI. We still treat it as child-directed: COPPA, the parental gate, no ads or tracking, and the guardrails.
+- **Age band:** N/A outside the Kids Category; the marketing says ages 4–8 and the age rating is 4+.
+- **US only at first:** yes.
+- **Publisher (Claude's recommendation):** an LLC rather than an individual (liability with kids' data; the store shows the LLC name instead of her personal name). Needs a D-U-N-S number for the Apple organization enrollment. Not legal advice; confirm with an accountant/lawyer.
+- **AI disclosure and consent (Claude's recommendation):** the onboarding consent screen for parents names OpenAI/Anthropic, says what's sent (voice, game choices; no names) and that nothing is kept. Nutmeg introduces herself to kids as "a pretend helper made by a computer" in her first greeting. If the parent declines: the app offers only the bundled built-in sample adventure with tap choices (no AI), and they can turn AI on later in Grown-ups.
+- **Relay cap:** $50 (Haylee's current setting) is enough for App Review; keep the per-IP limits.
+
+- **Update (Haylee, 2026-11-16):** AI is REQUIRED; there's no AI-off sample-adventure mode. Onboarding asks the parent for clear AI consent; if they decline, the app explains PretendThat needs it to work and shows how to turn it on later in Grown-ups (no nagging). Publisher: Haylee will use an LLC and is considering an umbrella studio LLC for her apps (Tittl stays in its own LLC for now).

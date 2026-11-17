@@ -20,3 +20,5 @@
 - **Repeat-reply guard vs. step tools:** round 6's "one reply per turn" guard suppressed needed follow-ups after step tools (roles, props). Round 7 is fixing it; re-test the whole flow end to end after every conversation change.
 
 - **2026-11-14: focus (coloring) face eyes.** Haylee is regenerating these with the eyes-on-green method (see decisions/2026-11-14-face-art-method.md). They get swapped in after round 15.
+
+- **2026-11-16: App Store compliance questions** (from research/2026-11-16-app-store-compliance.md §3): apply for OpenAI + Anthropic zero data retention now? Kids Category or a general Family category? Age band 6–8 or 5 and under? Launch countries (US only)? Individual seller or an LLC? Nutmeg's "I'm a computer helper" disclosure wording? What happens if a parent declines AI consent? Raise the relay cap and per-IP limits for the review window?

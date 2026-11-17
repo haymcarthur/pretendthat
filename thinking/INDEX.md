@@ -111,12 +111,15 @@ The map. Read this first, then open only what you need.
 - [Ensemble scenes: everyone plays each scene, per-role rows with 🔊, Next scene button, 3 bigger interactive tasks](decisions/2026-11-16-ensemble-scenes.md): Haylee
 - [Round 29 build: ensemble scenes (3 scenes × a task per role + a solo task, rows with character crops + 🔊, ▶ Next scene, next_scene tool, no scripted lines, save schema 2, guide 7.4¢ → 3.7¢)](decisions/2026-11-16-round29-ensemble-scenes-build.md): Haylee (design), Claude's calls noted
 
+- [Kids' voices stay on the iPad: on-device speech to text, text-only turns to the AI, Nutmeg's voice unchanged](decisions/2026-11-16-on-device-speech.md): Haylee
+
 ## Work queue
 - [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–29 (ensemble scenes) + C1 + D1 + D2 + D3a + D3b done (round 27's mockups separate); next: D4 iCloud
 
 ## Research
 - [Cost per game (2026-11-15)](research/2026-11-15-cost-per-game.md): about $1.60/game, OpenAI voice is the biggest share; levers ranked
 - [Parent onboarding + plans (2026-11-16)](research/2026-11-16-onboarding-research.md): how kids' apps onboard parents, Apple's Kids/paywall/permission rules, a proposed 6-screen flow, 5 decisions for Haylee
+- [App Store compliance gap list (2026-11-16)](research/2026-11-16-app-store-compliance.md): 29 requirements → status → fix; blockers: release builds embed personal API keys, 5.1.2(i) third-party-AI consent, OpenAI/Anthropic ZDR for COPPA, privacy manifest, StoreKit + Terms, AI content reporting; 8 questions for Haylee
 - [Competitor analysis](research/competitor-analysis.md): competitors, white space, novelty angles, pricing
 - [Name check: Boxley](research/name-check-boxley.md): why Boxley is out
 
