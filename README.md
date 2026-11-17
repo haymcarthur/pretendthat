@@ -1,6 +1,6 @@
 # PretendThat
 
-**The game master for real-world pretend play.**
+**Turn your living room into a pretend-play adventure.** Meet Nutmeg, your pretend-play stage manager.
 
 PretendThat is an iPad app for kids ages 4 to 8. Nutmeg, a voice-first stage-manager mouse (she/her), takes kids from "I'm bored" to a real pretend-play show in four steps, then steps back so the play happens off the screen.
 
