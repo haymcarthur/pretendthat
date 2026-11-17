@@ -152,6 +152,7 @@ The map. Read this first, then open only what you need.
 - [Onboarding v3 revisions: welcome art + title, consent is agree-only, usage counts ON by default (out of onboarding), mic button says what happens, "new game" not "show", "You're all set" ending](decisions/2026-11-17-onboarding-v3-feedback.md): Haylee
 - [Prop audit fixes (round-24 PropFit repaired), hard no-repeat rule, app-chosen fresh prop shortlist per game for variety](decisions/2026-11-17-prop-audit-fixes.md): Haylee
 - [Yearly intro: $99.99 / $199.99 first year; Sonnet 5.5 becomes the default play guide + weave](decisions/2026-11-17-yearly-intro-sonnet.md): Haylee
+- [Rename the LLC to a neutral parent-company name (state → IRS → bank → D-U-N-S → Apple + Google → site/policy)](decisions/2026-11-17-company-rename.md): Haylee
 - [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–32 (31: on-device speech + instant mic; 32: Grown-ups menu) + C1 + D1 + D2 + D3a + D3b done (round 27's mockups separate); next: D4 iCloud
 
 - [Libraries and services list](team-profile-libraries.md): what the app uses (Code Camp is finished; no team-profile task)
