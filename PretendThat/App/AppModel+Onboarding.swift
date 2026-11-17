@@ -55,7 +55,8 @@ extension AppModel {
             return
         }
         if !parentSettings.onboardingDone {
-            var flow = OnboardingFlow()
+            // v2: back on the page the grown-up was on if the app was closed mid-way (device flags only).
+            var flow = parentSettings.resumeFlow()
             #if DEBUG
             if let i = args.firstIndex(of: "-PTOnboarding"), i + 1 < args.count {
                 flow = Self.debugFlow(at: args[i + 1])
@@ -70,14 +71,15 @@ extension AppModel {
     }
 
     #if DEBUG
-    /// `-PTOnboarding <screen>[Denied]`: open the flow on a screen (for screenshots).
+    /// `-PTOnboarding <screen>[Denied]`: open the flow on a page (for screenshots).
     static func debugFlow(at name: String) -> OnboardingFlow {
         var f = OnboardingFlow()
         let target = OnboardingScreen(rawValue: name.replacingOccurrences(of: "Denied", with: "")) ?? .hello
-        if target == .hello { return f }
-        f.passGate()
-        if target == .howItWorks { return f }
-        f.next()
+        let order: [OnboardingScreen] = [.hello, .howItWorks, .needs, .privacy]
+        for page in order {
+            if f.screen == target { return f }
+            if page != .privacy { f.next() }
+        }
         if target == .privacy { return f }
         if target == .aiDeclined { f.notNow(); return f }
         f.agree()
@@ -97,7 +99,7 @@ extension AppModel {
         change(&f)
         onboarding = f
         if f.screen != before { rtLog("ONBOARDING \(before.rawValue) → \(f.screen.rawValue)") }
-        if f.finished { finishOnboarding(f) }
+        if f.finished { finishOnboarding(f) } else { parentSettings.saveProgress(f) }
     }
 
     /// The mic screen's Continue: the system prompts (microphone, then speech recognition), then on.
@@ -118,18 +120,28 @@ extension AppModel {
         onboardingUpdate { $0.micAnswered(granted: granted) }
     }
 
+    /// v2 page 7's "Start our first game": straight into a new game on the stage, Nutmeg visible and talking (her
+    /// game greeting is the first thing she says). The onboarding stays on screen until the game's first phase is
+    /// set (`startConversation` closes it in the same update), so the home page never flashes in between. If New game
+    /// is blocked (a replay with the Free Preview used up), it lands on the home page with the kid card, silently.
+    func onboardingStartFirstGame() {
+        guard var f = onboarding, f.screen == .handOff, !f.finished else { return }
+        f.startFirstGame()
+        parentSettings.finish(f)
+        aiConsent = parentSettings.aiConsent
+        rtLog("ONBOARDING finished (\(f.isReplay ? "replay" : "first launch")) → first game, AI consent \(aiConsent)")
+        guard canStartNewGame() else { onboarding = nil; return }
+        onboarding = f   // finished: RootView keeps it on screen until the stage takes over
+        Task { @MainActor in await startConversation() }
+    }
+
     private func finishOnboarding(_ f: OnboardingFlow) {
         parentSettings.finish(f)
         aiConsent = parentSettings.aiConsent
+        onboardingVoice.stop()
         onboarding = nil
-        rtLog("ONBOARDING finished (\(f.isReplay ? "replay" : "first launch")), AI consent \(aiConsent)")
-        if f.consent == true && f.screen == .handOff {
-            // The hand-off: Nutmeg greets the kid (her recorded clip) once the start screen is back.
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(700))
-                onboardingVoice.play(OnboardingCopy.greetKid)
-            }
-        }
+        // v2 (Haylee): "Go to the home page" (and Close for now) land on the start screen with NO voice at all.
+        rtLog("ONBOARDING finished (\(f.isReplay ? "replay" : "first launch")) → \(f.exit?.rawValue ?? "?"), AI consent \(aiConsent), silent")
         if aiConsent { preconnect() }
     }
 

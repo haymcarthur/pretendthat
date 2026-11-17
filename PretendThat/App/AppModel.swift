@@ -275,6 +275,8 @@ final class AppModel {
         // Consent was given later in Grown-ups (the onboarding's mic screen was skipped): the system prompts now.
         if AVAudioApplication.shared.recordPermission == .undetermined { await listener.requestAuth() }
         store.beginConversation()
+        // Onboarding v2: "Start our first game" kept the onboarding up until now; the stage replaces it in this update.
+        if onboarding?.finished == true { onboarding = nil }
         clipStore.startFirstPlay()   // round D3b: her app lines are recorded for this game (kept only if it's saved)
         guard let auth = realtimeAuth else { await store.start(); return }
         // Fresh suggestions every session (round 7): 3 games picked now (never last session's), injected as today's ideas.
@@ -1335,6 +1337,7 @@ final class AppModel {
         case .background:
             rtLog("scene: background (phase \(store.phase), step \(store.planningStep))")
             realtime.suspend()
+            onboardingVoice.stop()   // v2: her onboarding clip never plays with the page off screen
             scribble.setPlaying(false, ducked: false)
             if listener.isListening { Task { _ = await listener.stopListening() } }   // round 31: words dropped, not sent
             // In-flight kit requests (Claude kit, page art) get time to finish; failures are retried on return.

@@ -38,6 +38,8 @@ struct RootView: View {
     /// Round 21: the stage area's and the root's global tops (the choice row hangs at the same line as the corner X).
     @State private var stageTop: CGFloat = 0
     @State private var rootTop: CGFloat = 0
+    /// Onboarding v2: "Go to the home page" restarts the start screen's intro (it ran unseen under the onboarding).
+    @State private var homeIntroRun = 0
 
     private var store: AdventureStore { model.store }
 
@@ -65,6 +67,7 @@ struct RootView: View {
                         // (the arrival shot), so the swap is instant (no crossfade of two Nutmegs).
                         ZStack {
                             HelloView(model: model, onExitBegan: { startExit() })
+                                .id(homeIntroRun)
                             // Round D1: the My games bookshelf screen, over the start screen (which keeps its state).
                             if model.showingShelf {
                                 ShelfView(model: model).transition(.opacity)
@@ -148,6 +151,14 @@ struct RootView: View {
                               onLeave: { confirmLeave = false; chatOpen = false; model.leave() })
                     .transition(.opacity.combined(with: .scale(scale: 0.96)))
                     .zIndex(20)
+            }
+            // Onboarding v2 (Haylee): full-screen pages over everything, not a dialog over home. "Start our first game"
+            // keeps them up until the stage takes over (no home page in between); "Go to the home page" fades to the
+            // start screen, silent.
+            if model.onboarding != nil {
+                OnboardingView(model: model)
+                    .transition(.opacity)
+                    .zIndex(40)
             }
             // Confetti last: the topmost layer, never blocks a tap.
             if confettiOn {
@@ -241,10 +252,11 @@ struct RootView: View {
         .sheet(isPresented: Binding(get: { model.showingGrownUps }, set: { if !$0 { model.closeGrownUps() } })) {
             GrownUpsSheet(model: model)
         }
-        // Round 33: the parent onboarding (first launch; Grown-ups → Replay the intro) and the plans behind the gate.
-        .fullScreenCover(isPresented: Binding(get: { model.onboarding != nil }, set: { if !$0 { model.onboarding = nil } })) {
-            OnboardingView(model: model)
-        }
+        // Round 33 / onboarding v2: the onboarding is a full-screen layer above (first launch; Grown-ups → Replay the
+        // intro); the plans behind the gate stay a sheet.
+        .animation(reduceMotion ? .easeInOut(duration: 0.15) : .easeInOut(duration: 0.3), value: model.onboarding == nil)
+        .onChange(of: model.onboarding?.exit) { _, exit in if exit == .firstGame { startExit() } }
+        .onChange(of: model.onboarding == nil) { _, gone in if gone && store.phase == .hello { homeIntroRun += 1 } }
         .sheet(isPresented: Binding(get: { model.showingPlans }, set: { model.showingPlans = $0 })) { PlansSheet(model: model) }
         .sheet(isPresented: $showTyping) { PTTypeSheet { text in Task { await model.typed(text) } } }
         // Round 31: the iPad can't listen on the device: a friendly note for a grown-up, then the chat's typing.

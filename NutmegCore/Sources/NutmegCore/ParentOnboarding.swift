@@ -8,56 +8,85 @@ import Foundation
 
 // MARK: - Screens and the flow
 
+// Onboarding v2 (Haylee, 2026-11-16, design/mockups/onboarding-v2 pages 1–7): full-screen pages, NO grown-up gate.
+//   1 Hi, grown-up! · 2 How it works (4 cards) · 3 What you'll need · 4 Private by design + REQUIRED AI consent
+//   (Not now → the calm "needs this" page) · 5 Hold to talk (mic pre-permission) · 6 Plans · 7 Hand the iPad to your
+//   child: "Start our first game" (straight onto the stage, Nutmeg talking) or "Go to the home page" (silent).
+
 public enum OnboardingScreen: String, CaseIterable, Sendable {
-    case hello, howItWorks, privacy, aiDeclined, microphone, plans, handOff
+    case hello, howItWorks, needs, privacy, aiDeclined, microphone, plans, handOff
 
     /// The dots row (aiDeclined sits on the privacy dot).
     public var dot: Int {
         switch self {
         case .hello: 0
         case .howItWorks: 1
-        case .privacy, .aiDeclined: 2
-        case .microphone: 3
-        case .plans: 4
-        case .handOff: 5
+        case .needs: 2
+        case .privacy, .aiDeclined: 3
+        case .microphone: 4
+        case .plans: 5
+        case .handOff: 6
         }
     }
-    public static let dotCount = 6
-    /// Nutmeg speaks only on the first screen and at the hand-off (Haylee).
-    public var nutmegSpeaks: Bool { self == .hello || self == .handOff }
+    public static let dotCount = 7
+    /// Nutmeg's bundled clip on this page (her real recorded voice, never TTS), played only while she's visible on it.
+    /// v2: only page 1 keeps a clip. The round 33 hand-off line played on the start screen after the cover closed; now
+    /// "Start our first game" opens the game, whose own greeting is the first thing she says, and "Go to the home
+    /// page" is silent (Haylee: never a voice without Nutmeg on screen, never TTS).
+    public var clip: String? { self == .hello ? OnboardingCopy.getAGrownUp : nil }
+    public var nutmegSpeaks: Bool { clip != nil }
 }
 
-/// The onboarding state machine. The gate is passed once, on screen 1; after it, back moves one screen at a time
-/// (never back to the gate). A replay from Grown-ups starts on screen 2 (the Grown-ups gate was just passed).
+/// How the flow ended.
+public enum OnboardingExit: String, Equatable, Sendable {
+    /// "Start our first game": straight into a new game on the stage (Nutmeg visible and talking).
+    case firstGame
+    /// "Go to the home page": the start screen, with no voice at all.
+    case home
+    /// "Close for now" on the AI-declined page (no consent): the start screen, silent.
+    case closedWithoutConsent
+}
+
+/// The onboarding state machine (v2: no gate). Back moves one page at a time on every page but the first.
+/// A replay from Grown-ups walks the same pages (page 1's clip stays quiet: the grown-up asked for it).
 public struct OnboardingFlow: Equatable, Sendable {
     public private(set) var screen: OnboardingScreen
-    public private(set) var gatePassed: Bool
     /// The grown-up's AI answer in this run (nil = not answered yet).
     public private(set) var consent: Bool?
-    /// The system mic / speech prompts came back denied (the mic screen then shows the Settings note and Next).
+    /// The system mic / speech prompts came back denied (the mic page then shows the Settings note and Next).
     public private(set) var micDenied = false
-    /// The mic screen's Continue ran (the system prompts were asked or already answered).
+    /// The mic page's Continue ran (the system prompts were asked or already answered).
     public private(set) var micAsked = false
-    /// The flow is over (hand-off done, or closed from the AI-declined screen).
-    public private(set) var finished = false
+    /// How the flow ended (nil = still running).
+    public private(set) var exit: OnboardingExit?
+    public var finished: Bool { exit != nil }
     public let isReplay: Bool
 
     public init(replay: Bool = false) {
         isReplay = replay
-        screen = replay ? .howItWorks : .hello
-        gatePassed = replay
+        screen = .hello
     }
 
-    public mutating func passGate() {
-        guard screen == .hello, !gatePassed else { return }
-        gatePassed = true
-        screen = .howItWorks
+    /// Restores a flow that was on `screen` when the app was closed (device flags only).
+    public init(restoring screen: OnboardingScreen, consent: Bool?, micAsked: Bool, micDenied: Bool, replay: Bool = false) {
+        isReplay = replay
+        self.screen = screen
+        switch screen {
+        case .microphone, .plans, .handOff: self.consent = true
+        case .aiDeclined: self.consent = false
+        default: self.consent = consent
+        }
+        let pastMic = screen == .microphone || screen == .plans || screen == .handOff
+        self.micAsked = micAsked && pastMic
+        self.micDenied = micDenied && self.micAsked
     }
 
-    /// The screen's main forward button (How it works → Privacy; Mic after a denial → Plans).
+    /// The page's main forward button (Hi → How it works → What you'll need → Privacy; Mic after a denial → Plans).
     public mutating func next() {
         switch screen {
-        case .howItWorks: screen = .privacy
+        case .hello: screen = .howItWorks
+        case .howItWorks: screen = .needs
+        case .needs: screen = .privacy
         case .microphone where micAsked: screen = .plans
         default: break
         }
@@ -70,7 +99,7 @@ public struct OnboardingFlow: Equatable, Sendable {
         screen = .microphone
     }
 
-    /// "Not now": consent off, the calm screen.
+    /// "Not now": consent off, the calm page.
     public mutating func notNow() {
         guard screen == .privacy else { return }
         consent = false
@@ -85,41 +114,44 @@ public struct OnboardingFlow: Equatable, Sendable {
         if granted { screen = .plans }
     }
 
-    /// "Start my Free Preview" (or Continue on a replay / with a plan): the hand-off.
+    /// "Start my Free Preview" (or Continue on a replay with the preview used up): the hand-off page.
     public mutating func startFreePreview() {
         guard screen == .plans else { return }
         screen = .handOff
     }
 
-    /// "Hand it over" on the last screen.
-    public mutating func handOff() {
-        guard screen == .handOff else { return }
-        finished = true
+    /// "Start our first game".
+    public mutating func startFirstGame() {
+        guard screen == .handOff, !finished else { return }
+        exit = .firstGame
     }
 
-    /// "Close for now" on the AI-declined screen: the flow ends without consent (turn it on later in Grown-ups).
+    /// "Go to the home page".
+    public mutating func goHome() {
+        guard screen == .handOff, !finished else { return }
+        exit = .home
+    }
+
+    /// "Close for now" on the AI-declined page: the flow ends without consent (turn it on later in Grown-ups).
     public mutating func closeWithoutConsent() {
-        guard screen == .aiDeclined else { return }
-        finished = true
+        guard screen == .aiDeclined, !finished else { return }
+        exit = .closedWithoutConsent
     }
 
-    /// Back is offered on every screen after the gate except the first one after it (and never on the gate).
-    public var canGoBack: Bool {
-        switch screen {
-        case .hello, .howItWorks: false
-        default: !finished
-        }
-    }
+    /// Back works on every page except the first (nothing before it).
+    public var canGoBack: Bool { screen != .hello && !finished }
 
     public mutating func back() {
         guard canGoBack else { return }
         switch screen {
-        case .privacy: screen = .howItWorks
+        case .howItWorks: screen = .hello
+        case .needs: screen = .howItWorks
+        case .privacy: screen = .needs
         case .aiDeclined: screen = .privacy
         case .microphone: screen = .privacy
         case .plans: screen = .microphone
         case .handOff: screen = .plans
-        case .hello, .howItWorks: break
+        case .hello: break
         }
     }
 }
@@ -132,6 +164,8 @@ public protocol OnboardingDefaults: AnyObject {
     func integer(forKey: String) -> Int
     func set(_ value: Bool, forKey: String)
     func set(_ value: Int, forKey: String)
+    func set(_ value: Any?, forKey: String)
+    func string(forKey: String) -> String?
     func removeObject(forKey: String)
 }
 
@@ -143,6 +177,11 @@ public enum OnboardingKeys {
     public static let aiConsent = "pt.aiConsent"
     /// An integer only: NEW games started on the Free Preview (replays never count).
     public static let freePreviewUsed = "pt.freePreview.newGames"
+    /// v2: the page a first-launch onboarding is on (a string), so closing the app mid-way comes back to it.
+    public static let page = "pt.onboarding.page"
+    /// v2: the mic page's Continue ran / came back denied (booleans), for the same restore.
+    public static let micAsked = "pt.onboarding.micAsked"
+    public static let micDenied = "pt.onboarding.micDenied"
 }
 
 /// The onboarding-done and AI-consent flags.
@@ -164,12 +203,38 @@ public final class ParentSettings {
         guard flow.finished else { return }
         onboardingDone = true
         if let c = flow.consent { aiConsent = c }
+        clearProgress()
+    }
+
+    /// v2: remember where a first-launch flow is (the page and the mic answer), so the grown-up comes back to the same
+    /// page after the app is closed in the background. Device flags only. Replays aren't remembered.
+    public func saveProgress(_ flow: OnboardingFlow) {
+        guard !flow.isReplay, !flow.finished else { return }
+        defaults.set(flow.screen.rawValue, forKey: OnboardingKeys.page)
+        defaults.set(flow.micAsked, forKey: OnboardingKeys.micAsked)
+        defaults.set(flow.micDenied, forKey: OnboardingKeys.micDenied)
+    }
+
+    /// The first-launch flow to show: where it was left, or page 1.
+    public func resumeFlow() -> OnboardingFlow {
+        guard let raw = defaults.string(forKey: OnboardingKeys.page), let screen = OnboardingScreen(rawValue: raw) else {
+            return OnboardingFlow()
+        }
+        return OnboardingFlow(restoring: screen, consent: nil, micAsked: defaults.bool(forKey: OnboardingKeys.micAsked),
+                              micDenied: defaults.bool(forKey: OnboardingKeys.micDenied))
+    }
+
+    public func clearProgress() {
+        defaults.removeObject(forKey: OnboardingKeys.page)
+        defaults.removeObject(forKey: OnboardingKeys.micAsked)
+        defaults.removeObject(forKey: OnboardingKeys.micDenied)
     }
 
     /// DEBUG: show the onboarding again on the next launch (consent cleared too).
     public func reset() {
         defaults.removeObject(forKey: OnboardingKeys.done)
         defaults.removeObject(forKey: OnboardingKeys.aiConsent)
+        clearProgress()
     }
 }
 
@@ -250,6 +315,11 @@ public struct PlanOffer: Equatable, Sendable, Identifiable {
         "\(PlanCatalog.dollars(monthlyIntro))/month for \(introMonths) months, then \(PlanCatalog.dollars(monthly))/month"
     }
 
+    /// v2 plan cards, under the big monthly price: "for 12 months, then $14.99/month".
+    public var introThenText: String {
+        "for \(introMonths) months, then \(PlanCatalog.dollars(monthly))/month"
+    }
+
     /// The line under the big price: monthly → "for your first 12 months, then $14.99/month" (the renewal price, in
     /// body text); yearly → "about $12.50 a month · save 17%" (smaller, subordinate to the billed price).
     public func detailText(_ period: BillingPeriod) -> String {
@@ -287,6 +357,9 @@ public enum PlanCatalog {
     }
     public static var offers: [PlanOffer] { [showPass, seasonPass] }
 
+    /// "$9.99" (v2 plan cards draw the "/month" smaller beside it).
+    public static func dollarsText(_ d: Decimal) -> String { dollars(d) }
+
     static func dollars(_ d: Decimal) -> String {
         String(format: "$%.2f", NSDecimalNumber(decimal: d).doubleValue)
     }
@@ -302,35 +375,38 @@ public enum OnboardingCopy {
     public static let tagline = "Turn your living room into a pretend-play adventure."
     public static let nutmegIntro = "Meet Nutmeg, your pretend-play stage manager."
 
-    // 1
+    // 1 (v2)
+    public static let helloEyebrow = "For grown-ups · 1 minute"
     public static let helloTitle = "Hi, grown-up!"
-    public static let helloBody = "A quick minute on how PretendThat works and how we keep your child's info private."
-    public static let gateTitle = "Grown-ups: please unlock"
+    public static let helloBody = "This part is for grown-ups. A quick look at how PretendThat works and how we keep it private."
+    public static let helloButton = "Let's get started"
 
-    // 2
+    // 2 (v2: one page, four cards)
     public static let howTitle = "How it works"
     public static let steps: [(step: JourneyStep, title: String, body: String)] = [
-        (.game, "Pick", "Your child tells Nutmeg what to play, like a pancake restaurant on the moon."),
-        (.getReady, "Props", "She sends them hunting for things around the house."),
-        (.print, "Print", "A custom kit of badges, signs and play money, in color or to color in."),
-        (.play, "Play", "Nutmeg guides each scene, then steps back while the kids play."),
-    ]
-    public static let needTitle = "What you'll need"
-    public static let needs: [(symbol: String, text: String)] = [
-        ("printer.fill", "A printer"),
-        ("scissors", "Crayons and scissors"),
-        ("figure.play", "Room to move"),
-        ("clock.fill", "About 15–25 minutes"),
+        (.game, "Pick", "Your child picks a story and a role with Nutmeg."),
+        (.getReady, "Props", "Nutmeg finds things you already have at home."),
+        (.print, "Print", "Print a kit: masks, signs, tickets to color."),
+        (.play, "Play", "Nutmeg guides each scene, then steps back."),
     ]
 
-    // 3
+    // 3 (v2: its own page)
+    public static let needTitle = "What you'll need"
+    public static let needLead = "Nothing fancy. Most of it is already in your home."
+    public static let needs: [(title: String, detail: String)] = [
+        ("A printer", "For the kit"),
+        ("Crayons", "To color it in"),
+        ("Space", "Room to move"),
+        ("15–25 min", "Per show"),
+    ]
+
+    // 4
     public static let privacyTitle = "Private by design"
     public static let privacyLines: [(symbol: String, text: String)] = [
-        ("person.crop.circle.badge.xmark", "No accounts. Nothing to sign up for."),
-        ("lock.fill", "Nothing about your kids is saved."),
-        ("waveform", "Your child's voice is turned into words on this iPad. The sound of their voice is never sent."),
-        ("bubble.left.and.text.bubble.right.fill", "Only those words, with names removed, go to our AI partners, OpenAI and Anthropic, so Nutmeg can answer."),
-        ("ipad.landscape", "Saved games stay on this iPad."),
+        ("checkmark", "No accounts, no sign-up."),
+        ("checkmark", "Nothing about your kids is saved."),
+        ("checkmark", "Your child's voice turns into words right on this iPad. Audio is never sent."),
+        ("checkmark", "Only the words, with names removed, go to our AI partners, OpenAI and Anthropic."),
     ]
     public static let privacyLink = "Read our privacy policy"
     public static let consentAsk = "PretendThat uses AI to talk with your child and make each game. Is that OK?"
@@ -344,16 +420,29 @@ public enum OnboardingCopy {
     public static let declinedBack = "Go back"
     public static let declinedClose = "Close for now"
 
-    // 4
-    public static let micTitle = "Nutmeg needs to hear your child"
-    public static let micBody = "Kids talk to Nutmeg by holding the big mic button, like a walkie-talkie. She only listens while it's held, and their voice is turned into words right on this iPad. Next, your iPad will ask to use the microphone and speech recognition."
+    // 5 (v2)
+    public static let micTitle = "Hold to talk"
+    public static let micBody = "Nutmeg listens while your child holds the mic button. Let go, and she stops listening."
+    public static let micFine = "Next, your iPad will ask to use the microphone."
     public static let micContinue = "Continue"
     public static let micDeniedTitle = "No problem. Kids can type instead."
     public static let micDeniedBody = "To turn the mic on later, open Settings → Apps → PretendThat and switch on Microphone and Speech Recognition."
     public static let micDeniedSettings = "Open Settings"
     public static let next = "Next"
 
-    // 5
+    // 6 (v2 page)
+    public static let plansV2Title = "Start free, upgrade anytime"
+    public static let plansV2Lead = "Want more new shows later? Pick a pass whenever you like."
+    public static var freeHeroTitle: String { "\(PlanCatalog.freePreviewShows) free shows,\non the house!" }
+    public static let freeHeroBody = "No card. Nothing to cancel."
+    public static let seasonTag = "About one a day"
+    public static let replaysBullet = "Unlimited replays"
+    /// The card's shows line: the Season Pass is a cap ("Up to 30 …").
+    public static func cardShows(_ offer: PlanOffer) -> String {
+        offer.id == PlanCatalog.seasonPass.id ? "Up to \(offer.showsText)" : offer.showsText
+    }
+
+    // Plans behind the gate (the Free Preview used up)
     public static let plansTitle = "Start with your Free Preview"
     public static let plansBody = "Your first 2 brand-new shows are free. No card, nothing to cancel. Replays of saved games are always free."
     public static let freePreviewButton = "Start my Free Preview"
@@ -369,11 +458,12 @@ public enum OnboardingCopy {
     public static let outOfShowsTitle = "Your Free Preview is used up"
     public static let outOfShowsBody = "Your 2 free new shows are done. Pick a plan for more new shows. Saved games are still free to replay."
 
-    // 6
-    public static let handOffTitle = "You're all set!"
-    public static let handOffBody = "Now hand the iPad to your child and tap New game!"
-    public static let handOffNote = "You'll find saved games, plans, AI partners and this intro in Grown-ups (top corner)."
-    public static let handOffButton = "Hand it over"
+    // 7 (v2)
+    public static let handOffEyebrow = "All set"
+    public static let handOffTitle = "Hand the iPad to your child"
+    public static let handOffBody = "Nutmeg will take it from here."
+    public static let startFirstGame = "Start our first game"
+    public static let goHome = "Go to the home page"
 
     // Kid-facing cards on the start screen (no prices; the grown-up opens the gate)
     public static let kidNeedsGrownUp = "Ask a grown-up to finish setting up."
