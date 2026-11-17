@@ -287,3 +287,11 @@ Game arc becomes: Print → **story opener** → **setup scene** → 3 play scen
 
 ## Bug: 10-second pause after "found it" (queued 2026-11-17, Haylee: fix it)
 - After a spoken or typed "found it", the next prop line waits about 10–11 s. Cause (from the Claude-brain spike): `sayAppPropLine` waits up to 10 s while the session is busy, and the busy state stays on after a tool-first pass with no spoken follow-up. Card taps don't hit it. Seen in every recent log. Details: research/2026-11-17-claude-brain-spike.md.
+
+## Brand round (queued 2026-11-17, Haylee): Poppins on the grown-up side
+- App: bundle Poppins (OFL; ship the license text); onboarding + Grown-ups use Poppins (headings SemiBold 600 with tight letter spacing, body Regular/Medium) with Dynamic Type; kid screens unchanged. Credit in About.
+- Site (separate repo /Users/haymcarthur/pretendthat-site): rebuild with Tailwind + a component kit, Poppins, layout from Haylee's Figma examples (illustrated hero with phone, colored story bands, 3-up cards, FAQ, big closing CTA, chunky footer). Decision: decisions/2026-11-17-brand-font-poppins.md; sampler: design/brand-fonts/.
+
+## Small fix: writing hand's shadow moves with the hand (queued 2026-11-17, Haylee: only if low risk)
+- In the coloring/writing pose the crayon + `nutmeg-writing-fingers` layer rock around the wrist (NutmegCharacter `crayon(t:px:)`, `writingRock`). The fingers layer includes the dark shadow on her purple shirt, so the shadow moves with the hand and the shirt line misaligns.
+- Fix: move the shadow paths (unchanged) out of nutmeg-writing-fingers.svg into a separate static layer drawn at the same place without the rock. No redrawing, so it stays within the art rule. Check: a still frame (rock 0) is pixel-identical before and after; moving frames keep the shadow fixed. If it can't be done without touching the art itself, stop and report.
