@@ -24,3 +24,6 @@
 ## Follow-up 2 (same day, Haylee)
 - **Usage counts:** no switch anywhere. They're on for everyone, removed from onboarding AND from Grown-ups → About, and disclosed in the privacy policy. Claude noted that COPPA's internal-operations allowance and a US-only, non-Kids-Category launch make an opt-out not legally required (not legal advice).
 - **No game length anywhere:** no "15–25 min" in the app's onboarding or on the site.
+
+## Approved (Haylee, 2026-11-17)
+- Onboarding v3 (6 pages, design/mockups/onboarding-v3/) is APPROVED with one change: the Season Pass says "30 new games a month" (no "Up to"), matching "10 new games a month". The same goes in the app's plan screens and on the site.

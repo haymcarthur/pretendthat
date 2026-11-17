@@ -49,11 +49,11 @@ kids can't read; not Kids Category, Education 4+, US only, AI required with cons
 
 ## Haylee's to-do (account / store tasks), with the answers to give
 - **Fill the privacy draft:** LLC legal name + mailing address, response time for reports, pick retention option A/B, legal review, then merge + publish.
-- **ZDR:** finish the OpenAI and Anthropic applications; when both are approved, tell Claude to drop the manifest's collected type.
+- **ZDR:** NOT applying (Haylee, 2026-11-17: no audio is sent to AI; only text). The policy keeps "AI partners may keep requests up to 30 days", and the App Privacy label keeps User Content → Other User Content.
 - **App Store Connect → App Privacy** (updated 2026-11-17 for analytics, see [analytics build](2026-11-17-analytics-build.md)):
   Tracking: **No**. Data collected:
   - **User Content → Other User Content** (until ZDR): **App Functionality**; linked **No**; tracking **No**.
-  - **Usage Data → Product Interaction** (TelemetryDeck, only if a grown-up turns it on): **Analytics**; linked **No**; tracking **No**.
+  - **Usage Data → Product Interaction** (TelemetryDeck; always on since 2026-11-17, no switch): **Analytics**; linked **No**; tracking **No**.
   - **Identifiers → Device ID** (the random per-install id TelemetryDeck hashes; declared because the TelemetryDeck SDK's
     own privacy manifest declares it and the label must match the app's privacy report): **Analytics**; linked **No**; tracking **No**.
   - Everything else (contact info, user ID, diagnostics, audio, purchases, location) **Not collected**.

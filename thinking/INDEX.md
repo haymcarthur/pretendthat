@@ -150,7 +150,11 @@ The map. Read this first, then open only what you need.
 - [No bookshelf moment; auto-save stays silent; End line: "This game is saved, so you can play it again later"](decisions/2026-11-17-no-shelf-moment.md): Haylee
 - [Site: email only in the privacy policy, header = Pricing/Support/Get the app, hero button downloads, no page frame, all pages match the home page](decisions/2026-11-17-site-email-and-nav.md): Haylee
 - [Onboarding v3 revisions: welcome art + title, consent is agree-only, usage counts ON by default (out of onboarding), mic button says what happens, "new game" not "show", "You're all set" ending](decisions/2026-11-17-onboarding-v3-feedback.md): Haylee
+- [Prop audit fixes (round-24 PropFit repaired), hard no-repeat rule, app-chosen fresh prop shortlist per game for variety](decisions/2026-11-17-prop-audit-fixes.md): Haylee
+- [Yearly intro: $99.99 / $199.99 first year; Sonnet 5.5 becomes the default play guide + weave](decisions/2026-11-17-yearly-intro-sonnet.md): Haylee
 - [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–32 (31: on-device speech + instant mic; 32: Grown-ups menu) + C1 + D1 + D2 + D3a + D3b done (round 27's mockups separate); next: D4 iCloud
+
+- [Team profile: libraries and services list](team-profile-libraries.md): paste into the Code Camp team profile; keep current
 
 ## Research
 - [Cost per game (2026-11-15)](research/2026-11-15-cost-per-game.md): about $1.60/game, OpenAI voice is the biggest share; levers ranked
@@ -167,6 +171,7 @@ The map. Read this first, then open only what you need.
 - [Claude brain spike (2026-11-17)](research/2026-11-17-claude-brain-spike.md): Sonnet 5.5 writes Nutmeg's words + tool calls, the mini voice reads them (`-PTClaudeBrain YES`, DEBUG, off). Voice+brain ≈ $0.18–0.21/game vs ~$0.53, but she answers in ~5.4 s vs ~1.2 s (two Claude calls per turn), and the mini once read a made-up line. Listen: design/claude-brain-spike/. Recommendation: don't ship as is
 - [Cheaper voice options (2026-11-17)](research/2026-11-17-cheaper-voice-options.md): Claude has no voice API; only OpenAI keeps coral; cheapest credible = gpt-realtime-2.1-mini for everything (~$0.16 vs ~$0.53, needs a quality retest) or full planning + mini hunt (~$0.24); Nova Sonic cheaper but new voice + 20-session cap; Gemini terms bar under-18 apps; per-minute products (Grok, ElevenLabs, gpt-live-1, Hume) cost more at our session length
 - [Brand fonts (2026-11-17)](research/2026-11-17-brand-fonts.md): blind sampler in design/brand-fonts/ for grown-up-facing type only (site, onboarding, Grown-ups; kid screens keep SF Rounded). Haylee's five heading fonts: Momo Trust Display, Cal Sans, Tilt Warp, Poppins, Lexend (all OFL, all on Google Fonts); Fredoka+Inter baseline; real kid-screen reference. Claude's pick Tilt Warp + Nunito, runner-up Lexend; Haylee to choose
+- [Prop audit (2026-11-17)](research/2026-11-17-prop-audit.md): why "stuffed animal → the pet drying cloth" passed (the head-noun check walks back past unknown words to "pet" → creature); ~75 real pairs + flagged odd ones; failure taxonomy A–O; 6 fixes to the existing PropFit (last-word head + possessives + plurals, vocabulary, swap-fallback bug "Pillow → the patient", worn-where/fabric/size tags + identity items, no repeats, bundled-game check), use→needs table, tests; ~1–1.5 days, ≈ +1¢/game; 5 questions for Haylee
 - [Terms of use draft (2026-11-16)](research/2026-11-16-terms-draft.html): DRAFT for pretendthat.app/terms (Apple billing, auto-renew and cancel via Apple ID, refunds via Apple, grown-up supervision, AI-content disclaimer, simple no-warranty, Apple EULA link); needs Haylee's and legal review
 - [Competitor analysis](research/competitor-analysis.md): competitors, white space, novelty angles, pricing
 - [Name check: Boxley](research/name-check-boxley.md): why Boxley is out

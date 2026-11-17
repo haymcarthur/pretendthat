@@ -94,15 +94,15 @@ sheet is drawn and `PTCharacterPicture` shows its documented fallback, the role'
 3. **Create 4 auto-renewable subscriptions** in that group with exactly these IDs (they can never be reused):
    `app.pretendthat.showpass.monthly` (1 month), `app.pretendthat.showpass.yearly` (1 year),
    `app.pretendthat.seasonpass.monthly` (1 month), `app.pretendthat.seasonpass.yearly` (1 year).
-   Reference names: "Show Pass Monthly", etc. Display names: "Show Pass" / "Season Pass"; descriptions: "10 new shows
-   a month, unlimited replays" / "Up to 30 new shows a month, unlimited replays". Family Sharing: off (Claude's
+   Reference names: "Show Pass Monthly", etc. Display names: "Show Pass" / "Season Pass"; descriptions (UPDATED 2026-11-17: "game" wording): "10 new games
+   a month. Saved games are free to play again." / "30 new games a month. Saved games are free to play again.". Family Sharing: off (Claude's
    default; turning it on is a one-way switch).
 4. **Levels:** drag Season Pass (both) to level 1 and Show Pass (both) to level 2.
 5. **Prices (US, base country United States):** Show Pass $14.99/mo, $149.99/yr; Season Pass $29.99/mo, $299.99/yr.
    Availability: United States only.
 6. **Introductory offers:** Show Pass monthly: Pay as you go, $9.99, 1 month × **12 periods**, new subscribers.
-   Season Pass monthly: Pay as you go, $19.99, 1 month × **12 periods**. (Yearly: none, unless Haylee decides
-   otherwise.)
+   Season Pass monthly: Pay as you go, $19.99, 1 month × **12 periods**. Yearly (Haylee, 2026-11-17): Show Pass yearly: Pay up front, $99.99, 1 year, new subscribers.
+   Season Pass yearly: Pay up front, $199.99, 1 year, new subscribers.
 7. **Review information per subscription:** a screenshot of the paywall (use /tmp/pt-round38/03… or 14…, the
    Grown-ups → Plans screen) and a review note: "Plans are behind a grown-up gate (hold 2 s, then tap the number spelled
    out). In first-launch onboarding page 6 the plans are shown to the parent without the gate. Free Preview = 2 free
