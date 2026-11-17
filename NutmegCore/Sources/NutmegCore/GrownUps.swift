@@ -120,11 +120,12 @@ public struct SeededGenerator: RandomNumberGenerator, Equatable, Sendable {
 /// parent onboarding).
 public enum GrownUpsSection: String, CaseIterable, Hashable, Sendable {
     // Round 37: reportProblem (App Store 1.2: report AI-made content), in the help group.
-    case savedGames, subscription, restorePurchases, aiPartners, privacyPolicy, aboutWhatWeSave, termsOfUse, help, reportProblem, replayIntro
+    case savedGames, plans, subscription, restorePurchases, aiPartners, privacyPolicy, aboutWhatWeSave, termsOfUse, help, reportProblem, replayIntro
 
     public var title: String {
         switch self {
         case .savedGames: "Saved games"
+        case .plans: "Plans"
         case .subscription: "Manage subscription"
         case .restorePurchases: "Restore purchases"
         case .aiPartners: OnboardingCopy.consentRowTitle
@@ -141,6 +142,7 @@ public enum GrownUpsSection: String, CaseIterable, Hashable, Sendable {
     public var subtitle: String {
         switch self {
         case .savedGames: "See, sort and delete the games saved on this iPad"
+        case .plans: "Show Pass, Season Pass and the new shows left"
         case .subscription: "Change or cancel your plan with Apple"
         case .restorePurchases: "Bought a plan before? Bring it to this iPad"
         case .aiPartners: "Turn Nutmeg's AI partners on or off"
@@ -157,6 +159,7 @@ public enum GrownUpsSection: String, CaseIterable, Hashable, Sendable {
     public var systemImage: String {
         switch self {
         case .savedGames: "books.vertical.fill"
+        case .plans: "ticket.fill"
         case .subscription: "creditcard.fill"
         case .restorePurchases: "arrow.clockwise.circle.fill"
         case .aiPartners: "sparkles"
@@ -182,7 +185,7 @@ public enum GrownUpsSection: String, CaseIterable, Hashable, Sendable {
     public var group: Int {
         switch self {
         case .savedGames: 0
-        case .subscription, .restorePurchases: 1
+        case .plans, .subscription, .restorePurchases: 1
         case .aiPartners, .privacyPolicy, .aboutWhatWeSave, .termsOfUse: 2
         case .help, .reportProblem, .replayIntro: 3
         }
@@ -251,6 +254,10 @@ public enum PlanStatus: Equatable, Sendable {
     /// From the product IDs of the current entitlements (StoreKit `Transaction.currentEntitlements`). The products
     /// don't exist yet: an ID with "seasonpass" is Season Pass, "showpass" Show Pass, anything else "your plan".
     public static func from(productIDs: [String]) -> PlanStatus {
+        // Round 38: the real product IDs (StoreProducts) first.
+        let tiers = productIDs.compactMap(StoreProducts.tier(for:))
+        if tiers.contains(.seasonPass) { return .active(name: PlanTier.seasonPass.name) }
+        if tiers.contains(.showPass) { return .active(name: PlanTier.showPass.name) }
         let ids = productIDs.map { $0.lowercased().replacingOccurrences(of: "_", with: "") }
         if ids.contains(where: { $0.contains("seasonpass") }) { return .active(name: "Season Pass") }
         if ids.contains(where: { $0.contains("showpass") }) { return .active(name: "Show Pass") }

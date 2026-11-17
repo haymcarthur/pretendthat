@@ -170,6 +170,7 @@ struct GrownUpsDestination: View {
     var body: some View {
         switch section {
         case .savedGames: GUSavedGamesView(model: model)
+        case .plans: GUPlansView(model: model)
         case .subscription: GUSubscriptionView()
         case .restorePurchases: GURestoreView()
         case .aboutWhatWeSave: GUAboutView()
@@ -178,6 +179,23 @@ struct GrownUpsDestination: View {
         case .reportProblem: GUReportView(model: model)
         case .privacyPolicy, .termsOfUse, .replayIntro: EmptyView()   // web rows / the intro never push
         }
+    }
+}
+
+// MARK: - Plans (round 38: real products, behind the gate like everything in Grown-ups)
+
+struct GUPlansView: View {
+    let model: AppModel
+    @State private var webPage: GUWebPage?
+    var body: some View {
+        ScrollView {
+            PlansContent(model: model, mode: .grownUps, webPage: $webPage)
+                .padding(Theme.Space.l)
+        }
+        .background(Theme.white)
+        .navigationTitle("Plans")
+        .navigationBarTitleDisplayMode(.inline)
+        .guSafari($webPage)
     }
 }
 

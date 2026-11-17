@@ -40,6 +40,7 @@ public final class ImageClient: @unchecked Sendable {
         case .relay(let url, let token):
             req = URLRequest(url: url.appendingPathComponent("v1/images/generations"))
             req.setValue(token, forHTTPHeaderField: RelayConfig.tokenHeader)
+            ShowTicket.attach(to: &req)   // round 38: this new show's relay ticket (server-side show counts)
         }
         req.httpMethod = "POST"
         req.timeoutInterval = 120

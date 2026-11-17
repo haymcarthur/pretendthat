@@ -176,6 +176,7 @@ struct PTGameCard: View {
         .buttonStyle(TileButtonStyle())
         .accessibilityLabel(game.title)
         .accessibilityHint("Play it again")
+        .accessibilityIdentifier("shelf.game")
     }
 }
 

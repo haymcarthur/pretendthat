@@ -26,7 +26,8 @@ extension AppModel {
     func applyDebugLaunchFlags() {
         let args = ProcessInfo.processInfo.arguments
         if args.contains("-PTResetOnboarding") { parentSettings.reset(); rtLog("ONBOARDING reset (-PTResetOnboarding)") }
-        if args.contains("-PTResetFreePreview") { freePreview.reset(); rtLog("FREE PREVIEW reset (-PTResetFreePreview)") }
+        if args.contains("-PTResetFreePreview") { freePreview.reset(); planShows.reset(); rtLog("FREE PREVIEW + plan count reset (-PTResetFreePreview)") }
+        if let i = args.firstIndex(of: "-PTPlanUsed"), i + 1 < args.count, let n = Int(args[i + 1]) { debugPlanUsed = n }
         if args.contains("-PTResetGreeting") {
             UserDefaults.standard.removeObject(forKey: GameGreeting.hasPlayedKey)
             UserDefaults.standard.removeObject(forKey: GameGreeting.lastShortKey)
@@ -46,7 +47,24 @@ extension AppModel {
         let args = ProcessInfo.processInfo.arguments
         #endif
         aiConsent = parentSettings.aiConsent
-        planStatus = await PTStore.planStatus()
+        // Round 38: StoreKit: the updates listener, the products and the current entitlement.
+        purchases.onChange = { [weak self] in
+            guard let self else { return }
+            self.planStatus = self.purchases.status
+            if self.kidBlock == .needsPlan || self.kidBlock == .outOfShows, !self.allowance.exhausted { self.kidBlock = nil }
+        }
+        purchases.start()
+        await purchases.refresh()
+        planStatus = purchases.status
+        #if DEBUG
+        // `-PTPlanUsed N`: this month's plan count starts at N (to reach the limit quickly on the simulator).
+        if let n = debugPlanUsed, let e = purchases.entitlement {
+            planShows.reset()
+            for _ in 0..<n { planShows.gameStarted(in: e.window(), isReplay: false) }
+            showCountVersion += 1
+            rtLog("SHOWS debug: \(n) of \(e.tier.allowance) used this month (-PTPlanUsed)")
+        }
+        #endif
         rtLog("ONBOARDING launch: done \(parentSettings.onboardingDone), AI consent \(aiConsent), free preview \(freePreview.used)/\(freePreview.allowance) used")
         if debugDriving {
             aiConsent = true   // in memory only: the drivers need the voice
@@ -162,8 +180,9 @@ extension AppModel {
         #if DEBUG
         if debugDriving { return true }
         #endif
-        let gate = NewGameGate.newGame(consent: aiConsent, plan: planStatus, freeRemaining: freePreview.remaining)
-        rtLog("NEW GAME gate: \(gate) (consent \(aiConsent), free left \(freePreview.remaining))")
+        let a = allowance
+        let gate = NewGameGate.newGame(consent: aiConsent, allowance: a)
+        rtLog("NEW GAME gate: \(gate) (consent \(aiConsent), \(a.tier.name): \(a.summary))")
         guard gate == .start else { kidBlock = gate; return false }
         return true
     }
@@ -172,7 +191,56 @@ extension AppModel {
     func openGrownUpsFromKidCard() {
         let block = kidBlock
         kidBlock = nil
-        if block == .needsPlan { showingPlans = true } else { openGrownUps() }
+        if block == .needsPlan || block == .outOfShows { showingPlans = true } else { openGrownUps() }
+    }
+
+    // MARK: Round 38: the allowance (Free Preview 2 in total; Show Pass 10 / Season Pass 30 a month; replays free)
+
+    var allowance: ShowAllowance {
+        _ = showCountVersion
+        return ShowAllowance.current(entitlement: purchases.entitlement, freeUsed: freePreview.used, counter: planShows)
+    }
+
+    /// A NEW show started: one more on the Free Preview, or on the plan's current month.
+    func countNewShow() {
+        if let e = purchases.entitlement {
+            let w = e.window()
+            let n = planShows.gameStarted(in: w, isReplay: false)
+            rtLog("SHOWS \(e.tier.name) new show: \(n) of \(e.tier.allowance) this month")
+        } else {
+            let used = freePreview.gameStarted(isReplay: false)
+            rtLog("FREE PREVIEW new game started: \(used) used, \(freePreview.remaining) left")
+        }
+        showCountVersion += 1
+    }
+
+    /// The relay's anonymous show count (off unless `RELAY_SHOW_LIMITS = YES` and the AI goes through the relay). The
+    /// proof is StoreKit's signed transaction (a plan) or the AppTransaction (the Free Preview). A relay that doesn't
+    /// know the endpoint, or can't be reached, allows (fail open); only an explicit "limit_reached" blocks.
+    func relayAllowsNewShow() async -> Bool {
+        ShowTicket.set(nil)
+        guard let relay = showLimitsRelay else { return true }
+        let proof: RelayShows.Proof
+        if let jws = purchases.entitlement?.jws { proof = .subscription(jws: jws) }
+        else if let jws = await purchases.appTransactionJWS() { proof = .preview(jws: jws) }
+        else { rtLog("SHOWS relay: no StoreKit proof, allowed"); return true }
+        var data: Data?, status: Int?
+        do {
+            let (d, http) = try await URLSessionTransport().send(RelayShows.request(relay: relay, proof: proof))
+            data = d; status = http.statusCode
+        } catch { rtLog("SHOWS relay unreachable: allowed") }
+        switch RelayShows.decode(data: data, status: status) {
+        case .allowed(let ticket, let remaining):
+            ShowTicket.set(ticket)
+            rtLog("SHOWS relay counted the show (\(remaining.map(String.init) ?? "?") left)")
+            return true
+        case .limitReached:
+            rtLog("SHOWS relay: limit reached")
+            return false
+        case .allowUnknown:
+            rtLog("SHOWS relay: endpoint unknown (\(status.map(String.init) ?? "offline")): allowed")
+            return true
+        }
     }
 
     // MARK: The New game greeting (Haylee: shorter, no re-introduction after the first game)

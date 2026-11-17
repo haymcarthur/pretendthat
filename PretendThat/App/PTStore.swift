@@ -2,9 +2,192 @@ import StoreKit
 import UIKit
 import NutmegCore
 
-/// Round 32: the thin StoreKit 2 bridge for the Grown-ups menu (Manage subscription, Restore purchases). No products
-/// exist yet, so the entitlements are empty and the screens say "No active plan yet" / "Nothing to restore yet". The
-/// plan and result wording is NutmegCore's (`PlanStatus`, `RestoreOutcome`), tested there. Purchases come later.
+/// Round 32 + round 38: the StoreKit 2 bridge. Products, purchases, the current entitlement (Transaction.currentEntitlements
+/// plus a Transaction.updates listener), Restore (AppStore.sync) and Apple's Manage sheet. The rules and the words are
+/// NutmegCore's (`StoreProducts`, `PlanEntitlement`, `ShowAllowance`, `PurchaseOutcome`, `PriceText`), tested there.
+/// Nothing about kids: product IDs, dates and a transaction's JWS (sent to the relay for counting, never stored).
+@Observable @MainActor
+final class PTPurchases {
+    /// The four plans, by product ID (empty until the App Store answers).
+    private(set) var products: [String: Product] = [:]
+    private(set) var loadingProducts = false
+    private(set) var productsFailed = false
+    /// The active plan (nil = the Free Preview).
+    private(set) var entitlement: PlanEntitlement?
+    /// Intro offer eligibility per subscription group (one group: one answer).
+    private(set) var introEligible = true
+    /// A purchase waiting on Ask to Buy / a bank check.
+    private(set) var pendingProductID: String?
+    /// A Buy is in flight.
+    private(set) var buying: String?
+    /// Called when the entitlement changes (AppModel refreshes the plan status).
+    @ObservationIgnored var onChange: (() -> Void)?
+    @ObservationIgnored private var updates: Task<Void, Never>?
+
+    var status: PlanStatus { entitlement?.status ?? .none }
+
+    /// At launch: listen for updates (renewals, Ask to Buy approvals, refunds, purchases on other devices), then load.
+    func start() {
+        guard updates == nil else { return }
+        updates = Task { @MainActor [weak self] in
+            for await result in Transaction.updates {
+                guard let self else { return }
+                if case .verified(let t) = result {
+                    rtLog("STORE update: \(t.productID) \(t.revocationDate == nil ? "" : "revoked ")\(t.expirationDate.map { "until \($0)" } ?? "")")
+                    if t.productID == self.pendingProductID { self.pendingProductID = nil }
+                    await t.finish()
+                } else {
+                    rtLog("STORE update: unverified transaction ignored")
+                }
+                await self.refresh()
+            }
+        }
+        Task { await loadProducts(); await refresh() }
+    }
+
+    func loadProducts() async {
+        guard !loadingProducts else { return }
+        loadingProducts = true; productsFailed = false
+        do {
+            let list = try await Product.products(for: StoreProducts.all)
+            products = Dictionary(uniqueKeysWithValues: list.map { ($0.id, $0) })
+            if let any = list.first(where: { $0.subscription != nil }), let sub = any.subscription {
+                introEligible = await sub.isEligibleForIntroOffer
+            }
+            productsFailed = list.isEmpty
+            rtLog("STORE products: \(list.count) loaded, intro eligible \(introEligible)")
+        } catch {
+            productsFailed = true
+            rtLog("STORE products failed: \(error)")
+        }
+        loadingProducts = false
+    }
+
+    /// Reads Transaction.currentEntitlements: the best verified, unrevoked, unexpired plan.
+    func refresh() async {
+        var list: [PlanEntitlement] = []
+        for await result in Transaction.currentEntitlements {
+            guard case .verified(let t) = result else { continue }
+            if let e = PlanEntitlement.from(productID: t.productID, purchaseDate: t.purchaseDate, expirationDate: t.expirationDate,
+                                            revoked: t.revocationDate != nil, jws: result.jwsRepresentation) {
+                list.append(e)
+            }
+        }
+        let best = PlanEntitlement.best(list)
+        if best != entitlement {
+            rtLog("STORE entitlement: \(best.map { "\($0.tier.name) (\($0.productID))" } ?? "none (Free Preview)")")
+            entitlement = best
+            onChange?()
+        }
+        if let s = products.values.first(where: { $0.subscription != nil })?.subscription {
+            introEligible = await s.isEligibleForIntroOffer
+        }
+    }
+
+    /// Buy a plan. Shows Apple's purchase sheet; pending (Ask to Buy) arrives later through `Transaction.updates`.
+    func purchase(_ productID: String) async -> PurchaseOutcome {
+        guard AppStore.canMakePayments else { return .failed(.notAvailable) }
+        if products[productID] == nil { await loadProducts() }
+        guard let product = products[productID] else { return .failed(.productMissing) }
+        buying = productID
+        defer { buying = nil }
+        do {
+            let result = try await product.purchase(options: Self.purchaseOptions())
+            switch result {
+            case .success(let verification):
+                guard case .verified(let t) = verification else {
+                    rtLog("STORE purchase unverified: \(productID)")
+                    return .failed(.unverified)
+                }
+                await t.finish()
+                pendingProductID = nil
+                await refresh()
+                rtLog("STORE purchased \(productID)")
+                return .purchased(StoreProducts.tier(for: productID) ?? .showPass)
+            case .pending:
+                pendingProductID = productID
+                rtLog("STORE purchase pending (Ask to Buy): \(productID)")
+                return .pending
+            case .userCancelled:
+                return .cancelled
+            @unknown default:
+                return .failed(.other)
+            }
+        } catch {
+            rtLog("STORE purchase failed: \(error)")
+            return .failed(Self.purchaseFailure(error))
+        }
+    }
+
+    /// Purchase options. No app account token: nothing ties a purchase to a person here.
+    private static func purchaseOptions() -> Set<Product.PurchaseOption> { [] }
+
+    static func purchaseFailure(_ error: Error) -> PurchaseFailure {
+        if let e = error as? StoreKitError {
+            switch e {
+            case .networkError: return .network
+            case .notAvailableInStorefront, .notEntitled: return .notAvailable
+            default: return .other
+            }
+        }
+        if let p = error as? Product.PurchaseError {
+            switch p {
+            case .purchaseNotAllowed: return .notAvailable
+            case .productUnavailable: return .productMissing
+            default: return .other
+            }
+        }
+        if (error as NSError).domain == NSURLErrorDomain { return .network }
+        return .other
+    }
+
+    /// The Free Preview's proof for the relay: the AppTransaction JWS (no purchase needed).
+    func appTransactionJWS() async -> String? {
+        guard let r = try? await AppTransaction.shared else { return nil }
+        return r.jwsRepresentation
+    }
+}
+
+// MARK: - One plan's localized price (from the StoreKit product; PlanCatalog's numbers until it loads)
+
+struct PlanPrice {
+    let tier: PlanTier
+    let period: BillingPeriod
+    let productID: String
+    let regular: String
+    let intro: String?
+    let introPeriods: Int
+    let eligible: Bool
+    let loaded: Bool
+
+    @MainActor init(_ tier: PlanTier, _ period: BillingPeriod, purchases: PTPurchases) {
+        self.tier = tier; self.period = period
+        productID = StoreProducts.productID(tier, period) ?? ""
+        let offer = tier == .seasonPass ? PlanCatalog.seasonPass : PlanCatalog.showPass
+        if let p = purchases.products[productID] {
+            loaded = true
+            regular = p.displayPrice
+            if let o = p.subscription?.introductoryOffer, o.paymentMode == .payAsYouGo || o.paymentMode == .payUpFront {
+                intro = o.displayPrice
+                introPeriods = o.paymentMode == .payAsYouGo ? o.periodCount : 1
+            } else { intro = nil; introPeriods = 0 }
+        } else {
+            loaded = false
+            regular = PlanCatalog.dollarsText(period == .monthly ? offer.monthly : offer.yearly)
+            intro = period == .monthly ? PlanCatalog.dollarsText(offer.monthlyIntro) : nil
+            introPeriods = period == .monthly ? offer.introMonths : 0
+        }
+        eligible = purchases.introEligible
+    }
+
+    var billed: String { PriceText.billed(regular: regular, intro: intro, eligible: eligible, period: period) }
+    /// The big number alone ("$9.99").
+    var billedAmount: String { eligible ? (intro ?? regular) : regular }
+    var introThen: String? { PriceText.introThen(regular: regular, intro: intro, introPeriods: introPeriods, eligible: eligible, period: period) }
+    var full: String { PriceText.full(regular: regular, intro: intro, introPeriods: introPeriods, eligible: eligible, period: period) }
+}
+
+/// Round 32: Restore and Manage (static; used by the Grown-ups screens and the plans).
 @MainActor
 enum PTStore {
     /// The product IDs of the verified, unrevoked current entitlements.

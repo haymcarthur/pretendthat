@@ -1,6 +1,9 @@
 // PretendThat relay: a stateless Cloudflare Worker that holds the API keys so a fresh clone of the app works
 // without its own keys. It checks the shared app token, rate-limits per IP, validates the request, adds the real
-// key and forwards it. It never logs request or response bodies, stores nothing and uses no KV.
+// key and forwards it. It never logs request or response bodies. Round 38: optional anonymous show counts
+// (src/shows.ts): with SHOW_LIMITS on, it keeps one number per subscriber per month in Workers KV under a one-way hash.
+
+import { APPLE_ROOT_G3_SHA256, countShow, countedFrom, makeTicket, ticketValid, verifyStoreKitJWS, type KV } from "./shows";
 
 export interface RateLimit {
   limit(options: { key: string }): Promise<{ success: boolean }>;
@@ -14,7 +17,24 @@ export interface Env {
   IMAGE_LIMIT: RateLimit;
   REALTIME_LIMIT: RateLimit;
   MODERATION_LIMIT: RateLimit;
+  /** Round 38 (all optional; the endpoint 404s without them): "count" (count, never block) or "enforce" (block over
+   *  the plan's allowance AND require the show ticket on Claude and image calls). Anything else = off. */
+  SHOW_LIMITS?: string;
+  /** Workers KV namespace: `c:<hash>:<window>` → a count. */
+  SHOWS?: KV;
+  /** Secret for the one-way hash and the tickets (`npx wrangler secret put SHOWS_SECRET`). */
+  SHOWS_SECRET?: string;
+  SHOWS_LIMIT?: RateLimit;
+  /** TESTS ONLY: trust this root (SHA-256 hex) instead of Apple's. Never set it on the deployed Worker. */
+  TEST_ROOT_SHA256?: string;
 }
+
+type ShowMode = "off" | "count" | "enforce";
+export function showMode(env: Env): ShowMode {
+  if (!env.SHOWS || !env.SHOWS_SECRET) return "off";
+  return env.SHOW_LIMITS === "count" || env.SHOW_LIMITS === "enforce" ? env.SHOW_LIMITS : "off";
+}
+export const SHOW_TICKET_HEADER = "x-pt-show";
 
 /** Models the app uses (NutmegCore ClaudeClient / ImageClient / RealtimeProtocol). Anything else is refused. */
 /** Round 35 prep: claude-sonnet-5-5 for the play guide and the per-prop weave (app flag PTSonnetGuide, off by default). */
@@ -162,19 +182,49 @@ async function realtimeSecret(req: Request, env: Env): Promise<Response> {
   return json(200, { value: data.value, expires_at: data.expires_at ?? null, model });
 }
 
-type Route = { handler: (req: Request, env: Env) => Promise<Response>; limiter: keyof Pick<Env, "CLAUDE_LIMIT" | "IMAGE_LIMIT" | "REALTIME_LIMIT" | "MODERATION_LIMIT"> };
+/** Round 38: POST /v1/shows/start {kind: "subscription"|"preview", jws}. Verifies StoreKit's JWS up to Apple's root,
+ *  counts one new show under a one-way hash, and returns a ticket for this show's guide and kit calls. */
+async function showStart(req: Request, env: Env): Promise<Response> {
+  const body = await readJSON(req);
+  if (body instanceof Response) return body;
+  const kind = body.kind, jws = body.jws;
+  if ((kind !== "subscription" && kind !== "preview") || typeof jws !== "string" || jws.length > 16_000) {
+    return error(400, "invalid_request", "kind and jws are required.");
+  }
+  const roots = env.TEST_ROOT_SHA256 ? [env.TEST_ROOT_SHA256] : [APPLE_ROOT_G3_SHA256];
+  let counted;
+  try {
+    counted = await countedFrom(kind, await verifyStoreKitJWS(jws, roots), env.SHOWS_SECRET!);
+  } catch {
+    // No details (they could echo the request). The app treats this as "unknown" and goes on; with enforce on, it
+    // just won't have a ticket, so the paid calls are refused.
+    return error(403, "not_verified", "That purchase couldn't be verified.");
+  }
+  const mode = showMode(env);
+  const r = await countShow(env.SHOWS!, counted, mode === "enforce");
+  if (!r.allowed) return error(402, "limit_reached", "This plan's new shows are used up for now. Replays are always free.");
+  return json(200, { ticket: await makeTicket(env.SHOWS_SECRET!, counted.key), remaining: r.remaining, allowance: counted.allowance });
+}
+
+type Route = { handler: (req: Request, env: Env) => Promise<Response>; limiter: keyof Pick<Env, "CLAUDE_LIMIT" | "IMAGE_LIMIT" | "REALTIME_LIMIT" | "MODERATION_LIMIT" | "SHOWS_LIMIT">; needsShowTicket?: boolean };
 
 const ROUTES: Record<string, Route> = {
-  "/v1/messages": { handler: claude, limiter: "CLAUDE_LIMIT" },
-  "/v1/images/generations": { handler: images, limiter: "IMAGE_LIMIT" },
+  // Round 38: the guide and kit calls carry the show ticket (checked only when SHOW_LIMITS = "enforce").
+  "/v1/messages": { handler: claude, limiter: "CLAUDE_LIMIT", needsShowTicket: true },
+  "/v1/images/generations": { handler: images, limiter: "IMAGE_LIMIT", needsShowTicket: true },
   "/v1/realtime/client_secrets": { handler: realtimeSecret, limiter: "REALTIME_LIMIT" },
   "/v1/moderations": { handler: moderations, limiter: "MODERATION_LIMIT" },
+  "/v1/shows/start": { handler: showStart, limiter: "SHOWS_LIMIT" },
 };
 
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
-    const route = ROUTES[new URL(req.url).pathname];
+    const path = new URL(req.url).pathname;
+    const route = ROUTES[path];
     if (!route || req.method !== "POST") return error(404, "not_found", "Not found.");
+    // Round 38: the show-count endpoint exists only when it's switched on (the app treats a 404 as "allow").
+    const mode = showMode(env);
+    if (path === "/v1/shows/start" && mode === "off") return error(404, "not_found", "Not found.");
     const token = req.headers.get("x-pt-token") ?? "";
     if (!env.APP_TOKEN || !sameToken(token, env.APP_TOKEN)) return error(401, "unauthorized", "Missing or wrong app token.");
     const limiter = env[route.limiter];
@@ -184,6 +234,9 @@ export default {
     if (!success) {
       return error(429, "rate_limited", "Nutmeg needs a little breather! Too many requests from here; try again in a minute.",
         { "retry-after": "60" });
+    }
+    if (route.needsShowTicket && mode === "enforce" && !(await ticketValid(env.SHOWS_SECRET!, req.headers.get(SHOW_TICKET_HEADER)))) {
+      return error(402, "show_ticket_required", "Start a new show first. Replays are always free.");
     }
     try {
       return await route.handler(req, env);

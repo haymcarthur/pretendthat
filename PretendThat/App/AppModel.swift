@@ -71,6 +71,18 @@ final class AppModel {
     /// Round 33: the parent onboarding (shown once; replayable from Grown-ups). Device flags only, nothing about kids.
     @ObservationIgnored let parentSettings = ParentSettings(defaults: UserDefaults.standard)
     @ObservationIgnored let freePreview = FreePreviewCounter(defaults: UserDefaults.standard)
+    /// Round 38: StoreKit (products, purchases, the entitlement) and the paid plan's new shows this month (a window key
+    /// and a count on this iPad; nothing about kids).
+    let purchases = PTPurchases()
+    @ObservationIgnored let planShows = PlanShowCounter(defaults: UserDefaults.standard)
+    /// Round 38: the relay's show counts (`RELAY_SHOW_LIMITS = YES` and the AI going through the relay); nil = off.
+    @ObservationIgnored let showLimitsRelay: RelayConfig?
+    /// Bumped when a show is counted, so views reading `allowance` refresh.
+    var showCountVersion = 0
+    #if DEBUG
+    /// `-PTPlanUsed N`: at launch, this month's plan count is set to N (to reach the monthly limit quickly).
+    @ObservationIgnored var debugPlanUsed: Int?
+    #endif
     /// The onboarding flow on screen (nil = not showing).
     var onboarding: OnboardingFlow?
     /// Mirrors `parentSettings.aiConsent` so views update (the AI partners row, New game).
@@ -123,6 +135,8 @@ final class AppModel {
         var service = config.map { PhaseService(llm: ClaudeClient(config: $0), moderator: moderation) }
         #if DEBUG
         if DemoDriver.requestedPhase != nil { service = nil }   // demo screens use the bundled game, no network
+        let noAI = ProcessInfo.processInfo.arguments.contains("-PTNoAI")   // round 38 UI tests: no AI calls at all
+        if noAI { service = nil }
         #endif
         store = AdventureStore(service: service)
         store.holdsEarlyFinish = true   // round 30: a firm prop count (4 for 1–2 kids, 5 for 3+)
@@ -131,13 +145,19 @@ final class AppModel {
         #if DEBUG
         // Demo screens skip paid image calls unless asked: -PTDemoArt 1
         if DemoDriver.requestedPhase != nil, !ProcessInfo.processInfo.arguments.contains("-PTDemoArt") { images = nil }
+        if noAI { images = nil }
         #endif
         let limiter = AsyncLimiter(limit: KitArtService.concurrency)   // round 27: one limiter for both sets + the cover
         colorArt = KitArtService(client: images, style: .fullColor, limiter: limiter)
         outlineArt = KitArtService(client: images, style: .colorIn, limiter: limiter)
         coverArt = CoverArtService(client: images, limiter: limiter)
         stickers = ItemArtService(client: images)
-        realtimeAuth = RealtimeAuth.from(info: info)
+        var rtAuth = RealtimeAuth.from(info: info)
+        #if DEBUG
+        if noAI { rtAuth = nil }
+        #endif
+        realtimeAuth = rtAuth
+        if RelayShows.enabled(info: info), case .relay? = config?.mode { showLimitsRelay = RelayConfig.from(info: info) } else { showLimitsRelay = nil }
         // Round 20: the Grown-ups voice settings are gone; drop what older builds stored for them (device settings only).
         for k in ["voice", "method", "pitchCents", "rate", "speed", "echo"] { UserDefaults.standard.removeObject(forKey: "nutmeg.v4.\(k)") }
         realtime.onTurnDone = { [weak self] text in
@@ -269,9 +289,14 @@ final class AppModel {
         #endif
         realtime.beginTrace("let's play")
         onboardingVoice.stop()
-        // Round 33: a NEW game counts toward the Free Preview (replays never do).
-        let used = freePreview.gameStarted(isReplay: false)
-        rtLog("FREE PREVIEW new game started: \(used) used, \(freePreview.remaining) left")
+        // Round 38: the relay's anonymous show count (only when deployed with it; unknown or offline = allow).
+        guard await relayAllowsNewShow() else {
+            if onboarding?.finished == true { onboarding = nil }
+            kidBlock = purchases.entitlement == nil ? .needsPlan : .outOfShows
+            return
+        }
+        // Round 33 / 38: a NEW game counts toward the Free Preview or the plan's month (replays never do).
+        countNewShow()
         // Consent was given later in Grown-ups (the onboarding's mic screen was skipped): the system prompts now.
         if AVAudioApplication.shared.recordPermission == .undetermined { await listener.requestAuth() }
         store.beginConversation()

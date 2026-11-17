@@ -17,9 +17,38 @@ Every request must carry the header `X-PT-Token` matching the Worker's `APP_TOKE
 
 **Rate limits** (per client IP, via the [Workers Rate Limiting binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/)): 10 Claude calls, 40 image calls, 6 realtime sessions and 60 moderation checks per minute. Over the limit you get a 429 with a friendly JSON error. Cloudflare only offers 10- or 60-second windows, and it counts per data center, so these are burst limits. **The spend caps in step 5 are the real ceiling.**
 
-**Stateless, by design:** it never logs request or response bodies or headers, stores nothing, uses no KV or database, and has Workers Logs turned off. Errors are generic, so nothing from a request is echoed back. This matches the project rule: never store anything about kids.
+**Stateless, by design:** it never logs request or response bodies or headers, stores nothing, uses no database, and has Workers Logs turned off. The one exception is the optional **show counts** (round 38, below, off by default): one number per subscriber per month in Workers KV, under a one-way hash. Errors are generic, so nothing from a request is echoed back. This matches the project rule: never store anything about kids.
 
 **About the app token:** `RELAY_TOKEN` in `Relay.xcconfig` is committed to the public repo and ships inside every build, so it is **not a secret**. Anyone can read it. It just stops random scanners. What actually protects the account is the per-IP rate limits, the model allow-lists and the spend caps.
+
+## Show counts (round 38, optional, off until you turn it on)
+
+The app's plans allow a number of **new** shows (Free Preview 2 in total, Show Pass 10 a month, Season Pass 30 a month; replays are always free). The app counts on the iPad; this lets the relay count too, so a modified app can't run up the AI bill.
+
+**How it works**
+- When a new show starts, the app calls `POST /v1/shows/start` with StoreKit's own signed proof: the plan's **signed transaction** (a JWS), or for the Free Preview the **AppTransaction** JWS. No account, no name, no device ID.
+- The relay checks the JWS signature chain up to **Apple Root CA - G3** (pinned by its SHA-256 fingerprint in `src/shows.ts`; compare it once with [apple.com/certificateauthority](https://www.apple.com/certificateauthority/)), Apple's marker extensions on the intermediate and leaf, the bundle ID `app.pretendthat.ios`, the product, and that the plan isn't expired or refunded.
+- It counts under `HMAC(SHOWS_SECRET, originalTransactionId)` (or the app transaction ID for the Free Preview), cut to 32 hex characters, per **month** anchored on the purchase date (a yearly plan still gets its shows per month). KV holds only `c:<hash>:<month start>` → a number, expiring after ~40 days (the Free Preview's after ~13 months).
+- It answers `200 {ticket, remaining, allowance}`, or `402 limit_reached` when the month is used up. The **ticket** (HMAC-signed, 6 hours) rides on that show's Claude and image calls as `X-PT-Show`.
+- `SHOW_LIMITS` in `wrangler.toml`: `off` (default: the endpoint 404s, everything works as before), `count` (counts, never blocks: usage numbers for pricing), `enforce` (blocks over the allowance **and** refuses Claude/image calls without a valid ticket, `402 show_ticket_required`). Realtime and moderation never need a ticket (replays use them).
+- The app side is behind `RELAY_SHOW_LIMITS` in `Relay.xcconfig` (`NO` now). With `YES`, the app asks before each new show; a 404, an error or no network all mean "allow" (only `limit_reached` blocks), so turning the app flag on before the relay is ready is harmless.
+- Workers KV is eventually consistent: two shows started at the same moment on two iPads might both count as the last one. It's a soft cap, which is fine here.
+
+**Turn it on (about 5 minutes, after the App Store products exist)**
+```sh
+cd relay
+npx wrangler kv namespace create SHOWS
+```
+It prints an `id`. In `wrangler.toml`, uncomment the `[[kv_namespaces]]` block and paste that id. Then:
+```sh
+openssl rand -hex 32          # copy the output
+npx wrangler secret put SHOWS_SECRET   # paste it (keep it forever: changing it resets every count)
+```
+Set `SHOW_LIMITS = "count"` in `wrangler.toml` and `npx wrangler deploy`. Set `RELAY_SHOW_LIMITS = YES` in `Relay.xcconfig` for the next app build. Watch the numbers for a while (Cloudflare dashboard → Workers KV → SHOWS shows the key count; nothing in it identifies anyone). Switch to `"enforce"` only once **every build people use** sends tickets (older builds would get `402` on new shows).
+
+Free tier note: Workers KV allows 1,000 writes a day on the free plan (one per new show), which is plenty to start; the $5/month Workers plan lifts it.
+
+**Never set `TEST_ROOT_SHA256`** on the deployed Worker: it exists only so the tests can use their own certificate chain (`test/fixtures/make-test-chain.sh`; the private key there is a throwaway test key).
 
 ## Deploy (for Haylee, step by step)
 
@@ -82,7 +111,7 @@ When a cap is hit, the app degrades gracefully: no Claude means the bundled airp
 ## Develop
 
 ```sh
-npm test            # vitest: auth, routing, allow-lists, 404s, 429s, no logging (fetch mocked, no real keys)
+npm test            # vitest: auth, routing, allow-lists, 404s, 429s, no logging, show counts (JWS chain, KV counter, tickets)
 npm run typecheck   # tsc
 npx wrangler dev    # local server; put fake values in relay/.dev.vars (git-ignored)
 ```
