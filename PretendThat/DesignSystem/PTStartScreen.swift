@@ -623,7 +623,7 @@ struct PTToyChestScene<Nutmeg: View>: View {
             if phone {
                 // Two toys at the chest's front corners (the phone is too narrow for six).
                 let dx: CGFloat = i % 2 == 0 ? -0.5 : 0.5
-                return CGPoint(x: cx + dx * chestW, y: chestBottom + chestW * 0.1)
+                return CGPoint(x: cx + dx * chestW, y: min(chestBottom + chestW * 0.1, button.minY - 8))
             }
             let spots: [(CGFloat, CGFloat)] = [(-0.64, 0.05), (0.66, 0.06), (-0.96, -0.14), (0.98, -0.13), (-1.16, 0.12), (1.16, 0.13)]
             let (dx, dy) = spots[i % spots.count]
