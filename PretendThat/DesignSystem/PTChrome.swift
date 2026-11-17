@@ -395,8 +395,12 @@ struct PTChatPanelShape: ViewModifier {
     func body(content: Content) -> some View {
         if shelf {
             content
+                // Round 41 (Haylee: with the keyboard up the shelf rose onto the keyboard, leaving a gap under it):
+                // the white runs on down behind the keyboard to the screen's bottom edge; only the content (the input
+                // row) sits above the keyboard.
                 .background(UnevenRoundedRectangle(topLeadingRadius: 28, bottomLeadingRadius: 0, bottomTrailingRadius: 0,
-                                                   topTrailingRadius: 28, style: .continuous).fill(Theme.white))
+                                                   topTrailingRadius: 28, style: .continuous).fill(Theme.white)
+                    .ignoresSafeArea(.all, edges: .bottom))
                 .shadow(color: Theme.panelShadow, radius: 10, y: -2)
         } else {
             content.ptPanel(radius: 28)
