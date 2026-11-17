@@ -111,6 +111,8 @@ enum DemoDriver {
     }
 
     @MainActor static func live(_ model: AppModel, turns: [String]) async {
+        // Round 31: the mic's on-device readiness first (spoken turns need it; RootView asks after the driver).
+        if turns.contains(where: { $0.hasPrefix("#heard ") || $0.hasPrefix("#speak ") }) { await model.listener.requestAuth() }
         // Round 13: "-PTLetsPlayAfter N": sit on the start screen N s (the socket pre-connects), then tap Let's play!.
         let args = ProcessInfo.processInfo.arguments
         if let i = args.firstIndex(of: "-PTLetsPlayAfter"), i + 1 < args.count, let secs = Double(args[i + 1]) {
