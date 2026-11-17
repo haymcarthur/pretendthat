@@ -606,6 +606,18 @@ public final class AdventureStore {
     public func beginConversation() {
         newGame()
         phase = .pickGame
+        recentProps = propMemory?.recent ?? []   // round 30: steer this game's props away from the last few games'
+    }
+
+    /// Round 30 (Haylee): prop IDs from the last ~5 games (IDs only; nil memory = no steering, e.g. tests).
+    @ObservationIgnored public var propMemory: RecentPropMemory?
+    @ObservationIgnored public private(set) var recentProps: Set<String> = []
+    @ObservationIgnored private var recordedPropsFor: UUID?
+    /// Remembers this game's props once, when the hunt ends (a first play only).
+    private func recordProps() {
+        guard !isReplay, recordedPropsFor != gameID, let ids = props?.props.compactMap(\.libraryID), !ids.isEmpty else { return }
+        recordedPropsFor = gameID
+        propMemory?.record(ids)
     }
 
     public func apply(_ call: PlanningCall) async -> String {
@@ -701,7 +713,7 @@ public final class AdventureStore {
             let title = gameTitle ?? "Pretend"
             plan = Sanitizer.clean(GamePlan(gameTitle: title, gameEmoji: "", setting: title, roles: roles, nutmegSays: ""), playerCount: playerCount)
             phase = .players; presenting = .none; planningStep = .props
-            return Self.rolesSetOutput(plan!.roles, players: playerCount)
+            return Self.rolesSetOutput(plan!.roles, players: playerCount) + RecentProps.note(recentProps)
         case .showProps(let drafts):
             var used = Set<String>()
             let list: [Prop] = drafts.enumerated().compactMap { i, d in
@@ -732,7 +744,20 @@ public final class AdventureStore {
             guard let fit = fittingDraft(raw, used: used) else {
                 return PropFit.retryOutput(itemID: raw.itemID, becomes: raw.becomes, preferring: raw.alternates)
             }
-            let d = fit.0, fellBack = fit.1
+            var d = fit.0
+            let fellBack = fit.1
+            // Round 30 (Haylee): a prop from one of the last ~5 games gives way to a fresh alternate that fits the same
+            // use (the old item stays as the backup alternate).
+            var freshNote = ""
+            if !fellBack, let alt = RecentProps.fresher(itemID: d.itemID, becomes: d.becomes, alternates: raw.alternates + d.alternates,
+                                                         recent: recentProps, used: used) {
+                let old = d.itemID
+                d.alternates = Array(([old] + d.alternates.filter { $0 != alt && $0 != old }).prefix(2))
+                d.itemID = alt
+                d.reason = PropFit.reason(itemID: alt, becomes: d.becomes)
+                freshNote = "(The \((PropLibrary.name(old) ?? old).lowercased()) was a prop in a recent game, so the app picked a "
+                    + "\((PropLibrary.name(alt) ?? alt).lowercased()) as \(d.becomes) instead, for something new: use THIS item.) "
+            }
             if props == nil { foundProps = [] }
             let owner = plan?.roles.first { $0.roleName.localizedCaseInsensitiveCompare(d.forRole) == .orderedSame }
                 .map { SceneOwner(rawValue: $0.id.rawValue) ?? .all } ?? .all
@@ -745,7 +770,7 @@ public final class AdventureStore {
             phase = .props; presenting = .props; planningStep = .props
             let n = p.props.count
             let swapNote = fellBack ? "(That pairing didn't fit, so the app picked a \((PropLibrary.name(d.itemID) ?? d.itemID).lowercased()) as \(d.becomes) instead: use THIS item and use.) " : ""
-            return swapNote + Self.nextPropOutput(id: id, item: PropLibrary.name(d.itemID) ?? d.itemID, becomes: d.becomes, n: n,
+            return swapNote + freshNote + Self.nextPropOutput(id: id, item: PropLibrary.name(d.itemID) ?? d.itemID, becomes: d.becomes, n: n,
                                                   reason: d.reason, target: propTarget)
         case .markFound(let id):
             guard let p = props, let prop = p.props.first(where: { $0.id == id || $0.libraryID == id }) ?? p.props.first(where: { $0.id == currentPropID }) else {
@@ -804,6 +829,7 @@ public final class AdventureStore {
                 return "Not yet: this game has \(propTarget) props and only \(n) are out. Say nothing yet: call show_next_prop for prop \(n + 1) FIRST, then ask about it."
             }
             presenting = .none; planningStep = .finish
+            recordProps()   // round 30: this game's props steer the next few games' away
             if gameTitle == nil { gameTitle = "Airplane" }
             if playerCount == 0 { playerCount = 1 }
             Task { await self.makeKit() }

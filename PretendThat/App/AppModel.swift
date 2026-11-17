@@ -93,6 +93,7 @@ final class AppModel {
         #endif
         store = AdventureStore(service: service)
         store.holdsEarlyFinish = true   // round 30: a firm prop count (4 for 1–2 kids, 5 for 3+)
+        store.propMemory = RecentPropMemory()   // round 30: prop IDs of the last ~5 games (IDs only)
         var images = ImageClient.from(info: info)
         #if DEBUG
         // Demo screens skip paid image calls unless asked: -PTDemoArt 1
