@@ -562,7 +562,10 @@ enum OB {
     static let rigScale: CGFloat = 1.0
     static let rigFoot: CGFloat = 0
 
-    static func font(_ size: CGFloat, _ weight: Font.Weight) -> Font { .system(size: size, weight: weight, design: .rounded) }
+    /// Round 39: Poppins (the grown-up font), relative to a text style so Dynamic Type scales it.
+    static func font(_ size: CGFloat, _ weight: Font.Weight) -> Font {
+        GrownUpFont.font(GrownUpFont.weight(for: weight), size: size, relativeTo: GrownUpFont.style(for: size))
+    }
 }
 
 // MARK: - Layout
@@ -768,7 +771,7 @@ struct OBTitle: View {
     let text: String
     var size: CGFloat = 58
     var body: some View {
-        Text(text).font(OB.font(size * s, .black)).kerning(-0.01 * size * s).foregroundStyle(Theme.ink)
+        Text(text).font(OB.font(size * s, .black)).kerning(GrownUpFont.headingKerning(size * s)).foregroundStyle(Theme.ink)
             .lineSpacing(-4 * s).minimumScaleFactor(0.6)
             .fixedSize(horizontal: false, vertical: true)
             .accessibilityAddTraits(.isHeader)
