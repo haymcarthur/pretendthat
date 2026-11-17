@@ -310,23 +310,23 @@ public enum SpeechModelState: Equatable, Sendable {
 public enum SpeechModelCopy {
     public static let title = "Help Nutmeg learn to listen"
     public static let body = "Nutmeg needs to learn to listen, one time. It's Apple's English speech model, and it stays on "
-        + "this iPad, so your child's voice is turned into words right here and never sent anywhere. About a minute on Wi-Fi."
+        + "this \(DeviceWord.noun), so your child's voice is turned into words right here and never sent anywhere. About a minute on Wi-Fi."
     public static let button = "Download now"
     public static let downloadingTitle = "Nutmeg is learning to listen…"
     public static func downloadingBody(_ p: Double) -> String {
         let pct = Int((max(0, min(1, p)) * 100).rounded())
-        return "\(pct)% done. You can keep using the iPad; it finishes in the background. About a minute on Wi-Fi."
+        return "\(pct)% done. You can keep using the \(DeviceWord.noun); it finishes in the background. About a minute on Wi-Fi."
     }
     public static let doneTitle = "All set!"
     public static let doneBody = "Nutmeg can hear you now. Hold the big red mic button and talk!"
     public static let doneButton = "Done"
     public static let failedTitle = "The download stopped"
-    public static let failedBody = "Check that the iPad is on Wi-Fi and has a little free space, then try again."
+    public static let failedBody = "Check that the \(DeviceWord.noun) is on Wi-Fi and has a little free space, then try again."
     public static let retryButton = "Try again"
     public static let settingsTitle = "Grown-ups: Nutmeg's ears need a download"
-    public static let settingsBody = "On this iPad, turn on Dictation in Settings › General › Keyboard, and let it download "
+    public static let settingsBody = "On this \(DeviceWord.noun), turn on Dictation in Settings › General › Keyboard, and let it download "
         + "English. Until then, kids can type to Nutmeg."
     /// The alert's title when the mic is pressed before the model is there (iPadOS 26+).
     public static let micAlertTitle = "Nutmeg needs to learn to listen"
-    public static let micAlertBody = "One quick download, about a minute on Wi-Fi. It stays on this iPad."
+    public static let micAlertBody = "One quick download, about a minute on Wi-Fi. It stays on this \(DeviceWord.noun)."
 }

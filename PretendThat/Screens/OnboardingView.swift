@@ -65,6 +65,8 @@ struct PlansContent: View {
     @State private var outcome: PurchaseOutcome?
     @State private var manageFailed = false
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    /// iPhone version: the two plan cards stack (side by side they wrapped a letter a line on the smallest phone).
+    @Environment(\.layoutMetrics) private var metrics
 
     private var purchases: PTPurchases { model.purchases }
     private var allowance: ShowAllowance { model.allowance }
@@ -82,7 +84,7 @@ struct PlansContent: View {
             .frame(maxWidth: 320)
             .accessibilityLabel("Billing period")
             // Side by side (the text wraps); stacked at accessibility text sizes.
-            if dynamicTypeSize.isAccessibilitySize {
+            if dynamicTypeSize.isAccessibilitySize || metrics.isPhone {
                 VStack(spacing: Theme.Space.s) { cards }
             } else {
                 HStack(alignment: .top, spacing: Theme.Space.s) { cards }

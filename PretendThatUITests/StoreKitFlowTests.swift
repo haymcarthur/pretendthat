@@ -227,7 +227,7 @@ final class StoreKitFlowTests: XCTestCase {
         waitFor(text(app, containing: "for 12 months, then $29.99/month"))
         shot("14-onboarding-plans-real-prices")
         button(app, beginningWith: "Get Show Pass").tap()
-        waitFor(text(app, containing: "Hand the iPad to your child"), 20)
+        waitFor(text(app, containing: "Hand the \(UIDevice.current.userInterfaceIdiom == .phone ? "iPhone" : "iPad") to your child"), 20)
         shot("15-onboarding-bought-hand-off")
         app.terminate()
     }

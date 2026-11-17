@@ -23,15 +23,23 @@ struct SceneView: View {
     static let pad = Theme.Space.m
     /// The paper's reveal slack and the ▶ under it.
     static let chrome: CGFloat = 20 + 76 + Theme.Space.m + Theme.depth
+    /// iPhone version: a shorter ▶ (still a big target) so the rows get the room under Nutmeg.
+    @Environment(\.layoutMetrics) private var metrics
+    private var buttonHeight: CGFloat { metrics.isPhone ? 56 : 76 }
+    private var chrome: CGFloat { metrics.isPhone ? slack + buttonHeight + Theme.Space.s + Theme.depth : Self.chrome }
+    /// Phone: a tighter paper padding and reveal slack, so the rows get the room under Nutmeg.
+    private var pad: CGFloat { metrics.isPhone ? Theme.Space.s : Self.pad }
+    private var slack: CGFloat { metrics.isPhone ? 6 : 20 }
 
     var body: some View {
         if let scene = store.kit?.scenes[index] {
-            let avail = maxHeight - Self.chrome - 2 * Self.pad
-            let fits = PTSceneCard.tiers.indices.first { (heights[$0] ?? .infinity) <= avail }
-            let tier = fits ?? PTSceneCard.tiers.count - 1
-            let natural = (heights[tier] ?? 300) + 2 * Self.pad
-            let paper = CGSize(width: width, height: fits == nil && avail.isFinite ? max(200, avail + 2 * Self.pad) : natural)
-            VStack(spacing: Theme.Space.m) {
+            let avail = maxHeight - chrome - 2 * pad
+            let tierList = PTSceneCard.tiers(phone: metrics.isPhone)
+            let fits = tierList.indices.first { (heights[$0] ?? .infinity) <= avail }
+            let tier = fits ?? tierList.count - 1
+            let natural = (heights[tier] ?? 300) + 2 * pad
+            let paper = CGSize(width: width, height: fits == nil && avail.isFinite ? max(200, avail + 2 * pad) : natural)
+            VStack(spacing: metrics.isPhone ? Theme.Space.s : Theme.Space.m) {
                 GeometryReader { geo in
                     PTPaperReveal(count: 1, isRevealed: revealed, origin: CGPoint(x: -geo.size.width / 2 - 150, y: 60),
                                   slot: { _ in (.zero, -1.5) }, paperSize: paper,
@@ -43,22 +51,22 @@ struct SceneView: View {
                                 PTSceneCard(model: model, scene: scene, tier: tier)
                             }
                         }
-                        .padding(Self.pad)
+                        .padding(pad)
                         .frame(width: paper.width, height: paper.height, alignment: .top)
                     }
                     .frame(width: geo.size.width, height: geo.size.height)
                 }
-                .frame(height: paper.height + 20)
-                PTNextSceneButton { model.tapNextScene() }
+                .frame(height: paper.height + slack)
+                PTNextSceneButton(height: buttonHeight) { model.tapNextScene() }
                     .padding(.bottom, Theme.depth)
                     .opacity(revealed ? 1 : 0)
             }
             // Measure every tier's natural height at this width (hidden), then use the densest one that's needed.
             .background {
                 ZStack {
-                    ForEach(PTSceneCard.tiers.indices, id: \.self) { t in
+                    ForEach(PTSceneCard.tiers(phone: metrics.isPhone).indices, id: \.self) { t in
                         PTSceneCard(model: model, scene: scene, tier: t)
-                            .frame(width: width - 2 * Self.pad)
+                            .frame(width: width - 2 * pad)
                             .fixedSize(horizontal: false, vertical: true)
                             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { heights[t] = $0 }
                     }
@@ -84,9 +92,14 @@ struct PTSceneCard: View {
         Tier(title: 26, picture: 44, font: 18, padding: 4, spacing: 4)
     ]
     private var store: AdventureStore { model.store }
+    /// iPhone version: one denser tier (smaller pictures, 16 pt text) so a 4-row setup fits under Nutmeg.
+    @Environment(\.layoutMetrics) private var metrics
+    static let phoneDense = Tier(title: 24, picture: 36, font: 16, padding: 3, spacing: 3)
+    static func tiers(phone: Bool) -> [Tier] { phone ? tiers + [phoneDense] : tiers }
 
     var body: some View {
-        let t = Self.tiers[min(tier, Self.tiers.count - 1)]
+        let list = Self.tiers(phone: metrics.isPhone)
+        let t = list[min(tier, list.count - 1)]
         VStack(spacing: t.spacing) {
             Text(scene.title).font(Theme.displayFont(t.title)).foregroundStyle(Theme.ink)
                 .multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.75)
@@ -98,6 +111,7 @@ struct PTSceneCard: View {
                 if let role = step.role.role.flatMap({ store.plan?.role(for: $0) }) {
                     // Round 34 (Haylee): the row SHOWS the short task; a tap anywhere on it SAYS the specifics (`text`).
                     PTTaskRow(text: step.short ?? step.text, tint: Theme.playerColor(role.id.index), fontSize: t.font, padding: t.padding,
+                              speaker: metrics.isPhone ? 44 : 56,
                               speakLabel: SceneRowTap.accessibilityLabel(roleName: role.roleName), onSpeak: { model.readTask(i) }) {
                         PTCharacterPicture(role: role, image: model.characterPicture(role), size: t.picture)
                     }

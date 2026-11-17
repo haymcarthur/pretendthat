@@ -98,8 +98,22 @@ struct PTStepRail: View {
     /// goes back to the last checklist (The End's "Back to the checklist" button is gone).
     var allDone: Bool = false
     var onTap: (JourneyStep) -> Void
+    /// iPhone version: a compact row across the top (the phone mockups), same steps, pictures and marks.
+    @Environment(\.layoutMetrics) private var metrics
 
     var body: some View {
+        if metrics.isPhone {
+            HStack(spacing: 0) {
+                ForEach(JourneyStep.allCases, id: \.self) { step in
+                    if step != .game { connector(filled: allDone || (current?.rawValue ?? -1) >= step.rawValue) }
+                    stepButton(step)
+                }
+            }
+            .padding(.vertical, 4)
+            .padding(.horizontal, 6)
+            .ptPanel(radius: 24)
+            .animation(Theme.springy, value: current)
+        } else {
         VStack(spacing: 0) {
             ForEach(JourneyStep.allCases, id: \.self) { step in
                 if step != .game { connector(filled: allDone || (current?.rawValue ?? -1) >= step.rawValue) }
@@ -110,6 +124,7 @@ struct PTStepRail: View {
         .padding(.horizontal, Theme.Space.s)
         .ptPanel(radius: 28)
         .animation(Theme.springy, value: current)
+        }
     }
 
     /// Round 23 (Haylee: clearer navigation back): every step shows its picture (masks / box / printer / play; round 25:
@@ -121,30 +136,32 @@ struct PTStepRail: View {
         let cur = allDone ? JourneyStep.allCases.count : (current?.rawValue ?? -1), max = reached?.rawValue ?? -1
         let done = s.rawValue < cur, isCurrent = !allDone && s == current, reachable = s.rawValue <= max
         let tappable = reachable && !isCurrent
+        let phone = metrics.isPhone
+        let circle: CGFloat = phone ? 42 : 56
         return Button { if !isCurrent { onTap(s) } } label: {
-            VStack(spacing: 4) {
+            VStack(spacing: phone ? 2 : 4) {
                 ZStack {
                     Circle().fill(done ? Theme.lime : (isCurrent ? Theme.yellow : Theme.chipGray))
                     if isCurrent { Circle().strokeBorder(Theme.ink, lineWidth: 1.5).padding(-4) }
                     Image(systemName: BackNav.symbol(s))
-                        .font(.system(size: 22, weight: isCurrent ? .bold : .semibold))
+                        .font(.system(size: phone ? 18 : 22, weight: isCurrent ? .bold : .semibold))
                         .foregroundStyle(Theme.ink.opacity(isCurrent || reachable ? 1 : 0.35))
                     if tappable {
                         Image(systemName: allDone ? "arrow.counterclockwise" : BackNav.mark(s, current: current))
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.system(size: phone ? 9 : 11, weight: .bold))
                             .foregroundStyle(Theme.ink)
-                            .frame(width: 22, height: 22)
+                            .frame(width: phone ? 18 : 22, height: phone ? 18 : 22)
                             .background(Circle().fill(Theme.white))
                             .overlay(Circle().strokeBorder(Theme.ink, lineWidth: 1.25))
-                            .offset(x: 20, y: 20)
+                            .offset(x: phone ? 15 : 20, y: phone ? 15 : 20)
                     }
                 }
-                .frame(width: 56, height: 56)
-                Text(s.label).font(Theme.uiFont(12, isCurrent ? .bold : .medium))
+                .frame(width: circle, height: circle)
+                Text(s.label).font(Theme.uiFont(phone ? 11 : 12, isCurrent ? .bold : .medium))
                     .foregroundStyle(Theme.ink.opacity(isCurrent ? 1 : (reachable ? 0.8 : 0.35)))
                     .lineLimit(1).fixedSize()
             }
-            .frame(minWidth: 72, minHeight: 64)
+            .frame(minWidth: phone ? 56 : 72, minHeight: phone ? 58 : 64)
             .contentShape(Rectangle())
         }
         .buttonStyle(PTRailButtonStyle(enabled: tappable))
@@ -154,10 +171,16 @@ struct PTStepRail: View {
         .accessibilityHint(tappable ? (allDone && s == .play ? "Goes back to the checklist" : "Goes back to \(s.label)") : "")
     }
 
-    private func connector(filled: Bool) -> some View {
+    @ViewBuilder private func connector(filled: Bool) -> some View {
+        if metrics.isPhone {
+            Capsule().fill(filled ? Theme.lime : Theme.chipGray)
+                .frame(width: 12, height: 4)
+                .padding(.bottom, 14)
+        } else {
         Capsule().fill(filled ? Theme.lime : Theme.chipGray)
             .frame(width: 4, height: 18)
             .padding(.vertical, 4)
+        }
     }
 }
 
@@ -191,23 +214,26 @@ struct PTControlBar: View {
     var onRepeat: () -> Void
 
     static let side: CGFloat = 64, micSize: CGFloat = 92, inset: CGFloat = 10, gap: CGFloat = 20
+    /// iPhone version: a slightly smaller pill (still big targets); the iPad's numbers are the statics above.
+    @Environment(\.layoutMetrics) private var metrics
 
     var body: some View {
+        let side = metrics.pillSide, micSize = metrics.pillMic, inset = metrics.pillInset
         // Tight (Haylee): ~10 pt between a side button and the mic's circular backing.
-        HStack(spacing: Self.gap) {
+        HStack(spacing: metrics.pillGap) {
             // Round 23 (Haylee): her own speaker-in-a-replay-arrow icon (design/export/ui/icon-hear-again.svg).
-            PTIconButton(symbol: "speaker.wave.2.fill", label: "Hear it again", size: Self.side,
+            PTIconButton(symbol: "speaker.wave.2.fill", label: "Hear it again", size: side,
                          asset: "icon-hear-again", action: onRepeat)
                 .opacity(canRepeat ? 1 : 0.4)
                 .disabled(!canRepeat)
                 .accessibilityHint("Nutmeg says it again")
-            PTMicButton(mode: mic, size: Self.micSize, onPress: onMicPress, onRelease: onMicRelease)
+            PTMicButton(mode: mic, size: micSize, onPress: onMicPress, onRelease: onMicRelease)
             PTIconButton(symbol: "bubble.left.and.bubble.right", label: chatOpen ? "Hide chat" : "Show chat",
-                         selected: chatOpen, size: Self.side, action: onChat)
+                         selected: chatOpen, size: side, action: onChat)
         }
-        .padding(.horizontal, Self.inset)
-        .padding(.vertical, Self.inset)
-        .background(PTMicPillShape(pillHeight: Self.side + Self.inset * 2, circleRadius: Self.micSize / 2 + Self.inset)
+        .padding(.horizontal, inset)
+        .padding(.vertical, inset)
+        .background(PTMicPillShape(pillHeight: side + inset * 2, circleRadius: micSize / 2 + inset)
             .fill(Theme.white)
             .shadow(color: Theme.panelShadow, radius: 10, y: 3))
     }
@@ -216,10 +242,11 @@ struct PTControlBar: View {
 /// Round 17 (Haylee): the close (X) in the screen's top-left corner, a small round white button (56 pt) below the
 /// valance, above the step rail. It still asks first (`PTLeaveDialog`: the game can't be resumed).
 struct PTCornerClose: View {
+    var size: CGFloat = Self.size
     var action: () -> Void
     static let size: CGFloat = 56
     var body: some View {
-        PTIconButton(symbol: "xmark", label: "Leave the game", fill: Theme.white, size: Self.size, action: action)
+        PTIconButton(symbol: "xmark", label: "Leave the game", fill: Theme.white, size: size, action: action)
             .shadow(color: Theme.panelShadow, radius: 8, y: 2)
     }
 }
@@ -271,6 +298,7 @@ struct PTMicPillShape: Shape {
 struct PTLeaveDialog: View {
     var onStay: () -> Void
     var onLeave: () -> Void
+    @Environment(\.layoutMetrics) private var metrics
 
     var body: some View {
         ZStack {
@@ -280,22 +308,33 @@ struct PTLeaveDialog: View {
                 .accessibilityAddTraits(.isButton)
             VStack(spacing: Theme.Space.m) {
                 HStack(spacing: Theme.Space.s) {
-                    Image("stage-star").resizable().scaledToFit().frame(width: 36, height: 36).rotationEffect(.degrees(-12))
-                    Text("Leave the game?").font(Theme.displayFont(34)).foregroundStyle(Theme.ink)
-                    Image("stage-star").resizable().scaledToFit().frame(width: 36, height: 36).rotationEffect(.degrees(12))
+                    let star: CGFloat = metrics.isPhone ? 26 : 36
+                    Image("stage-star").resizable().scaledToFit().frame(width: star, height: star).rotationEffect(.degrees(-12))
+                    Text("Leave the game?").font(Theme.displayFont(metrics.isPhone ? 27 : 34)).foregroundStyle(Theme.ink)
+                        .lineLimit(1).minimumScaleFactor(0.7)
+                    Image("stage-star").resizable().scaledToFit().frame(width: star, height: star).rotationEffect(.degrees(12))
                 }
                 .accessibilityElement(children: .combine)
                 .accessibilityAddTraits(.isHeader)
                 Text("If you leave now, you'll start a new game next time.")
-                    .font(Theme.uiFont(20, .medium)).foregroundStyle(Theme.inkMuted)
+                    .font(Theme.uiFont(metrics.isPhone ? 18 : 20, .medium)).foregroundStyle(Theme.inkMuted)
                     .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+                if metrics.isPhone {
+                    // The phone is too narrow for the two side by side: the primary on top, in a thumb's reach.
+                    VStack(spacing: Theme.Space.s) {
+                        Button("Keep playing", action: onStay).buttonStyle(.ptPrimary)
+                        Button("Leave", action: onLeave).buttonStyle(.ptSecondary)
+                    }
+                    .padding(.top, Theme.Space.xs)
+                } else {
                 HStack(spacing: Theme.Space.s) {
                     Button("Leave", action: onLeave).buttonStyle(.ptSecondary)
                     Button("Keep playing", action: onStay).buttonStyle(.ptPrimary)
                 }
                 .padding(.top, Theme.Space.xs)
+                }
             }
-            .padding(.horizontal, Theme.Space.l).padding(.vertical, Theme.Space.l)
+            .padding(.horizontal, metrics.isPhone ? Theme.Space.m : Theme.Space.l).padding(.vertical, Theme.Space.l)
             .frame(maxWidth: 460)
             .ptPanel(radius: 32)
             .padding(Theme.Space.m)
@@ -360,6 +399,11 @@ struct PTChatPanel: View {
     var tab: Binding<PTChatTab>? = nil
     /// Round 30: which step the step tab is (its label and icon).
     var stepTab: PTStepTab = .scene
+    /// iPhone version: the panel is a full-width sheet covering the stage; her small live head sits in its header so
+    /// she stays on screen while she talks (`header`), and its bottom keeps clear of the control pill.
+    var header: AnyView? = nil
+    var bottomClearance: CGFloat = 0
+    @Environment(\.layoutMetrics) private var metrics
     @State private var draft = ""
     @FocusState private var focused: Bool
     @State private var following = true
@@ -373,10 +417,11 @@ struct PTChatPanel: View {
 
     var body: some View {
         VStack(spacing: Theme.Space.s) {
-            HStack {
+            HStack(spacing: Theme.Space.s) {
+                if let header { header }
                 Text("Chat with Nutmeg").font(Theme.uiFont(18)).foregroundStyle(Theme.ink)
                 Spacer()
-                PTIconButton(symbol: "xmark", label: "Close chat", size: 44, action: onClose)
+                PTIconButton(symbol: metrics.isPhone ? "chevron.down" : "xmark", label: "Close chat", size: 44, action: onClose)
             }
             if let tab, let pinned {
                 PTChatTabs(selection: tab, step: stepTab)
@@ -423,7 +468,9 @@ struct PTChatPanel: View {
         .animation(Theme.stageMove, value: pinnedKey)
         .animation(.easeOut(duration: 0.2), value: tab?.wrappedValue)
         .padding(Theme.Space.m)
-        .frame(width: Self.width)
+        .padding(.bottom, bottomClearance)
+        .frame(width: metrics.isPhone ? nil : Self.width)
+        .frame(maxWidth: metrics.isPhone ? .infinity : nil)
         .frame(maxHeight: .infinity)
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { panelHeight = $0 }
         .ptPanel(radius: 28)

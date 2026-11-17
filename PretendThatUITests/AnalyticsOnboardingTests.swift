@@ -13,7 +13,7 @@ final class AnalyticsOnboardingTests: XCTestCase {
         app.launchArguments = ["-PTNoAI", "-PTResetOnboarding", "-PTAnalyticsOff", "-PTAnalyticsAppID", "00000000-0000-0000-0000-00000000DEAD"]
         // The mic page's system prompts: "Don't Allow" (no permission is granted to the simulator by this test).
         addUIInterruptionMonitor(withDescription: "permissions") { alert in
-            for label in ["Don’t Allow", "Don't Allow"] where alert.buttons[label].exists { alert.buttons[label].tap(); return true }
+            for label in ["Don’t Allow", "Don't Allow"] where alert.buttons[label].exists { alert.buttons[label].firstMatch.tap(); return true }
             return false
         }
         app.launch()

@@ -30,11 +30,14 @@ public struct PTStageFrame: Equatable, Sendable {
     /// SAME framing as chat closed (computed on the full reference stage), scaled down uniformly to fit the free stage
     /// left of the panel and centered there: same proportions, floor fully in frame. Ignored with the chat closed.
     public var fitClosed = false
+    /// iPhone (portrait, 2026-11-17): the box she is fitted into, in stage coordinates (below the compact step rail,
+    /// above the content zone or the control pill). nil on the iPad (every iPad framing is unchanged).
+    public var phoneRegion: CGRect? = nil
     public init(shot: PTCameraShot, leftReserve: CGFloat = 0, rightReserve: CGFloat = 0, topReserve: CGFloat = 0, cards: Int = 0,
-                landing: Bool = false, writing: Bool = false, fitClosed: Bool = false) {
+                landing: Bool = false, writing: Bool = false, fitClosed: Bool = false, phoneRegion: CGRect? = nil) {
         self.shot = shot; self.leftReserve = leftReserve; self.rightReserve = rightReserve
         self.topReserve = topReserve; self.cards = cards; self.landing = landing; self.writing = writing
-        self.fitClosed = fitClosed
+        self.fitClosed = fitClosed; self.phoneRegion = phoneRegion
     }
     public static let closeUp = PTStageFrame(shot: .closeUp)
     public static let writing = PTStageFrame(shot: .closeUp, writing: true)
@@ -201,6 +204,7 @@ public enum PTStageCamera {
     }
 
     public static func layout(_ frame: PTStageFrame, _ g: PTStageGeometry, faceFocus: CGPoint = faceFocus) -> Layout {
+        if let region = frame.phoneRegion { return phoneLayout(frame, region: region) }
         if frame.fitClosed && g.chatOpen {
             // Round 14: the chat-closed framing on the full stage, uniformly scaled into the free stage left of the
             // panel (right of the rail) and centered there.
@@ -292,6 +296,46 @@ public enum PTStageCamera {
             }
         }
         return Layout(k: k, origin: origin, canvas: CGSize(width: art.width * k, height: art.height * k), cardWidth: cardW, cards: cards)
+    }
+}
+
+// MARK: - iPhone (portrait)
+
+extension PTStageCamera {
+    /// iPhone (2026-11-17, Haylee's phone mockups): she always stands whole-body in `region`, as big as fits (her ears
+    /// may reach the region's sides), feet on its bottom edge, so the floor (moved by her camera) stays under her. The
+    /// region is the whole stage when nothing is showing (she grows to fill it) and the part above the content zone
+    /// when a card is below her. The writing moment frames her head, the clipboard and the writing paw.
+    static func phoneLayout(_ frame: PTStageFrame, region r: CGRect) -> Layout {
+        let span = extentRight - extentLeft
+        let k: CGFloat
+        let origin: CGPoint
+        if frame.writing {
+            k = max(0.05, min(r.width * 1.08 / span, r.height / (writeBottom - headTop)))
+            origin = CGPoint(x: r.midX - bodyFocus.x * k, y: r.maxY - writeBottom * k)
+        } else {
+            k = max(0.05, min(r.width / span, r.height / (feet.y - headTop)))
+            origin = CGPoint(x: r.midX - bodyFocus.x * k, y: r.maxY - feet.y * k)
+        }
+        return Layout(k: k, origin: origin, canvas: CGSize(width: art.width * k, height: art.height * k), cardWidth: 0, cards: [])
+    }
+}
+
+/// iPhone (portrait) stage layout: where her box and the content zone go. Pure, so it is unit-tested.
+public enum PTPhoneStage {
+    /// The least room she keeps above any content (so she is always on screen while she talks).
+    public static let minNutmeg: CGFloat = 150
+    /// The gap between her box and the content zone.
+    public static let gap: CGFloat = 8
+    /// Splits the free stage (`top`…`bottom`, stage coordinates) into her box and the content zone below it.
+    /// `content` is the height the content asks for (0 = nothing showing: she fills the whole stage).
+    public static func split(width: CGFloat, top: CGFloat, bottom: CGFloat, content: CGFloat) -> (nutmeg: CGRect, content: CGRect) {
+        let h = max(0, bottom - top)
+        let c = content <= 0 ? 0 : min(content, max(0, h - minNutmeg - gap))
+        let nutH = c == 0 ? h : h - c - gap
+        let nut = CGRect(x: 0, y: top, width: width, height: nutH)
+        let zone = CGRect(x: 0, y: bottom - c, width: width, height: c)
+        return (nut, zone)
     }
 }
 

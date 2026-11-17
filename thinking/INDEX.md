@@ -126,6 +126,7 @@ The map. Read this first, then open only what you need.
 - [Story opener + setup scene (every prop and printout used on purpose) + clean-up scene](decisions/2026-11-16-story-setup-cleanup-scenes.md): Haylee, Claude's calls noted
 - [Round 36 build: story opener (Nutmeg alone, then the setup opens by itself), setup scene composed per count from item jobs (pages have a purpose; every prop + page used, `SetupCoverage` tested at 1–6; re-ask once, then app repair), clean-up scene, Setup / Clean-up tabs, save schema 3 (v2 replays its 3 scenes), guide 5.6¢ → 7.9¢, about +4¢ realtime per game](decisions/2026-11-16-round36-story-setup-cleanup-build.md): Haylee (design), Claude's calls noted
 - [Round 37: setup / clean-up rows (several rows per role, ≤2 items a row, 2–7 word labels that name the items, never "and more"; voice read_job reads all of a role's rows) + compliance (PrivacyInfo.xcprivacy, ITSAppUsesNonExemptEncryption NO, Grown-ups → Report a problem email with only AI-made text, "Nutmeg is an AI helper" in About, privacy-policy DRAFT on site branch privacy-additions) + Haylee's App Store Connect answers](decisions/2026-11-17-setup-rows-and-compliance.md): Haylee (rules, compliance direction), Claude's calls noted
+- [iPhone build: one universal app (TARGETED_DEVICE_FAMILY 1,2), portrait iPhone; `LayoutMetrics` from the size class; Nutmeg on top, cards below, she fills the stage when nothing is below her, clipboard pose instead of pointing; X + compact rail on top; full-height chat sheet with her live head; every screen (start, bookshelf-iphone.svg, hunt, print, scenes, The End, onboarding stacked, Grown-ups, sheets); "this iPhone" text; iPad screens unchanged (37 before/after diffs)](decisions/2026-11-17-iphone-build.md): Haylee (build it, mockup feedback), Claude's calls noted
 
 ## Work queue
 - [Round 34 build: app-written prop lines (first play = replay words, her first-play clips reused, no "Next,"/"still have"), replay hunt = the first play's layout and camera, in-app speech model download (iPadOS 26+, SpeechAnalyzer turn), tasks short on screen + spoken specifics (short/say, GuideRepair), scene opening = setup + cue (~22 s → 5–9 s), whole-row tap + read_job, one-sentence returning greeting (8.8–9.1 s → 5.5–5.7 s)](decisions/2026-11-16-round34.md): Haylee (items), Claude's calls noted
@@ -146,7 +147,7 @@ The map. Read this first, then open only what you need.
 - [Name check: Boxley](research/name-check-boxley.md): why Boxley is out
 
 ## Ideas
-- [iPhone version: mockups + Haylee's feedback (no point pose, stage fills empty space, full chat sheet, no mute)](ideas/2026-11-15-iphone-version.md): later
+- [iPhone version: mockups + Haylee's feedback (no point pose, stage fills empty space, full chat sheet, no mute)](ideas/2026-11-15-iphone-version.md): **built 2026-11-17, see iphone-build**
 - [Paid-app project checklist: kit fixes, back-navigation, generate-for-6, saved games + real-voice replays, StoreKit, Grown-ups corner](ideas/2026-11-15-paid-app-project.md): queued, design doc first
 - [Later and stretch ideas](ideas/later-ideas.md): photo scan, accounts, cloud voice, B2B, pricing
 - [Save the current game to disk](ideas/save-game-to-disk.md): stretch, only if time (Haylee)

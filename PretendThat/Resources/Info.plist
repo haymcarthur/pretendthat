@@ -22,6 +22,12 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>UISupportedInterfaceOrientations~iphone</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+	<key>NSMicrophoneUsageDescription~iphone</key><string>Nutmeg listens only while you hold the microphone button. Your child's voice is turned into words right on this iPhone and is never sent anywhere.</string>
+	<key>NSSpeechRecognitionUsageDescription~iphone</key><string>Speech is turned into words right on this iPhone, so Nutmeg can understand your child. Voices are never sent anywhere or saved.</string>
 	<key>NSMicrophoneUsageDescription</key><string>Nutmeg listens only while you hold the microphone button. Your child's voice is turned into words right on this iPad and is never sent anywhere.</string>
 	<key>NSSpeechRecognitionUsageDescription</key><string>Speech is turned into words right on this iPad, so Nutmeg can understand your child. Voices are never sent anywhere or saved.</string>
 	<key>ANTHROPIC_API_KEY</key><string>$(ANTHROPIC_API_KEY)</string>
