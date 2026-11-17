@@ -234,3 +234,32 @@ Everything else (StoreKit, compliance items, iCloud, iPhone) waits for Haylee.
 - Route the play guide and per-prop weave Claude calls to claude-sonnet-5-5 (`-PTClaudeModels` becomes the default); kit pages stay on Opus.
 - Relay: add `claude-sonnet-5-5` to CLAUDE_MODELS and the mini realtime model to the client_secrets allow-list (second secret type if needed); tests; Haylee redeploys.
 - Re-measure the cost per game after round 34's shorter scene openings plus these cuts.
+
+## Onboarding v2 (Haylee, 2026-11-16, after trying round 33)
+- **No grown-up gate at the start** (Haylee): open on "Hi, grown-up!"; the gate stays on the Grown-ups menu and later purchases.
+- **Full-screen, step-by-step pages** (like her references: one idea per page, big illustration, short title plus one line, progress dots/bar, Back, a big Next button), NOT a dialog over the home page. Use Nutmeg poses/scenes as the illustrations, in the theater style.
+- **After the hand-off:** either go STRAIGHT into the first game (the stage, Nutmeg visible and talking), or "Go to the home page" with NO talking. Never voice without visible Nutmeg.
+- **The voice sounded different during onboarding:** check the bundled onboarding/greeting clips (recorded with the right voice? played at 1.20 through NutmegSpeaker?). Haylee hears changes on the device that the simulator measurements didn't show.
+- Mockup first for Haylee's approval, then build.
+
+## Overnight plan (Haylee, 2026-11-16, before bed). Build rounds one at a time, in order
+1. Merge/push/install round 34 when it lands.
+2. Round 35 prep + onboarding voice fix: mini voice + Sonnet guide/weave BEHIND A FLAG (off); A/B v2 samples through the real pipeline (coral, 1.20) in design/voice-ab-v2/ for Haylee's ear; fix the onboarding voice difference.
+3. Onboarding v2 per design/mockups/onboarding-v2/ pages 1–7 (one-page How it works; Haylee approved). No gate at start.
+4. Compliance: PrivacyInfo.xcprivacy, ITSAppUsesNonExemptEncryption, "Report this" for AI content, Nutmeg's computer-helper disclosure, privacy-policy additions as a site draft (not published).
+5. StoreKit subscriptions (Free Preview / Show Pass / Season Pass, intro prices, local .storekit file) + relay anonymous show-count code (Haylee deploys).
+6. Analytics: TelemetryDeck (anonymous counts, no IDs, nothing about kids), ready for Haylee's app ID; plus Apple App Store analytics (no code).
+7. iPhone version (last; touches most screens). Mockups in design/mockups/iphone/.
+Waiting on Haylee: voice approval by ear, relay redeploy, TelemetryDeck app ID, paid dev account.
+- Step 2 addendum (voice investigation, research/2026-11-16-onboarding-voice-investigation.md): onboarding clips are fine and play at 1.20; the difference is onboarding's own engine + `.playback/.spokenAudio` session vs the game's `.playAndRecord` 48 kHz path. Fix: play onboarding through NutmegSpeaker / the game's session setup (no mic prompt before the Mic page). ALSO remove the leftover system-TTS fallback (`AppModel.speak`, `repeatTapped`): Nutmeg must never use system TTS.
+
+## Round 36 (queued 2026-11-16, Haylee): story opener + setup scene + clean-up scene. Overnight step 3b (after onboarding v2)
+Game arc becomes: Print → **story opener** → **setup scene** → 3 play scenes → **clean-up scene** → The End.
+- **Story opener** (after printing, before the first checklist): Nutmeg tells a short story (~15 s, 3–4 sentences): where we are, who they are, what's about to happen. Nutmeg on stage, voiced.
+- **Setup scene (always scene 1):** one quick task per role that walks them through setting up with their props AND the printed/cut pieces. **Every prop and every printed item must be used intentionally, with a clear purpose; nothing random or unused** (Haylee). Validate in code: every found/swapped prop and every kit page is referenced in the setup tasks (or, if more items than roles, later scenes); regenerate/repair if not. Kit pages should be generated with a purpose that the setup scene then uses.
+- **3 play scenes** unchanged (they play with what they set up; tasks may refer back to set-up items).
+- **Clean-up scene (always last):** in-story framing ("the bakery closes for the night: put the bowls back in the kitchen"), one quick task per role; puts real props away.
+- Keep setup and clean-up short (one easy task per role) to limit game length.
+- Replays: story + setup + clean-up lines recorded and reused like other clips (replay parity).
+- Cost estimate: +$0.05–0.10 per new game (3 extra voiced lines; guide tokens < 1¢); replays ~free. Re-measure after.
+- Marketing: "it even helps them clean up" for the App Store page / site (draft, don't publish).

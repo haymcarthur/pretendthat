@@ -117,6 +117,10 @@ The map. Read this first, then open only what you need.
 - [Round 32 build: the Grown-ups menu behind the D2 gate (Saved games with Newest/Name sort, Manage subscription + Restore purchases via StoreKit 2, Privacy policy + Terms in an in-app Safari view, About what we save with round 31 wording, Help & contact + Apple billing link, Replay the intro hidden for round 33)](decisions/2026-11-16-round32-grownups-menu.md): Haylee (spec), Claude's calls noted
 
 - [Round 33 build: first-launch parent onboarding (gate with Nutmeg's clip, how it works, privacy + REQUIRED AI consent with a calm Not now, mic pre-permission + denied note, plans with Free Preview first, hand-off), consent + Free Preview gating of New game, Grown-ups AI partners + Replay the intro, shorter game greeting (14.3 s → 8–9 s), voice-rate guard (sim measured 1.20 before and after)](decisions/2026-11-16-round33-onboarding.md): Haylee (spec), Claude's calls noted
+- [No grown-up gate in onboarding (the grown-up downloads the app; the gate stays on the Grown-ups menu and later purchases)](decisions/2026-11-16-no-gate-in-onboarding.md): Haylee, Claude's call on where the gate stays
+- [Onboarding v2 mockup approved (pages 1–7, one-page How it works)](decisions/2026-11-16-onboarding-v2-approved.md): Haylee
+- [Analytics: TelemetryDeck anonymous counts + Apple App Store analytics](decisions/2026-11-16-analytics-telemetrydeck.md): Haylee
+- [Story opener + setup scene (every prop and printout used on purpose) + clean-up scene](decisions/2026-11-16-story-setup-cleanup-scenes.md): Haylee, Claude's calls noted
 
 ## Work queue
 - [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–32 (31: on-device speech + instant mic; 32: Grown-ups menu) + C1 + D1 + D2 + D3a + D3b done (round 27's mockups separate); next: D4 iCloud
@@ -127,6 +131,7 @@ The map. Read this first, then open only what you need.
 - [Cost per game v3 (2026-11-16)](research/2026-11-16-cost-per-game-v3.md): current build about $1.03/game; Sonnet 5.5 for the play guide + weave saves ~$0.09 (keep Opus for pages; Haiku not good enough); mini voice for the scripted lines saves ~$0.16 with exact words (A/B audio in design/voice-ab/ for Haylee to hear); both ≈ $0.78; limits 8/12 now, 10/15 after both
 - [Parent onboarding + plans (2026-11-16)](research/2026-11-16-onboarding-research.md): how kids' apps onboard parents, Apple's Kids/paywall/permission rules, a proposed 6-screen flow, 5 decisions for Haylee
 - [App Store compliance gap list (2026-11-16)](research/2026-11-16-app-store-compliance.md): 29 requirements → status → fix; blockers: release builds embed personal API keys, 5.1.2(i) third-party-AI consent, OpenAI/Anthropic ZDR for COPPA, privacy manifest, StoreKit + Terms, AI content reporting; 8 questions for Haylee
+- [Onboarding voice investigation (2026-11-16)](research/2026-11-16-onboarding-voice-investigation.md): why Nutmeg sounded different in the onboarding on the iPad: same coral clips at 24 kHz, Varispeed 1.20 once, but played on a separate engine with a `.playback`/`.spokenAudio` session (the game uses `.playAndRecord`, 48 kHz, relink guards); fix: share the game's session/graph
 - [Terms of use draft (2026-11-16)](research/2026-11-16-terms-draft.html): DRAFT for pretendthat.app/terms (Apple billing, auto-renew and cancel via Apple ID, refunds via Apple, grown-up supervision, AI-content disclaimer, simple no-warranty, Apple EULA link); needs Haylee's and legal review
 - [Competitor analysis](research/competitor-analysis.md): competitors, white space, novelty angles, pricing
 - [Name check: Boxley](research/name-check-boxley.md): why Boxley is out
