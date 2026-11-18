@@ -1,0 +1,25 @@
+{
+ "id": "pirate-clues",
+ "job": "pirate-clues",
+ "game": "Treasure hunt",
+ "type": "Clue cards sheet",
+ "style": "color",
+ "prompt": "A printable US Letter portrait page (8.5 by 11 inches) for a kids' pretend-play game, drawn flat and straight-on and filling the whole image: the page itself, not a photo or mockup of paper. Plain white paper with a clean white margin of about half an inch on every side where nothing is drawn, so it prints on a home printer. The game is \"Pirate Treasure Hunt\". Art style for the whole kit: bright, friendly flat vector cartoon like a modern kids' picture-book app: bold clean dark purple outlines, flat cheerful fills in coral red, sunny yellow, lime green, sky blue, deep purple and cream, soft rounded shapes, no gradients, no shading texture, no photo effects, lots of white paper. Ink-friendly: color sits on white, no full-page dark background. Draw a sheet of exactly 4 clue cards in a grid of 2 columns and 2 rows, all the same size: rounded cards with a themed decorative border (rope, little stars or seashells), each with one picture hint and one short clue under it. In order, left to right, top to bottom: card 1: a big number \"1\" in a circle in the top corner, a picture of a pillow, and the clue \"Look under a pillow\"; card 2: a big number \"2\" in a circle in the top corner, a picture of a chair, and the clue \"Peek behind a chair\"; card 3: a big number \"3\" in a circle in the top corner, a picture of a cardboard box, and the clue \"Check inside a box\"; card 4: a big number \"4\" in a circle in the top corner, a picture of a teddy bear, and the clue \"Find the teddy bear\". The ONLY words on the page, spelled exactly letter for letter: \"Look under a pillow\", \"Peek behind a chair\", \"Check inside a box\", \"Find the teddy bear\". Plus the card numbers 1 to 4, one per card. Big, clear, rounded print letters, easy for a 5-year-old to read, dark on a light background, never curved along a path, never tiny. No other words, letters, numbers or signatures anywhere. Thin gray dashed cut lines around each piece, with wide white gutters between pieces so scissors fit. Kid-friendly and gentle, for ages 4 to 8: no guns, no knives, no real weapons (a toy sword is fine), no blood, nothing scary, no real people, no brands, no logos.",
+ "words": [
+  "Look under a pillow",
+  "Peek behind a chair",
+  "Check inside a box",
+  "Find the teddy bear",
+  "1",
+  "2",
+  "3",
+  "4"
+ ],
+ "model": "gpt-image-2.6-flare",
+ "size": "1024x1536",
+ "quality": "low",
+ "seconds": 7.4,
+ "input_tokens": 533,
+ "output_tokens": 664,
+ "dollars": 0.022585
+}

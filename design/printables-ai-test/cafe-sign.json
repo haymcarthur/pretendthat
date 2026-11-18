@@ -1,0 +1,19 @@
+{
+ "id": "cafe-sign",
+ "job": "cafe-sign",
+ "game": "Restaurant",
+ "type": "Place sign (door)",
+ "style": "color",
+ "prompt": "A printable US Letter portrait page (8.5 by 11 inches) for a kids' pretend-play game, drawn flat and straight-on and filling the whole image: the page itself, not a photo or mockup of paper. Plain white paper with a clean white margin of about half an inch on every side where nothing is drawn, so it prints on a home printer. The game is \"Cozy Caf\u00e9\". Art style for the whole kit: bright, friendly flat vector cartoon like a modern kids' picture-book app: bold clean dark purple outlines, flat cheerful fills in coral red, sunny yellow, lime green, sky blue, deep purple and cream, soft rounded shapes, no gradients, no shading texture, no photo effects, lots of white paper. Ink-friendly: color sits on white, no full-page dark background. Draw ONE big door sign that fills the page inside the margin: a tall rounded sign board with a hanging string at the top and a fun themed frame. Across the top in huge letters: \"Cozy Caf\u00e9\". In the middle a big cheerful picture of a little caf\u00e9 with a striped awning and flower pots. Near the bottom on a ribbon: \"Now Open\". The ONLY words on the page, spelled exactly letter for letter: \"Cozy Caf\u00e9\", \"Now Open\". Big, clear, rounded print letters, easy for a 5-year-old to read, dark on a light background, never curved along a path, never tiny. No other words, letters, numbers or signatures anywhere. Kid-friendly and gentle, for ages 4 to 8: no guns, no knives, no real weapons (a toy sword is fine), no blood, nothing scary, no real people, no brands, no logos.",
+ "words": [
+  "Cozy Caf\u00e9",
+  "Now Open"
+ ],
+ "model": "gpt-image-2.6-flare",
+ "size": "1024x1536",
+ "quality": "low",
+ "seconds": 9.9,
+ "input_tokens": 358,
+ "output_tokens": 664,
+ "dollars": 0.02171
+}

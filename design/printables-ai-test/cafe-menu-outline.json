@@ -1,0 +1,27 @@
+{
+ "id": "cafe-menu-outline",
+ "job": "cafe-menu-outline",
+ "game": "Restaurant",
+ "type": "Menu card",
+ "style": "outline",
+ "prompt": "A printable US Letter portrait page (8.5 by 11 inches) for a kids' pretend-play game, drawn flat and straight-on and filling the whole image: the page itself, not a photo or mockup of paper. Plain white paper with a clean white margin of about half an inch on every side where nothing is drawn, so it prints on a home printer. The game is \"Cozy Caf\u00e9\". Art style for the whole kit: coloring-page version of a friendly flat vector cartoon: black outlines only on white paper, thick clean even lines, soft rounded shapes, no color, no gray, no shading, no filled black areas, every shape open for a 5-year-old to color in. Letters are bold outlined bubble letters that can be colored in too. Draw ONE menu card for a pretend restaurant that fills the page inside the margin: a decorative themed frame (little forks, spoons, hearts, checkered corners). At the top the restaurant name \"Cozy Caf\u00e9\" and under it the big word \"Menu\". Then 4 rows, one dish per row, evenly spaced, with a dotted leader between dish and price: \"Pancakes\" with a small picture of a stack of pancakes on the left and the price \"$3\" on the right; \"Pizza\" with a small picture of a slice of pizza on the left and the price \"$4\" on the right; \"Soup\" with a small picture of a bowl of soup on the left and the price \"$2\" on the right; \"Cupcake\" with a small picture of a cupcake on the left and the price \"$1\" on the right. The ONLY words on the page, spelled exactly letter for letter: \"Cozy Caf\u00e9\", \"Menu\", \"Pancakes\", \"Pizza\", \"Soup\", \"Cupcake\", \"$3\", \"$4\", \"$2\", \"$1\". Big, clear, rounded print letters, easy for a 5-year-old to read, dark on a light background, never curved along a path, never tiny. No other words, letters, numbers or signatures anywhere. Kid-friendly and gentle, for ages 4 to 8: no guns, no knives, no real weapons (a toy sword is fine), no blood, nothing scary, no real people, no brands, no logos.",
+ "words": [
+  "Cozy Caf\u00e9",
+  "Menu",
+  "Pancakes",
+  "Pizza",
+  "Soup",
+  "Cupcake",
+  "$3",
+  "$4",
+  "$2",
+  "$1"
+ ],
+ "model": "gpt-image-2.6-flare",
+ "size": "1024x1536",
+ "quality": "low",
+ "seconds": 7.9,
+ "input_tokens": 476,
+ "output_tokens": 664,
+ "dollars": 0.0223
+}

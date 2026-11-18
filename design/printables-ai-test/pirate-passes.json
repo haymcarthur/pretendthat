@@ -1,0 +1,33 @@
+{
+ "id": "pirate-passes",
+ "job": "pirate-passes",
+ "game": "Treasure hunt",
+ "type": "Tickets / passes (numbered)",
+ "style": "color",
+ "prompt": "A printable US Letter portrait page (8.5 by 11 inches) for a kids' pretend-play game, drawn flat and straight-on and filling the whole image: the page itself, not a photo or mockup of paper. Plain white paper with a clean white margin of about half an inch on every side where nothing is drawn, so it prints on a home printer. The game is \"Pirate Treasure Hunt\". Art style for the whole kit: bright, friendly flat vector cartoon like a modern kids' picture-book app: bold clean dark purple outlines, flat cheerful fills in coral red, sunny yellow, lime green, sky blue, deep purple and cream, soft rounded shapes, no gradients, no shading texture, no photo effects, lots of white paper. Ink-friendly: color sits on white, no full-page dark background. Draw a sheet of exactly 8 admission passes in a grid of 2 columns and 4 rows: wide ticket shapes with notched corners and a perforated stub on the right. Each pass shows the title \"Ship Pass\", a small picture of a pirate ship, and on the stub its OWN number, a different one on each pass, in this order left to right, top to bottom: \"01\", \"02\", \"03\", \"04\", \"05\", \"06\", \"07\", \"08\". The ONLY words on the page, spelled exactly letter for letter: \"Ship Pass\", \"01\", \"02\", \"03\", \"04\", \"05\", \"06\", \"07\", \"08\". Each number appears on exactly one pass. Big, clear, rounded print letters, easy for a 5-year-old to read, dark on a light background, never curved along a path, never tiny. No other words, letters, numbers or signatures anywhere. Thin gray dashed cut lines around each piece, with wide white gutters between pieces so scissors fit. Kid-friendly and gentle, for ages 4 to 8: no guns, no knives, no real weapons (a toy sword is fine), no blood, nothing scary, no real people, no brands, no logos.",
+ "words": [
+  "Ship Pass",
+  "Ship Pass",
+  "Ship Pass",
+  "Ship Pass",
+  "Ship Pass",
+  "Ship Pass",
+  "Ship Pass",
+  "Ship Pass",
+  "01",
+  "02",
+  "03",
+  "04",
+  "05",
+  "06",
+  "07",
+  "08"
+ ],
+ "model": "gpt-image-2.6-flare",
+ "size": "1024x1536",
+ "quality": "low",
+ "seconds": 7.6,
+ "input_tokens": 435,
+ "output_tokens": 664,
+ "dollars": 0.022095
+}

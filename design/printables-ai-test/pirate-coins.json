@@ -1,0 +1,30 @@
+{
+ "id": "pirate-coins",
+ "job": "pirate-coins",
+ "game": "Treasure hunt",
+ "type": "Coins (money)",
+ "style": "color",
+ "prompt": "A printable US Letter portrait page (8.5 by 11 inches) for a kids' pretend-play game, drawn flat and straight-on and filling the whole image: the page itself, not a photo or mockup of paper. Plain white paper with a clean white margin of about half an inch on every side where nothing is drawn, so it prints on a home printer. The game is \"Pirate Treasure Hunt\". Art style for the whole kit: bright, friendly flat vector cartoon like a modern kids' picture-book app: bold clean dark purple outlines, flat cheerful fills in coral red, sunny yellow, lime green, sky blue, deep purple and cream, soft rounded shapes, no gradients, no shading texture, no photo effects, lots of white paper. Ink-friendly: color sits on white, no full-page dark background. Draw a sheet of exactly 12 identical round play coins in a grid of 3 columns and 4 rows, plus the title \"Island Gold\" across the top of the page in big letters. Each coin: a thick rim, a palm tree in the middle, and a big \"1\" on it. Every coin is worth one: no other amounts. The ONLY words on the page, spelled exactly letter for letter: \"Island Gold\", \"1\". \"1\" appears once on every coin (12 times). Big, clear, rounded print letters, easy for a 5-year-old to read, dark on a light background, never curved along a path, never tiny. No other words, letters, numbers or signatures anywhere. Thin gray dashed circle cut lines around each coin, wide white gaps between coins. Kid-friendly and gentle, for ages 4 to 8: no guns, no knives, no real weapons (a toy sword is fine), no blood, nothing scary, no real people, no brands, no logos.",
+ "words": [
+  "Island Gold",
+  "1",
+  "1",
+  "1",
+  "1",
+  "1",
+  "1",
+  "1",
+  "1",
+  "1",
+  "1",
+  "1",
+  "1"
+ ],
+ "model": "gpt-image-2.6-flare",
+ "size": "1024x1536",
+ "quality": "low",
+ "seconds": 6.5,
+ "input_tokens": 384,
+ "output_tokens": 664,
+ "dollars": 0.021840000000000002
+}

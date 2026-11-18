@@ -1,0 +1,18 @@
+{
+ "id": "pirate-cutouts",
+ "job": "pirate-cutouts",
+ "game": "Treasure hunt",
+ "type": "Cut-outs sheet",
+ "style": "color",
+ "prompt": "A printable US Letter portrait page (8.5 by 11 inches) for a kids' pretend-play game, drawn flat and straight-on and filling the whole image: the page itself, not a photo or mockup of paper. Plain white paper with a clean white margin of about half an inch on every side where nothing is drawn, so it prints on a home printer. The game is \"Pirate Treasure Hunt\". Art style for the whole kit: bright, friendly flat vector cartoon like a modern kids' picture-book app: bold clean dark purple outlines, flat cheerful fills in coral red, sunny yellow, lime green, sky blue, deep purple and cream, soft rounded shapes, no gradients, no shading texture, no photo effects, lots of white paper. Ink-friendly: color sits on white, no full-page dark background. Draw a sheet of exactly 6 big cut-out props to hold in pretend play, in a grid of 2 columns and 3 rows, each one simple object filling its cell, in this order: 1. a treasure chest, 2. a spyglass, 3. a shovel, 4. a parrot, 5. a pirate hat, 6. a golden key. Title across the top: \"Hunt Gear\". Each prop has a thick white cut-around border and a thin gray dashed cut line around that border, with wide white gaps between props. The ONLY words on the page, spelled exactly letter for letter: \"Hunt Gear\". Big, clear, rounded print letters, easy for a 5-year-old to read, dark on a light background, never curved along a path, never tiny. No other words, letters, numbers or signatures anywhere. The props themselves have no writing on them. Kid-friendly and gentle, for ages 4 to 8: no guns, no knives, no real weapons (a toy sword is fine), no blood, nothing scary, no real people, no brands, no logos.",
+ "words": [
+  "Hunt Gear"
+ ],
+ "model": "gpt-image-2.6-flare",
+ "size": "1024x1536",
+ "quality": "low",
+ "seconds": 6.8,
+ "input_tokens": 409,
+ "output_tokens": 664,
+ "dollars": 0.021965000000000002
+}

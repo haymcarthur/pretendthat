@@ -1,0 +1,1125 @@
+{
+ "cafe-badges": {
+  "rows": [
+   {
+    "tolerant": 1,
+    "word": "Chef",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "Waiter",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "Customer",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 3,
+    "word": "Name:",
+    "want": 3,
+    "got": 3,
+    "status": "exact",
+    "ocr_saw": ""
+   }
+  ],
+  "ocr_lines": [
+   "Chef",
+   "Name:",
+   "Waiter",
+   "Name:",
+   "Customer",
+   "Name:"
+  ],
+  "extras": []
+ },
+ "cafe-bills": {
+  "rows": [
+   {
+    "tolerant": 8,
+    "word": "Cozy Bucks",
+    "want": 8,
+    "got": 8,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 16,
+    "word": "$1",
+    "want": 16,
+    "got": 16,
+    "status": "exact",
+    "ocr_saw": ""
+   }
+  ],
+  "ocr_lines": [
+   "Cozy Bucks",
+   "$1",
+   "$1",
+   "Cozy Bucks",
+   "$1",
+   "$1",
+   "Cozy Bucks",
+   "$1",
+   "$1",
+   "Cozy Bucks",
+   "$1",
+   "$1",
+   "Cozy Bucks",
+   "$1",
+   "$1",
+   "Cozy Bucks",
+   "$1",
+   "$1",
+   "Cozy Bucks",
+   "$1",
+   "$1",
+   "Cozy Bucks",
+   "$1",
+   "$1"
+  ],
+  "extras": []
+ },
+ "cafe-cutouts": {
+  "rows": [
+   {
+    "tolerant": 1,
+    "word": "Pretend Food",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   }
+  ],
+  "ocr_lines": [
+   "Pretend Food"
+  ],
+  "extras": []
+ },
+ "cafe-menu-outline": {
+  "rows": [
+   {
+    "tolerant": 1,
+    "word": "Cozy Caf\u00e9",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "Menu",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "Pancakes",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "Pizza",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "Soup",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "Cupcake",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "$3",
+    "want": 1,
+    "got": 0,
+    "status": "ocr-tolerant",
+    "ocr_saw": "S3"
+   },
+   {
+    "tolerant": 1,
+    "word": "$4",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "$2",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "$1",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   }
+  ],
+  "ocr_lines": [
+   "Cozy Caf\u00e9",
+   "Menu",
+   "Pancakes .",
+   "S3",
+   "Pizza",
+   "\u2022",
+   "\u2022",
+   "$4",
+   "Soup....",
+   "\u2022",
+   "$2",
+   "Cupcake ......",
+   "$1"
+  ],
+  "extras": [
+   "S3"
+  ]
+ },
+ "cafe-menu": {
+  "rows": [
+   {
+    "tolerant": 1,
+    "word": "Cozy Caf\u00e9",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "Menu",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "Pancakes",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "Pizza",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "Soup",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "Cupcake",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "$3",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "$4",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "$2",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "$1",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   }
+  ],
+  "ocr_lines": [
+   "Cozy Caf\u00e9",
+   "Menu",
+   "Pancakes \u2022\u2022",
+   "\u2022",
+   "$3",
+   "Pizza",
+   "\u2022",
+   "\u2022",
+   "\u2022",
+   "\u2022",
+   "\u2022",
+   "$4",
+   "Soup",
+   "\u2022",
+   "\u2022",
+   "\u2022",
+   "\u2022",
+   "\u2022",
+   "\u2022",
+   "\u2022",
+   "$2",
+   "Cupcake \u2022",
+   "\u2022",
+   "\u2022",
+   "$1"
+  ],
+  "extras": []
+ },
+ "cafe-sign": {
+  "rows": [
+   {
+    "tolerant": 1,
+    "word": "Cozy Caf\u00e9",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "Now Open",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   }
+  ],
+  "ocr_lines": [
+   "Cozy Caf\u00e9",
+   "Now Open"
+  ],
+  "extras": []
+ },
+ "cafe-slips": {
+  "rows": [
+   {
+    "tolerant": 4,
+    "word": "Order",
+    "want": 4,
+    "got": 4,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 4,
+    "word": "Table",
+    "want": 4,
+    "got": 4,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 4,
+    "word": "Pancakes",
+    "want": 4,
+    "got": 4,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 4,
+    "word": "Pizza",
+    "want": 4,
+    "got": 4,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 4,
+    "word": "Soup",
+    "want": 4,
+    "got": 4,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 4,
+    "word": "Cupcake",
+    "want": 4,
+    "got": 4,
+    "status": "exact",
+    "ocr_saw": ""
+   }
+  ],
+  "ocr_lines": [
+   "Order",
+   "Table",
+   "Pancakes",
+   "Pizza",
+   "Soup",
+   "Cupcake",
+   "Order",
+   "Table |",
+   "Pancakes",
+   "Pizza",
+   "Soup",
+   "Cupcake",
+   "Order",
+   "Table",
+   "Pancakes",
+   "Pizza",
+   "Soup",
+   "Cupcake",
+   "Order",
+   "Table |",
+   "Pancakes",
+   "Pizza",
+   "Soup",
+   "Cupcake"
+  ],
+  "extras": []
+ },
+ "pirate-badges-outline": {
+  "rows": [
+   {
+    "tolerant": 1,
+    "word": "Captain",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "Map Reader",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "Clue Finder",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "Lookout",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 4,
+    "word": "Name:",
+    "want": 4,
+    "got": 4,
+    "status": "exact",
+    "ocr_saw": ""
+   }
+  ],
+  "ocr_lines": [
+   "Captain",
+   "Name:",
+   "Clue Finder",
+   "Name:",
+   "Map Reader",
+   "Name:",
+   "Lookout",
+   "Name:"
+  ],
+  "extras": []
+ },
+ "pirate-badges": {
+  "rows": [
+   {
+    "tolerant": 1,
+    "word": "Captain",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "Map Reader",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "Clue Finder",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "Lookout",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 4,
+    "word": "Name:",
+    "want": 4,
+    "got": 4,
+    "status": "exact",
+    "ocr_saw": ""
+   }
+  ],
+  "ocr_lines": [
+   "pa",
+   "Captain",
+   "Name:",
+   "Clue Finder",
+   "Name:",
+   "Map Reader",
+   "Name:",
+   "Lookout",
+   "Name:"
+  ],
+  "extras": [
+   "pa"
+  ]
+ },
+ "pirate-clues": {
+  "rows": [
+   {
+    "tolerant": 1,
+    "word": "Look under a pillow",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "Peek behind a chair",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "Check inside a box",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "Find the teddy bear",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "1",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "2",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "3",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "4",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   }
+  ],
+  "ocr_lines": [
+   "1",
+   "Look under",
+   "a pillow",
+   "3",
+   "Check inside",
+   "a box",
+   "2",
+   "Peek behind",
+   "a chair",
+   "4",
+   "Find the",
+   "teddy bear"
+  ],
+  "extras": []
+ },
+ "pirate-coins": {
+  "rows": [
+   {
+    "tolerant": 1,
+    "word": "Island Gold",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 12,
+    "word": "1",
+    "want": 12,
+    "got": 12,
+    "status": "exact",
+    "ocr_saw": ""
+   }
+  ],
+  "ocr_lines": [
+   "Island Gold",
+   "1",
+   "1",
+   "1",
+   "1",
+   "1",
+   "1",
+   "1",
+   "1",
+   "1",
+   "1",
+   "1",
+   "1"
+  ],
+  "extras": []
+ },
+ "pirate-cutouts": {
+  "rows": [
+   {
+    "tolerant": 1,
+    "word": "Hunt Gear",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   }
+  ],
+  "ocr_lines": [
+   "Hunt Gear"
+  ],
+  "extras": []
+ },
+ "pirate-map": {
+  "rows": [
+   {
+    "tolerant": 1,
+    "word": "Treasure Map",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "Big Rock",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "Palm Tree",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "Cave",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 2,
+    "word": "Treasure",
+    "want": 1,
+    "got": 2,
+    "status": "exact",
+    "ocr_saw": ""
+   }
+  ],
+  "ocr_lines": [
+   "Treasure Map",
+   "Big Rock",
+   "Palm Tree",
+   "Cave",
+   "Treasure"
+  ],
+  "extras": []
+ },
+ "pirate-passes": {
+  "rows": [
+   {
+    "tolerant": 8,
+    "word": "Ship Pass",
+    "want": 8,
+    "got": 8,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "01",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "02",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "03",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "04",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "05",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "06",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "07",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "08",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   }
+  ],
+  "ocr_lines": [
+   "Ship Pass",
+   "Ship Pass",
+   "Ship Pass",
+   "Ship Pass",
+   "01",
+   "03",
+   "05",
+   "07",
+   "Ship Pass",
+   "Ship Pass",
+   "Ship Pass",
+   "Ship Pass",
+   "02",
+   "04",
+   "06",
+   "08"
+  ],
+  "extras": []
+ },
+ "stress-badges6": {
+  "rows": [
+   {
+    "tolerant": 1,
+    "word": "Captain",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "Map Reader",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "Clue Finder",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "Lookout",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "First Mate",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "Ship's Cook",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 6,
+    "word": "Name:",
+    "want": 6,
+    "got": 3,
+    "status": "ocr-tolerant",
+    "ocr_saw": "Name:_"
+   }
+  ],
+  "ocr_lines": [
+   "Captain",
+   "Name:.",
+   "Map Reader",
+   "Name:_",
+   "Clue Finder",
+   "Name:_",
+   "Lookout",
+   "Name:.",
+   "First Mate",
+   "Name:_",
+   "Ship's Cook",
+   "Name:."
+  ],
+  "extras": [
+   "Name:.",
+   "Name:_",
+   "Name:_",
+   "Name:.",
+   "Name:_",
+   "Name:."
+  ]
+ },
+ "stress-boarding": {
+  "rows": [
+   {
+    "tolerant": 8,
+    "word": "Boarding Pass",
+    "want": 8,
+    "got": 8,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "1A",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "1B",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "2A",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "2B",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "3A",
+    "want": 1,
+    "got": 0,
+    "status": "ocr-tolerant",
+    "ocr_saw": "4A"
+   },
+   {
+    "tolerant": 1,
+    "word": "3B",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "4A",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "4B",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   }
+  ],
+  "ocr_lines": [
+   "Boarding Pass",
+   "Boarding Pass",
+   "Boarding Pass",
+   "Boarding Pass",
+   "1A",
+   "2A",
+   "\u0417\u0410",
+   "4A",
+   "Boarding Pass",
+   "1B",
+   "Boarding Pass!",
+   "2B",
+   "Boarding Pass",
+   "3B",
+   "Boarding Pass",
+   "4B"
+  ],
+  "extras": [
+   "\u0417\u0410",
+   "Pass!"
+  ]
+ },
+ "stress-clues6": {
+  "rows": [
+   {
+    "tolerant": 1,
+    "word": "Look under the couch cushion",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "Peek behind the bedroom door",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "Check inside the laundry basket",
+    "want": 1,
+    "got": 0,
+    "status": "ocr-tolerant",
+    "ocr_saw": "Check insidethe laundry basket 5"
+   },
+   {
+    "tolerant": 1,
+    "word": "Find the teddy bear",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "Search beside the bookshelf",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "Lift up the bath towel",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "1",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "2",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "3",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "4",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "5",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   },
+   {
+    "tolerant": 1,
+    "word": "6",
+    "want": 1,
+    "got": 1,
+    "status": "exact",
+    "ocr_saw": ""
+   }
+  ],
+  "ocr_lines": [
+   "1",
+   "Look under the",
+   "couch cushion",
+   "3",
+   "Check insidethe",
+   "laundry basket",
+   "5",
+   "Search beside",
+   "the bookshelf",
+   "2",
+   "Peek behind the",
+   "bedroom door",
+   "4",
+   "Find the teddy bear",
+   "6",
+   "Lift up the",
+   "bath towel"
+  ],
+  "extras": [
+   "insidethe"
+  ]
+ }
+}
