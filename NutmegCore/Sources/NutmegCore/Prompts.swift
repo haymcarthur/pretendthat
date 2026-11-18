@@ -35,10 +35,11 @@ public enum Prompts {
     plastic plates and cups, stuffed animals, towels, books, toys). Never knives, scissors, glass, electronics, \
     cords, food, medicine, or anything up high. Set safetyOK to false if an item breaks these rules.
 
-    Limits: game ideas exactly 3; props exactly 4 for 1 or 2 kids and exactly 5 for 3 or more kids; the kit is always the same 6 item types (badges, sign, money, tickets, menu, cutouts), at most 7 printed pages; \
+    Limits: game ideas exactly 3; props exactly 4 for 1 or 2 kids and exactly 5 for 3 or more kids; the kit is 4 to 6 \
+    printables chosen for THIS game from the printables library (badges always first), at most 7 printed pages; \
     scenes exactly 3; in every scene exactly ONE task for EACH role R1 to R6 plus one solo task; choices 2 to 4. \
-    Tasks name ONLY objects the kids really have: the household props they found, the printed kit (badges, sign, \
-    money, tickets, menu, cut-outs) and their own bodies (hands, feet, voice). Never any other object (no bell, wand, \
+    Tasks name ONLY objects the kids really have: the household props they found, the printed kit (its pages by \
+    their titles) and their own bodies (hands, feet, voice). Never any other object (no bell, wand, \
     phone, cash register or basket unless it is one of their props): make it a pretend action instead. \
     Never use emoji anywhere. Props always come from the household-prop list (their id is the list id). \
     Symbols must be simple SF Symbols such as \
@@ -76,14 +77,10 @@ public enum Prompts {
         return "Phase: props hunt. Pick exactly \(PropLibrary.target(players: ctx.playerCount)) different household items from the prop list (id) that become props for this game.\(list) householdItem is the item's name; becomes is 2 to 4 words. Every pairing must make sense by shape or use: \(PropRules.shapeSentence) Never the same item twice and never the same pretend use twice. A prop is NEVER something the printed kit makes (no tickets, passes, money, coins, menus, signs, badges, maps, cards, letters or notes): the kit prints those. reason is ONE short kid-friendly sentence saying what about the item's shape or use makes it work (never just the pair again). Return Props.\n\(contextJSON(ctx))"
     }
 
-    public static func kit(ctx: AdventureContext) -> String {
-        let recipe = KitRecipe.allCases.enumerated().map { "\($0.offset + 1). \($0.element.rawValue): \($0.element.guide)" }.joined(separator: "\n")
+    public static func kit(ctx: AdventureContext, picks: PrintPicks? = nil) -> String {
+        let picks = picks ?? PrintPicks.make(game: [ctx.gameTitle, ctx.plan?.setting])
         return """
-        Phase: printable kit and scenes. Every kit has exactly these 6 items, in this order (set recipe on each; \
-        you choose the titles, wording, numbers and what goes on each, themed to THIS game):
-        \(recipe)
-        Never put names or name placeholders anywhere: the app prints each badge's role title and a blank "Name: ____" line on badges and tickets for kids to write on. Keep wording short (lines 1 to 5 words each).
-        The cutouts item's lines are the 6 to 8 cut-out items (each is drawn as its own picture). \
+        Phase: printable kit and scenes. \(libraryRules(picks))
         Then: \(sceneRules) \
         Return Kit.
         \(contextJSON(ctx))
@@ -92,19 +89,46 @@ public enum Prompts {
 
     /// Round 20: the kit PAGES only, written as soon as the roles are set (the kids are still hunting for props, so
     /// no prop is known yet). The play guide comes later (`kitScenes`).
-    public static func kitPages(ctx: AdventureContext) -> String {
-        let recipe = KitRecipe.allCases.enumerated().map { "\($0.offset + 1). \($0.element.rawValue): \($0.element.guide)" }.joined(separator: "\n")
+    /// Round 45 (Haylee): the pages are chosen from the printables library: 4 to 6 types from this game's shortlist
+    /// (`PrintShortlist`; up to 2 swaps for the theme twist; a made-up game picks freely), badges always first.
+    public static func kitPages(ctx: AdventureContext, picks: PrintPicks? = nil) -> String {
+        let picks = picks ?? PrintPicks.make(game: [ctx.gameTitle, ctx.plan?.setting])
         return """
-        Phase: printable kit pages (the play guide is written later, so no scenes now). Every kit has exactly these 6 \
-        items, in this order (set recipe on each; you choose the titles, wording, numbers and what goes on each, themed to THIS game):
-        \(recipe)
-        Never put names or name placeholders anywhere: the app prints each badge's role title and a blank "Name: ____" line on badges and tickets for kids to write on. Keep wording short (lines 1 to 5 words each).
-        The cutouts item's lines are exactly \(KitDraft.themedCutouts) cut-out items (each is drawn as its own picture). \
-        Every page is used ON PURPOSE in the game: set each item's purpose to ONE short sentence saying what the kids do \
-        with it while they play (e.g. "Customers read it to choose their pancakes", "Hang it by the door so everyone \
-        knows the bakery is open", "Customers pay with them"); for cutouts, what the cut-out things are for. \
+        Phase: printable kit pages (the play guide is written later, so no scenes now). \(libraryRules(picks))
         Return KitPages.
         \(contextJSON(ctx))
+        """
+    }
+
+    /// Round 45: how to choose and write the printables (the library, this game's shortlist, the art and word rules).
+    static func libraryRules(_ picks: PrintPicks) -> String {
+        let library = KitRecipe.allCases.map { "- \($0.rawValue): \(PrintLibrary.guide($0)) (kids \(PrintLibrary.verbs($0)) it)" }.joined(separator: "\n")
+        let choose: String
+        if let g = picks.game {
+            choose = "THIS GAME'S SHORTLIST: \(g.types.map(\.rawValue).joined(separator: ", ")). Choose 4 to 6 printables from "
+                + "it; you may swap in at most \(PrintPicks.maxSwaps) other library types, only when the theme twist really "
+                + "needs them."
+                + (g.place ? "" : " This game has no place to name, so NO sign.")
+        } else {
+            choose = "This is a game the kids made up: choose 4 to 6 printables from the whole library that THIS game "
+                + "really uses. Only include a sign if the game has a place to name."
+        }
+        return """
+        The kit is 4 to 6 printables chosen for THIS game from the printables library (set recipe on each to its type, \
+        each type at most once). badges is ALWAYS first. \(choose)
+        Every printable must have a real JOB in the play: kids wear, hang, pay, show, punch, hide, find, decode, stamp, \
+        tick or give it ("look at it" is not a job). Leave out anything no role would use.
+        The printables library (type: what it is; lines; pictures):
+        \(library)
+        ART IS A PICTURE ONLY: each printable gets its own picture(s), listed in pictures as short things to draw \
+        ("a gold coin", "a treasure chest"), never words, letters or numbers. The app draws every card, border, title, \
+        line, number and blank "Name: ____" line itself, beside the picture. Never put names or name placeholders anywhere.
+        WORDS: kids are 4 to 8 and can't read much: titles 1 to 4 words, lines very short (see each type), picture-first; \
+        Nutmeg reads the words on clue cards, mission cards, logs and order slips out loud during the game.
+        The cutouts item's lines are exactly \(KitDraft.themedCutouts) cut-out items (each is drawn as its own picture).
+        Every page is used ON PURPOSE in the game: set each item's purpose to ONE short sentence saying what the kids do \
+        with it while they play (e.g. "Customers read it to choose their pancakes", "Hide them around the room for the \
+        crew to find", "Customers pay with them"); for cutouts, what the cut-out things are for.
         """
     }
 
@@ -117,8 +141,13 @@ public enum Prompts {
         let pages = items.map { ["id": $0.id, "recipe": $0.recipe?.rawValue ?? "", "title": $0.title, "lines": $0.lines.joined(separator: " | "),
                                  "purpose": $0.purpose ?? ""] }
         let pagesJSON = (try? enc.encode(pages)).map { String(decoding: $0, as: UTF8.self) } ?? "[]"
+        // Round 45: printables with words are read out loud by Nutmeg (kids 4 to 8 can't read them yet).
+        let wordy = items.compactMap(\.recipe).filter { [.clueCards, .missionCards, .log, .orderSlips, .decoder].contains($0) }
+        let readAloud = wordy.isEmpty ? "" : " Kids can't read much yet: when a task uses the \(Bookends.list(wordy.map(\.spokenName))), its say "
+            + "reads the card or line out loud for them, with no quote marks (e.g. Clue 1 says look under something soft!), and every printed page "
+            + "has a job in at least one play task."
         return """
-        Phase: the play guide. The printable pages are already made (JSON): \(pagesJSON)
+        Phase: the play guide. The printable pages are already made (JSON): \(pagesJSON)\(readAloud)
         Props the kids found are real household props; props marked skipped are pretend (the kids don't have them; if a \
         cutouts line names one, use that cut-out).
         \(sceneRules) \
@@ -159,7 +188,7 @@ public enum Prompts {
         + "MUST start with \"Pretend that\" (e.g. \"Pretend that the first hungry customers just walked in!\"), with "
         + "different words after it in each scene; the 3 scenes tell a little story (start, a surprise, a big finish). "
         + "ONLY REAL PROPS: a task may name ONLY objects the kids really have: the household props (by what they "
-        + "become), the printed pages above (badges, sign, money, tickets, menu, the cut-outs) and their own bodies "
+        + "become), the printed pages above (by their titles) and their own bodies "
         + "(hands, feet, voice). Never any other object (no bell, wand, phone, basket, cash register, cup, unless it is "
         + "one of the props or printed pages): if a task needs one, make it a pretend action (\"pretend to ring a "
         + "bell\") or use a printed page instead."

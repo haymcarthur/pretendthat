@@ -146,6 +146,7 @@ final class AppModel {
         store = AdventureStore(service: service)
         store.holdsEarlyFinish = true   // round 30: a firm prop count (4 for 1–2 kids, 5 for 3+)
         store.propMemory = RecentPropMemory()   // round 30: prop IDs of the last ~5 games (IDs only)
+        store.printMemory = RecentPrintMemory()   // round 45: the last 3 kits' printable layouts (type.variant ids only)
         store.propShortlistOn = true   // round 43: the app picks each game's prop shortlist (variety)
         #if DEBUG
         store.propLog = { rtLog($0) }   // round 43: "PROP unknown use …", the shortlist
@@ -725,11 +726,9 @@ final class AppModel {
                 // the pages whose art is still being drawn.
                 // Round 20: the pages were written during the hunt, so only what's still in progress counts.
                 let art = printArt   // round 27: the chosen set
-                let pending = (store.kit?.items ?? store.draftItems ?? []).filter { item in
-                    item.recipe == .cutouts ? art.cutoutImages(item).contains { $0 == nil }
-                        : item.recipe == .badges ? art.badge(item.id, role: 0) == nil   // round C1: the sheet or the shared badge
-                        : art.images[item.id] == nil
-                }.compactMap(\.recipe)
+                // Round C1: the badge sheet or the shared badge; round 45: a library page's picture or sheet (the
+                // decoder has nothing to draw).
+                let pending = (store.kit?.items ?? store.draftItems ?? []).filter { art.isMissing($0) }.compactMap(\.recipe)
                 let topics = guideWait && kitFinal ? [KitProgress.Topic.checklists]
                     : KitProgress.inProgress(pagesWritten: store.kit != nil || store.draftItems != nil,
                                              scenesWritten: store.kit != nil && !store.guidePending, pendingPages: pending)
@@ -852,7 +851,7 @@ final class AppModel {
         if let e = gameStats.printed(store.printSet, players: store.playerCount) { Analytics.send(e) }
         rtLog("print: the \(store.printSet.toolValue) set, \(kitPages.count) page(s)")
         let pdf = KitPrinter.pdf(pages: kitPages, art: art.images,
-                                 cutouts: Dictionary(uniqueKeysWithValues: (store.kit?.items ?? []).map { ($0.id, art.cutoutImages($0)) }))
+                                 cutouts: Dictionary(uniqueKeysWithValues: (store.kit?.items ?? []).map { ($0.id, art.cutoutImages($0)) }), style: art.style)
         KitPrinter.print(pdf, jobName: "PretendThat \(store.currentTitle)")
     }
     /// The papers are out (kit final, she looked up, the camera zoomed out).
@@ -867,10 +866,7 @@ final class AppModel {
     /// Round 27: a page of `set` whose art hasn't landed while the set is still drawing (shown in progress).
     func pageDrawing(_ page: KitPage, in set: KitArtService) -> Bool {
         guard !set.finished else { return false }
-        let item = page.item
-        if item.recipe == .cutouts { return set.cutoutImages(item).contains { $0 == nil } }
-        if item.recipe == .badges { return set.badge(item.id, role: 0) == nil }
-        return set.images[item.id] == nil
+        return set.isMissing(page.item)   // round 45: knows the library's pictures and sheets
     }
     /// Round 27: a set tapped on the Print screen.
     func tapPrintSet(_ style: PrintStyle) {
@@ -918,7 +914,7 @@ final class AppModel {
         if final, ProcessInfo.processInfo.arguments.contains("-PTPDFOut") {
             let art = printArt
             let pdf = KitPrinter.pdf(pages: kitPages, art: art.images,
-                                     cutouts: Dictionary(uniqueKeysWithValues: (store.kit?.items ?? []).map { ($0.id, art.cutoutImages($0)) }))
+                                     cutouts: Dictionary(uniqueKeysWithValues: (store.kit?.items ?? []).map { ($0.id, art.cutoutImages($0)) }), style: art.style)
             try? pdf.write(to: FileManager.default.temporaryDirectory.appendingPathComponent("kit.pdf"))
         }
         #endif
@@ -2031,8 +2027,11 @@ final class AppModel {
     /// badge sheet: only the illustration between the blank name banners (`BadgeCharacter`), no frame, no blank fields.
     /// nil while it isn't drawn (the row shows the role's color chip). Cropped once per slice.
     func characterPicture(_ role: Role) -> UIImage? {
-        guard let id = store.kit?.items.first(where: { $0.recipe == .badges })?.id,
-              let slice = colorArt.badgeSlice(id, role: role.id.index) else { return nil }
+        guard let badges = store.kit?.items.first(where: { $0.recipe == .badges }),
+              let slice = colorArt.badgeSlice(badges.id, role: role.id.index) else { return nil }
+        // Round 45: a picture-only character sheet's slice IS the character (no banners to crop away).
+        if badges.pictureOnly { return slice }
+        let id = badges.id
         let key = "\(id)#\(role.id.index)"
         if let hit = characterCache[key], hit.slice === slice { return hit.crop }
         let crop = CharacterCropper.crop(slice)

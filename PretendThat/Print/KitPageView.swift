@@ -8,12 +8,17 @@ struct KitPageView: View {
     var art: UIImage? = nil
     /// Cut-outs page: one image per cut-out (checklist-pictures.md), tiled 2×4 under the title.
     var cutouts: [UIImage?] = []
+    /// Round 45: the set this page is printed in (the color set tints the app-drawn frames; the outline set doesn't).
+    var style: PrintStyle = .colorIn
 
     static let size = CGSize(width: 612, height: 792)
     private let margin: CGFloat = 24
 
     @ViewBuilder var body: some View {
-        if page.item.recipe == .cutouts, cutouts.contains(where: { $0 != nil }) {
+        if page.item.pictureOnly {
+            // Round 45: a library printable: picture-only art, every frame and word drawn by the app beside it.
+            LibraryPageView(page: page, art: art, pictures: cutouts, style: style)
+        } else if page.item.recipe == .cutouts, cutouts.contains(where: { $0 != nil }) {
             cutoutSheet
         } else {
             cards

@@ -195,8 +195,8 @@ public enum Realtime {
     "PRETEND THAT": now and then, when you introduce a prop, use the phrase naturally ("Can you find a <item>? Let's \
     pretend that it's <what it becomes>!"), about 1 prop in 3, never on two props in a row, never forced.
 
-    PROPS ARE NEVER PRINTED THINGS: the printed kit already makes the badges, the sign, the money, the tickets or \
-    passes, the menu and the cut-outs. A household prop never becomes a paper thing like those: no tickets, boarding \
+    PROPS ARE NEVER PRINTED THINGS: the printed kit already makes this game's paper things (badges, signs, money, \
+    tickets, maps, clue cards, medals, menus, cut-outs). A household prop never becomes a paper thing like those: no tickets, boarding \
     passes, money, coins, menus, signs, badges, maps, cards, letters or notes as props (never "paper as the boarding \
     passes"). Props are real things to hold, wear, sit in or carry.
 

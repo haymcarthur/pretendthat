@@ -22,32 +22,31 @@ public enum SceneOwner: String, Codable, Sendable, Hashable {
 
 public enum KitKind: String, Codable, Sendable { case card, sheet }
 
-/// The fixed kit recipe (decision kit-recipe.md): every kit has these 6 item types, in this order.
-/// The AI fills in titles, wording, numbers and what goes on each; the app fixes the shape of each.
+/// The printable types (decision kit-recipe.md, then round 45's library: decisions/2026-11-17-printables-library.md).
+/// The first 6 are the original fixed kit (every kit saved before round 45 has exactly these); round 45 adds 11 more,
+/// and a kit picks 4 to 6 of the 17 for its game (`PrintShortlist`, `Sanitizer.libraryItems`), badges always first.
+/// The AI fills in titles, wording and the pictures; the app fixes the shape of each and draws every word and frame.
+/// Decoded tolerantly in a saved game (`KitItem.init(from:)`: an unknown name is nil, never a failed load).
 public enum KitRecipe: String, Codable, Sendable, CaseIterable {
     case badges, sign, money, tickets, menu, cutouts
+    /// Round 45: the new library types.
+    case orderSlips, map, clueCards, missionCards, log, medals, stickers, passport, labels, decoder, controlPanel
+    /// The original fixed six (a game saved before round 45 has these, in this order).
+    public static let original: [KitRecipe] = [.badges, .sign, .money, .tickets, .menu, .cutouts]
     public var kind: KitKind { self == .badges || self == .money || self == .tickets ? .card : .sheet }
     public var size: KitSize {
         switch self {
         case .badges: .badge
         case .money: .bill
         case .tickets: .ticket
-        case .sign, .menu, .cutouts: .fullPage
+        default: .fullPage
         }
     }
     /// One per kid (each prints a blank "Name: ____" line the kids write on themselves).
     public var perPlayer: Bool { self == .badges || self == .tickets }
     public var copies: Int { self == .money ? 8 : 1 }
-    public var guide: String {
-        switch self {
-        case .badges: "role badges, one per kid (the app prints each role title and a blank Name line the kids write on)"
-        case .sign: "a sign to hang up with the place's name, e.g. \"Cozy Café\" or \"Sky Airlines Gate 3\""
-        case .money: "play money: one design of $1 bills themed to the game; every bill is worth one dollar, so bigNumber is always \"$1\" and no other amounts appear"
-        case .tickets: "tickets or passes that fit the game (boarding passes, appointment cards, room keycards, order tickets, admission tickets)"
-        case .menu: "a menu for food games, otherwise a price list or services sheet (lines = items with small whole-dollar prices from $1 to $5, e.g. \"Pancakes $3\"; no cents, nothing over $5, so kids can pay with $1 bills)"
-        case .cutouts: "a page of 6 to 8 themed prop cut-outs (food for food games; tools for doctor/vet/engineer; luggage and snacks for airplane); lines = the items"
-        }
-    }
+    /// What this type is, for the kit prompt (`PrintLibrary.guide`).
+    public var guide: String { PrintLibrary.guide(self) }
 }
 public enum KitSize: String, Codable, Sendable { case ticket, badge, bill, keycard, fullPage }
 
@@ -138,11 +137,49 @@ public struct KitItem: Codable, Equatable, Sendable, Identifiable {
     /// written with the page ("Hang it by the door so customers know the bakery is open"). The play guide receives it and
     /// the setup scene uses it. Nil in older kits.
     public var purpose: String?
-    public init(id: String, recipe: KitRecipe? = nil, kind: KitKind, size: KitSize, title: String, symbol: String, lines: [String], bigNumber: String?, perPlayer: Bool, copies: Int, colorMe: Bool, purpose: String? = nil) {
+    /// Round 45 (picture-only art): the app-drawn layout of this printable (badge lanyard / pin / ID card, …). Non-nil =
+    /// the art is a PICTURE ONLY (no words, frames, banners or blank boxes) and the app draws the card, its border and
+    /// every word beside the picture. Nil = a kit saved before round 45: its art has the model's banners and text, and
+    /// it prints exactly as it did.
+    public var variant: KitVariant?
+    /// Round 45: the things drawn for this printable, one short noun phrase each ("a gold coin", "a treasure chest"):
+    /// one picture for a sign, map, bill or ticket; one per card for a menu, clue cards, mission cards, medals, labels
+    /// and stickers (drawn as ONE sheet image the app slices). Never words. Nil in older kits.
+    public var pictures: [String]?
+    public init(id: String, recipe: KitRecipe? = nil, kind: KitKind, size: KitSize, title: String, symbol: String, lines: [String], bigNumber: String?, perPlayer: Bool, copies: Int, colorMe: Bool, purpose: String? = nil,
+                variant: KitVariant? = nil, pictures: [String]? = nil) {
         self.id = id; self.recipe = recipe; self.kind = kind; self.size = size; self.title = title; self.symbol = symbol; self.lines = lines
         self.bigNumber = bigNumber; self.perPlayer = perPlayer; self.copies = copies; self.colorMe = colorMe; self.purpose = purpose
+        self.variant = variant; self.pictures = pictures
     }
-    // bigNumber must encode as an explicit null (schema requires the key).
+    /// Round 45: the art is a picture only and the app draws every frame and word (a new kit); false for older kits.
+    public var pictureOnly: Bool { variant != nil }
+    private enum CodingKeys: String, CodingKey {
+        case id, recipe, kind, size, title, symbol, lines, bigNumber, perPlayer, copies, colorMe, purpose, variant, pictures
+    }
+    /// Round 45 (saved-game schema 4): an unknown type or layout name decodes as nil (a newer app's printable in an
+    /// older app, or a slip in a model answer), never a failed load. The shape fields the app fixes itself default
+    /// from the type when an answer leaves them out (the round 45 kit-pages schema doesn't ask for them).
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        recipe = ((try? c.decodeIfPresent(String.self, forKey: .recipe)) ?? nil).flatMap(KitRecipe.init(rawValue:))
+        let r = recipe
+        kind = ((try? c.decodeIfPresent(KitKind.self, forKey: .kind)) ?? nil) ?? r?.kind ?? .sheet
+        size = ((try? c.decodeIfPresent(KitSize.self, forKey: .size)) ?? nil) ?? r?.size ?? .fullPage
+        title = try c.decodeIfPresent(String.self, forKey: .title) ?? ""
+        symbol = try c.decodeIfPresent(String.self, forKey: .symbol) ?? "star"
+        lines = try c.decodeIfPresent([String].self, forKey: .lines) ?? []
+        bigNumber = try c.decodeIfPresent(String.self, forKey: .bigNumber)
+        perPlayer = try c.decodeIfPresent(Bool.self, forKey: .perPlayer) ?? r?.perPlayer ?? false
+        copies = try c.decodeIfPresent(Int.self, forKey: .copies) ?? r?.copies ?? 1
+        colorMe = try c.decodeIfPresent(Bool.self, forKey: .colorMe) ?? true
+        purpose = try c.decodeIfPresent(String.self, forKey: .purpose)
+        variant = ((try? c.decodeIfPresent(String.self, forKey: .variant)) ?? nil).flatMap(KitVariant.init(rawValue:))
+        pictures = (try? c.decodeIfPresent([String].self, forKey: .pictures)) ?? nil
+    }
+    // bigNumber must encode as an explicit null (schema requires the key). The round 45 fields only when set, so an
+    // older kit encodes exactly as it did.
     public func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(id, forKey: .id); try c.encodeIfPresent(recipe, forKey: .recipe); try c.encode(kind, forKey: .kind); try c.encode(size, forKey: .size)
@@ -150,6 +187,7 @@ public struct KitItem: Codable, Equatable, Sendable, Identifiable {
         try c.encode(bigNumber, forKey: .bigNumber); try c.encode(perPlayer, forKey: .perPlayer)
         try c.encode(copies, forKey: .copies); try c.encode(colorMe, forKey: .colorMe)
         try c.encodeIfPresent(purpose, forKey: .purpose)
+        try c.encodeIfPresent(variant, forKey: .variant); try c.encodeIfPresent(pictures, forKey: .pictures)
     }
 }
 /// One play-guide task. Round 29 (ensemble scenes): ONE task per role per scene (R1…R6, called out by its title) plus a

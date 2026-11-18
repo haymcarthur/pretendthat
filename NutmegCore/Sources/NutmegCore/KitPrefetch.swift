@@ -98,6 +98,20 @@ public enum KitArtPlan {
         var out: [KitArtJob] = []
         for item in items {
             let labels = KitArtPrompt.cutoutLabels(item)
+            // Round 45: a library printable's ONE picture or ONE sheet of pictures (none for the decoder). A sheet that
+            // failed isn't drawn again (the page is app-drawn with its symbols).
+            if item.pictureOnly, item.recipe != .badges, item.recipe != .cutouts {
+                switch PrintLibrary.art(item, roles: roles) {
+                case .single(let size) where !settled.contains(item.id):
+                    out.append(KitArtJob(key: item.id, prompt: KitArtPrompt.picturePrompt(for: item, gameTitle: title, style: style), size: size))
+                case .sheet(let n) where !settled.contains(sheetKey(item.id)) && !settled.contains(sheetFailedKey(item.id))
+                        && !(0..<n).allSatisfy({ settled.contains(cutoutKey(item.id, $0)) }):
+                    out.append(KitArtJob(key: sheetKey(item.id), prompt: KitArtPrompt.pictureSheetPrompt(for: item, gameTitle: title, style: style),
+                                         size: CutoutSheet.size(n), count: n))
+                default: break
+                }
+                continue
+            }
             if usesBadgeSheet(item, roles: roles, settled: settled) {
                 if !settled.contains(sheetKey(item.id)) && !(0..<BadgeSheet.count).allSatisfy({ settled.contains(cutoutKey(item.id, $0)) }) {
                     out.append(KitArtJob(key: sheetKey(item.id), prompt: KitArtPrompt.badgeSheetPrompt(item, roles: roles, gameTitle: title, style: style),
@@ -123,6 +137,12 @@ public enum KitArtPlan {
         return out
     }
 
+    /// Round 45 (cost): how many image calls one style of these pages makes (the cut-out sheet counts once; skipped
+    /// props' cut-outs, added at the end of the hunt, are extra as before). The cover is one more per game.
+    public static func imageCount(_ items: [KitItem], roles: [Role] = RoleCast.rank([])) -> Int {
+        jobs(items: items, title: "", style: .fullColor, settled: [], sheetCount: nil, roles: roles).count
+    }
+
     /// The badges item is drawn as the 6-up sheet (6 ranked roles, the sheet hasn't failed).
     public static func usesBadgeSheet(_ item: KitItem, roles: [Role], settled: Set<String>) -> Bool {
         BadgeSheet.enabled && item.recipe == .badges && roles.count == BadgeSheet.count && !settled.contains(sheetFailedKey(item.id))
@@ -131,6 +151,13 @@ public enum KitArtPlan {
     /// Every key the items need (a page is done when all of these have landed or definitively failed).
     public static func keys(items: [KitItem], roles: [Role] = [], settled: Set<String> = []) -> Set<String> {
         Set(items.flatMap { item -> [String] in
+            if item.pictureOnly, item.recipe != .badges, item.recipe != .cutouts {
+                switch PrintLibrary.art(item, roles: roles) {
+                case .single: return [item.id]
+                case .sheet: return settled.contains(sheetFailedKey(item.id)) ? [] : [sheetKey(item.id)]
+                default: return []
+                }
+            }
             if usesBadgeSheet(item, roles: roles, settled: settled) { return [sheetKey(item.id)] }
             let labels = KitArtPrompt.cutoutLabels(item)
             return item.recipe == .cutouts && !labels.isEmpty ? labels.indices.map { cutoutKey(item.id, $0) } : [item.id]

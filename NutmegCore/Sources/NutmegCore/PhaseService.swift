@@ -62,20 +62,29 @@ public final class PhaseService: Sendable {
                                       Prompts.props(ctx: ctx)), shortlist: ctx.propShortlist)
         }
     }
-    public func kit(ctx: AdventureContext) async throws -> Kit {
-        try await ClaudeRouting.$call.withValue(.kit) {
-        try await safe({ try await self.ask(Kit.self, $0, Schemas.kit(), .medium,
-                      clean: { Sanitizer.clean($0) }, problem: { Validate.kit($0, roles: ctx.plan?.roles.count ?? 0) }) }, Prompts.kit(ctx: ctx))
+    /// Round 45: `picks` = this game's printables plan (shortlist, place, the last games' layouts); made from the
+    /// context's words when not given.
+    public func kit(ctx: AdventureContext, picks: PrintPicks? = nil) async throws -> Kit {
+        let picks = picks ?? PrintPicks.make(game: [ctx.gameTitle, ctx.plan?.setting])
+        return try await ClaudeRouting.$call.withValue(.kit) {
+        var k = try await safe({ try await self.ask(Kit.self, $0, Schemas.kit(), .medium,
+                      clean: { var k = $0; k.scenes = Sanitizer.clean(Kit(nutmegSays: "", items: [], scenes: k.scenes)).scenes; return k },
+                      problem: { Validate.pages(KitPages(nutmegSays: "", items: $0.items), picks: picks) ?? Validate.scenes($0.scenes, roles: ctx.plan?.roles.count ?? 0) }) },
+                       Prompts.kit(ctx: ctx, picks: picks))
+        k.items = Sanitizer.clean(Kit(nutmegSays: "", items: k.items, scenes: []), picks: picks).items
+        return k
         }
     }
 
-    /// Round 20: the kit pages alone (during the hunt). Validated for all 6 recipe items.
-    public func kitPages(ctx: AdventureContext) async throws -> [KitItem] {
-        try await ClaudeRouting.$call.withValue(.pages) {
+    /// Round 20: the kit pages alone (during the hunt). Round 45: chosen from the printables library (`PrintPicks`):
+    /// the raw answer is checked (badges, 4 to 6 types, the shortlist, no sign without a place) for one re-ask, then
+    /// shaped by `Sanitizer.libraryItems` (which also fixes whatever is still off).
+    public func kitPages(ctx: AdventureContext, picks: PrintPicks? = nil) async throws -> [KitItem] {
+        let picks = picks ?? PrintPicks.make(game: [ctx.gameTitle, ctx.plan?.setting])
+        return try await ClaudeRouting.$call.withValue(.pages) {
         let pages = try await safe({ try await self.ask(KitPages.self, $0, Schemas.kitPages(), .medium,
-                                    clean: { p in KitPages(nutmegSays: p.nutmegSays, items: Sanitizer.clean(Kit(nutmegSays: "", items: p.items, scenes: [])).items) },
-                                    problem: Validate.pages) }, Prompts.kitPages(ctx: ctx))
-        return pages.items
+                                    clean: { $0 }, problem: { Validate.pages($0, picks: picks) }) }, Prompts.kitPages(ctx: ctx, picks: picks))
+        return Sanitizer.clean(Kit(nutmegSays: "", items: pages.items, scenes: []), picks: picks).items
         }
     }
 
@@ -106,7 +115,7 @@ public final class PhaseService: Sendable {
         try await ClaudeRouting.$call.withValue(.guide) {
         var c = ctx; c.props = nil
         let roles = ctx.plan?.roles.count ?? 0
-        let made = try await safe({ try await self.ask(KitScenesSix.self, $0, KitScenesSix.schema(), Self.scenesEffort,
+        let made = try await safe({ try await self.ask(KitScenesSix.self, $0, KitScenesSix.schema(pages: items.compactMap(\.recipe)), Self.scenesEffort,
                                    clean: { s in KitScenesSix(nutmegSays: s.nutmegSays, scenes: Sanitizer.clean(Kit(nutmegSays: "", items: [], scenes: s.scenes)).scenes,
                                                               story: s.story, setup: s.setup, cleanup: s.cleanup) },
                                    problem: { Validate.scenes($0.scenes, roles: roles) }) },
@@ -225,19 +234,31 @@ public enum Validate {
         }
         return problems.isEmpty ? nil : Problem(message: problems.joined(separator: ". "), fatal: false)
     }
-    public static func pages(_ p: KitPages) -> Problem? {
-        if p.items.isEmpty { return short("kit items", 0, want: "the 6 kit items", fatal: true) }
-        let missing = KitRecipe.allCases.filter { r in !p.items.contains { $0.recipe == r } }
-        return missing.isEmpty ? nil
-            : Problem(message: "the kit was missing these item types: \(missing.map(\.rawValue).joined(separator: ", ")); include all 6", fatal: false)
+    /// Round 45: a library kit's raw answer: badges included, 4 to 6 different types, no sign in a game with no place,
+    /// at most 2 types off a known game's shortlist. Never fatal (the sanitizer fixes what's still off).
+    public static func pages(_ p: KitPages, picks: PrintPicks = PrintPicks(game: nil)) -> Problem? {
+        if p.items.isEmpty { return short("kit items", 0, want: "4 to 6 printables", fatal: true) }
+        let types = p.items.compactMap { $0.recipe ?? Sanitizer.guess($0) }
+        var seen = Set<KitRecipe>(), problems: [String] = []
+        let dupes = types.filter { !seen.insert($0).inserted }
+        if !types.contains(.badges) { problems.append("badges were missing: badges are always the first printable") }
+        if !dupes.isEmpty { problems.append("these types were there twice: \(Set(dupes.map(\.rawValue)).sorted().joined(separator: ", ")); use each type once") }
+        if seen.count < PrintLibrary.minItems || seen.count > PrintLibrary.maxItems {
+            problems.append("it had \(seen.count) different printables; choose 4 to 6")
+        }
+        if picks.noSign, seen.contains(.sign) { problems.append("this game has no place, so no sign") }
+        if let g = picks.game {
+            let off = seen.filter { !g.types.contains($0) }
+            if off.count > PrintPicks.maxSwaps {
+                problems.append("too many printables off this game's shortlist (\(off.map(\.rawValue).sorted().joined(separator: ", "))); choose from: "
+                    + g.types.map(\.rawValue).joined(separator: ", ") + ", with at most \(PrintPicks.maxSwaps) others")
+            }
+        }
+        return problems.isEmpty ? nil : Problem(message: problems.joined(separator: "; "), fatal: false)
     }
     public static func kit(_ k: Kit, roles: Int = 0) -> Problem? {
-        if k.items.isEmpty { return short("kit items", 0, want: "the 6 kit items", fatal: true) }
-        let missing = KitRecipe.allCases.filter { r in !k.items.contains { $0.recipe == r } }
-        if !missing.isEmpty {
-            return Problem(message: "the kit was missing these item types: \(missing.map(\.rawValue).joined(separator: ", ")); include all 6", fatal: false)
-        }
-        return scenes(k.scenes, roles: roles)
+        if k.items.isEmpty { return short("kit items", 0, want: "4 to 6 printables", fatal: true) }
+        return pages(KitPages(nutmegSays: "", items: k.items)) ?? scenes(k.scenes, roles: roles)
     }
     /// `roles`: how many ranked roles the game has (round 29: each needs its own ONE task in every scene; 0 = no check).
     public static func scenes(_ scenes: [Scene], roles: Int = 0) -> Problem? {

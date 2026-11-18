@@ -138,7 +138,7 @@ import Testing
         let json = "{" + #""scene1":\#(scene),"scene2":\#(scene),"scene3":\#(scene),"story":"Welcome aboard! You are the crew. Let's fly!","#
             + #""setupScene":{"title":"Get Ready","nutmegSays":"Pretend that the plane leaves soon!"},"#
             + #""cleanupScene":{"title":"Landing","nutmegSays":"Pretend that we landed!"},"#
-            + #""pageJobs":{"# + KitRecipe.allCases.map { job($0.rawValue) }.joined(separator: ",") + "}}"
+            + #""pageJobs":{"# + KitRecipe.original.map { job($0.rawValue) }.joined(separator: ",") + "}}"
         let g = try JSONDecoder().decode(KitScenesSix.self, from: Data(json.utf8))
         #expect(g.scenes.count == 3 && g.story == "Welcome aboard! You are the crew. Let's fly!")
         #expect(g.setup?.title == "Get Ready" && g.setup?.jobs.count == 6 && g.cleanup?.jobs.count == 6)
@@ -147,7 +147,7 @@ import Testing
         // The schema asks for all of it (strict: every field required).
         let schema = KitScenesSix.schema()
         let pages = ((schema["properties"] as? [String: Any])?["pageJobs"] as? [String: Any])?["required"] as? [String]
-        #expect(pages?.sorted() == KitRecipe.allCases.map(\.rawValue).sorted())
+        #expect(pages?.sorted() == KitRecipe.original.map(\.rawValue).sorted())
         // Kit pages are written with a purpose, and the guide's prompt receives it.
         let item = ((Schemas.kitPages()["properties"] as? [String: Any])?["items"] as? [String: Any])?["items"] as? [String: Any]
         #expect((item?["required"] as? [String])?.contains("purpose") == true)
@@ -194,7 +194,7 @@ import Testing
         let first = store.kit!.scenes
         #expect(first.map(\.arc) == [.story, .setup, .play, .play, .play, .cleanup])
         let g = try #require(store.savedGame(now: Date(timeIntervalSince1970: 1_800_000_000), art: [], cover: nil))
-        #expect(g.schemaVersion == 3 && g.kit.setup != nil && g.kit.cleanup != nil && !(g.kit.story ?? "").isEmpty)
+        #expect(g.schemaVersion == SavedGame.currentSchema && g.kit.setup != nil && g.kit.cleanup != nil && !(g.kit.story ?? "").isEmpty)
         let back = try SavedGame.decode(SavedGame.encoder().encode(g))
         #expect(back == g)
         let json = String(decoding: try SavedGame.encoder().encode(g), as: UTF8.self)
@@ -224,7 +224,7 @@ import Testing
         store.beginPlay()
         #expect(store.phase == .scene(0) && !store.inStory && store.nutmegLine == HandOffLines.sceneOpen(store.kit!.scenes[0], first: true))
         // A schema this build doesn't know is still refused.
-        g.schemaVersion = 4
+        g.schemaVersion = 5   // round 45: 4 is the printables-library kit
         #expect(throws: (any Error).self) { try SavedGame.decode(SavedGame.encoder().encode(g)) }
     }
 

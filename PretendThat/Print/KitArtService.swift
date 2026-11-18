@@ -71,8 +71,14 @@ final class KitArtService {
             })
         }
         for item in kit.items {
-            if item.recipe == .badges, roles.count == BadgeSheet.count {   // round C1: one slice per role
-                for k in 0..<BadgeSheet.count { cutouts[item.id, default: [:]][k] = make("341x768", "R\(k + 1)") }
+            if item.pictureOnly, item.recipe != .badges, item.recipe != .cutouts {   // round 45: the library's art kinds
+                switch PrintLibrary.art(item, roles: roles) {
+                case .sheet(let n): for k in 0..<n { cutouts[item.id, default: [:]][k] = make("512x512", "P\(k + 1)") }
+                case .single(let size): images[item.id] = make(size, "BOTTOM")
+                default: break
+                }
+            } else if item.recipe == .badges, roles.count == BadgeSheet.count {   // round C1: one slice per role
+                for k in 0..<BadgeSheet.count { cutouts[item.id, default: [:]][k] = make(item.pictureOnly ? "420x480" : "341x768", "R\(k + 1)") }
             } else if item.recipe == .cutouts, !KitArtPrompt.cutoutLabels(item).isEmpty {
                 for n in KitArtPrompt.cutoutLabels(item).indices { cutouts[item.id, default: [:]][n] = make("1024x1024", "BOTTOM") }
             } else { images[item.id] = make(KitArtPrompt.size(for: item), "BOTTOM") }
@@ -88,7 +94,26 @@ final class KitArtService {
             guard let m = cutouts[item.id], !m.isEmpty else { return [] }
             return (0..<BadgeSheet.count).map { m[$0] }
         }
+        // Round 45: a library printable's sheet of pictures (one per entry), sliced like the cut-outs.
+        if item.pictureOnly, case .sheet(let n) = PrintLibrary.art(item) {
+            guard let m = cutouts[item.id], !m.isEmpty else { return [] }
+            return (0..<n).map { m[$0] }
+        }
         return KitArtPrompt.cutoutLabels(item).indices.map { cutouts[item.id]?[$0] }
+    }
+
+    /// Round 45: this page's art hasn't landed yet (a page with nothing to draw, like the decoder, never waits).
+    func isMissing(_ item: KitItem) -> Bool {
+        if item.recipe == .cutouts { return cutoutImages(item).contains { $0 == nil } }
+        if item.recipe == .badges { return badge(item.id, role: 0) == nil }
+        if item.pictureOnly {
+            switch PrintLibrary.art(item) {
+            case .none: return false
+            case .sheet: return cutoutImages(item).isEmpty || cutoutImages(item).contains { $0 == nil }
+            default: return images[item.id] == nil
+            }
+        }
+        return images[item.id] == nil
     }
     /// Round 28: role `k`'s own slice of the badge sheet only (nil while it isn't drawn; no shared-image fallback).
     func badgeSlice(_ itemID: String, role k: Int) -> UIImage? { cutouts[itemID]?[k] }

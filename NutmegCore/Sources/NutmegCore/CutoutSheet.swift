@@ -64,15 +64,50 @@ public enum CutoutSheet {
         return Array(out.prefix(count))
     }
 
+    /// Round 45 (the badge sheet "sliver"): the drawing's bounds in a cell, ignoring a strip of a NEIGHBOR's drawing that
+    /// leaned over the cell edge: ink is grouped into bands of columns (then rows) split by empty gaps, and a small band
+    /// that touches the cell's edge (under a quarter of the biggest band's ink) is dropped, so a sliver of the next badge
+    /// no longer widens the crop. A drawing in two parts (a pair of shoes) keeps both.
+    static func mainInk(_ cell: Rect, ink: (Int, Int) -> Bool) -> (minX: Int, maxX: Int, minY: Int, maxY: Int)? {
+        func band(_ counts: [Int], gap: Int) -> ClosedRange<Int>? {
+            var bands: [(range: ClosedRange<Int>, ink: Int)] = []
+            var start: Int?, last = -1, sum = 0
+            func close() {
+                if let s = start { bands.append((s...last, sum)) }
+                start = nil; sum = 0
+            }
+            for (i, c) in counts.enumerated() where c > 0 {
+                if start != nil, i - last > gap { close() }
+                if start == nil { start = i }
+                last = i; sum += c
+            }
+            close()
+            guard let biggest = bands.map(\.ink).max() else { return nil }
+            let edge = max(1, counts.count / 100)
+            let kept = bands.filter { b in
+                let touches = b.range.lowerBound <= edge || b.range.upperBound >= counts.count - 1 - edge
+                return !(touches && bands.count > 1 && b.ink * 4 < biggest)
+            }
+            guard let lo = kept.map(\.range.lowerBound).min(), let hi = kept.map(\.range.upperBound).max() else { return nil }
+            return lo...hi
+        }
+        var cols = [Int](repeating: 0, count: cell.width)
+        for y in cell.y..<(cell.y + cell.height) {
+            for x in cell.x..<(cell.x + cell.width) where ink(x, y) { cols[x - cell.x] += 1 }
+        }
+        guard let cx = band(cols, gap: max(3, cell.width / 25)) else { return nil }
+        var rows = [Int](repeating: 0, count: cell.height)
+        for y in cell.y..<(cell.y + cell.height) {
+            for x in (cell.x + cx.lowerBound)...(cell.x + cx.upperBound) where ink(x, y) { rows[y - cell.y] += 1 }
+        }
+        guard let cy = band(rows, gap: max(3, cell.height / 25)) else { return nil }
+        return (cell.x + cx.lowerBound, cell.x + cx.upperBound, cell.y + cy.lowerBound, cell.y + cy.upperBound)
+    }
+
     /// The cell's drawing bounds plus a 3% margin, kept inside the cell (the whole cell if it's blank). Not squared.
     static func trimToInk(_ cell: Rect, ink: (Int, Int) -> Bool) -> Rect {
-        var minX = Int.max, minY = Int.max, maxX = -1, maxY = -1
-        for y in cell.y..<(cell.y + cell.height) {
-            for x in cell.x..<(cell.x + cell.width) where ink(x, y) {
-                minX = min(minX, x); maxX = max(maxX, x); minY = min(minY, y); maxY = max(maxY, y)
-            }
-        }
-        guard maxX >= 0 else { return cell }
+        guard let b = mainInk(cell, ink: ink) else { return cell }
+        let (minX, maxX, minY, maxY) = (b.minX, b.maxX, b.minY, b.maxY)
         let m = max(2, max(maxX - minX, maxY - minY) * 3 / 100)
         let x0 = max(cell.x, minX - m), y0 = max(cell.y, minY - m)
         let x1 = min(cell.x + cell.width - 1, maxX + m), y1 = min(cell.y + cell.height - 1, maxY + m)
@@ -81,13 +116,8 @@ public enum CutoutSheet {
 
     /// The cell's drawing bounds plus a 6% margin, squared up and kept inside the cell (the whole cell if it's blank).
     static func trim(_ cell: Rect, ink: (Int, Int) -> Bool) -> Rect {
-        var minX = Int.max, minY = Int.max, maxX = -1, maxY = -1
-        for y in cell.y..<(cell.y + cell.height) {
-            for x in cell.x..<(cell.x + cell.width) where ink(x, y) {
-                minX = min(minX, x); maxX = max(maxX, x); minY = min(minY, y); maxY = max(maxY, y)
-            }
-        }
-        guard maxX >= 0 else { return cell }
+        guard let b = mainInk(cell, ink: ink) else { return cell }
+        let (minX, maxX, minY, maxY) = (b.minX, b.maxX, b.minY, b.maxY)
         let side0 = max(maxX - minX, maxY - minY) + 1
         let side = min(min(cell.width, cell.height), side0 + side0 * 12 / 100)
         let cx = (minX + maxX) / 2, cy = (minY + maxY) / 2

@@ -331,8 +331,8 @@ public final class AdventureStore {
             // The context is read now (the current title, count, roles and props), and a newer remake wins.
             let made: Kit
             if let pages { made = try await svc.kitScenes(ctx: context, items: KitDraft.finalItems(pages, props: props)) }
-            else { made = try await svc.kit(ctx: context) }
-            if gen == kitGeneration { fullKit = Bookends.ensure(made) }   // round 36: the arc (written by the app here)
+            else { made = try await svc.kit(ctx: context, picks: printPicks) }
+            if gen == kitGeneration { fullKit = Bookends.ensure(made); recordPrintVariants(made.items) }   // round 36: the arc (written by the app here)
         } fallback: { [self] in if gen == kitGeneration { useFallbackGame() } }
         guard gen == kitGeneration else { return }
         if kit != nil {
@@ -590,7 +590,7 @@ public final class AdventureStore {
         cancelDraft()
         guard let want, let service else { return }
         draftGeneration += 1
-        let gen = draftGeneration, ctx = context
+        let gen = draftGeneration, ctx = context, picks = printPicks
         draftInputs = want; draftStartedAt = Date()
         let gate = outboundGate
         draftTask = Task { [weak self] in
@@ -598,7 +598,7 @@ public final class AdventureStore {
             // restarts the draft).
             if let gate, !(await gate()) { return nil }
             guard !Task.isCancelled else { return nil }
-            let items = try? await RetryOnce.run { try await service.kitPages(ctx: ctx) }
+            let items = try? await RetryOnce.run { try await service.kitPages(ctx: ctx, picks: picks) }
             guard let self, gen == self.draftGeneration, !Task.isCancelled else { return nil }
             if let items { self.draftItems = items; self.draftReadyAt = Date(); self.startGuide(items: items, gen: gen) }
             return items
@@ -673,6 +673,20 @@ public final class AdventureStore {
 
     /// Round 30 (Haylee): prop IDs from the last ~5 games (IDs only; nil memory = no steering, e.g. tests).
     @ObservationIgnored public var propMemory: RecentPropMemory?
+    /// Round 45: the last 3 kits' printable layouts ("badges.pin", …; nil = no rotation, e.g. tests).
+    @ObservationIgnored public var printMemory: RecentPrintMemory?
+    @ObservationIgnored private var recordedPrintsFor: UUID?
+    /// Round 45: this game's printables plan: its shortlist (by the game's words), whether it has a place, and the last
+    /// kits' layouts to turn away from.
+    public var printPicks: PrintPicks {
+        PrintPicks.make(game: [gameType, gameTitle, plan?.gameTitle, plan?.setting], recent: printMemory?.games ?? [])
+    }
+    /// Remembers this kit's layouts once (a first play only).
+    private func recordPrintVariants(_ items: [KitItem]) {
+        guard !isReplay, recordedPrintsFor != gameID, !PrintVariants.ids(items).isEmpty else { return }
+        recordedPrintsFor = gameID
+        printMemory?.record(items)
+    }
     @ObservationIgnored public private(set) var recentProps: Set<String> = []
     @ObservationIgnored private var recordedPropsFor: UUID?
     /// Remembers this game's props once, when the hunt ends (a first play only).
@@ -1070,7 +1084,7 @@ public final class AdventureStore {
     /// item off this game's shortlist, an item or a pretend use already in the hunt, or a misfit.
     private func propRetry(_ itemID: String, becomes: String, alternates: [String], used: Set<String>, usedUses: Set<String>) -> String? {
         let name = PropFit.itemName(itemID)
-        if let c = printedClash(becomes) { return PrintedProps.retryOutput(itemID: itemID, becomes: becomes, clash: c) }
+        if let c = printedClash(becomes) { return PrintedProps.retryOutput(itemID: itemID, becomes: becomes, clash: c, kit: printedKitItems) }
         if let s = propShortlist, !s.contains(itemID) { return s.retryOutput(itemID: itemID, becomes: becomes, used: used) }
         let preferred = alternates.filter(onShortlist) + (propShortlist?.allIDs ?? [])
         let others = PropFit.candidates(for: becomes, preferring: preferred, avoiding: used.union([itemID])).filter(onShortlist).prefix(3)
@@ -1428,6 +1442,7 @@ public final class AdventureStore {
     /// as soon as it's in, if the kids already tapped Let's play!.
     private func finishWithPrefetchedGuide(pages: [KitItem], gen: Int) async {
         let items = KitDraft.finalItems(pages, props: props)
+        recordPrintVariants(items)   // round 45: the next kits turn away from these layouts
         if let scenes = await finalGuideIfReady(items: items), gen == kitGeneration {
             fullKit = withArc(Kit(nutmegSays: guideKit?.nutmegSays ?? "", items: items, scenes: scenes))
             guideFinalAt = Date(); phase = .kitReady

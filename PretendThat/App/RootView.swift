@@ -547,7 +547,7 @@ struct RootView: View {
                 withTransaction(tx) { kitPreview = PTPreviewTarget(index: i) }
             }, onPrint: { model.tapPrint() }, onPlay: { model.tapLetsPlay() }) { i in
                 // Round 27: the chat-open pinned card shows the chosen set (the stage shows both).
-                KitPageView(page: pages[i], art: model.printArt.images[pages[i].item.id], cutouts: model.printArt.cutoutImages(pages[i].item))
+                KitPageView(page: pages[i], art: model.printArt.images[pages[i].item.id], cutouts: model.printArt.cutoutImages(pages[i].item), style: model.printArt.style)
                     .scaleEffect(PTKitPinnedCard<EmptyView>.thumb.width / KitPageView.size.width)
                     .frame(width: PTKitPinnedCard<EmptyView>.thumb.width, height: PTKitPinnedCard<EmptyView>.thumb.height)
             })

@@ -11,12 +11,16 @@ public enum Sanitizer {
 
     /// `roleCount` is kept for older callers and ignored: round C1 writes every game for 6 ranked roles, and the app
     /// picks each scene's owner (the hand-offs rotate through the playing roles).
-    public static func clean(_ k: Kit, roleCount: Int = RoleCast.count) -> Kit {
+    /// Round 45: `picks` = this game's printables plan: the items become a library kit (`libraryItems`: badges first,
+    /// 4 to 6 types, picture-only art, app-picked layouts). Without it, a kit that is already a library kit (the bundled
+    /// game) is re-shaped the same way, and an older fixed-six kit keeps the old recipe order.
+    public static func clean(_ k: Kit, roleCount: Int = RoleCast.count, picks: PrintPicks? = nil) -> Kit {
         var k = k
-        k.items = recipeOrdered(k.items).map { item in
+        let library = picks != nil || k.items.contains { $0.pictureOnly || ($0.recipe.map { !KitRecipe.original.contains($0) } ?? false) }
+        k.items = (library ? libraryItems(k.items, picks: picks ?? PrintPicks(game: nil)) : recipeOrdered(k.items)).map { item in
             var i = item
             i.symbol = PrintSymbols.safe(i.symbol)
-            i.copies = min(max(i.copies, Limits.copies.lowerBound), Limits.copies.upperBound)
+            if !i.pictureOnly { i.copies = min(max(i.copies, Limits.copies.lowerBound), Limits.copies.upperBound) }
             return i
         }
         k.scenes = Array(k.scenes.prefix(Limits.scenesMax)).enumerated().map { i, scene in
@@ -61,6 +65,87 @@ public enum Sanitizer {
             out.append(item)
         }
         return out
+    }
+
+    /// Round 45 (the printables library): one item per type (the first one kept), the badges FIRST (written by the app
+    /// if the answer had none), no sign in a game with no place, at most `PrintPicks.maxSwaps` types off a known game's
+    /// shortlist, 4 to 6 items (topped up from the shortlist with app-written items), within the image budget per
+    /// style (`PrintLibrary.imageBudgetPerStyle`). Each item is shaped by its type: its id is the type (unique in a
+    /// kit), its layout variant is picked by the app (`PrintPicks.variant`), its lines and pictures are clamped (few
+    /// words: kids 4 to 8), money is $1, menu prices $1 to $5. Idempotent.
+    public static func libraryItems(_ items: [KitItem], picks: PrintPicks) -> [KitItem] {
+        var seen = Set<KitRecipe>(), out: [KitItem] = [], swaps = 0
+        let shortlist = Set(picks.shortlist)
+        for var item in items {
+            guard let t = item.recipe ?? guess(item), !seen.contains(t) else { continue }
+            if t == .sign, picks.noSign { continue }
+            if !picks.isMadeUp, !shortlist.contains(t) {
+                guard swaps < PrintPicks.maxSwaps else { continue }
+                swaps += 1
+            }
+            item.recipe = t
+            seen.insert(t); out.append(item)
+        }
+        // Badges first, always.
+        if let b = out.firstIndex(where: { $0.recipe == .badges }) { out.insert(out.remove(at: b), at: 0) }
+        else { out.insert(PrintDefaults.item(.badges, title: nil), at: 0); seen.insert(.badges) }
+        // At most 6 (the earliest picks stay), at least 4 (the shortlist's next types, written by the app).
+        out = Array(out.prefix(PrintLibrary.maxItems))
+        if out.count < PrintLibrary.minItems {
+            let fill = (picks.isMadeUp ? PrintDefaults.madeUpTopUp : picks.shortlist + PrintDefaults.madeUpTopUp)
+                .filter { !seen.contains($0) && !($0 == .sign && picks.noSign) }
+            for t in fill where out.count < PrintLibrary.minItems { out.append(PrintDefaults.item(t, title: nil)); seen.insert(t) }
+        }
+        out = out.map { shaped($0, picks: picks) }
+        // The image budget (one call per printable at most, so 6 items fit; kept as a guard for later types).
+        while KitArtPlan.imageCount(out) > PrintLibrary.imageBudgetPerStyle, out.count > PrintLibrary.minItems,
+              let drop = out.lastIndex(where: { $0.recipe != .badges && PrintLibrary.art($0) != .none }) {
+            out.remove(at: drop)
+        }
+        return out
+    }
+
+    /// One library item, shaped by its type.
+    static func shaped(_ item: KitItem, picks: PrintPicks) -> KitItem {
+        guard let t = item.recipe else { return item }
+        var i = item
+        i.id = t.rawValue
+        i.kind = t.kind; i.size = t.size; i.perPlayer = t.perPlayer
+        i.title = i.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        if i.title.isEmpty { i.title = PrintDefaults.title(t) }
+        let limits = PrintLibrary.lineLimits(t)
+        func short(_ s: String) -> String {
+            let ws = s.replacingOccurrences(of: "\"", with: "").split(whereSeparator: \.isWhitespace)
+            return ws.prefix(limits.words + (Money.amounts(s).isEmpty ? 0 : 1)).joined(separator: " ")
+        }
+        i.lines = Array(i.lines.map(short).filter { !$0.isEmpty }.prefix(limits.count.upperBound))
+        if i.lines.count < limits.count.lowerBound { i.lines = PrintDefaults.lines(t) }
+        switch t {
+        case .money: i.bigNumber = Money.bill; i.lines = i.lines.map(Money.oneDollar)
+        case .menu, .labels: i.lines = i.lines.map(Money.smallPrices); i.bigNumber = nil
+        case .decoder: i.lines = i.lines.map { String($0.uppercased().filter { $0.isLetter || $0 == " " }.prefix(12)) }.filter { !$0.isEmpty }
+            if i.lines.isEmpty { i.lines = PrintDefaults.lines(.decoder) }
+        default: i.bigNumber = nil
+        }
+        // Pictures: never words or prices (one per entry for a sheet type, else one), at most the sheet's size.
+        let pics = (i.pictures ?? []).map { PrintLibrary.clean(Money.withoutPrice($0)) }.filter { !$0.isEmpty }
+        switch t {
+        case .badges, .cutouts, .decoder: i.pictures = nil
+        default:
+            let want = PrintLibrary.perEntryPictures(t) ? min(PrintLibrary.maxSheetPictures, i.lines.count) : 1
+            var p = Array(pics.prefix(want))
+            if p.count < want {
+                let extra = PrintLibrary.perEntryPictures(t) ? i.lines.dropFirst(p.count).map { PrintLibrary.clean(Money.withoutPrice($0)) }
+                    : [PrintLibrary.clean(i.title)]
+                p += extra.prefix(want - p.count)
+            }
+            i.pictures = p
+        }
+        if let v = i.variant, !t.variants.contains(v) { i.variant = nil }
+        if i.variant == nil { i.variant = picks.variant(for: i) }
+        if t == .menu, i.variant == .program { i.lines = i.lines.map(Money.withoutPrice) }
+        i.copies = PrintLibrary.copies(i)   // after the layout (coins print 12 a page, bills 8)
+        return i
     }
 
     static func guess(_ item: KitItem) -> KitRecipe? {
@@ -151,6 +236,21 @@ public enum Money {
             let rounded = whole + (cents >= 50 ? 1 : 0)
             return "$\(min(max(rounded, priceRange.lowerBound), priceRange.upperBound))"
         }
+    }
+
+    /// Round 45: the line without its price ("Pancakes $3" → "Pancakes"; "Juice box  2" → "Juice box").
+    public static func withoutPrice(_ line: String) -> String {
+        var s = replace(amount, in: line) { _ in "" }
+        s = s.replacingOccurrences(of: #"\s+\d+\s*$"#, with: "", options: .regularExpression)
+        return s.trimmingCharacters(in: .whitespacesAndNewlines.union(CharacterSet(charactersIn: "-–:.")))
+    }
+    /// Round 45: the price on a line as the app prints it ("$3"), or nil (a show's act has none).
+    public static func price(_ line: String) -> String? {
+        if let a = amounts(line).first { return smallPrices(a).replacingOccurrences(of: " ", with: "") }
+        if let r = line.range(of: #"\s(\d)\s*$"#, options: .regularExpression) {
+            return smallPrices("$" + line[r].trimmingCharacters(in: .whitespaces))
+        }
+        return nil
     }
 
     /// The dollar amounts in a line (for tests and checks).

@@ -91,8 +91,8 @@ import Testing
         let draft = Fallback.airplane.kit.items
         let hunt = KitArtPlan.jobs(items: draft, title: "Sky", style: .fullColor, settled: [])
         #expect(hunt.count == 6)                                                 // 5 pages + ONE sheet of 6 cut-outs
-        #expect(hunt.contains { $0.key == "cutouts#sheet" && $0.size == "1536x1024" } && hunt.contains { $0.key == "badge" })
-        #expect(hunt.first { KitArtPlan.isSheet($0.key) }?.prompt.contains("3 columns and 2 rows") == true)
+        #expect(hunt.contains { $0.key == "cutouts#sheet" && $0.size == "1536x1024" } && hunt.contains { $0.key == "badges" })
+        #expect(hunt.first { $0.key == "cutouts#sheet" }?.prompt.contains("3 columns and 2 rows") == true)
         #expect(hunt.allSatisfy { $0.prompt.contains("Full-color") && $0.prompt.hasSuffix(ImageSafety.suffix) })
         // Hunt over with one skip: only the skipped prop's cut-out is new.
         let props = Props(nutmegSays: "", props: [Prop(id: "pot", householdItem: "Pot", becomes: "the big oven", forRole: .all, safetyOK: true, skipped: true),

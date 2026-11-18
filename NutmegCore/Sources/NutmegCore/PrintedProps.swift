@@ -24,7 +24,9 @@ public enum PrintedProps {
         // badges
         "badge", "tag", "nametag", "sticker", "certificate", "license", "licence", "id",
         // other paper things (maps, letters, notes)
-        "map", "letter", "note", "scroll", "invitation", "stamp", "page", "paper", "newspaper", "chart"
+        "map", "letter", "note", "scroll", "invitation", "stamp", "page", "paper", "newspaper", "chart",
+        // round 45: the library's other printables (medals, order slips, clue cards, logbooks, decoders, booklets)
+        "medal", "slip", "clue", "logbook", "decoder", "booklet", "blueprint"
     ]
 
     /// Words that end the head phrase ("map OF the island", "holder FOR the tickets").
@@ -63,9 +65,15 @@ public enum PrintedProps {
             switch item.recipe {
             case .tickets, .money, .menu:
                 if let n = headNoun(item.title) { out.insert(n) }
+                if item.variant == .program { out.insert("program") }   // round 45: a show's printed program
             case .cutouts:
                 for line in item.lines { if let n = headNoun(line) { out.insert(n) } }
-            default: break
+            case .badges?, .sign?, nil: break
+            case let t?:
+                // Round 45: a library printable is this kit's printed thing by its title ("Treasure Map", "Rocket
+                // Controls") and by its kind ("control panel", "log"): a prop may never be one of those in this game.
+                if let n = headNoun(item.title) { out.insert(n) }
+                for w in PrintLibrary.nouns(t) { if let n = headNoun(w) { out.insert(n) } }
             }
         }
         return out.subtracting(["the", "a", "an"])
@@ -80,10 +88,15 @@ public enum PrintedProps {
     }
 
     /// The tool output after a clash: one retry, with the reason.
-    public static func retryOutput(itemID: String, becomes: String, clash: String) -> String {
+    public static func retryOutput(itemID: String, becomes: String, clash: String, kit: [KitItem]? = nil) -> String {
         let name = (PropLibrary.name(itemID) ?? itemID).lowercased()
+        // Round 45: name THIS kit's printables when they're known (the kit is custom per game now).
+        let printed = kit.flatMap { k -> String? in
+            let names = k.compactMap { $0.recipe?.spokenName }
+            return names.isEmpty ? nil : Bookends.list(names)
+        } ?? "the badges, sign, money, tickets or passes, menu and cut-outs"
         return "Not shown: \(becomes) is a paper thing the printed kit makes (the \(clash)), so it can't be a household prop. "
-            + "The kit already prints the badges, sign, money, tickets or passes, menu and cut-outs. Say nothing yet: call the "
+            + "The kit already prints \(printed). Say nothing yet: call the "
             + "same tool again with a prop that is a real household thing for THIS game and is NOT paper or a printout "
             + "(never tickets, passes, money, coins, menus, signs, badges, maps, cards, letters or notes): keep the \(name) "
             + "only if it becomes something else that fits its shape. Add a short reason why it works."

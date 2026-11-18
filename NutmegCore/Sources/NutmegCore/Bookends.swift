@@ -150,6 +150,18 @@ public enum Bookends {
         case .tickets: names = ["ticket", "tickets", "pass", "passes", "keycard", "keycards", "card", "cards", "boarding pass"]
         case .menu: names = ["menu", "menus", "price list", "price lists"]
         case .cutouts: names = ["cut-out", "cut-outs", "cutout", "cutouts", "cut out"] + item.lines
+        // Round 45: the library's other types (their own words only: "card" alone could be any card).
+        case .orderSlips: names = ["order slip", "slip", "order pad"]
+        case .map: names = ["map", "blueprint"]
+        case .clueCards: names = ["clue card", "clue"]
+        case .missionCards: names = ["mission card", "mission", "job card", "quest card", "recipe card"]
+        case .log: names = ["log", "logbook", "chart", "journal", "notes"]
+        case .medals: names = ["medal", "award"]
+        case .stickers: names = ["sticker", "stamp"]
+        case .passport: names = ["passport"]
+        case .labels: names = ["label", "tag", "price tag"]
+        case .decoder: names = ["decoder", "secret code", "code"]
+        case .controlPanel: names = ["control panel", "controls", "dashboard"]
         case nil: break
         }
         let t = item.title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -303,6 +315,18 @@ public enum Bookends {
         case .menu: (short, say) = ("Set out the menu", "put \(label) where everyone can read it")
         case .cutouts: (short, say) = ("Line up the cut-outs", "line up the cut-outs on a table")
         case .badges: (short, say) = ("Put on your badge", "put on your badge")
+        // Round 45: the library's other types, each with its verb job.
+        case .orderSlips: (short, say) = ("Set out the order slips", "set out \(label) by the menu, ready for orders")
+        case .map: (short, say) = ("Lay out the map", "lay \(label) flat where everyone can see the stops")
+        case .clueCards: (short, say) = ("Hide the clue cards", "hide \(label) around the room for the others to find")
+        case .missionCards: (short, say) = ("Stack the mission cards", "stack \(label) face down, ready to draw")
+        case .log: (short, say) = ("Get the log ready", "put \(label) and a crayon where you can write in it")
+        case .medals: (short, say) = ("Set out the medals", "set \(label) aside for the big finish")
+        case .stickers: (short, say) = ("Set out the stickers", "put \(label) in a pile, ready to give out")
+        case .passport: (short, say) = ("Fold the passport", "fold \(label) into a little book")
+        case .labels: (short, say) = ("Put on the labels", "stick \(label) on the things they belong to")
+        case .decoder: (short, say) = ("Get the decoder ready", "put \(label) and a crayon on the table")
+        case .controlPanel: (short, say) = ("Set up the control panel", "set \(label) at the front, ready to press")
         case nil:
             let name = item.prop.map { KitDraft.cutoutLabel(becomes: $0.becomes).lowercased() } ?? label
             (short, say) = (capFirst("set up the \(name)"), "put the \(name) in its spot")
@@ -320,6 +344,17 @@ public enum Bookends {
         case .menu: (short, say) = ("Fold up the menu", "fold up the menu and put it with the pages")
         case .cutouts: (short, say) = ("Stack the cut-outs", "stack the cut-outs in a neat pile")
         case .badges: (short, say) = ("Collect the badges", "take off your badge and put it in the pile")
+        case .orderSlips: (short, say) = ("Collect the order slips", "collect the order slips in a neat pile")
+        case .map: (short, say) = ("Fold up the map", "fold up the map and keep it safe")
+        case .clueCards: (short, say) = ("Collect the clue cards", "find every clue card and stack them up")
+        case .missionCards: (short, say) = ("Stack the mission cards", "stack the mission cards in a neat pile")
+        case .log: (short, say) = ("Put the log away", "put the log with the pages for next time")
+        case .medals: (short, say) = ("Keep your medals", "keep your medals safe with the pages")
+        case .stickers: (short, say) = ("Save the stickers", "put the stickers left over with the pages")
+        case .passport: (short, say) = ("Close the passport", "close the passport and keep it safe")
+        case .labels: (short, say) = ("Take off the labels", "take off the labels and stack them up")
+        case .decoder: (short, say) = ("Put the decoder away", "put the code decoder with the pages")
+        case .controlPanel: (short, say) = ("Power down the panel", "switch off the control panel and lay it flat")
         case nil:
             let thing = (item.prop?.householdItem ?? "prop").lowercased()
             (short, say) = ("Put the \(thing) away", "put the \(thing) back where it lives")
@@ -516,6 +551,8 @@ public enum Bookends {
         case .menu: full = "menu"
         case .cutouts: full = "cut-outs"
         case .badges: full = "badges"
+        case .decoder?: full = "decoder"
+        case let t?: full = t.spokenName
         case nil:
             let p = item.prop
             full = (cleanup ? p?.householdItem : p.map { KitDraft.cutoutLabel(becomes: $0.becomes) })?.lowercased() ?? "prop"

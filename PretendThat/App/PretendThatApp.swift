@@ -7,6 +7,11 @@ struct PretendThatApp: App {
     init() {
         DeviceWord.noun = PTDevice.noun
         GrownUpFont.styleNavigationBars()   // round 39: Poppins titles (only grown-up screens have navigation bars)
+        #if DEBUG
+        // Round 45: render every printable type and layout with fixture art (no AI), then quit.
+        if KitPageGallery.requested { DispatchQueue.main.async { KitPageGallery.renderAll(); exit(0) } }
+        if let game = KitPageGallery.liveKitGame { Task { @MainActor in await KitPageGallery.liveKit(game); exit(0) } }
+        #endif
     }
 
     var body: some SwiftUI.Scene {

@@ -39,14 +39,14 @@ public enum Schemas {
     }
     public static func kit() -> [String: Any] {
         obj(["nutmegSays": str,
+             // Round 45: the type comes from the printables library; the app fixes each type's shape (size, copies,
+             // numbers, layout), so the answer only says what's ON it: title, lines and the pictures to draw.
              "items": nonEmpty(obj(["id": str,
                                "recipe": ["type": "string", "enum": KitRecipe.allCases.map(\.rawValue),
-                                          "description": "Which of the 6 fixed kit item types this is. Use each exactly once, in this order: "
-                                            + KitRecipe.allCases.map(\.rawValue).joined(separator: ", ") + "."],
-                               "kind": enumStr(["card", "sheet"]),
-                               "size": enumStr(["ticket", "badge", "bill", "keycard", "fullPage"]),
-                               "title": str, "symbol": str, "lines": arr(str), "bigNumber": ["type": ["string", "null"]],
-                               "perPlayer": bool, "copies": int, "colorMe": bool,
+                                          "description": "Which printables-library type this is (each type at most once; badges first)."],
+                               "title": str, "symbol": str, "lines": arr(str),
+                               "pictures": ["type": "array", "items": ["type": "string"],
+                                            "description": "The things to draw for it (short noun phrases, never words): one, or one per line for a menu, order slips, clue cards, mission cards, medals, stickers or labels; none for badges, cutouts and the decoder."],
                                // Round 36 (Haylee): every page is used on purpose; the play guide receives it.
                                "purpose": ["type": "string", "description": "ONE short sentence: what the kids do with this page while they play."]])),
              // Round 29 (ensemble scenes): no scene owner and no pictures (the rows show each role's character);

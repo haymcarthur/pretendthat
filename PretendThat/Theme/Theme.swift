@@ -78,6 +78,13 @@ enum Theme {
     static let printInk = Color.black
     static let printPaper = Color.white
     static func printFont(_ size: CGFloat) -> Font { .system(size: size, weight: .heavy, design: .rounded) }
+    /// Round 45: the color set's soft fills for the app-drawn cards, ribbons and frames (coral, sunny, lime, sky, lavender,
+    /// peach tints; light enough that black text and lines stay crisp). The outline set fills white instead.
+    static let printTints: [Color] = [Color(hex: 0xFFD9D2), Color(hex: 0xFFF0B3), Color(hex: 0xDDF2C2),
+                                      Color(hex: 0xD4ECF7), Color(hex: 0xE6DDF5), Color(hex: 0xFCE3C4)]
+    /// Round 45: a slightly deeper tint for bands and rims in the color set.
+    static let printBands: [Color] = [Color(hex: 0xFFB4A6), Color(hex: 0xFFE170), Color(hex: 0xBFE58F),
+                                      Color(hex: 0xA9D8EE), Color(hex: 0xCDBDEB), Color(hex: 0xF8C88E)]
 
     // MARK: Type (SF Rounded: black for display, heavy for headlines, bold for body)
     static func displayFont(_ size: CGFloat) -> Font { .system(size: size, weight: .black, design: .rounded) }
