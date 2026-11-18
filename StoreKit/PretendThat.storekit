@@ -74,6 +74,13 @@
           "familyShareable" : false,
           "groupNumber" : 1,
           "internalID" : "6740000004",
+          "introductoryOffer" : {
+            "displayPrice" : "199.99",
+            "internalID" : "6740000014",
+            "numberOfPeriods" : 1,
+            "paymentMode" : "payUpFront",
+            "subscriptionPeriod" : "P1Y"
+          },
           "localizations" : [
             {
               "description" : "30 new games a month. Saved games are free to play again.",
@@ -135,6 +142,13 @@
           "familyShareable" : false,
           "groupNumber" : 2,
           "internalID" : "6740000002",
+          "introductoryOffer" : {
+            "displayPrice" : "99.99",
+            "internalID" : "6740000012",
+            "numberOfPeriods" : 1,
+            "paymentMode" : "payUpFront",
+            "subscriptionPeriod" : "P1Y"
+          },
           "localizations" : [
             {
               "description" : "10 new games a month. Saved games are free to play again.",

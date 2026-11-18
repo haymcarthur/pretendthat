@@ -291,9 +291,17 @@ public struct PlanOffer: Equatable, Sendable, Identifiable {
     public let introMonths: Int
     public let monthly: Decimal
     public let yearly: Decimal
+    /// Round 44 (Haylee, decisions/2026-11-17-yearly-intro-sonnet.md): the yearly plan's first year, paid up front
+    /// (App Store Connect: an introductory offer, "Pay up front, 1 year", new subscribers), then `yearly`.
+    public let yearlyIntro: Decimal
 
-    /// What's billed first: the intro price for monthly, the yearly price for yearly.
-    public func price(_ period: BillingPeriod) -> Decimal { period == .monthly ? monthlyIntro : yearly }
+    /// What's billed first: the intro price (12 months monthly, or the first year).
+    public func price(_ period: BillingPeriod) -> Decimal { period == .monthly ? monthlyIntro : yearlyIntro }
+
+    /// The first year's wording: "$99.99 for the first year, then $149.99/year".
+    public var yearlyIntroText: String {
+        "\(PlanCatalog.dollars(yearlyIntro)) for the first year, then \(PlanCatalog.dollars(yearly))/year"
+    }
 
     /// The billed price, the most prominent number (3.1.2): "$9.99/month", "$149.99/year".
     public func billedText(_ period: BillingPeriod) -> String {
@@ -311,15 +319,14 @@ public struct PlanOffer: Equatable, Sendable, Identifiable {
     }
 
     /// The line under the big price: monthly → "for your first 12 months, then $14.99/month" (the renewal price, in
-    /// body text); yearly → "about $12.50 a month · save 17%" (smaller, subordinate to the billed price).
+    /// body text); yearly → "about $8.33 a month the first year" (the intro year, subordinate to the billed price).
     public func detailText(_ period: BillingPeriod) -> String {
         switch period {
         case .monthly:
             return "for your first \(introMonths) months, then \(PlanCatalog.dollars(monthly))/month"
         case .yearly:
-            let perMonth = NSDecimalNumber(decimal: yearly).doubleValue / 12
-            let save = 1 - NSDecimalNumber(decimal: yearly).doubleValue / (NSDecimalNumber(decimal: monthly).doubleValue * 12)
-            return String(format: "about $%.2f a month · save %d%%", perMonth, Int((save * 100).rounded()))
+            let perMonth = NSDecimalNumber(decimal: yearlyIntro).doubleValue / 12
+            return String(format: "about $%.2f a month the first year", perMonth)
         }
     }
 
@@ -339,11 +346,13 @@ public enum PlanCatalog {
     public static let introMonths = 12
     public static var showPass: PlanOffer {
         PlanOffer(id: "showpass", name: "Show Pass", newShowsPerMonth: showPassShows, monthlyIntro: Decimal(string: "9.99")!,
-                  introMonths: introMonths, monthly: Decimal(string: "14.99")!, yearly: Decimal(string: "149.99")!)
+                  introMonths: introMonths, monthly: Decimal(string: "14.99")!, yearly: Decimal(string: "149.99")!,
+                  yearlyIntro: Decimal(string: "99.99")!)
     }
     public static var seasonPass: PlanOffer {
         PlanOffer(id: "seasonpass", name: "Season Pass", newShowsPerMonth: seasonPassShows, monthlyIntro: Decimal(string: "19.99")!,
-                  introMonths: introMonths, monthly: Decimal(string: "29.99")!, yearly: Decimal(string: "299.99")!)
+                  introMonths: introMonths, monthly: Decimal(string: "29.99")!, yearly: Decimal(string: "299.99")!,
+                  yearlyIntro: Decimal(string: "199.99")!)
     }
     public static var offers: [PlanOffer] { [showPass, seasonPass] }
 

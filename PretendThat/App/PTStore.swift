@@ -183,8 +183,9 @@ struct PlanPrice {
         } else {
             loaded = false
             regular = PlanCatalog.dollarsText(period == .monthly ? offer.monthly : offer.yearly)
-            intro = period == .monthly ? PlanCatalog.dollarsText(offer.monthlyIntro) : nil
-            introPeriods = period == .monthly ? offer.introMonths : 0
+            // Round 44: yearly has an intro too (the first year, paid up front).
+            intro = PlanCatalog.dollarsText(period == .monthly ? offer.monthlyIntro : offer.yearlyIntro)
+            introPeriods = period == .monthly ? offer.introMonths : 1
         }
         eligible = purchases.introEligible
     }

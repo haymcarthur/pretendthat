@@ -273,7 +273,7 @@ public enum PriceText {
     public static func introThen(regular: String, intro: String?, introPeriods: Int, eligible: Bool, period: BillingPeriod) -> String? {
         guard eligible, intro != nil, introPeriods > 0 else { return nil }
         let u = unit(period)
-        let n = introPeriods == 1 ? "1 \(u)" : "\(introPeriods) \(u)s"
+        let n = introPeriods == 1 ? "the first \(u)" : "\(introPeriods) \(u)s"
         return "for \(n), then \(regular)/\(u)"
     }
 
@@ -294,7 +294,7 @@ public enum PriceText {
         let u = shortUnit(period)
         guard eligible, let intro, introPeriods > 0 else { return ("\(regular)/\(u)", nil) }
         let long = unit(period)
-        let n = introPeriods == 1 ? "1 \(long)" : "\(introPeriods) \(long)s"
+        let n = introPeriods == 1 ? "the first \(long)" : "\(introPeriods) \(long)s"
         return ("\(intro)/\(u)", "for \(n), then \(regular)/\(u)")
     }
 

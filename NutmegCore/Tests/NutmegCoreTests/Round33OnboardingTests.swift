@@ -188,16 +188,16 @@ final class FakeDefaults: OnboardingDefaults {
         #expect(PlanCatalog.freePreviewShows == 2)
         #expect(PlanCatalog.defaultPeriod == .monthly)
         #expect(PlanCatalog.showPass.newShowsPerMonth == 10 && PlanCatalog.seasonPass.newShowsPerMonth == 30)
-        // Haylee's pricing (2026-11-16): an intro price for 12 months, then the regular price; yearly at the regular rate.
+        // Haylee's pricing (2026-11-16): an intro price for 12 months, then the regular price. Round 44: yearly has a first-year intro.
         #expect(PlanCatalog.showPass.billedText(.monthly) == "$9.99/month")
         #expect(PlanCatalog.showPass.introOfferText == "$9.99/month for 12 months, then $14.99/month")
         #expect(PlanCatalog.showPass.detailText(.monthly) == "for your first 12 months, then $14.99/month")
-        #expect(PlanCatalog.showPass.billedText(.yearly) == "$149.99/year")
+        #expect(PlanCatalog.showPass.billedText(.yearly) == "$99.99/year")
         #expect(PlanCatalog.seasonPass.billedText(.monthly) == "$19.99/month")
         #expect(PlanCatalog.seasonPass.introOfferText == "$19.99/month for 12 months, then $29.99/month")
-        #expect(PlanCatalog.seasonPass.billedText(.yearly) == "$299.99/year")
-        #expect(PlanCatalog.showPass.detailText(.yearly) == "about $12.50 a month · save 17%")
-        #expect(PlanCatalog.seasonPass.detailText(.yearly) == "about $25.00 a month · save 17%")
+        #expect(PlanCatalog.seasonPass.billedText(.yearly) == "$199.99/year")
+        #expect(PlanCatalog.showPass.detailText(.yearly) == "about $8.33 a month the first year")
+        #expect(PlanCatalog.seasonPass.detailText(.yearly) == "about $16.67 a month the first year")
         // Config values: the cards read the caps.
         #expect(PlanCatalog.seasonPass.showsText == "\(PlanCatalog.seasonPassShows) new games a month")
         // Never "Unlimited" as a plan name; never "trial".

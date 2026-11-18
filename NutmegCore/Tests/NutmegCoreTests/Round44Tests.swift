@@ -66,6 +66,31 @@ import Testing
         }
     }
 
+    @Test func yearlyPlansHaveAFirstYearIntroPrice() throws {
+        #expect(PlanCatalog.showPass.yearlyIntro == Decimal(string: "99.99") && PlanCatalog.showPass.yearly == Decimal(string: "149.99"))
+        #expect(PlanCatalog.seasonPass.yearlyIntro == Decimal(string: "199.99") && PlanCatalog.seasonPass.yearly == Decimal(string: "299.99"))
+        #expect(PlanCatalog.showPass.yearlyIntroText == "$99.99 for the first year, then $149.99/year")
+        #expect(PlanCatalog.seasonPass.yearlyIntroText == "$199.99 for the first year, then $299.99/year")
+        // Cheaper than a year of the monthly intro ($119.88 / $239.88), as Haylee intended.
+        for o in PlanCatalog.offers { #expect(o.yearlyIntro < o.monthlyIntro * 12) }
+        // The paywall's price lines (StoreKit's pay-up-front offer = 1 period).
+        #expect(PriceText.full(regular: "$149.99", intro: "$99.99", introPeriods: 1, eligible: true, period: .yearly)
+                == "$99.99/year for the first year, then $149.99/year")
+        #expect(PriceText.full(regular: "$149.99", intro: "$99.99", introPeriods: 1, eligible: false, period: .yearly) == "$149.99/year")
+        let row = PriceText.rowParts(regular: "$299.99", intro: "$199.99", introPeriods: 1, eligible: true, period: .yearly)
+        #expect(row.amount == "$199.99/yr" && row.then == "for the first year, then $299.99/yr")
+        // The .storekit file has the same offers: pay up front, 1 year.
+        let root = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: Self.storeKitURL)) as? [String: Any])
+        let subs = try #require(((root["subscriptionGroups"] as? [[String: Any]])?.first)?["subscriptions"] as? [[String: Any]])
+        for (id, intro, regular) in [(StoreProducts.showPassYearly, "99.99", "149.99"), (StoreProducts.seasonPassYearly, "199.99", "299.99")] {
+            let s = try #require(subs.first { $0["productID"] as? String == id })
+            let o = try #require(s["introductoryOffer"] as? [String: Any])
+            #expect(s["displayPrice"] as? String == regular)
+            #expect(o["displayPrice"] as? String == intro && o["paymentMode"] as? String == "payUpFront")
+            #expect(o["subscriptionPeriod"] as? String == "P1Y" && o["numberOfPeriods"] as? Int == 1)
+        }
+    }
+
     @Test func storeKitFileMatchesStoreProducts() throws {
         let data = try Data(contentsOf: Self.storeKitURL)
         let root = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
