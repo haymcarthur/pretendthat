@@ -208,11 +208,16 @@ struct RootView: View {
                     .transition(.opacity)
                     .zIndex(19)
             }
-            // Round 39: "sounds like a game you have" (Pick confirm). (Round 41: the kit-time bookshelf moment is gone.)
-            if let g = model.soundsLike {
-                PTSoundsLikeCard(game: g, cover: model.cover(for: g),
-                                 onReplay: { model.chooseSavedInstead() }, onNew: { model.chooseNewGame() })
-                    .transition(.opacity)
+            // Round 39: "sounds like a game you have" (Pick confirm). 2026-11-18 (Haylee's device testing): just above
+            // the control bar, never over it (the mic stays free for a spoken answer). Hidden while the iPhone's chat
+            // shelf takes the bottom (her question stands; closing the chat brings it back).
+            if let g = model.soundsLike, !(metrics.isPhone && chatOpen) {
+                PTSoundsLikeOffer(game: g, cover: model.cover(for: g),
+                                  onReplay: { model.chooseSavedInstead() }, onNew: { model.chooseNewGame() })
+                    .padding(.bottom, metrics.pillBottom + metrics.pillHeight + (metrics.isPhone ? Theme.Space.s : Theme.Space.m))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    .ignoresSafeArea(.keyboard)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                     .zIndex(18)
             }
             if confirmLeave {

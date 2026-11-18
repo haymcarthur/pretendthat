@@ -316,7 +316,8 @@ final class AppModel {
     /// The planning phases run as a voice conversation while the Realtime session is up.
     var inConversation: Bool {
         if forceConversation { return planningNow }
-        guard realtime.status == .live || realtime.status == .connecting else { return false }
+        // 2026-11-18: a silent reconnect (or the foreground ping) keeps the conversation stage (no flip to the tap screens).
+        guard realtime.status == .live || realtime.status == .connecting || resuming else { return false }
         return planningNow
     }
 
@@ -583,6 +584,8 @@ final class AppModel {
         let screened = gate.screen([text], kind: .kidText)
         if let verdict = screened.local { steer(verdict); return }
         realtime.markTrace("checked")
+        // 2026-11-18: "sounds like a game you have" is up: the answer is read here, on the device (nothing is sent).
+        if soundsLike != nil { answerSoundsLike(text); return }
         if live {
             let itemID = "kid_" + UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(24).lowercased()
             if let t = screened.ticket { screenedTurns[t.id] = (text, itemID) }
@@ -1265,6 +1268,7 @@ final class AppModel {
     func huntReply(found: Bool) {
         realtime.beginTrace("tap")
         // Round 25: only while the hunt is on (a stray tap after it ended re-ran finish_planning and remade the kit).
+        if !realtime.isLive { bringVoiceBackIfNeeded("prop tap") }   // 2026-11-18: never a dead tap
         guard realtime.isLive, store.huntActive, let p = store.props?.props.first(where: { $0.id == store.currentPropID }) else { return }
         let name = p.householdItem.lowercased()
         let count = store.props?.props.count ?? 0
@@ -1498,10 +1502,18 @@ final class AppModel {
             // In-flight kit requests (Claude kit, page art) get time to finish; failures are retried on return.
             if store.phase == .makingKit || (store.phase == .kitReady && (!kitFinal || store.guidePending)) { beginKitBackgroundTask() }
         case .active:
-            rtLog("scene: active (phase \(store.phase), step \(store.planningStep))")
+            rtLog("scene: active (phase \(store.phase), step \(store.planningStep), voice \(realtime.status))")
             updateIdleTimer()
             endKitBackgroundTask()
-            if realtime.suspended { Task { await resumeSession() } }
+            // 2026-11-18 (Haylee's device testing: after idle / lock, taps and the mic did nothing): the voice comes
+            // back whichever way it was lost (suspended → resume; failed or dropped while away → reconnect, with
+            // retries), and her speaker's engine is restarted (a held engine on a replay was never restarted).
+            switch foregroundRecovery {
+            case .resume: Task { await resumeSession() }
+            case .reconnect: Task { await reconnectSilently() }
+            case .none: break
+            }
+            if !realtime.suspended { speaker.recover("foreground") }
             retryKitIfNeeded()
             if writingOnScreen { scribble.setPlaying(true, ducked: isSpeaking) }
             cloudSync?.appBecameActive()   // round D4: games saved or deleted on another device
@@ -1518,8 +1530,29 @@ final class AppModel {
         }
     }
 
+    /// What the foreground does for the voice (`ForegroundRecovery`, NutmegCore).
+    var foregroundRecovery: ForegroundRecovery {
+        ForegroundRecovery.decide(suspended: realtime.suspended, live: realtime.isLive, connecting: realtime.status == .connecting,
+                                  gameHadVoice: hasRealtime && gameVoice != nil, inGame: Self.wasLive(store.phase), busy: resuming,
+                                  offlineReplay: store.isReplay && !network.online)
+    }
+
+    /// The voice should be up but isn't (failed, or dropped and the reconnect gave up): a kid's tap or mic press starts
+    /// a silent reconnect instead of doing nothing (2026-11-18). True when it did.
+    @discardableResult
+    func bringVoiceBackIfNeeded(_ why: String) -> Bool {
+        guard foregroundRecovery == .reconnect else { return false }
+        rtLog("voice down (\(realtime.status)) at \(why): reconnecting silently")
+        Task { await reconnectSilently() }
+        return true
+    }
+
     private func resumeSession() async {
-        if await realtime.resumeIfAlive() {
+        guard !resuming else { return }
+        resuming = true   // the mic shows "connecting" while the ping runs (no press into a stopped engine)
+        let alive = await realtime.resumeIfAlive()
+        resuming = false
+        if alive {
             flushDeferredLine()
             return
         }
@@ -1528,13 +1561,28 @@ final class AppModel {
 
     /// Reconnects with the CURRENT game in the instructions (step, choices, current prop, kit, latest lines). No kick-off:
     /// no greeting, no repeated question, no new suggestions; she waits for the kid.
+    /// 2026-11-18 (device testing): a failed try is retried a few times (`ReconnectBackoff`: the network or the audio
+    /// session is often not ready the moment the phone unlocks); before, one failure left the game with no voice.
     func reconnectSilently() async {
-        guard let auth = realtimeAuth, store.phase != .hello, !resuming else { return }
-        // At most one attempt every 5 s (a dead network must not loop).
-        if Date().timeIntervalSince(lastReconnect) < 5 { try? await Task.sleep(for: .seconds(5)) }
-        lastReconnect = Date()
+        guard realtimeAuth != nil, store.phase != .hello, !resuming else { return }
         resuming = true
         defer { resuming = false }
+        // At most one attempt every 5 s across calls (a dead network must not loop).
+        if Date().timeIntervalSince(lastReconnect) < 5 { try? await Task.sleep(for: .seconds(5)) }
+        var attempt = 0
+        while let wait = ReconnectBackoff.delay(before: attempt) {
+            if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
+            guard store.phase != .hello, UIApplication.shared.applicationState != .background else { return }
+            if realtime.isLive && !realtime.suspended { return }   // came back meanwhile
+            if await reconnectOnce(attempt: attempt) { return }
+            attempt += 1
+        }
+        rtLog("reconnect: gave up after \(attempt) tries (the next tap, mic press or foreground tries again)")
+    }
+
+    private func reconnectOnce(attempt: Int) async -> Bool {
+        guard let auth = realtimeAuth else { return false }
+        lastReconnect = Date()
         let ctx = ResumeContext(store: store, transcript: realtime.transcript)
         rtLog("reconnect: silent, step \(store.planningStep), phase \(store.phase), \(ctx.recent.count) recent lines, no kick-off")
         // Round 13: exactly the voice this game started with (never a changed setting or a default).
@@ -1546,9 +1594,9 @@ final class AppModel {
         let ok = await realtime.connect(auth: auth, config: config, echoCancel: Self.echoCancel,
                                         instructions: Realtime.instructions, keepChat: true)
         if ok { realtime.addNote(store.isReplay ? Realtime.systemNote(replayNote) : Realtime.resumeNote(todayGames: todayGames, context: ctx)) }
-        guard store.phase != .hello else { realtime.disconnect(); return }   // left meanwhile
-        rtLog("reconnect: \(ok ? "live" : "failed")")
-        guard ok else { return }
+        guard store.phase != .hello else { realtime.disconnect(); return true }   // left meanwhile
+        rtLog("reconnect (try \(attempt + 1)): \(ok ? "live" : "failed")")
+        guard ok else { return false }
         // Session-side per-turn state starts fresh; the game's state carries over.
         realtime.micWanted = true
         realtime.huntMode = store.huntActive
@@ -1558,6 +1606,7 @@ final class AppModel {
         startDozeWatch()
         resuming = false
         flushDeferredLine()
+        return true
     }
 
     private func flushDeferredLine() {
@@ -1812,16 +1861,36 @@ final class AppModel {
         playSavedGame(g)
     }
 
-    /// The kids tapped "make a new one": their yes to the recap stands, the roles come next.
-    func chooseNewGame() {
+    /// The kids tapped "make a new one" (or said it): their yes to the recap stands, the roles come next.
+    func chooseNewGame(kidLine: String = "Let's make a new one!") {
         guard soundsLike != nil else { return }
         soundsLike = nil
         userAction(.confirmYes)
         rtLog("SOUNDS LIKE: the kids want a new game")
         Task { @MainActor in
             _ = await store.apply(.confirmPlan)
-            realtime.tapTurn(kidLine: "Let's make a new one!", note: ShelfLines.newGameNote(playerCount: max(1, store.playerCount)),
+            realtime.tapTurn(kidLine: kidLine, note: ShelfLines.newGameNote(playerCount: max(1, store.playerCount)),
                              requiring: nil, speakWithTools: true)
+        }
+    }
+
+    /// 2026-11-18 (Haylee's device testing): the kids answered her question out loud (or typed). Read on the device
+    /// (`SavedOrNew`, no AI call): the saved game, a new game, or unclear (her one fixed "tap the picture…" line).
+    private func answerSoundsLike(_ text: String) {
+        guard let g = soundsLike else { return }
+        let answer = SavedOrNew.decide(text, savedTitle: g.title)
+        rtLog("SOUNDS LIKE: spoken answer → \(answer)")
+        realtime.endThinking()
+        switch answer {
+        case .saved:
+            realtime.showKidLine(text)
+            chooseSavedInstead()
+        case .new:
+            chooseNewGame(kidLine: text)
+        case .unclear:
+            realtime.showKidLine(text)
+            speaker.remember(ShelfLines.soundsLikeAgain)
+            speaker.say(ShelfLines.soundsLikeAgain, record: false)
         }
     }
 
@@ -2196,7 +2265,8 @@ final class AppModel {
     /// typing takes over. Never any audio fallback.
     enum MicState { case idle, listening, disabled, unavailable }
     var micState: MicState {
-        if realtime.status == .connecting { return .disabled }
+        // 2026-11-18: also while the voice comes back after a lock (the ping, a silent reconnect): gray, not a dead press.
+        if realtime.status == .connecting || resuming { return .disabled }
         if realtime.isLive {
             // Round 7: never disabled in a live session (only while connecting): print step and play take voice too.
             if !listener.available { return .unavailable }
@@ -2221,6 +2291,7 @@ final class AppModel {
             rtLog("mic: can't listen on this iPad (\(listener.readiness)): grown-up note + typing")
             return
         }
+        if bringVoiceBackIfNeeded("mic") { return }   // 2026-11-18: the voice went away (the mic shows connecting now)
         let t0 = CACurrentMediaTime()
         if realtime.isLive { userAction(.micPressed); realtime.beginTalk(touchHost: touchHost) }
         else { micPressed(touchHost: touchHost) }
