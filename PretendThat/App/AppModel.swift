@@ -158,8 +158,9 @@ final class AppModel {
         if noAI { images = nil }
         #endif
         let limiter = AsyncLimiter(limit: KitArtService.concurrency)   // round 27: one limiter for both sets + the cover
-        colorArt = KitArtService(client: images, style: .fullColor, limiter: limiter)
-        outlineArt = KitArtService(client: images, style: .colorIn, limiter: limiter)
+        let board = WordCheckBoard()   // round 47: the outline set reads the color set's word checks
+        colorArt = KitArtService(client: images, style: .fullColor, limiter: limiter, board: board)
+        outlineArt = KitArtService(client: images, style: .colorIn, limiter: limiter, board: board)
         coverArt = CoverArtService(client: images, limiter: limiter)
         stickers = ItemArtService(client: images)
         var rtAuth = RealtimeAuth.from(info: info)

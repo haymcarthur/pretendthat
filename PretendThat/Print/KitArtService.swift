@@ -12,7 +12,8 @@ import NutmegCore
 /// Round 27 (Haylee): one service PER STYLE (the full-color set and the outline set are both drawn during the hunt),
 /// sharing one limiter so the whole game stays at most 3 image calls at once.
 /// Round 47 (Haylee): the per-player pages (badges, tickets) are drawn once for all 6 players and cut apart into their
-/// pieces (`SheetCells`), so any count prints its first N pieces with the AI's own look and never draws again.
+/// pieces (`SheetCells`), so any count prints its first N pieces with the AI's own look and never draws again. The
+/// outline set checks a page's words only when the color set's same page missed (`OutlineWordCheck`, `WordCheckBoard`).
 @Observable @MainActor
 final class KitArtService {
     /// Page images by art key (`KitPage.artKey`: the item id, `badges@all`, `tickets@all`, `cutouts#more`; a round 46
@@ -35,8 +36,11 @@ final class KitArtService {
     /// Round 46: the color set draws the kit's character sheet (one per kit).
     var drawsCharacters: Bool { style == .fullColor }
 
-    init(client: ImageClient?, style: PrintStyle, limiter: AsyncLimiter) {
-        self.client = client; self.style = style; self.limiter = limiter
+    /// Round 47: shared by the color and outline sets (the outline set reads the color set's word checks).
+    @ObservationIgnored let board: WordCheckBoard
+
+    init(client: ImageClient?, style: PrintStyle, limiter: AsyncLimiter, board: WordCheckBoard) {
+        self.client = client; self.style = style; self.limiter = limiter; self.board = board
     }
 
     var isAvailable: Bool { client != nil }
@@ -47,6 +51,7 @@ final class KitArtService {
     @ObservationIgnored private var generation = 0
     func reset() {
         generation += 1; images = [:]; cutouts = [:]; pieces = [:]; isGenerating = false; progress = 0; finished = false
+        if style == .fullColor { board.reset() }
         drawnFor = nil; inFlight = []; failed = []; retriedAfterAway = []; finalItems = nil; landedAt = [:]
         context = nil; finishedAt = nil; wordChecks = [:]
         #if DEBUG
@@ -268,6 +273,25 @@ final class KitArtService {
         await Task.detached(priority: .utility) { PageOCR.check(page, words: words) }.value
     }
 
+    /// Round 47: whether to check this page's words (the outline set waits for the color set's first check of the same
+    /// page; at most 3 minutes, then it keeps its drawing).
+    private func shouldCheck(_ job: KitArtJob, gen: Int) async -> Bool {
+        guard !job.words.isEmpty else { return false }
+        let start = Date()
+        while true {
+            guard gen == generation else { return false }
+            switch OutlineWordCheck.action(style: style, colorMissed: board.colorMissed[job.key], colorSettled: board.colorSettled.contains(job.key)) {
+            case .check: return true
+            case .keep:
+                NSLog("[RT] kit art words %@ (%@): not read (the color page read fine)", job.key, style.toolValue)
+                return false
+            case .wait:
+                if Date().timeIntervalSince(start) > 180 { return false }
+                try? await Task.sleep(for: .milliseconds(250))
+            }
+        }
+    }
+
     private func launch(_ jobs: [KitArtJob], client: ImageClient) {
         let gen = generation, style = style
         isGenerating = isGenerating || !jobs.isEmpty
@@ -287,9 +311,13 @@ final class KitArtService {
                 var check: (PageWordCheck.Result, [String])?
                 if case .success(let data) = result { (decoded, cut) = await Self.decode(data, job: job, style: style) }
                 guard gen == self.generation else { return }   // a remade kit: this old page is dropped
-                if let page = decoded.first, !job.isSheet, !job.words.isEmpty {
+                // Round 47: the color set always reads its page; the outline set only when the color page missed.
+                if let page = decoded.first, !job.isSheet, await self.shouldCheck(job, gen: gen) {
                     check = await Self.read(page, words: job.words)
                     guard gen == self.generation else { return }
+                }
+                if self.style == .fullColor, !job.isSheet, !job.words.isEmpty {
+                    if let (first, _) = check { self.board.colorMissed[job.key] = !first.ok }
                 }
                 // Round 46: a word really missing or misspelled: the page is redrawn ONCE and the better one kept.
                 if let (first, read) = check, let firstImage = decoded.first {
@@ -329,6 +357,7 @@ final class KitArtService {
                     self.wordChecks[job.key] = log
                 }
                 self.inFlight.remove(job.key)
+                if self.style == .fullColor, self.board.colorMissed[job.key] == nil { self.board.colorSettled.insert(job.key) }
                 switch result {
                 case .success:
                     if job.isSheet {
@@ -458,6 +487,16 @@ enum SheetCutter {
         guard pieces.count == expected else { return nil }
         return SheetPieces(images: pieces, columns: grid.columns, sheetSize: CGSize(width: cg.width, height: cg.height))
     }
+}
+
+/// Round 47: the color set's first word check of each page, for the outline set (Haylee's option b: an outline page is
+/// read only when its color page missed). Page keys only.
+@MainActor final class WordCheckBoard {
+    /// Page key → the color page's first drawing missed a word.
+    var colorMissed: [String: Bool] = [:]
+    /// Color pages done without a check (they failed, or had no words to read).
+    var colorSettled: Set<String> = []
+    func reset() { colorMissed = [:]; colorSettled = [] }
 }
 
 /// Round 29 (Haylee, ensemble scenes): an older game's scene row character: the illustration between a badge slice's two

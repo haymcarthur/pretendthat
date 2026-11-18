@@ -4,7 +4,7 @@ import Testing
 
 /// Round 47 (Haylee, decisions/2026-11-17-round47.md): the per-player pages (badges, tickets) are drawn ONCE for all 6
 /// players as a strict grid; the app cuts out the first N pieces for the count the kids chose (`SheetCells`), so a
-/// replay with any count reuses the same art.
+/// replay with any count reuses the same art. An outline page's words are read only when its color page missed.
 @MainActor struct Round47Tests {
     let a = Fallback.airplane(playerCount: 4)
     var roles: [Role] { a.plan.roles }
@@ -272,5 +272,19 @@ import Testing
         // A round 47 game's keys round-trip.
         #expect(ArtKey.parse("img:badges@all", plain: .fullColor)! == ("badges@all", nil, .fullColor))
         #expect(ArtKey.parse("oimg:tickets@all", plain: .fullColor)! == ("tickets@all", nil, .colorIn))
+    }
+
+    // MARK: 5. The outline word check (Haylee's option b)
+
+    @Test func anOutlinePageIsReadOnlyWhenItsColorPageMissed() {
+        typealias A = OutlineWordCheck.Action
+        // The color set always reads its pages.
+        for missed in [nil, true, false] as [Bool?] {
+            #expect(OutlineWordCheck.action(style: .fullColor, colorMissed: missed, colorSettled: false) == .check)
+        }
+        #expect(OutlineWordCheck.action(style: .colorIn, colorMissed: true, colorSettled: false) == A.check)
+        #expect(OutlineWordCheck.action(style: .colorIn, colorMissed: false, colorSettled: false) == A.keep)
+        #expect(OutlineWordCheck.action(style: .colorIn, colorMissed: nil, colorSettled: false) == A.wait)
+        #expect(OutlineWordCheck.action(style: .colorIn, colorMissed: nil, colorSettled: true) == A.keep)   // color failed: no check
     }
 }
