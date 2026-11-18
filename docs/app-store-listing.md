@@ -29,7 +29,7 @@ PLAY, SCENE BY SCENE
 Nutmeg tells a short story, then guides the setup, three play scenes and the clean-up. Each player gets their own part, which they can tap to hear again.
 
 EVERY GAME SAVES ITSELF
-Each new game lands on Nutmeg's bookshelf with its own picture, ready to play again with a different number of players. Saved games sync through your family's own iCloud, so they show up on your other iPads and iPhones.
+Each new game lands on Nutmeg's bookshelf with its own picture. Its printables are yours to view and print anytime, and with a pass you can play it again with Nutmeg for any number of players. Saved games sync through your family's own iCloud, so they show up on your other iPads and iPhones.
 
 MADE FOR FAMILIES
 • No accounts, no ads and no ad tracking
@@ -38,10 +38,10 @@ MADE FOR FAMILIES
 • Purchases and settings sit behind a grown-ups check
 
 PLANS
-Try 2 games free with the Free Preview. Then choose a plan:
-• Show Pass: 10 new games a month
-• Season Pass: 30 new games a month
-Saved games are always free to play again. Each plan is offered monthly or yearly, with an introductory price for new subscribers.
+Try 2 games free, one time, with no subscription needed. Then choose a pass:
+• Show Pass: 5 new games a month
+• Season Pass: 20 new games a month
+Both passes include playing your saved games again with Nutmeg. Printables from every game are always yours to view and print. Each pass is offered monthly or yearly (12 months for the price of 10).
 
 Payment is charged to your Apple Account at confirmation of purchase. Subscriptions renew automatically unless canceled at least 24 hours before the end of the current period, and your account is charged for renewal within 24 hours before the end of the current period. Manage or cancel in your Apple Account settings after purchase.
 
