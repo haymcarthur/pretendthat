@@ -719,13 +719,23 @@ struct PTToyChestScene<Nutmeg: View>: View {
         let side = min(L.size.width, L.size.height)
         let left = L.curtain.visible, span = L.size.width - 2 * L.curtain.visible
         let away = max(0.001, 1 - PTEase.progress(e, X.popAway))
+        // iPhone (Haylee, 2026-11-17: "a star behind the logo"): the tall layout's title card covers the upper sky, so the
+        // stars and sparkles sit in the open sky between the card's bottom and Nutmeg's ears instead.
+        let cardBottom = L.cardTop + (L.logoW * PTLogo.size.height / PTLogo.size.width + 2 * Theme.Space.m) * 1.05
+        let gapTop = cardBottom + side * 0.04, gapBottom = max(L.earsTop - side * 0.02, gapTop + 1)
+        func y(_ frac: CGFloat) -> CGFloat {
+            guard L.phone else { return L.size.height * frac }
+            // Map the iPad's 0.22…0.48 band onto the open sky under the card.
+            let t = min(max((frac - 0.22) / 0.26, 0), 1)
+            return gapTop + (gapBottom - gapTop) * t
+        }
         return ZStack {
             ForEach(Array(spots.enumerated()), id: \.offset) { i, s in
                 Image(s.0).resizable().scaledToFit()
                     .frame(width: side * s.3, height: side * s.3)
                     .rotationEffect(.degrees(s.4))
                     .scaleEffect(away)
-                    .position(x: left + span * s.1, y: L.size.height * s.2)
+                    .position(x: left + span * s.1, y: y(s.2))
             }
         }
         .accessibilityHidden(true)
