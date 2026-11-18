@@ -11,10 +11,16 @@ import NutmegCore
 /// printed app-drawn (round 45's layout) instead. There are no names anywhere (the pages print blank Name lines).
 /// Round 27 (Haylee): one service PER STYLE (the full-color set and the outline set are both drawn during the hunt),
 /// sharing one limiter so the whole game stays at most 3 image calls at once.
+/// Round 47 (Haylee): the per-player pages (badges, tickets) are drawn once for all 6 players and cut apart into their
+/// pieces (`SheetCells`), so any count prints its first N pieces with the AI's own look and never draws again.
 @Observable @MainActor
 final class KitArtService {
-    /// Page images by art key (`KitPage.artKey`: the item id, `badges@N`, `cutouts#more`).
+    /// Page images by art key (`KitPage.artKey`: the item id, `badges@all`, `tickets@all`, `cutouts#more`; a round 46
+    /// replay's `badges@N`).
     private(set) var images: [String: UIImage] = [:]
+    /// Round 47: a per-player sheet's pieces by art key, in reading order (nil while cutting, or when the sheet couldn't
+    /// be cut apart safely: the whole page prints).
+    private(set) var pieces: [String: SheetPieces] = [:]
     /// Slices by sheet id → index: the character sheet (`characters`, color set only), and a replayed older game's
     /// saved slices (round 45's picture sheets, round C1's badge sheet, cut-outs).
     private(set) var cutouts: [String: [Int: UIImage]] = [:]
@@ -40,7 +46,7 @@ final class KitArtService {
     /// Round 19: a remade kit (corrected theme) starts a new generation; results from an older one are dropped.
     @ObservationIgnored private var generation = 0
     func reset() {
-        generation += 1; images = [:]; cutouts = [:]; isGenerating = false; progress = 0; finished = false
+        generation += 1; images = [:]; cutouts = [:]; pieces = [:]; isGenerating = false; progress = 0; finished = false
         drawnFor = nil; inFlight = []; failed = []; retriedAfterAway = []; finalItems = nil; landedAt = [:]
         context = nil; finishedAt = nil; wordChecks = [:]
         #if DEBUG
@@ -55,6 +61,16 @@ final class KitArtService {
         reset()
         self.images = images; self.cutouts = cutouts
         progress = 1; finished = true
+        // Round 47: a replay cuts its saved per-player sheets apart again (the pieces aren't stored; no image call).
+        let gen = generation
+        for (key, image) in images where KitArtPlan.isPerPlayerKey(key) {
+            Task { @MainActor in
+                let cut = await Task.detached(priority: .userInitiated) { SheetCutter.cut(image, expected: RoleCast.count) }.value
+                guard gen == self.generation else { return }
+                if let cut { self.pieces[key] = cut }
+                NSLog("[RT] kit art (%@): replay %@ %@", self.style.toolValue, key, cut == nil ? "not cut apart: the whole page prints" : "cut into \(RoleCast.count) pieces")
+            }
+        }
     }
     /// Round D1: every page image and slice (the character sheet's included) by its stored art key, for Save.
     var artByKey: [String: UIImage] {
@@ -120,7 +136,21 @@ final class KitArtService {
     }
 
     /// Round 46: this page's whole-page image (nil while it's drawing, or when it never came: app-drawn instead).
-    func pageImage(_ page: KitPage) -> UIImage? { images[page.artKey] }
+    /// Round 47: a per-player page's 6-piece sheet, else a round 46 replay's own page (`badges@N`, `tickets`).
+    func pageImage(_ page: KitPage) -> UIImage? {
+        if let img = images[page.artKey] { return img }
+        return page.legacyArtKey.flatMap { images[$0] }
+    }
+    /// Round 47: the pieces this page prints (the first N of its sheet), or nil to print the whole page: not a per-player
+    /// page, a round 46 page, the sheet not cut apart (yet), or every piece is wanted anyway.
+    func pagePieces(_ page: KitPage) -> SheetPieces? {
+        guard let n = page.pieces, images[page.artKey] != nil, let p = pieces[page.artKey], n < p.images.count else { return nil }
+        return p.prefix(n)
+    }
+    /// The view of one printed page of this set.
+    func pageView(_ page: KitPage) -> KitPageView {
+        KitPageView(page: page, art: pageImage(page), cutouts: cutoutImages(page.item), style: style, pieces: pagePieces(page))
+    }
 
     /// This item's art hasn't landed yet (a page with nothing to draw, like the decoder, never waits).
     func isMissing(_ item: KitItem) -> Bool {
@@ -131,7 +161,7 @@ final class KitArtService {
     /// Round 46: one page's art hasn't landed yet.
     func isMissing(_ page: KitPage) -> Bool {
         guard page.item.aiPage, page.item.recipe != .decoder else { return false }
-        return images[page.artKey] == nil && !failed.contains(page.artKey)
+        return pageImage(page) == nil && !failed.contains(page.artKey)
     }
     /// Round 28: role `k`'s own slice of an older game's badge sheet (nil while it isn't drawn).
     func badgeSlice(_ itemID: String, role k: Int) -> UIImage? { cutouts[itemID]?[k] }
@@ -222,15 +252,20 @@ final class KitArtService {
     @ObservationIgnored private(set) var firstDrawings: [String: UIImage] = [:]
     #endif
 
-    /// One drawing, decoded off the main actor: paper-white, then sliced (a sheet) or read for its words (a page).
-    private nonisolated static func decode(_ data: Data, job: KitArtJob, style: PrintStyle) async -> (images: [UIImage], check: (PageWordCheck.Result, [String])?) {
-        await Task.detached(priority: .utility) { () -> ([UIImage], (PageWordCheck.Result, [String])?) in
+    /// One drawing, decoded off the main actor: paper-white, then sliced (the character sheet) or, for a page, cut into
+    /// its pieces (round 47: a per-player sheet; nil when it can't be cut apart safely).
+    private nonisolated static func decode(_ data: Data, job: KitArtJob, style: PrintStyle) async -> (images: [UIImage], pieces: SheetPieces?) {
+        await Task.detached(priority: .utility) { () -> ([UIImage], SheetPieces?) in
             guard let img = UIImage(data: data) else { return ([], nil) }
             let white = PaperWhite.normalize(img, style: job.isSheet ? .fullColor : style)
             if job.isSheet { return (CutoutSlicer.slice(white, columns: job.columns, rows: job.rows, count: job.count), nil) }
             let page = white.preparedForDisplay()
-            return ([page], job.words.isEmpty ? nil : PageOCR.check(page, words: job.words))
+            return ([page], job.pieces > 0 ? SheetCutter.cut(page, expected: job.pieces) : nil)
         }.value
+    }
+    /// A page's word check, off the main actor.
+    private nonisolated static func read(_ page: UIImage, words: [String]) async -> (PageWordCheck.Result, [String]) {
+        await Task.detached(priority: .utility) { PageOCR.check(page, words: words) }.value
     }
 
     private func launch(_ jobs: [KitArtJob], client: ImageClient) {
@@ -248,9 +283,14 @@ final class KitArtService {
                 // Round 21: decode + paper-white + slicing (+ round 46's word check) run OFF the main actor.
                 let result = await draw(job.prompt)
                 var decoded: [UIImage] = []
+                var cut: SheetPieces?
                 var check: (PageWordCheck.Result, [String])?
-                if case .success(let data) = result { (decoded, check) = await Self.decode(data, job: job, style: style) }
+                if case .success(let data) = result { (decoded, cut) = await Self.decode(data, job: job, style: style) }
                 guard gen == self.generation else { return }   // a remade kit: this old page is dropped
+                if let page = decoded.first, !job.isSheet, !job.words.isEmpty {
+                    check = await Self.read(page, words: job.words)
+                    guard gen == self.generation else { return }
+                }
                 // Round 46: a word really missing or misspelled: the page is redrawn ONCE and the better one kept.
                 if let (first, read) = check, let firstImage = decoded.first {
                     var log = WordCheck(first: first, firstRead: read, redraw: nil, redrawRead: nil, keptRedraw: false)
@@ -262,7 +302,9 @@ final class KitArtService {
                     if !first.ok {
                         let again = KitPagePrompt.redraw(PagePrompt(prompt: job.prompt, words: job.words), missing: first.missing)
                         if case .success(let d2) = await draw(again.prompt) {
-                            let (images2, check2) = await Self.decode(d2, job: job, style: style)
+                            let (images2, cut2) = await Self.decode(d2, job: job, style: style)
+                            guard gen == self.generation else { return }
+                            let check2 = images2.first == nil ? nil : await Self.read(images2[0], words: job.words)
                             guard gen == self.generation else { return }
                             if let (second, read2) = check2, let image2 = images2.first {
                                 log.redraw = second; log.redrawRead = read2
@@ -271,7 +313,7 @@ final class KitArtService {
                                     #if DEBUG
                                     self.firstDrawings[job.key] = firstImage
                                     #endif
-                                    decoded = [image2]
+                                    decoded = [image2]; cut = cut2
                                 } else {
                                     #if DEBUG
                                     self.firstDrawings[job.key] = image2   // (the one not kept)
@@ -299,6 +341,10 @@ final class KitArtService {
                         }
                     } else if let image = decoded.first {
                         self.images[job.key] = image
+                        if job.pieces > 0 {
+                            if let cut { self.pieces[job.key] = cut }
+                            NSLog("[RT] kit art (%@): %@ %@", style.toolValue, job.key, cut == nil ? "not cut apart: the whole page prints" : "cut into \(job.pieces) pieces")
+                        }
                         self.landedAt[job.key] = Date()
                     } else { self.failed.insert(job.key) }
                 case .failure(let e):
@@ -379,6 +425,38 @@ enum CutoutSlicer {
             return true
         }
         return ok ? gray : nil
+    }
+}
+
+/// Round 47: a per-player sheet's pieces (badges, tickets) in reading order, cut from the drawn page with any
+/// neighbor's sliver painted white, plus what the app needs to lay the first N on the paper at the page's own scale.
+struct SheetPieces {
+    var images: [UIImage]
+    /// The most pieces in one row of the drawn sheet.
+    var columns: Int
+    /// The drawn page's size in pixels (the pieces print at the scale the whole page would).
+    var sheetSize: CGSize
+    func prefix(_ n: Int) -> SheetPieces { SheetPieces(images: Array(images.prefix(n)), columns: columns, sheetSize: sheetSize) }
+}
+
+/// Round 47: cuts a drawn per-player sheet into its pieces (`SheetCells` finds them), or nil when it can't safely.
+enum SheetCutter {
+    static func cut(_ image: UIImage, expected: Int) -> SheetPieces? {
+        guard let cg = image.cgImage, let gray = CutoutSlicer.grayPixels(cg),
+              let grid = SheetCells.find(gray: gray, width: cg.width, height: cg.height, expected: expected),
+              grid.cells.count == expected else { return nil }
+        let pieces = grid.cells.compactMap { cell -> UIImage? in
+            let r = cell.rect
+            guard let part = cg.cropping(to: CGRect(x: r.x, y: r.y, width: r.width, height: r.height)) else { return nil }
+            let format = UIGraphicsImageRendererFormat(); format.scale = 1; format.opaque = true
+            return UIGraphicsImageRenderer(size: CGSize(width: r.width, height: r.height), format: format).image { c in
+                UIImage(cgImage: part).draw(at: .zero)
+                UIColor.white.setFill()
+                for e in cell.erase { c.fill(CGRect(x: e.x - r.x, y: e.y - r.y, width: e.width, height: e.height)) }
+            }
+        }
+        guard pieces.count == expected else { return nil }
+        return SheetPieces(images: pieces, columns: grid.columns, sheetSize: CGSize(width: cg.width, height: cg.height))
     }
 }
 

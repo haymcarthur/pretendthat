@@ -8,19 +8,20 @@ import Foundation
 // the shortlists and the layout variants stay; a layout variant is now a prompt variant. The app only places each 2:3
 // page image inside the printable area (`PageFit`) and checks its words on the device (`PageWordCheck`).
 
-/// What every page of one kit is drawn for: the game's title and place, the 6 ranked roles and how many kids play (the
-/// badge sheet is drawn for exactly the playing roles).
+/// What every page of one kit is drawn for: the game's title and place, the 6 ranked roles and how many kids play.
+/// Round 47: the per-player pages (badges, tickets) are drawn for all 6 whatever the count; the count only says how
+/// many pieces print.
 public struct KitArtContext: Equatable, Sendable {
     public var title: String
     public var setting: String?
     /// The game's 6 ranked roles (R1…R6).
     public var roles: [Role]
-    /// How many kids play (1 to 6): the badge page shows exactly these roles.
+    /// How many kids play (1 to 6). Round 47: no prompt depends on it (the badge page always shows all 6 roles).
     public var players: Int
     public init(title: String, setting: String? = nil, roles: [Role] = [], players: Int = RoleCast.count) {
         self.title = title; self.setting = setting; self.roles = roles; self.players = min(max(players, 1), RoleCast.count)
     }
-    /// The roles on the badge page (the first N ranked roles).
+    /// The playing roles (the first N ranked roles).
     public var playing: [Role] { RoleCast.playing(roles, kids: players) }
 }
 
@@ -117,31 +118,26 @@ public enum KitPagePrompt {
                           + "especially \(m): each one must be written exactly as quoted and be easy to read.", words: p.words)
     }
 
-    // MARK: 1. Badges (lanyard / round pin / ID card), drawn for exactly the playing roles
+    // MARK: 1. Badges (lanyard / round pin / ID card), drawn for all 6 ranked roles
 
-    static func badgeGrid(_ n: Int, idCard: Bool) -> String {
-        if idCard {
-            switch n {
-            case 1: return "one card centered near the top"
-            case 2: return "1 column of 2"
-            case 3: return "1 column of 3"
-            case 4: return "2 columns and 2 rows"
-            case 5: return "2 columns and 3 rows, the last card centered"
-            default: return "2 columns and 3 rows"
-            }
-        }
-        switch n {
-        case 1: return "one badge centered in the top half"
-        case 2: return "1 row of 2 side by side"
-        case 3: return "3 badges in one row across the top half, or 2 on top and 1 centered below"
-        case 4: return "2 columns and 2 rows"
-        case 5: return "3 on top, 2 below"
-        default: return "3 columns and 2 rows"
-        }
+    /// Round 47 (Haylee): the badge page is drawn ONCE for all 6 ranked roles (in rank order), as a strict grid the app
+    /// cuts apart (`SheetCells`) to print only the first N. Tall lanyard tags sit 3 across; round pins and wide ID
+    /// cards 2 across.
+    public static func badgeGrid(_ v: KitVariant?) -> (columns: Int, rows: Int) {
+        v == .pin || v == .idCard ? (2, 3) : (3, 2)
+    }
+
+    /// Round 47: the strict-grid words every cut-apart sheet shares (equal pieces, even gutters, nothing between them).
+    static func strictGrid(_ n: Int, _ what: String, columns: Int, rows: Int) -> String {
+        "Draw a sheet of exactly \(n) \(what) in a strict grid of \(columns) columns and \(rows) rows, filling the page: every "
+            + "piece exactly the same size and shape, evenly spaced, with equal wide plain white gutters between them and "
+            + "nothing at all drawn in the gutters, each piece whole inside its own cell, never touching or overlapping "
+            + "another piece."
     }
 
     static func badges(_ item: KitItem, _ ctx: KitArtContext, _ h: String) -> PagePrompt {
-        let roles = ctx.playing.isEmpty ? [Role(id: .R1, roleName: "Helper", emoji: "", symbol: "star", job: "help everyone")] : ctx.playing
+        let roles = ctx.roles.isEmpty ? [Role(id: .R1, roleName: "Helper", emoji: "", symbol: "star", job: "help everyone")]
+            : Array(ctx.roles.prefix(RoleCast.count))
         let n = roles.count
         let titles = roles.map { clean($0.roleName) }
         let list = roles.enumerated().map { i, r in
@@ -163,8 +159,9 @@ public enum KitPagePrompt {
                 + "and at the bottom the word \"Name:\" followed by a long blank line to write on"
         }
         let what = item.variant == .idCard ? "ID cards" : item.variant == .pin ? "round name badges" : "lanyard name badges"
-        let prompt = h + " Draw a sheet of exactly \(n) \(what), laid out \(badgeGrid(n, idCard: item.variant == .idCard)), all "
-            + "the same size: \(shape). In order: \(list)."
+        let g: (columns: Int, rows: Int) = n == RoleCast.count ? badgeGrid(item.variant) : (min(n, 2), (n + 1) / 2)
+        let prompt = h + " " + strictGrid(n, what, columns: g.columns, rows: g.rows) + " Each one: \(shape). In order, left to "
+            + "right, top to bottom: \(list)."
             + wordsRule(titles + ["Name:"], " \"Name:\" appears once on every badge (\(n) time\(n == 1 ? "" : "s")).")
             + " Every badge identical in shape and size so they look like a set." + cut + safe
         return PagePrompt(prompt: prompt, words: titles + Array(repeating: "Name:", count: n))
@@ -230,8 +227,9 @@ public enum KitPagePrompt {
 
     // MARK: 4. Tickets (boarding / admission / keycard), a different number on every copy
 
-    /// Eight passes a page, each with its own number (boarding seats 1A…2D, admission 001…008, rooms 101…108).
-    public static let ticketCopies = 8
+    /// Round 47 (Haylee): one pass per player for the most players (6), each with its own number (boarding seats 1A…2B,
+    /// admission 001…006, rooms 101…106), drawn once as a strict 2 × 3 grid; the first N print.
+    public static let ticketCopies = RoleCast.count
 
     /// The per-copy numbers on the ticket page, in order (left to right, top to bottom).
     public static func ticketNumbers(_ item: KitItem) -> [String] {
@@ -276,7 +274,7 @@ public enum KitPagePrompt {
             shape = "wide ticket shapes with notched corners and a perforated stub on the right"
             stub = "on the stub its OWN number"
         }
-        let p = h + " Draw a sheet of exactly \(n) passes in a grid of 2 columns and \(n / 2) rows: \(shape). Each pass shows "
+        let p = h + " " + strictGrid(n, "passes", columns: 2, rows: (n + 1) / 2) + " Each one: \(shape). Each pass shows "
             + "the title \"\(title)\"\(lineText), a small picture of \(pic), and \(stub), a different one on each pass, in this "
             + "order left to right, top to bottom: \(list)."
             + wordsRule([title] + (line.map { [$0] } ?? []) + extra + numbers, " Each number appears on exactly one pass.")
@@ -552,23 +550,5 @@ public enum CharacterSheet {
             + " Just the pictures on plain white paper: no words, no letters, no numbers, no frames, no borders, no badges, no "
             + "banners, no labels and no empty boxes anywhere." + KitPagePrompt.safe
         return p
-    }
-}
-
-// MARK: - Placing a page image on paper
-
-/// Round 46: the model ignores margin requests (its pages run to the image edge), so the app places each 2:3 page image
-/// fitted whole inside the printable area of the paper (never cropped, never stretched), centered. On US Letter (612 ×
-/// 792 pt) with a half-inch margin that is 480 × 720 pt: about 6.7 × 10 inches.
-public enum PageFit {
-    /// Half an inch: inside every home printer's unprintable edge.
-    public static let margin: Double = 36
-
-    public static func rect(image: CGSize, page: CGSize, margin: Double = margin) -> CGRect {
-        let box = CGRect(x: margin, y: margin, width: max(0, page.width - 2 * margin), height: max(0, page.height - 2 * margin))
-        guard image.width > 0, image.height > 0, box.width > 0, box.height > 0 else { return box }
-        let s = min(box.width / image.width, box.height / image.height)
-        let w = image.width * s, h = image.height * s
-        return CGRect(x: box.minX + (box.width - w) / 2, y: box.minY + (box.height - h) / 2, width: w, height: h)
     }
 }

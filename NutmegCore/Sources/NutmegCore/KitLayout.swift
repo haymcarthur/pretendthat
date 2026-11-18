@@ -16,11 +16,16 @@ public struct KitPage: Equatable, Sendable, Identifiable {
     public var item: KitItem
     public var pageIndex: Int
     public var slots: [KitSlot]
-    /// Round 46: the art key of this page's whole-page image (`KitArtPlan.pageKey`: the badge page is drawn for exactly
-    /// its badges, the cut-outs' second page is the skipped props'). Older kits keep the item id.
+    /// Round 46: the art key of this page's whole-page image (`KitArtPlan.pageKey`: the cut-outs' second page is the
+    /// skipped props'). Older kits keep the item id. Round 47: a per-player page's art is the 6-piece sheet
+    /// (`badges@all`, `tickets@all`); this page prints its first `slots.count` pieces.
     public var artKey: String {
-        item.aiPage ? KitArtPlan.pageKey(item, part: pageIndex, players: slots.count) : item.id
+        item.aiPage ? KitArtPlan.pageKey(item, part: pageIndex) : item.id
     }
+    /// Round 47: the key a round 46 game saved this per-player page under (`badges@N`, `tickets`), or nil.
+    public var legacyArtKey: String? { KitArtPlan.legacyKey(item, players: slots.count) }
+    /// Round 47: how many pieces of the per-player sheet this page prints (the playing kids), or nil for other pages.
+    public var pieces: Int? { KitArtPlan.perPlayerSheet(item) ? slots.count : nil }
 }
 
 /// Paginates kit items onto US Letter pages (spec §6): 8 tickets/bills/keycards, 6 badges, or 1 sheet per page.
@@ -65,8 +70,9 @@ public enum KitLayout {
         PrintLibrary.copyNumber(item, index: slot.index)
     }
 
-    /// Round 46: an AI kit prints ONE page per printable, as drawn (the badge page for exactly the playing roles; the
-    /// cut-outs a second page when skipped props were added). The slots are what the app-drawn fallback page prints if
+    /// Round 46: an AI kit prints ONE page per printable, as drawn (the cut-outs a second page when skipped props were
+    /// added). Round 47: a per-player page (badges, tickets) has one slot per playing kid: it prints the first N pieces
+    /// of the sheet drawn for 6. The slots are what the app-drawn fallback page prints if
     /// the art never came (round 45's layout). At most 6 printables + the extra cut-outs page = 7 pages.
     static func aiPages(_ kit: Kit, playing: [Role], kids: Int) -> [KitPage] {
         Array(kit.items.flatMap { item -> [KitPage] in
@@ -75,6 +81,9 @@ public enum KitLayout {
                 let slots = playing.isEmpty ? (0..<kids).map { KitSlot(index: $0) }
                     : playing.enumerated().map { KitSlot(roleID: $0.element.id, index: $0.offset, role: $0.element.roleName) }
                 return [KitPage(item: item, pageIndex: 0, slots: slots)]
+            }
+            if item.recipe == .tickets {
+                return [KitPage(item: item, pageIndex: 0, slots: (0..<min(max(kids, 1), RoleCast.count)).map { KitSlot(index: $0) })]
             }
             let n = item.recipe == .clueCards || item.recipe == .missionCards ? PrintLibrary.copies(item) : cap
             let slots = (0..<max(1, min(n, cap))).map { KitSlot(index: $0) }

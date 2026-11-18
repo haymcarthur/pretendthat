@@ -869,8 +869,7 @@ final class AppModel {
         let art = printArt   // round 27: the chosen set, for the current player count
         if let e = gameStats.printed(store.printSet, players: store.playerCount) { Analytics.send(e) }
         rtLog("print: the \(store.printSet.toolValue) set, \(kitPages.count) page(s)")
-        let pdf = KitPrinter.pdf(pages: kitPages, art: art.images,
-                                 cutouts: Dictionary(uniqueKeysWithValues: (store.kit?.items ?? []).map { ($0.id, art.cutoutImages($0)) }), style: art.style)
+        let pdf = KitPrinter.pdf(pages: kitPages, set: art)
         KitPrinter.print(pdf, jobName: "PretendThat \(store.currentTitle)")
     }
     /// The papers are out (kit final, she looked up, the camera zoomed out).
@@ -932,8 +931,7 @@ final class AppModel {
         // `-PTPDFOut`: write the print-path PDF (exactly what AirPrint gets) to tmp/kit.pdf once the kit is final.
         if final, ProcessInfo.processInfo.arguments.contains("-PTPDFOut") {
             let art = printArt
-            let pdf = KitPrinter.pdf(pages: kitPages, art: art.images,
-                                     cutouts: Dictionary(uniqueKeysWithValues: (store.kit?.items ?? []).map { ($0.id, art.cutoutImages($0)) }), style: art.style)
+            let pdf = KitPrinter.pdf(pages: kitPages, set: art)
             try? pdf.write(to: FileManager.default.temporaryDirectory.appendingPathComponent("kit.pdf"))
         }
         #endif

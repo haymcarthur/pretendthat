@@ -167,7 +167,7 @@ enum KitPageGallery {
             var thumbs: [(String, UIImage)] = []
             for set in [color, outline] {
                 for (n, page) in pages.enumerated() {
-                    let r = ImageRenderer(content: KitPageView(page: page, art: set.pageImage(page), cutouts: set.cutoutImages(page.item), style: set.style))
+                    let r = ImageRenderer(content: set.pageView(page))
                     r.scale = 1.5
                     guard let img = r.uiImage else { continue }
                     let name = "\(set.style.toolValue)-\(n + 1)-\(ArtKey.fileName(page.artKey).replacingOccurrences(of: ".heic", with: ""))"

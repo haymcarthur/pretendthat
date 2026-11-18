@@ -86,9 +86,12 @@ public struct KitArtJob: Equatable, Sendable {
     public let words: [String]
     /// A sheet's grid (columns × rows); 0 for a page.
     public let columns: Int, rows: Int
-    public init(key: String, prompt: String, size: String, count: Int = 1, words: [String] = [], columns: Int = 0, rows: Int = 0) {
+    /// Round 47: a per-player page's pieces (6 badges, 6 tickets), cut apart so only the first N print; 0 for others.
+    public let pieces: Int
+    public init(key: String, prompt: String, size: String, count: Int = 1, words: [String] = [], columns: Int = 0, rows: Int = 0,
+                pieces: Int = 0) {
         self.key = key; self.prompt = prompt; self.size = size; self.count = count; self.words = words
-        self.columns = columns; self.rows = rows
+        self.columns = columns; self.rows = rows; self.pieces = pieces
     }
     public var isSheet: Bool { KitArtPlan.isSheet(key) }
 }
@@ -103,11 +106,27 @@ public enum KitArtPlan {
     /// The character sheet's job key (its slices are stored as `characters#k`).
     public static let characterKey = sheetKey(CharacterSheet.id)
 
-    /// The art key of one page of an item: the item id; the badge page for N kids is `badges@N` (a different count is a
-    /// different page); the cut-outs' extra page for skipped props is `cutouts#more`.
-    public static func pageKey(_ item: KitItem, part: Int = 0, players: Int) -> String {
-        if item.recipe == .badges { return "\(item.id)@\(min(max(players, 1), RoleCast.count))" }
+    /// The art key of one page of an item: the item id; the cut-outs' extra page for skipped props is `cutouts#more`.
+    /// Round 47 (Haylee): a per-player page (badges, tickets) is drawn ONCE for all 6 players, `badges@all` /
+    /// `tickets@all`, whatever the count: the first N pieces are cut from it, so a new count never draws again.
+    /// (`players` is kept for the call sites; it no longer changes any key.)
+    public static func pageKey(_ item: KitItem, part: Int = 0, players: Int = RoleCast.count) -> String {
+        if perPlayerSheet(item) { return "\(item.id)@all" }
         return part > 0 ? "\(item.id)#more" : item.id
+    }
+
+    /// Round 47: a per-player sheet's art key (`badges@all`, `tickets@all`).
+    public static func isPerPlayerKey(_ key: String) -> Bool { key.hasSuffix("@all") }
+    /// Round 47: an AI page drawn for all 6 players and cut apart (badges, tickets).
+    public static func perPlayerSheet(_ item: KitItem) -> Bool { item.aiPage && (item.recipe?.perPlayer ?? false) }
+    /// Round 47: how many pieces a per-player sheet has (one per player, for the most players), 0 for other pages.
+    public static func pieces(_ item: KitItem) -> Int { perPlayerSheet(item) ? RoleCast.count : 0 }
+
+    /// Round 47: the art key a round 46 game saved this page under (its badge page was drawn for the count it was first
+    /// played with, `badges@N`; its ticket page under the item id). A replay prints that page whole, as round 46 did.
+    public static func legacyKey(_ item: KitItem, players: Int) -> String? {
+        guard perPlayerSheet(item) else { return nil }
+        return item.recipe == .badges ? "\(item.id)@\(min(max(players, 1), RoleCast.count))" : item.id
     }
 
     /// The pages (parts) an AI item has: the cut-outs have 2 when skipped props were added; the decoder none.
@@ -126,7 +145,7 @@ public enum KitArtPlan {
             for part in parts(item) {
                 let key = pageKey(item, part: part, players: ctx.players)
                 guard !settled.contains(key), let p = KitPagePrompt.prompt(for: item, ctx: ctx, style: style, part: part) else { continue }
-                out.append(KitArtJob(key: key, prompt: p.prompt, size: KitPagePrompt.size, words: p.words))
+                out.append(KitArtJob(key: key, prompt: p.prompt, size: KitPagePrompt.size, words: p.words, pieces: pieces(item)))
             }
         }
         if characters, items.contains(where: \.aiPage), !ctx.roles.isEmpty, !settled.contains(characterKey) {
