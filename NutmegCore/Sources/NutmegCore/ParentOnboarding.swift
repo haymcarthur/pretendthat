@@ -498,7 +498,7 @@ public enum GameGreeting {
         "Hi again! What should we play today?",
         "Welcome back! What should we play today?",
         "Yay, you're back! What should we play?",
-        "Hooray, a new show! What should we play?",
+        "Hooray, a new game! What should we play?",   // round 46: "game", not "show" (re-recorded)
     ]
     public static var all: [String] { [firstIntro] + short }
 
