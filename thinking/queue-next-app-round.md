@@ -415,7 +415,7 @@ Game arc becomes: Print → **story opener** → **setup scene** → 3 play scen
 - On iPhone, when a scene's action rows are showing, Nutmeg is too small (a little figure on the stage above the card). Instead she **peeks over the top edge of the scene card, paws on the card's edge, looking DOWN at the list**, like the logo art (asset `logo-nutmeg-top`: head, shoulders, paws over the letters).
 - Looking down: use the rig's head with the **focus face** (eyes down) so she still blinks and her mouth moves when she talks; the peek body/paws come from existing art (logo-nutmeg-top or rig parts). Don't draw or patch art (Haylee's rule: regenerate, never patch). If the parts can't be combined cleanly, report back with options instead of editing art.
 - She should be BIG (wider than now, ~60–70% of the card width), centered over the card's title, ears clear of the step rail/top bar.
-- Scope: iPhone play scenes (setup, scenes, clean-up rows). Ask before extending to the prop hunt / kit / The End screens.
+- Scope: iPhone play scenes only (setup, scenes, clean-up rows). Haylee (2026-11-17): prop hunt and kit-ready screens are fine as they are; do NOT change them.
 - **Art is ready:** design/nutmeg/peek/nutmeg-peek-parts.svg (1536×1024, from Haylee's Figma frame 22:2509, extracted read-only, no edits): groups `tail`, `body` (vest, shoulders, star), `head` (ears, face, headset), `paw-left`, `paw-right`. Body is cut flat at the bottom (sits behind the card edge); paws go in front of the edge. Use `body`+`tail`+paws with the rig head (focus face) on top, aligned to where `head` sits.
 - After: retake the App Store play-scene screenshot (05).
 
