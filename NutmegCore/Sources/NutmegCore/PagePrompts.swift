@@ -64,7 +64,7 @@ public enum KitPagePrompt {
 
     /// Kid-safe (round 19's suffix) plus round 46's friendly pirates: no skulls or crossbones anywhere.
     public static let safe = ImageSafety.suffix + " No skulls, no crossbones, no skeletons: pirates and their flags are "
-        + "friendly and cheerful."
+        + "friendly and cheerful. Pirate ships have no cannons; knights hold shields, never swords."
 
     /// The exact-words net: the only words, spelled letter for letter (`extra` adds the repeat counts).
     public static func wordsRule(_ words: [String], _ extra: String = "") -> String {

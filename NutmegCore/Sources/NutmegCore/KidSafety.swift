@@ -11,6 +11,11 @@ import Foundation
 extension Sanitizer {
     public enum SafetyCategory: String, Sendable, CaseIterable {
         case selfHarm, violence, sexual, drugs, scary, hate, personalInfo, strangers, dangerous
+        /// 2026-11-17 (Haylee, 4+ age rating): pretend or toy weapons (a sword, a cannon, a bow and arrow). Not an alarm:
+        /// a kid SAYING "sword" is fine and goes on to Nutmeg, who offers a non-weapon prop instead (a shield, a
+        /// spyglass). Only checked on pretend text (tool fields, generated kit text, prop reasons), so the game, its
+        /// props and its printables never contain one.
+        case pretendWeapon
         /// Not a topic to steer from: a kid may be hurt or in danger. She tells them to get a grown-up right away.
         case needsGrownUp
     }
@@ -63,11 +68,18 @@ extension Sanitizer {
     // so "skill", "class", "therapist" or "shooting star" never match.
     static let blocklist: [SafetyCategory: [String]] = [
         .violence: ["kill*", "murder*", "gun", "guns", "pistol*", "rifle*", "shotgun*", "knife", "knives", "dagger*",
-                    // Round 20 (Haylee): PRETEND swords are fine (pirates, knights, dragons); a real or sharp one isn't.
+                    // 2026-11-17: a real or sharp sword is violence (kid text too); ANY other sword is `pretendWeapon`.
                     "real sword", "real swords", "sharp sword", "sharp swords", "sword fight to the death", "bomb", "bombs", "bombing", "grenade*", "explosive*", "weapon*", "ammo", "bullet", "bullets",
                     "stab*", "shoot", "shoots", "shooting", "shooter", "strangle*", "choke", "choking", "punch them",
                     "beat up", "beat them up", "hurt someone", "hurt them", "hurt him", "hurt her", "fight to the death",
                     "war", "terrorist*", "kidnap*", "torture*", "massacre*", "behead*", "execute*", "die", "dying"],
+        // 2026-11-17 (Haylee, 4+ age rating, replaces round 20's "pretend swords are fine"): no weapons of any kind, not
+        // even toy ones. "swordfish" and "arrow" (the play-again arrow) stay fine.
+        .pretendWeapon: ["sword", "swords", "swordfight*", "sword fight", "sword fights", "sword fighting", "lightsaber*",
+                         "light saber", "light sabers", "saber", "sabers", "sabre", "sabres", "cutlass*", "spear", "spears",
+                         "bow and arrow", "bow and arrows", "bows and arrows", "crossbow*", "slingshot*", "cannon", "cannons",
+                         "cannonball*", "catapult*", "blaster*", "nunchuck*", "nunchuk*", "toy gun", "toy guns", "water gun",
+                         "water guns", "squirt gun", "squirt guns", "nerf*"],
         .selfHarm: ["suicide*", "kill myself", "self harm", "cut myself", "hurt myself", "want to die"],
         .sexual: ["sex", "sexy", "sexual*", "naked", "nude*", "porn*", "boobs", "penis*", "vagina*", "make out", "strip*"],
         .drugs: ["drug", "drugs", "weed", "cocaine", "heroin", "meth", "beer", "beers", "wine", "vodka", "whiskey", "alcohol*",
@@ -91,17 +103,37 @@ extension Sanitizer {
     ]
 
     /// Kid phrases that look like a blocked word but are fine ("shooting star", "photo shoot").
-    static let allowPhrases = ["shooting star", "shooting stars", "photo shoot", "war of the", "cookie dough", "oven mitt", "oven mitts"]   // round 30: a prop (a kitchen glove), not the oven
+    static let allowPhrases = ["shooting star", "shooting stars", "photo shoot", "war of the", "cookie dough", "oven mitt", "oven mitts",   // round 30: a prop (a kitchen glove), not the oven
+                               "saber tooth", "saber toothed", "sabre tooth", "sabre toothed"]   // a dinosaur-game tiger, not a sword
 
     /// The local kid-safety check. nil = fine to use. `needsGrownUp` wins over everything (the kid may be in danger).
     /// Round 20: words that are fine as PRETEND things in the game (a bakery's oven, a play kitchen's stove, a glass
     /// slipper), never as instructions to a kid. Only lifted for tool fields and generated kit text, never kid text.
     static let pretendOK: Set<String> = ["stove", "oven", "glass"]
 
+    /// `pretend`: tool fields and generated text. A pretend oven is fine there, but a pretend weapon is not: weapons are
+    /// checked ONLY here (2026-11-17), so kid text that says "sword" still goes on to Nutmeg, whose rules gently swap
+    /// it for a non-weapon prop, while the game, its props and its printables can never carry one.
     public static func kidSafety(_ text: String, pretend: Bool) -> SafetyVerdict? {
         guard pretend else { return kidSafety(text) }
-        return kidSafety(text, skipping: pretendOK)
+        return kidSafety(text, skipping: pretendOK, weapons: true)
     }
+
+    /// 2026-11-17: true when the text names a weapon of any kind, pretend or toy included ("the sword", "a cannon").
+    public static func namesWeapon(_ text: String) -> Bool {
+        var n = " " + normalizeForSafety(text) + " "
+        for p in allowPhrases { n = n.replacingOccurrences(of: " \(p) ", with: " ") }
+        let words = n.split(separator: " ").map(String.init)
+        let joined = " " + words.joined(separator: " ") + " "
+        return (blocklist[.pretendWeapon]! + weaponWords).contains { e in
+            e.hasSuffix("*") ? words.contains { $0.hasPrefix(String(e.dropLast())) } : joined.contains(" \(e) ")
+        }
+    }
+
+    /// The violence entries that name a weapon (not an act), for `namesWeapon`.
+    static let weaponWords: [String] = ["gun", "guns", "pistol*", "rifle*", "shotgun*", "knife", "knives", "dagger*",
+                                        "real sword", "real swords", "sharp sword", "sharp swords", "bomb", "bombs",
+                                        "grenade*", "explosive*", "weapon*", "ammo", "bullet", "bullets"]
 
     public static func kidSafety(_ texts: [String], pretend: Bool) -> SafetyVerdict? {
         for t in texts { if let v = kidSafety(t, pretend: pretend) { return v } }
@@ -110,7 +142,7 @@ extension Sanitizer {
 
     public static func kidSafety(_ text: String) -> SafetyVerdict? { kidSafety(text, skipping: []) }
 
-    static func kidSafety(_ text: String, skipping: Set<String>) -> SafetyVerdict? {
+    static func kidSafety(_ text: String, skipping: Set<String>, weapons: Bool = false) -> SafetyVerdict? {
         var n = " " + normalizeForSafety(text) + " "
         for p in allowPhrases { n = n.replacingOccurrences(of: " \(p) ", with: " ") }
         let squeezedWords = n.split(separator: " ").map { squeeze(String($0)) }
@@ -124,7 +156,7 @@ extension Sanitizer {
             return joined.contains(" \(entry) ") || joinedSq.contains(" \(entry) ")
         }
         if blocklist[.needsGrownUp]!.contains(where: hit) { return SafetyVerdict(.needsGrownUp) }
-        for c in SafetyCategory.allCases where c != .needsGrownUp {
+        for c in SafetyCategory.allCases where c != .needsGrownUp && (weapons || c != .pretendWeapon) {
             if blocklist[c]!.contains(where: { !skipping.contains($0) && hit($0) }) { return SafetyVerdict(c) }
         }
         if hasPersonalPattern(text) { return SafetyVerdict(.personalInfo) }
@@ -165,13 +197,25 @@ public enum SafetySteer {
             return "Ooh, let's keep that a secret! We only need pretend roles. What should we play? Maybe \(how)?"
         case .dangerous:
             return "Ooh, let's keep our game super safe! How about \(how)?"
+        case .pretendWeapon:
+            // Not a scary moment: the same game goes on, with a fun non-weapon prop (never says the weapon word).
+            return weaponLine
         default:
             return "Ooh, let's pick a different adventure! How about \(how)?"
         }
     }
 
+    /// 2026-11-17: the gentle swap when a pretend weapon comes up (the game goes on; never says the weapon word).
+    public static let weaponLine = "Ooh, how about a shiny shield or a spyglass instead? Those make super fun props!"
+
     /// The silent note for the model when a tool call carried unsafe text (it must not use it or say it again).
     public static func toolNote(_ v: Sanitizer.SafetyVerdict, ideas: [Suggestion]) -> String {
+        if v.category == .pretendWeapon {
+            return "That can't be used: this app never has swords or weapons of any kind, not even pretend or toy ones. "
+                + "Keep the SAME game and call the tool again without the weapon (a knight gets a shield, a helmet or a "
+                + "cape; a pirate gets a spyglass, a map or a treasure chest). Don't say the weapon word. If you say "
+                + "anything, cheerfully offer the non-weapon prop in ONE short line, like: \"\(weaponLine)\""
+        }
         if v.category == .needsGrownUp || v.category == .selfHarm {
             return "That can't be used. The kid may be hurt or in danger: say ONLY, kindly: \"\(line(for: v, ideas: ideas))\" Nothing else."
         }
@@ -183,7 +227,7 @@ public enum SafetySteer {
 
 /// Image prompts end with this (on top of OpenAI's own `moderation: "auto"`).
 public enum ImageSafety {
-    public static let suffix = " Kid-friendly and gentle, for ages 4 to 8: no guns, no knives, no real weapons (a pretend toy sword is fine), no blood, nothing scary, violent or grown-up, no real people, no brands, no text other than the words given."
+    public static let suffix = " Kid-friendly and gentle, for ages 4 to 8: no guns, no knives, no swords, no weapons of any kind (not even toy ones), no blood, nothing scary, violent or grown-up, no real people, no brands, no text other than the words given."
 }
 
 /// Round 19: every generated text field a kid sees, hears or prints (checked before it's shown or printed).

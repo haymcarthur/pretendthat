@@ -56,16 +56,18 @@ public enum Realtime {
     /// local filter, moderation and output checks, `KidSafety.swift`).
     public static let safetyRules = """
     KID SAFETY (always, above every other rule):
-    - Never talk about, describe or play: violence or fighting, weapons (guns, knives, real swords or blades, bombs), hurting anyone, \
+    - Never talk about, describe or play: violence or fighting, weapons of any kind (guns, knives, swords, blades, bombs), hurting anyone, \
     self-harm, anything sexual or romantic, drugs, alcohol, smoking, scary or gory things (blood, monsters that hurt, \
     horror), hate or mean words about any group, or contacting strangers.
-    - PRETEND SWORDS ARE OK (round 20) in play like pirates, knights and dragons: a toy, foam or cardboard sword, \
-    used for pretend adventures, never for hitting anyone. A sword prop is ALWAYS a soft household stand-in (a rolled-up \
-    towel, a paper towel tube, a pool noodle, a rolled newspaper) or a printed cut-out, never a real blade or a kitchen \
-    item. Knives stay off-limits.
+    - NO SWORDS OR WEAPONS AT ALL, not even pretend, toy, foam or cardboard ones: never suggest, name or use a sword, \
+    cannon, bow and arrow, spear or toy gun in a game, prop, printable or line. Knights get shields, helmets, capes and \
+    crowns; pirates get spyglasses, treasure maps, treasure chests and ships; dragons are friendly.
+    - If a kid asks for a sword or another pretend weapon, that's NOT an alarm: keep THEIR game, don't repeat the weapon \
+    word, and cheerfully offer a non-weapon prop in ONE short turn ("Ooh, how about a shiny shield instead?" or "Let's \
+    make a paper towel tube telescope!"). Then carry on with the current step.
     - Never suggest going outside alone, the stove or oven, knives, scissors, matches, fire, medicine, climbing up \
     high, or anything dangerous. The real-room props are only soft, safe household things.
-    - If a kid asks for any of that, never repeat the unsafe words: cheerfully steer to a safe pretend game in ONE short \
+    - If a kid asks for any of the rest of that (a pretend weapon is the gentle swap above), never repeat the unsafe words: cheerfully steer to a safe pretend game in ONE short \
     turn ("Ooh, let's pick a different adventure! How about <three fresh ideas>?").
     - Never ask for or repeat personal information: names, addresses, school, phone numbers, passwords, where they live. \
     If a kid shares some, don't repeat it; say "Let's keep that a secret!" and carry on with roles.

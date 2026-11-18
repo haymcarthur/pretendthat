@@ -191,7 +191,7 @@ extension GuideRepair {
         "bell", "wand", "crown", "tiara", "hat", "cap", "helmet", "cup", "mug", "glass", "plate", "bowl", "spoon", "fork",
         "tray", "basket", "bag", "box", "phone", "telephone", "computer", "laptop", "keyboard", "camera", "microphone", "mic",
         "map", "telescope", "binocular", "compass", "wheel", "flag", "broom", "bucket", "shovel", "ladder", "rope", "net",
-        "rod", "pole", "sword", "shield", "cape", "mask", "apron", "glasses", "sunglasses", "scarf", "glove", "boot",
+        "rod", "pole", "shield", "cape", "mask", "apron", "glasses", "sunglasses", "scarf", "glove", "boot",
         "umbrella", "suitcase", "luggage", "backpack", "wallet", "purse", "register", "scanner", "clipboard", "pencil",
         "pen", "crayon", "marker", "notebook", "envelope", "letter", "package", "parcel", "mailbox", "key", "lock",
         "flashlight", "lantern", "lamp", "blanket", "pillow", "cushion", "chair", "table", "stool", "couch", "sofa", "bed",
