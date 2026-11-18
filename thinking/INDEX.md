@@ -168,6 +168,7 @@ The map. Read this first, then open only what you need.
 - [Printables: draw the coloring page once, then color it in with an image edit (they match); guardrails: no light/pale letters, contrast check + one redraw, word check on the color page](decisions/2026-11-17-printables-draw-once-color-in.md): Haylee
 - [Plans locked: Free 2 games ONCE; Show Pass 5/mo $9.99 or $99.99/yr; Season Pass 20/mo $24.99 or $249.99/yr; no intro offers; join the Small Business Program](decisions/2026-11-17-plans-5-and-20.md): Haylee
 - [Home stage polish: logo card in front of the curtains, Grown-ups is a gear icon in the top corner, iPhone bookshelf Nutmeg sits with legs dangling (mockup's perky-sit vector)](decisions/2026-11-17-home-stage-polish.md): Haylee (Claude's calls noted) · retake the App Store home shots
+- [iPhone play scenes: Nutmeg peeks over the scene card (rig head, focus eyes); Replay Pick without number tiles (count read on the device); offline replays never block (her text + recorded stand-ins); plain paper is never a prop, recipe sheets are printed](decisions/2026-11-17-peek-and-replay-pick.md): Haylee (Claude's calls noted) · retake App Store shot 05
 - [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–32 (31: on-device speech + instant mic; 32: Grown-ups menu) + C1 + D1 + D2 + D3a + D3b done (round 27's mockups separate); next: D4 iCloud
 
 - [Libraries and services list](team-profile-libraries.md): what the app uses (Code Camp is finished; no team-profile task)

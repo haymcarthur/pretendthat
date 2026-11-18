@@ -343,6 +343,23 @@ struct PTLeaveDialog: View {
     }
 }
 
+/// 2026-11-17: an offline replay line Nutmeg never recorded, as her words in a speech-bubble caption at the top of the
+/// stage (no tap target; the game carries on). Replaces the full-screen Wi-Fi pause for replays.
+struct PTOfflineCaption: View {
+    var text: String
+    var body: some View {
+        Text(text)
+            .font(Theme.uiFont(18, .semibold)).foregroundStyle(Theme.ink)
+            .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, Theme.Space.m).padding(.vertical, Theme.Space.s)
+            .frame(maxWidth: 520)
+            .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(Theme.white))
+            .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(Theme.line, lineWidth: 1.5))
+            .shadow(color: Theme.panelShadow, radius: 8, y: 2)
+            .accessibilityLabel("Nutmeg says: \(text)")
+    }
+}
+
 /// Round D3b (Haylee's answer 1): a replay reached a line Nutmeg has never said and the iPad is offline. A friendly note
 /// asks a grown-up to connect to Wi-Fi so Nutmeg can talk; the game pauses on that line (the stage below takes no taps)
 /// until the connection is back. Nutmeg says the note herself (her bundled recorded line), never another voice.

@@ -41,7 +41,7 @@ struct Round43PropAuditTests {
         ("toy-keys", "the castle keys", true), ("flashlight", "the lighthouse light", true), ("umbrella", "the walking cane", true),
         ("bowl", "the robot repair hub", true),   // a flexible item keeps a creative unknown use
         ("blanket", "the castle walls", true), ("bucket", "the knight's helmet", true), ("pot", "the drum", true),
-        ("pillow", "the shield", true), ("paper", "the snowballs", true),
+        ("pillow", "the shield", true), ("paper", "the snowballs", false),   // 2026-11-17: plain paper retired
     ])
     func pairTable(item: String, becomes: String, ok: Bool) {
         #expect(PropFit.fits(itemID: item, becomes: becomes) == ok, "\(item) → \(becomes)")

@@ -333,6 +333,95 @@ private struct Motion {
 
 #Preview { NutmegCharacter(state: .idle).padding() }
 
+/// iPhone play scenes (Haylee, 2026-11-17): Nutmeg peeks over the top edge of the scene card, paws over the edge,
+/// looking DOWN at the rows. Art: Haylee's Figma logo frame (design/nutmeg/peek/nutmeg-peek-parts.svg, 1536×1024),
+/// split by group into `nutmeg-peek-back` (tail + body, BEHIND the card) and `nutmeg-peek-paws` (IN FRONT of the card's
+/// edge); no shape edits. Her head is the real rig head (head-base, the focus eyes, her mouth, the headset) placed where
+/// the art's `head` group sits, so she still blinks and her mouth moves when she talks.
+///
+/// The view is the figure's box: art x 433…995 (562 art px wide) from the ear tops (y 24) down to the paws' bottom
+/// (y 546). The card's top edge belongs at `edge` (art y 514, just above the body's curved bottom cut).
+struct NutmegPeek: View {
+    enum Part { case back, front }
+    var part: Part
+    var state: NutmegState = .idle
+    var mouthLevel: Float = 0
+    var mouthShape: NutmegMouth? = nil
+    var isSpeaking = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    static let canvas = CGSize(width: 1536, height: 1024)
+    /// The figure's box in the art (ears, tail and paws).
+    static let box = CGRect(x: 433, y: 24, width: 562, height: 546 - 24)
+    /// The card's top edge in the art.
+    static let edgeY: CGFloat = 514
+    /// The view's height above the card's edge, for a figure `width` points wide.
+    static func heightAboveEdge(width: CGFloat) -> CGFloat { (edgeY - box.minY) * width / box.width }
+    /// How far the paws reach below the card's edge (the card keeps its first row clear of them).
+    static func pawOverhang(width: CGFloat) -> CGFloat { (box.maxY - edgeY) * width / box.width }
+
+    /// The rig head on the peek body (rig canvas 1178×1335 → peek art), fitted by overlaying the rig head stack on the
+    /// art's `head` group (eyes, nose, ears, chin): 0.6 scale, turned −5° around the rig nose, the nose at (795, 314).
+    static let headScale: CGFloat = 0.6
+    static let headTurn: Double = -5
+    static let rigNose = CGPoint(x: 698, y: 545)
+    static let peekNose = CGPoint(x: 795, y: 314)
+
+    var body: some View {
+        GeometryReader { geo in
+            let u = geo.size.width / Self.box.width
+            switch part {
+            case .front:
+                art("nutmeg-peek-paws", u: u)
+            case .back:
+                TimelineView(.animation(minimumInterval: 1.0 / 30, paused: false)) { context in
+                    let m = Motion(state: state, t: context.date.timeIntervalSinceReferenceDate, reduced: reduceMotion,
+                                   speaking: isSpeaking,
+                                   level: mouthShape.map { $0 == .closed ? 0 : ($0 == .small ? 0.4 : 0.9) } ?? mouthLevel * 2)
+                    ZStack(alignment: .topLeading) {
+                        art("nutmeg-peek-back", u: u)
+                        head(motion: m, u: u)
+                    }
+                }
+            }
+        }
+        .aspectRatio(Self.box.width / Self.box.height, contentMode: .fit)
+        .accessibilityHidden(part == .front)
+        .accessibilityElement()
+        .accessibilityLabel("Nutmeg the mouse")
+    }
+
+    /// A full-canvas art layer, shifted so the figure box's top-left is the view's origin.
+    private func art(_ name: String, u: CGFloat) -> some View {
+        Image(name).resizable().scaledToFit()
+            .frame(width: Self.canvas.width * u, height: Self.canvas.height * u)
+            .offset(x: -Self.box.minX * u, y: -Self.box.minY * u)
+            .frame(width: Self.box.width * u, height: Self.box.height * u, alignment: .topLeading)
+            .accessibilityHidden(true)
+    }
+
+    private func head(motion m: Motion, u: CGFloat) -> some View {
+        let size = CGSize(width: NutmegPose.canvas.width * Self.headScale * u, height: NutmegPose.canvas.height * Self.headScale * u)
+        let anchor = UnitPoint(x: Self.rigNose.x / NutmegPose.canvas.width, y: Self.rigNose.y / NutmegPose.canvas.height)
+        let nose = CGPoint(x: (Self.peekNose.x - Self.box.minX) * u, y: (Self.peekNose.y - Self.box.minY) * u)
+        let face: NutmegFace = .focus   // eyes down at the rows
+        return ZStack {
+            layer("nutmeg-head-base")
+            layer(m.blink ? NutmegFace.nap.asset : face.asset)
+            layer(isSpeaking ? (mouthShape ?? NutmegMouth.forLevel(mouthLevel, oohBeat: m.oohBeat)).asset : face.mouthAsset)
+            layer("nutmeg-headset")
+        }
+        .frame(width: size.width, height: size.height)
+        .rotationEffect(.degrees(Self.headTurn + m.headTilt), anchor: anchor)
+        .position(x: nose.x - (anchor.x - 0.5) * size.width, y: nose.y - (anchor.y - 0.5) * size.height + max(-2, min(2, m.nod)))
+    }
+
+    private func layer(_ name: String) -> some View {
+        Image(name).resizable().scaledToFit().accessibilityHidden(true)
+            .transaction(value: name) { $0.animation = nil }
+    }
+}
+
 private extension CGAffineTransform {
     /// This canvas-px transform in screen points (the layers are drawn `px` points per canvas px).
     func px(_ px: CGFloat) -> CGAffineTransform { CGAffineTransform(a: a, b: b, c: c, d: d, tx: tx * px, ty: ty * px) }

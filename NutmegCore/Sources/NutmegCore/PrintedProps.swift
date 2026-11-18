@@ -26,8 +26,26 @@ public enum PrintedProps {
         // other paper things (maps, letters, notes)
         "map", "letter", "note", "scroll", "invitation", "stamp", "page", "paper", "newspaper", "chart",
         // round 45: the library's other printables (medals, order slips, clue cards, logbooks, decoders, booklets)
-        "medal", "slip", "clue", "logbook", "decoder", "booklet", "blueprint"
+        "medal", "slip", "clue", "logbook", "decoder", "booklet", "blueprint",
+        // 2026-11-17 (live test: "Paper" became the "recipe sheet"): recipes and worksheets are printouts
+        "recipe", "worksheet", "printout", "handout", "form"
     ]
+
+    /// 2026-11-17: "sheet" alone is cloth (a bedsheet sail, a ghost costume) and stays allowed; a sheet with one of
+    /// these in front of it is a printout ("the recipe sheet", "the score sheet", "a sheet of paper").
+    static let printedSheetWords: Set<String> = ["recipe", "score", "work", "answer", "song", "music", "coloring", "colouring",
+                                                 "activity", "sticker", "signup", "sign-up", "fact", "cheat", "character",
+                                                 "order", "time", "tally", "price", "paper", "lyric", "lyrics", "instruction",
+                                                 "data", "spec", "rule", "rules", "puzzle", "word", "task", "job", "chore"]
+
+    /// "the recipe sheet" → "recipe sheet"; "the bed sheet" / "the sheet" → nil.
+    static func printedSheet(_ becomes: String) -> String? {
+        let words = becomes.lowercased().split { !$0.isLetter && $0 != "-" }.map(String.init)
+        if let of = words.firstIndex(where: { $0 == "sheet" || $0 == "sheets" }), of + 2 < words.count,
+           words[of + 1] == "of", ["paper", "papers"].contains(words[of + 2]) { return "sheet of paper" }
+        guard headNoun(becomes) == "sheet", let i = words.lastIndex(where: { $0 == "sheet" || $0 == "sheets" }), i > 0 else { return nil }
+        return printedSheetWords.contains(words[i - 1]) ? "\(words[i - 1]) sheet" : nil
+    }
 
     /// Words that end the head phrase ("map OF the island", "holder FOR the tickets").
     static let breakers: Set<String> = PropWords.breakers
@@ -83,6 +101,7 @@ public enum PrintedProps {
     public static func clash(_ becomes: String, kit: [KitItem]? = nil) -> String? {
         guard let noun = headNoun(becomes) else { return nil }
         if words.contains(noun) { return noun }
+        if let sheet = printedSheet(becomes) { return sheet }
         if let kit, kitNouns(kit).contains(noun) { return noun }
         return nil
     }

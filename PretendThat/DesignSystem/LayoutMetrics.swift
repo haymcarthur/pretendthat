@@ -66,7 +66,7 @@ struct LayoutMetrics: Equatable, Sendable {
     }
 
     /// How tall the content zone below her asks to be (clamped by `PTPhoneStage.split`, which keeps her on screen).
-    static func phoneContentHeight(_ c: PhoneContent, noVoice: Bool = false) -> CGFloat {
+    static func phoneContentHeight(_ c: PhoneContent) -> CGFloat {
         switch c {
         case .none: 0
         case .hunt: 268
@@ -74,7 +74,7 @@ struct LayoutMetrics: Equatable, Sendable {
         case .print: 340
         case .scene(let rows): 64 + CGFloat(rows) * 78 + 118
         case .end: 232
-        case .cover: noVoice ? 500 : 300   // round 40: the whole 3:2 cover in its mat (360 wide) fits
+        case .cover: 300   // round 40: the whole 3:2 cover in its mat fits (2026-11-17: never number tiles under it)
         case .players: 380   // round 41: up to 6 role tiles in two columns
         case .propsGrid: 2000
         }

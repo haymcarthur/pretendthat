@@ -154,8 +154,9 @@ struct RoundD3bVoiceClipsTests {
         #expect(LineRoute.choose(hasClip: true, live: false, replay: true, recordable: true) == .clip)
         #expect(LineRoute.choose(hasClip: false, live: true, replay: true, recordable: true) == .live(record: true))
         #expect(LineRoute.choose(hasClip: false, live: true, replay: false, recordable: false) == .live(record: false))
-        // Offline on a replay with no clip: the Wi-Fi pause (Haylee's answer 1), never silent text or the device voice.
-        #expect(LineRoute.choose(hasClip: false, live: false, replay: true, recordable: true) == .waitForNetwork)
+        // Offline on a replay with no clip: shown as her text and the game goes on (2026-11-17; was the Wi-Fi pause),
+        // never the device voice.
+        #expect(LineRoute.choose(hasClip: false, live: false, replay: true, recordable: true) == .caption)
         #expect(LineRoute.choose(hasClip: false, live: false, replay: false, recordable: true) == .unavailable)
     }
 

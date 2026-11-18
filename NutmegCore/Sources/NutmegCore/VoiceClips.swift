@@ -234,20 +234,23 @@ public enum LineRoute: Equatable, Sendable {
     case clip
     /// Said live by the Realtime voice (`sayExactly`); `record` = captured and kept if it passes the gate.
     case live(record: Bool)
-    /// A replay, offline, and this line was never recorded: the Wi-Fi note, and the game pauses on the line.
-    case waitForNetwork
+    /// A replay, offline, and this line was never recorded. 2026-11-17 (a live test: a game's FIRST offline replay
+    /// dead-ended on the full-screen Wi-Fi box): the line shows as her text (`OfflineLine`), a recorded generic line
+    /// that fits plays if there is one, and the game goes on. It is recorded the next time she says it live.
+    case caption
     /// No clip and no live voice on a first play (the existing reconnect / tap-fallback behavior).
     case unavailable
 
     public static func choose(hasClip: Bool, live: Bool, replay: Bool, recordable: Bool) -> LineRoute {
         if hasClip { return .clip }
         if live { return .live(record: recordable) }
-        return replay ? .waitForNetwork : .unavailable
+        return replay ? .caption : .unavailable
     }
 }
 
 /// Haylee's answer 1: offline on a replay, a line she never said → a friendly note asks a grown-up to connect to
 /// Wi-Fi, and the game PAUSES on that line until the connection is back (never silent text, never another voice).
+/// 2026-11-17: SUPERSEDED on replays by `OfflineLine` (the game never pauses offline); kept for the resume plumbing.
 public struct WiFiPause: Equatable, Sendable {
     public static let note = "Nutmeg needs the internet to say this part. Grown-ups, please connect to Wi-Fi so Nutmeg can talk!"
     /// Said from her bundled clip (her real voice, recorded once in development), never live (there's no network).
@@ -266,6 +269,33 @@ public struct WiFiPause: Equatable, Sendable {
     public mutating func clear() { owed = nil }
 }
 
+/// 2026-11-17 (coordinator, from a live test game): an offline replay never blocks. The full-screen Wi-Fi pause above
+/// dead-ended a game's FIRST offline replay (its title greeting and count line were never recorded). Now a line with no
+/// clip and no voice is shown as her text (the chat and a caption by her), a recorded generic line plays when one
+/// fits, and the game goes on; the line is recorded the next time she says it live.
+public enum OfflineLine {
+    public struct Plan: Equatable, Sendable {
+        /// A recorded line that says the same thing (or its question), played in her voice; nil = text only.
+        public let standIn: String?
+        /// The whole line as her text.
+        public let caption: String
+    }
+
+    /// Generic recorded lines and how to spot a line they stand in for.
+    static let standIns: [(String, @Sendable (String) -> Bool)] = [
+        (ReplayLines.howMany, { $0.contains(ReplayLines.howMany) }),
+        ("No problem, we'll pretend!", { $0.hasPrefix("No problem, we'll pretend") }),
+        (HandOffLines.printReady, { $0 == HandOffLines.printReady }),
+        (ReplayLines.savedGame, { $0 == ReplayLines.savedGame }),
+    ]
+
+    public static func plan(_ line: String, hasClip: (String) -> Bool) -> Plan {
+        let l = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        let stand = standIns.first { $0.1(l) && hasClip($0.0) }?.0
+        return Plan(standIn: stand, caption: l)
+    }
+}
+
 /// The replay's hit-rate log (§8): counts only, never any content.
 public struct ClipHitLog: Equatable, Sendable {
     public private(set) var clips = 0, common = 0, live = 0, saved = 0, rejected = 0, waited = 0
@@ -279,7 +309,7 @@ public struct ClipHitLog: Equatable, Sendable {
         switch route {
         case .clip: if isCommon { common += 1 } else { clips += 1 }; k.hit += 1
         case .live: live += 1
-        case .waitForNetwork: waited += 1
+        case .caption: waited += 1
         case .unavailable: k.total -= 1
         }
         byKind[kind] = k
@@ -289,7 +319,7 @@ public struct ClipHitLog: Equatable, Sendable {
     public var line: String {
         let kinds = byKind.keys.sorted { $0.rawValue < $1.rawValue }.map { "\($0.rawValue) \(byKind[$0]!.hit)/\(byKind[$0]!.total)" }
         return "clips hit \(clips + common)/\(total) (\(String(format: "%.0f%%", hitRate * 100))): game \(clips), bundled \(common), "
-            + "live \(live), saved \(saved), rejected \(rejected), waited for Wi-Fi \(waited); " + kinds.joined(separator: ", ")
+            + "live \(live), saved \(saved), rejected \(rejected), shown as text \(waited); " + kinds.joined(separator: ", ")
     }
     public static func == (a: ClipHitLog, b: ClipHitLog) -> Bool {
         a.clips == b.clips && a.common == b.common && a.live == b.live && a.saved == b.saved && a.rejected == b.rejected && a.waited == b.waited

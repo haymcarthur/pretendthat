@@ -74,7 +74,6 @@ extension PropLibrary {
         "basket": [.container, .roomy, .round],
         "bucket": [.container, .roomy, .round, .wearable, .head],
         // Round 30: set 2.
-        "paper": [.paper, .flat, .ball],   // crumples into a ball
         "paper-towel-tube": [.long, .tube],
         "paper-bag": [.container, .roomy, .paper],
         "egg-carton": [.container, .roomy, .boxy],
@@ -109,7 +108,7 @@ extension PropLibrary {
     /// Everyday things that aren't on the card list but come up in talk ("a pool noodle works as a magic wand"): same tags.
     /// (Round 30: pillowcase, paper and paper towel tube are library items now.)
     public static let aliasTags: [String: Set<PropTag>] = [
-        "pool noodle": [.long, .soft], "newspaper": [.paper, .flat],
+        "pool noodle": [.long, .soft],   // 2026-11-17: no "newspaper" (plain paper is never a prop)
     ]
 
     /// The library id for an id, a library name ("Bowl") or nil.
@@ -174,8 +173,6 @@ extension PropLibrary {
         "bucket": [("the treasure bucket", "A bucket can hold lots of treasure!")],
         // Round 30: set 2.
         // Round 42: paper never becomes a printed thing (tickets, maps, letters: the kit prints those).
-        "paper": [("the fan", "Paper folds into a fan, flap flap!"),
-                  ("the snowballs", "Paper crumples into soft little snowballs!")],
         "paper-towel-tube": [("the telescope", "A paper towel tube is long and hollow, just like a telescope!"),
                              ("the microphone", "A paper towel tube is long, just right for a microphone!"),
                              ("the magic wand", "A paper towel tube is long like a magic wand!")],
@@ -469,6 +466,10 @@ public enum PropFit {
     }
 
     public static func check(itemID: String, becomes: String) -> Check {
+        // 2026-11-17: plain paper is never a prop (it ended up as a printed "recipe sheet" in a live game).
+        if PropLibrary.isPlainPaper(itemID) || PropLibrary.isPlainPaper(PropLibrary.name(itemID) ?? "") {
+            return Check(ok: false, rule: "printed", why: "plain paper is never a prop (the kit is the paper part)")
+        }
         guard let tags = PropLibrary.tagsFor(itemID) else { return Check(ok: false, rule: nil, why: "it isn't on the item list") }
         // Round 42: never a paper thing the kit prints (tickets, passes, money, menus, signs, badges, maps, cards...).
         if let c = PrintedProps.clash(becomes) { return Check(ok: false, rule: "printed", why: "it's a paper thing the kit prints (the \(c))") }

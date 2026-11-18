@@ -51,7 +51,7 @@ import Testing
         #expect(!PropFit.fits(itemID: "sticky-notes", becomes: "the tickets"))
         #expect(!PropFit.fits(itemID: "plate", becomes: "the gold coin"))
         #expect(!PropFit.fits(itemID: "towel", becomes: "the treasure map"))
-        #expect(PropFit.fits(itemID: "paper", becomes: "the fan"))
+        #expect(!PropFit.fits(itemID: "paper", becomes: "the fan"))   // 2026-11-17: plain paper is never a prop at all
     }
 
     @Test func noCuratedOrFallbackPairIsAPrintedThing() {
@@ -90,9 +90,9 @@ import Testing
     @Test func showNextPropRejectsPaperAsBoardingPassesThenFallsBack() async {
         let store = AdventureStore(service: nil)
         await hunting(store)
-        let first = await store.apply(.showNextProp(.init(itemID: "paper", becomes: "boarding passes", forRole: "all", alternates: ["sticky-notes"])))
+        let first = await store.apply(.showNextProp(.init(itemID: "sticky-notes", becomes: "boarding passes", forRole: "all", alternates: ["tape"])))
         #expect(first.contains("Not shown") && first.contains("printed kit") && store.props == nil)   // one retry, no card
-        let second = await store.apply(.showNextProp(.init(itemID: "paper", becomes: "boarding passes", forRole: "all", alternates: ["sticky-notes"])))
+        let second = await store.apply(.showNextProp(.init(itemID: "sticky-notes", becomes: "boarding passes", forRole: "all", alternates: ["tape"])))
         let p = store.props?.props.first
         #expect(p != nil && second.contains("didn't fit"))
         #expect(PrintedProps.clash(p?.becomes ?? "x map") == nil && PropFit.fits(itemID: p?.libraryID ?? "", becomes: p?.becomes ?? ""))
@@ -106,9 +106,9 @@ import Testing
         let store = AdventureStore(service: nil)
         await hunting(store)
         _ = await store.apply(.showNextProp(.init(itemID: "chair", becomes: "the airplane seats", forRole: "all")))
-        let retry = await store.apply(.swapProp(oldID: "chair", newID: "paper", becomes: "the tickets"))
+        let retry = await store.apply(.swapProp(oldID: "chair", newID: "sticky-notes", becomes: "the tickets"))
         #expect(retry.contains("Not shown") && store.props?.props.first?.libraryID == "chair")
-        _ = await store.apply(.swapProp(oldID: "chair", newID: "paper", becomes: "the tickets"))
+        _ = await store.apply(.swapProp(oldID: "chair", newID: "sticky-notes", becomes: "the tickets"))
         let p = store.props?.props.first
         #expect(PrintedProps.clash(p?.becomes ?? "x map") == nil && PropFit.fits(itemID: p?.libraryID ?? "", becomes: p?.becomes ?? ""))
     }
