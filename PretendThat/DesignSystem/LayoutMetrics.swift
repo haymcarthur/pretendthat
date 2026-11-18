@@ -45,10 +45,14 @@ struct LayoutMetrics: Equatable, Sendable {
     /// control pill.
     /// The phone stage geometry's bottom inset (the pill's room).
     var phoneChromeBottom: CGFloat { pillBottom + pillHeight + 6 }
+    /// 2026-11-17: Play (setup, scenes, clean-up) has no control bar: the stage reaches down to here. The End's two
+    /// bigger buttons take the bar's place (`phoneEndBottom`).
+    static let phoneNoBarBottom: CGFloat = 8
+    static let phoneEndBottom: CGFloat = 104 + Theme.depth + 10 + 10
 
-    func phoneBand(stage: CGSize, screen: CGSize, safeTop: CGFloat) -> (top: CGFloat, bottom: CGFloat) {
+    func phoneBand(stage: CGSize, screen: CGSize, safeTop: CGFloat, bottom room: CGFloat? = nil) -> (top: CGFloat, bottom: CGFloat) {
         let top = Self.phoneTopInset(screen: screen, safeTop: safeTop) + Self.phoneTopBar + 8
-        let bottom = stage.height - phoneChromeBottom
+        let bottom = stage.height - (room ?? phoneChromeBottom)
         return (top, max(top + 120, bottom))
     }
 
@@ -73,7 +77,7 @@ struct LayoutMetrics: Equatable, Sendable {
         case .cards: 300
         case .print: 340
         case .scene(let rows): 64 + CGFloat(rows) * 78 + 118
-        case .end: 232
+        case .end: 110   // 2026-11-17: just "The End!" (its buttons sit where the control bar was)
         case .cover: 300   // round 40: the whole 3:2 cover in its mat fits (2026-11-17: never number tiles under it)
         case .players: 380   // round 41: up to 6 role tiles in two columns
         case .propsGrid: 2000

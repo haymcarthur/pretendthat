@@ -15,7 +15,6 @@ final class PTPurchases {
     /// The active plan (nil = the Free Preview).
     private(set) var entitlement: PlanEntitlement?
     /// Intro offer eligibility per subscription group (one group: one answer).
-    private(set) var introEligible = true
     /// A purchase waiting on Ask to Buy / a bank check.
     private(set) var pendingProductID: String?
     /// A Buy is in flight.
@@ -51,11 +50,8 @@ final class PTPurchases {
         do {
             let list = try await Product.products(for: StoreProducts.all)
             products = Dictionary(uniqueKeysWithValues: list.map { ($0.id, $0) })
-            if let any = list.first(where: { $0.subscription != nil }), let sub = any.subscription {
-                introEligible = await sub.isEligibleForIntroOffer
-            }
             productsFailed = list.isEmpty
-            rtLog("STORE products: \(list.count) loaded, intro eligible \(introEligible)")
+            rtLog("STORE products: \(list.count) loaded")
         } catch {
             productsFailed = true
             rtLog("STORE products failed: \(error)")
@@ -78,9 +74,6 @@ final class PTPurchases {
             rtLog("STORE entitlement: \(best.map { "\($0.tier.name) (\($0.productID))" } ?? "none (Free Preview)")")
             entitlement = best
             onChange?()
-        }
-        if let s = products.values.first(where: { $0.subscription != nil })?.subscription {
-            introEligible = await s.isEligibleForIntroOffer
         }
     }
 
@@ -164,11 +157,10 @@ struct PlanPrice {
     let period: BillingPeriod
     let productID: String
     let regular: String
-    let intro: String?
-    let introPeriods: Int
-    let eligible: Bool
     let loaded: Bool
 
+    /// Plans 5/20 (2026-11-17): no introductory offers. The price is always the regular one (StoreKit's localized
+    /// `displayPrice`, else PlanCatalog's number until the products load).
     @MainActor init(_ tier: PlanTier, _ period: BillingPeriod, purchases: PTPurchases) {
         self.tier = tier; self.period = period
         productID = StoreProducts.productID(tier, period) ?? ""
@@ -176,29 +168,18 @@ struct PlanPrice {
         if let p = purchases.products[productID] {
             loaded = true
             regular = p.displayPrice
-            if let o = p.subscription?.introductoryOffer, o.paymentMode == .payAsYouGo || o.paymentMode == .payUpFront {
-                intro = o.displayPrice
-                introPeriods = o.paymentMode == .payAsYouGo ? o.periodCount : 1
-            } else { intro = nil; introPeriods = 0 }
         } else {
             loaded = false
-            regular = PlanCatalog.dollarsText(period == .monthly ? offer.monthly : offer.yearly)
-            // Round 44: yearly has an intro too (the first year, paid up front).
-            intro = PlanCatalog.dollarsText(period == .monthly ? offer.monthlyIntro : offer.yearlyIntro)
-            introPeriods = period == .monthly ? offer.introMonths : 1
+            regular = PlanCatalog.dollarsText(offer.price(period))
         }
-        eligible = purchases.introEligible
     }
 
-    var billed: String { PriceText.billed(regular: regular, intro: intro, eligible: eligible, period: period) }
+    var billed: String { PriceText.billed(regular: regular, period: period) }
     /// The big number alone ("$9.99").
-    var billedAmount: String { eligible ? (intro ?? regular) : regular }
-    var introThen: String? { PriceText.introThen(regular: regular, intro: intro, introPeriods: introPeriods, eligible: eligible, period: period) }
-    var full: String { PriceText.full(regular: regular, intro: intro, introPeriods: introPeriods, eligible: eligible, period: period) }
-    /// Onboarding v3's plan row: ("$9.99/mo", "for 12 months, then $14.99/mo").
-    var row: (amount: String, then: String?) {
-        PriceText.rowParts(regular: regular, intro: intro, introPeriods: introPeriods, eligible: eligible, period: period)
-    }
+    var billedAmount: String { regular }
+    var full: String { PriceText.full(regular: regular, period: period) }
+    /// Onboarding v3's plan row: "$9.99/mo".
+    var rowAmount: String { PriceText.rowAmount(regular: regular, period: period) }
 }
 
 /// Round 32: Restore and Manage (static; used by the Grown-ups screens and the plans).

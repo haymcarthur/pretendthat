@@ -12,8 +12,12 @@ import NutmegCore
 /// Round 27 (Haylee): one service PER STYLE (the full-color set and the outline set are both drawn during the hunt),
 /// sharing one limiter so the whole game stays at most 3 image calls at once.
 /// Round 47 (Haylee): the per-player pages (badges, tickets) are drawn once for all 6 players and cut apart into their
-/// pieces (`SheetCells`), so any count prints its first N pieces with the AI's own look and never draws again. The
-/// outline set checks a page's words only when the color set's same page missed (`OutlineWordCheck`, `WordCheckBoard`).
+/// pieces (`SheetCells`), so any count prints its first N pieces with the AI's own look and never draws again.
+/// Printables draw-once (Haylee, decisions/2026-11-17-printables-draw-once-color-in.md): each page is DRAWN once, as the
+/// coloring (outline) page; the color set makes its page from that exact image with the image EDIT endpoint
+/// (`ColorInFlow`), so both sets match except for color (and the per-player sheets cut the same way). The outline page
+/// keeps the round 46 word check; the color page gets the word check + the letter contrast check, and one re-edit.
+/// The two sets meet on the `OutlineBoard` (the kept outline PNG per page key).
 @Observable @MainActor
 final class KitArtService {
     /// Page images by art key (`KitPage.artKey`: the item id, `badges@all`, `tickets@all`, `cutouts#more`; a round 46
@@ -36,10 +40,10 @@ final class KitArtService {
     /// Round 46: the color set draws the kit's character sheet (one per kit).
     var drawsCharacters: Bool { style == .fullColor }
 
-    /// Round 47: shared by the color and outline sets (the outline set reads the color set's word checks).
-    @ObservationIgnored let board: WordCheckBoard
+    /// Printables draw-once: shared by the two sets (the outline set posts each kept page; the color set colors it in).
+    @ObservationIgnored let board: OutlineBoard
 
-    init(client: ImageClient?, style: PrintStyle, limiter: AsyncLimiter, board: WordCheckBoard) {
+    init(client: ImageClient?, style: PrintStyle, limiter: AsyncLimiter, board: OutlineBoard) {
         self.client = client; self.style = style; self.limiter = limiter; self.board = board
     }
 
@@ -51,7 +55,7 @@ final class KitArtService {
     @ObservationIgnored private var generation = 0
     func reset() {
         generation += 1; images = [:]; cutouts = [:]; pieces = [:]; isGenerating = false; progress = 0; finished = false
-        if style == .fullColor { board.reset() }
+        if style == .colorIn { board.reset() }
         drawnFor = nil; inFlight = []; failed = []; retriedAfterAway = []; finalItems = nil; landedAt = [:]
         context = nil; finishedAt = nil; wordChecks = [:]
         #if DEBUG
@@ -244,12 +248,14 @@ final class KitArtService {
 
     /// Round 46: the word check of each page (the first drawing, and the redraw when there was one), for the logs and
     /// the DEBUG live harness. Page keys and counts only; the words are the kit's own (nothing about kids).
+    /// Printables draw-once: a color page's entry also counts its pale-letter boxes (first / redraw).
     struct WordCheck {
         var first: PageWordCheck.Result
         var firstRead: [String]
         var redraw: PageWordCheck.Result?
         var redrawRead: [String]?
         var keptRedraw: Bool
+        var lightBoxes: (first: Int, redraw: Int?) = (0, nil)
     }
     @ObservationIgnored private(set) var wordChecks: [String: WordCheck] = [:]
     #if DEBUG
@@ -273,23 +279,47 @@ final class KitArtService {
         await Task.detached(priority: .utility) { PageOCR.check(page, words: words) }.value
     }
 
-    /// Round 47: whether to check this page's words (the outline set waits for the color set's first check of the same
-    /// page; at most 3 minutes, then it keeps its drawing).
-    private func shouldCheck(_ job: KitArtJob, gen: Int) async -> Bool {
-        guard !job.words.isEmpty else { return false }
+    /// Printables draw-once: whether this page's words are read (`PageCheckRule`: every page with words; the round 46
+    /// rule for the outline page, the color page's own check is inside `ColorInFlow`).
+    private func shouldCheck(_ job: KitArtJob) -> Bool { PageCheckRule.readsWords(style: style, words: job.words) }
+
+    /// Printables draw-once: the color set waits for this page's kept outline (nil: the outline failed, or it took more
+    /// than 6 minutes: the color page is then drawn on its own, the round 46 way).
+    private func waitForOutline(_ job: KitArtJob, gen: Int) async -> Data? {
         let start = Date()
-        while true {
-            guard gen == generation else { return false }
-            switch OutlineWordCheck.action(style: style, colorMissed: board.colorMissed[job.key], colorSettled: board.colorSettled.contains(job.key)) {
-            case .check: return true
-            case .keep:
-                NSLog("[RT] kit art words %@ (%@): not read (the color page read fine)", job.key, style.toolValue)
-                return false
-            case .wait:
-                if Date().timeIntervalSince(start) > 180 { return false }
-                try? await Task.sleep(for: .milliseconds(250))
-            }
+        while gen == generation {
+            if let d = board.outlines[job.key] { return d }
+            if board.failed.contains(job.key) { return nil }
+            if Date().timeIntervalSince(start) > 360 { return nil }
+            try? await Task.sleep(for: .milliseconds(250))
         }
+        return nil
+    }
+
+    /// Printables draw-once: the color page = the outline colored in (edit), inspected on the device (word check +
+    /// letter contrast), one re-edit when it missed a word or its letters are pale (`ColorInFlow`). Returns the kept
+    /// PNG (nil: both edits failed) and logs counts only.
+    private func colorIn(_ job: KitArtJob, outline: Data, client: ImageClient) async -> Data? {
+        let limiter = self.limiter, words = job.words, size = job.size
+        let imaging = LimitedImaging(client: client, limiter: limiter)
+        let outcome = await ColorInFlow.color(outline: outline, size: size, quality: ImageQuality.kit, client: imaging) { data in
+            await Task.detached(priority: .utility) { () -> PageInspection in
+                guard let img = UIImage(data: data) else { return PageInspection(words: nil, lightBoxes: 0) }
+                let page = PaperWhite.normalize(img, style: .fullColor)
+                return PageOCR.inspect(page, words: words, contrast: PageCheckRule.checksContrast(style: .fullColor))
+            }.value
+        }
+        if let i1 = outcome.first, let w1 = i1.words {
+            var log = WordCheck(first: w1, firstRead: i1.read, redraw: outcome.redraw?.words, redrawRead: outcome.redraw?.read,
+                                keptRedraw: outcome.keptRedraw)
+            log.lightBoxes = (i1.lightBoxes, outcome.redraw?.lightBoxes)
+            wordChecks[job.key] = log
+        }
+        NSLog("[RT] kit art color-in %@: %d edit(s)%@%@%@", job.key, outcome.calls,
+              outcome.first.map { String(format: ", words %d of %d, %d pale letter box(es)", ($0.words?.wanted.count ?? 0) - ($0.words?.missing.count ?? 0), $0.words?.wanted.count ?? 0, $0.lightBoxes) } ?? ", the edit failed",
+              outcome.redrawReason.map { ": re-edited for \($0), kept the \(outcome.keptRedraw ? "re-edit" : "first")" } ?? "",
+              outcome.stillLight ? " (still pale: kept and logged)" : "")
+        return outcome.data
     }
 
     private func launch(_ jobs: [KitArtJob], client: ImageClient) {
@@ -299,6 +329,30 @@ final class KitArtService {
             inFlight.insert(job.key)
             Task { @MainActor in
                 let limiter = self.limiter
+                // Printables draw-once: a color page is the kept outline page colored in (the character sheet is drawn).
+                if style == .fullColor, !job.isSheet, let outline = await self.waitForOutline(job, gen: gen) {
+                    guard gen == self.generation else { return }
+                    let data = await self.colorIn(job, outline: outline, client: client)
+                    guard gen == self.generation else { return }
+                    var decoded: [UIImage] = [], cut: SheetPieces?
+                    if let data { (decoded, cut) = await Self.decode(data, job: job, style: style) }
+                    guard gen == self.generation else { return }
+                    self.inFlight.remove(job.key)
+                    if let image = decoded.first {
+                        self.images[job.key] = image
+                        if job.pieces > 0 {
+                            if let cut { self.pieces[job.key] = cut }
+                            NSLog("[RT] kit art (%@): %@ %@", style.toolValue, job.key, cut == nil ? "not cut apart: the whole page prints" : "cut into \(job.pieces) pieces")
+                        }
+                        self.landedAt[job.key] = Date()
+                    } else {
+                        NSLog("[RT] kit art: %@ color-in failed (%@): app-drawn", job.key, client.unavailableReason ?? "edit error")
+                        self.failed.insert(job.key)
+                    }
+                    self.updateFinished()
+                    return
+                }
+                guard gen == self.generation else { return }
                 func draw(_ prompt: String) async -> Result<Data, Error> {
                     // Retry once, then the existing fallback (that page is app-drawn).
                     do { return .success(try await RetryOnce.run { try await limiter.run { try await client.generate(prompt: prompt, size: job.size, quality: ImageQuality.kit) } }) }
@@ -309,15 +363,13 @@ final class KitArtService {
                 var decoded: [UIImage] = []
                 var cut: SheetPieces?
                 var check: (PageWordCheck.Result, [String])?
-                if case .success(let data) = result { (decoded, cut) = await Self.decode(data, job: job, style: style) }
+                var keptData: Data?
+                if case .success(let data) = result { (decoded, cut) = await Self.decode(data, job: job, style: style); keptData = data }
                 guard gen == self.generation else { return }   // a remade kit: this old page is dropped
-                // Round 47: the color set always reads its page; the outline set only when the color page missed.
-                if let page = decoded.first, !job.isSheet, await self.shouldCheck(job, gen: gen) {
+                // Printables draw-once: every page with words is read (the outline page: the round 46 rule).
+                if let page = decoded.first, !job.isSheet, self.shouldCheck(job) {
                     check = await Self.read(page, words: job.words)
                     guard gen == self.generation else { return }
-                }
-                if self.style == .fullColor, !job.isSheet, !job.words.isEmpty {
-                    if let (first, _) = check { self.board.colorMissed[job.key] = !first.ok }
                 }
                 // Round 46: a word really missing or misspelled: the page is redrawn ONCE and the better one kept.
                 if let (first, read) = check, let firstImage = decoded.first {
@@ -341,7 +393,7 @@ final class KitArtService {
                                     #if DEBUG
                                     self.firstDrawings[job.key] = firstImage
                                     #endif
-                                    decoded = [image2]; cut = cut2
+                                    decoded = [image2]; cut = cut2; keptData = d2
                                 } else {
                                     #if DEBUG
                                     self.firstDrawings[job.key] = image2   // (the one not kept)
@@ -357,7 +409,8 @@ final class KitArtService {
                     self.wordChecks[job.key] = log
                 }
                 self.inFlight.remove(job.key)
-                if self.style == .fullColor, self.board.colorMissed[job.key] == nil { self.board.colorSettled.insert(job.key) }
+                // Printables draw-once: the kept outline page goes to the color set (a page that never came: it draws its own).
+                if style == .colorIn, !job.isSheet, let keptData, !decoded.isEmpty { self.board.outlines[job.key] = keptData }
                 switch result {
                 case .success:
                     if job.isSheet {
@@ -375,7 +428,7 @@ final class KitArtService {
                             NSLog("[RT] kit art (%@): %@ %@", style.toolValue, job.key, cut == nil ? "not cut apart: the whole page prints" : "cut into \(job.pieces) pieces")
                         }
                         self.landedAt[job.key] = Date()
-                    } else { self.failed.insert(job.key) }
+                    } else { self.failed.insert(job.key); self.outlineFailed(job) }
                 case .failure(let e):
                     // Round 9: a network failure (locked or backgrounded mid-kit) gets one more try once the app is back.
                     let transient = e is URLError || (e as? ClaudeError) == .transport
@@ -388,11 +441,16 @@ final class KitArtService {
                         return
                     }
                     NSLog("[RT] kit art: %@ failed twice (%@): app-drawn", job.key, client.unavailableReason ?? String(describing: e))
-                    self.failed.insert(job.key)
+                    self.failed.insert(job.key); self.outlineFailed(job)
                 }
                 self.updateFinished()
             }
         }
+    }
+
+    /// Printables draw-once: an outline page that definitively failed: its color page is drawn on its own instead.
+    private func outlineFailed(_ job: KitArtJob) {
+        if style == .colorIn, !job.isSheet { board.failed.insert(job.key) }
     }
 
     private func updateFinished() {
@@ -489,15 +547,27 @@ enum SheetCutter {
     }
 }
 
-/// Round 47: the color set's first word check of each page, for the outline set (Haylee's option b: an outline page is
-/// read only when its color page missed). Page keys only.
-@MainActor final class WordCheckBoard {
-    /// Page key → the color page's first drawing missed a word.
-    var colorMissed: [String: Bool] = [:]
-    /// Color pages done without a check (they failed, or had no words to read).
-    var colorSettled: Set<String> = []
-    func reset() { colorMissed = [:]; colorSettled = [] }
+/// Printables draw-once: where the two sets meet. The outline set posts each page's KEPT drawing (PNG, after its word
+/// check); the color set colors that exact image in. A page whose outline definitively failed is listed so the color
+/// set draws its own instead of waiting. Page keys and the kit's own page images only (nothing about kids).
+@MainActor final class OutlineBoard {
+    var outlines: [String: Data] = [:]
+    var failed: Set<String> = []
+    func reset() { outlines = [:]; failed = [] }
 }
+
+/// The app's image calls on the shared limiter (at most 3 image calls at once), behind `PageImaging` for `ColorInFlow`.
+struct LimitedImaging: PageImaging {
+    let client: ImageClient
+    let limiter: AsyncLimiter
+    func generate(prompt: String, size: String, quality: String) async throws -> Data {
+        try await limiter.run { try await client.generate(prompt: prompt, size: size, quality: quality, background: nil) }
+    }
+    func edit(image: Data, prompt: String, size: String, quality: String) async throws -> Data {
+        try await limiter.run { try await client.edit(image: image, prompt: prompt, size: size, quality: quality) }
+    }
+}
+
 
 /// Round 29 (Haylee, ensemble scenes): an older game's scene row character: the illustration between a badge slice's two
 /// blank banners (`BadgeCharacter` finds them), with no badge frame or blank fields. Kept for replays of games saved

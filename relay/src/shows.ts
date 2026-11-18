@@ -17,12 +17,13 @@ const OID_P384 = "1.3.132.0.34";
 export const BUNDLE_ID = "co.crimsonfoundry.pretendthat";
 /** Accepted bundle IDs: the current one, plus the pre-App Store one during the transition (no store build ever used it). */
 export const BUNDLE_IDS = [BUNDLE_ID, "app.pretendthat.ios"];
-/** Product IDs (NutmegCore StoreProducts) → new shows a month. The Free Preview is 2 in total. */
+/** Product IDs (NutmegCore StoreProducts) → new games a month (plans 5/20, 2026-11-17). The Free Preview is 2 to try,
+ *  once (never per month). */
 export const PLAN_SHOWS: Record<string, number> = {
-  "app.pretendthat.showpass.monthly": 10,
-  "app.pretendthat.showpass.yearly": 10,
-  "app.pretendthat.seasonpass.monthly": 30,
-  "app.pretendthat.seasonpass.yearly": 30,
+  "app.pretendthat.showpass.monthly": 5,
+  "app.pretendthat.showpass.yearly": 5,
+  "app.pretendthat.seasonpass.monthly": 20,
+  "app.pretendthat.seasonpass.yearly": 20,
 };
 export const FREE_PREVIEW_SHOWS = 2;
 /** How long a show ticket rides on that show's guide and kit calls. */

@@ -274,17 +274,13 @@ import Testing
         #expect(ArtKey.parse("oimg:tickets@all", plain: .fullColor)! == ("tickets@all", nil, .colorIn))
     }
 
-    // MARK: 5. The outline word check (Haylee's option b)
+    // MARK: 5. The word checks (printables draw-once replaces option b)
 
-    @Test func anOutlinePageIsReadOnlyWhenItsColorPageMissed() {
-        typealias A = OutlineWordCheck.Action
-        // The color set always reads its pages.
-        for missed in [nil, true, false] as [Bool?] {
-            #expect(OutlineWordCheck.action(style: .fullColor, colorMissed: missed, colorSettled: false) == .check)
-        }
-        #expect(OutlineWordCheck.action(style: .colorIn, colorMissed: true, colorSettled: false) == A.check)
-        #expect(OutlineWordCheck.action(style: .colorIn, colorMissed: false, colorSettled: false) == A.keep)
-        #expect(OutlineWordCheck.action(style: .colorIn, colorMissed: nil, colorSettled: false) == A.wait)
-        #expect(OutlineWordCheck.action(style: .colorIn, colorMissed: nil, colorSettled: true) == A.keep)   // color failed: no check
+    @Test func everyPageWithWordsIsReadAndOnlyColorPagesGetTheContrastCheck() {
+        #expect(PageCheckRule.readsWords(style: .colorIn, words: ["Bakery"]))
+        #expect(PageCheckRule.readsWords(style: .fullColor, words: ["Bakery"]))
+        #expect(!PageCheckRule.readsWords(style: .colorIn, words: []))
+        #expect(PageCheckRule.checksContrast(style: .fullColor))
+        #expect(!PageCheckRule.checksContrast(style: .colorIn))
     }
 }

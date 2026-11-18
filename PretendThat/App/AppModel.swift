@@ -37,6 +37,23 @@ final class AppModel {
     /// The sets the Print screen shows (a game saved before round 27 has one).
     var printSets: [PrintStyle] { store.availableSets }
     private func resetArt() { colorArt.reset(); outlineArt.reset(); coverArt.reset() }
+    /// Saved game page (2026-11-17): the open page's saved art, one service per set (no image client: never draws).
+    let pageColorArt: KitArtService
+    let pageOutlineArt: KitArtService
+    func pageArtSet(_ style: PrintStyle) -> KitArtService { style == .fullColor ? pageColorArt : pageOutlineArt }
+    /// The saved game whose page is open (over the bookshelf), and its state.
+    var savedPage: SavedGame?
+    var savedPageStyle: PrintStyle = .fullColor
+    /// The sets this saved game has art for (a game saved before round 27 has one).
+    var savedPageSets: [PrintStyle] = PrintStyle.sets
+    /// "Play with Nutmeg" without a pass: Nutmeg's ask-a-grown-up card (kids see no prices).
+    var savedPageAsk = false
+    /// After the kid card's Grown-ups: the gate, then the grown-up card (See passes / Not now).
+    var savedPageGrownUp = false
+    #if DEBUG
+    /// `-PTFakePass`: screenshots of the page with an active pass (no StoreKit purchase).
+    @ObservationIgnored var debugFakePass = ProcessInfo.processInfo.arguments.contains("-PTFakePass")
+    #endif
     let stickers: ItemArtService
     /// Round 19: the kid-safety check (local filter, then moderation).
     @ObservationIgnored let safety: KidSafetyCheck
@@ -162,10 +179,12 @@ final class AppModel {
         if noAI { images = nil }
         #endif
         let limiter = AsyncLimiter(limit: KitArtService.concurrency)   // round 27: one limiter for both sets + the cover
-        let board = WordCheckBoard()   // round 47: the outline set reads the color set's word checks
+        let board = OutlineBoard()   // printables draw-once: the color set colors in the outline set's kept pages
         colorArt = KitArtService(client: images, style: .fullColor, limiter: limiter, board: board)
         outlineArt = KitArtService(client: images, style: .colorIn, limiter: limiter, board: board)
         coverArt = CoverArtService(client: images, limiter: limiter)
+        pageColorArt = KitArtService(client: nil, style: .fullColor, limiter: limiter, board: OutlineBoard())
+        pageOutlineArt = KitArtService(client: nil, style: .colorIn, limiter: limiter, board: OutlineBoard())
         stickers = ItemArtService(client: images)
         var rtAuth = RealtimeAuth.from(info: info)
         #if DEBUG
@@ -1758,7 +1777,8 @@ final class AppModel {
     /// At the Pick confirm's yes (before anything is made or counted): a close saved game (on-device word match, no AI
     /// call) shows its card and she asks. Returns the tool output, or nil to confirm as usual.
     private func soundsLikeCheck() -> String? {
-        guard !store.isReplay, store.planningStep == .confirm, soundsLikeAskedFor != store.gameID else { return nil }
+        // Saved game page round: offering a saved game mid-plan only makes sense when it can be played (a pass).
+        guard !store.isReplay, store.planningStep == .confirm, soundsLikeAskedFor != store.gameID, hasActivePass else { return nil }
         soundsLikeAskedFor = store.gameID
         guard let match = GameMatch.closest(gameType: store.gameType, title: store.currentTitle, in: savedGames.list()) else { return nil }
         rtLog("SOUNDS LIKE: \"\(store.currentTitle)\" is close to a saved game (\(match.title)): asking")
@@ -1782,13 +1802,14 @@ final class AppModel {
     }
     #endif
 
-    /// The kids tapped the saved game's card: that game's replay starts (nothing was made or counted).
+    /// The kids tapped the saved game's card: that game's replay starts (nothing was made or counted). Only offered
+    /// with an active pass (saved game page round: replays need a pass).
     func chooseSavedInstead() {
         guard let g = soundsLike else { return }
         soundsLike = nil
         rtLog("SOUNDS LIKE: the kids picked their saved game")
         clipStore.reset()
-        tapSavedGame(g)
+        playSavedGame(g)
     }
 
     /// The kids tapped "make a new one": their yes to the recap stands, the roles come next.
@@ -1813,10 +1834,14 @@ final class AppModel {
             .jpegData(compressionQuality: 0.8)
     }
 
-    /// A card on the shelf: the replay starts (Pick: how many are playing). No AI calls for content anywhere in it.
-    func tapSavedGame(_ g: SavedGame) {
-        // Round 33: a replay is free (never counted) but Nutmeg's live voice still needs the AI consent.
-        if NewGameGate.replay(consent: aiConsent) != .start { kidBlock = .needsConsent; showingShelf = false; return }
+    /// A card on the shelf: its saved game page opens (2026-11-17, for everyone; `AppModel+SavedPage`).
+    func tapSavedGame(_ g: SavedGame) { openSavedPage(g) }
+
+    /// The replay starts (Pick: how many are playing). No AI calls for content anywhere in it. Never counted; the page's
+    /// "Play with Nutmeg" checks the pass first (`SavedGamePage.playAction`).
+    func playSavedGame(_ g: SavedGame) {
+        // Round 33: Nutmeg's live voice still needs the AI consent.
+        if !aiConsent { kidBlock = .needsConsent; showingShelf = false; return }
         freePreview.gameStarted(isReplay: true)
         userAction(.openSavedGame)
         Task { await startReplay(g) }

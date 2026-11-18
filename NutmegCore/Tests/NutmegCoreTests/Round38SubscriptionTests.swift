@@ -26,13 +26,12 @@ import Testing
 
     @Test func allowancesAndPricesMatchTheDecision() {
         #expect(PlanTier.freePreview.allowance == 2)
-        #expect(PlanTier.showPass.allowance == 10)
-        #expect(PlanTier.seasonPass.allowance == 30)
+        // Plans 5/20 (2026-11-17).
+        #expect(PlanTier.showPass.allowance == 5)
+        #expect(PlanTier.seasonPass.allowance == 20)
         // PlanCatalog keeps the prices as the fallback text before StoreKit loads (and the .storekit file's values).
-        #expect(PlanCatalog.showPass.monthlyIntro == Decimal(string: "9.99") && PlanCatalog.showPass.monthly == Decimal(string: "14.99"))
-        #expect(PlanCatalog.seasonPass.monthlyIntro == Decimal(string: "19.99") && PlanCatalog.seasonPass.monthly == Decimal(string: "29.99"))
-        #expect(PlanCatalog.showPass.yearly == Decimal(string: "149.99") && PlanCatalog.seasonPass.yearly == Decimal(string: "299.99"))
-        #expect(PlanCatalog.introMonths == 12)
+        #expect(PlanCatalog.showPass.monthly == Decimal(string: "9.99") && PlanCatalog.showPass.yearly == Decimal(string: "99.99"))
+        #expect(PlanCatalog.seasonPass.monthly == Decimal(string: "24.99") && PlanCatalog.seasonPass.yearly == Decimal(string: "249.99"))
     }
 
     @Test func entitlementSkipsRevokedExpiredAndUnknown() {
@@ -89,23 +88,23 @@ import Testing
         #expect(NewGameGate.newGame(consent: true, allowance: .current(entitlement: nil, freeUsed: 1, counter: c, now: now)) == .start)
         #expect(NewGameGate.newGame(consent: true, allowance: .current(entitlement: nil, freeUsed: 2, counter: c, now: now)) == .needsPlan)
         #expect(NewGameGate.newGame(consent: false, allowance: .current(entitlement: nil, freeUsed: 0, counter: c, now: now)) == .needsConsent)
-        // Show Pass: 10 a month, then out of shows until the window ends.
+        // Show Pass: 5 a month, then out of shows until the window ends.
         let e = PlanEntitlement(productID: StoreProducts.showPassMonthly, tier: .showPass, purchaseDate: date(2026, 11, 3), expirationDate: date(2026, 12, 3))
         var a = ShowAllowance.current(entitlement: e, freeUsed: 2, counter: c, now: now)
-        #expect(a.remaining == 10 && a.summary == "10 of 10 new games left this month" && a.refillsAt == e.window(now: now).end)
-        for _ in 0..<10 { c.gameStarted(in: e.window(now: now), isReplay: false) }
+        #expect(a.remaining == 5 && a.summary == "5 of 5 new games left this month" && a.refillsAt == e.window(now: now).end)
+        for _ in 0..<5 { c.gameStarted(in: e.window(now: now), isReplay: false) }
         a = .current(entitlement: e, freeUsed: 2, counter: c, now: now)
         #expect(a.exhausted && NewGameGate.newGame(consent: true, allowance: a) == .outOfShows)
         #expect(a.refillText(locale: Locale(identifier: "en_US"))?.hasPrefix("More new games arrive Dec") == true)
-        // Replays never need an allowance.
-        #expect(NewGameGate.replay(consent: true) == .start)
-        // Season Pass: 30.
+        // Replays never need an allowance (but need a pass: the saved game page round).
+        #expect(NewGameGate.replay(consent: true, hasPass: true) == .start)
+        // Season Pass: 20.
         let s = PlanEntitlement(productID: StoreProducts.seasonPassYearly, tier: .seasonPass, purchaseDate: date(2026, 11, 3), expirationDate: date(2027, 11, 3))
-        #expect(ShowAllowance.current(entitlement: s, freeUsed: 2, counter: c, now: now).remaining == 30)
+        #expect(ShowAllowance.current(entitlement: s, freeUsed: 2, counter: c, now: now).remaining == 20)
     }
 
     @Test func purchaseMessagesAreForGrownUps() {
-        #expect(PurchaseOutcome.purchased(.showPass).message.contains("10 new games a month"))
+        #expect(PurchaseOutcome.purchased(.showPass).message.contains("5 new games a month"))
         #expect(PurchaseOutcome.pending.message.contains("Ask to Buy"))
         #expect(PurchaseOutcome.cancelled.message == "No problem. Nothing was bought.")
         for f in [PurchaseFailure.network, .notAvailable, .unverified, .productMissing, .other] {
@@ -114,13 +113,11 @@ import Testing
         #expect(PurchaseOutcome.purchased(.seasonPass).succeeded)
     }
 
-    @Test func priceTextShowsTheIntroAndTheRenewalPrice() {
-        #expect(PriceText.billed(regular: "$14.99", intro: "$9.99", eligible: true, period: .monthly) == "$9.99/month")
-        #expect(PriceText.billed(regular: "$14.99", intro: "$9.99", eligible: false, period: .monthly) == "$14.99/month")
-        #expect(PriceText.introThen(regular: "$14.99", intro: "$9.99", introPeriods: 12, eligible: true, period: .monthly) == "for 12 months, then $14.99/month")
-        #expect(PriceText.introThen(regular: "$14.99", intro: "$9.99", introPeriods: 12, eligible: false, period: .monthly) == nil)
-        #expect(PriceText.full(regular: "$29.99", intro: "$19.99", introPeriods: 12, eligible: true, period: .monthly) == "$19.99/month for 12 months, then $29.99/month")
-        #expect(PriceText.full(regular: "$149.99", intro: nil, introPeriods: 0, eligible: true, period: .yearly) == "$149.99/year")
+    @Test func priceTextIsTheRegularPriceOnly() {
+        // Plans 5/20: no introductory offers.
+        #expect(PriceText.billed(regular: "$9.99", period: .monthly) == "$9.99/month")
+        #expect(PriceText.full(regular: "$249.99", period: .yearly) == "$249.99/year")
+        #expect(PriceText.rowAmount(regular: "$24.99", period: .monthly) == "$24.99/mo")
         #expect(PriceText.buyLabel(.showPass, billed: "$9.99/month") == "Get Show Pass · $9.99/month")
     }
 

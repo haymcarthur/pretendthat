@@ -5,7 +5,8 @@ public enum ImageQuality {
     public static let kit = "low"   // round 20: low kept lines crisp and colorable (/tmp/pt-round20/quality/compare.png)
 }
 
-/// OpenAI Images API client for kit artwork. POST /v1/images/generations, response data[0].b64_json.
+/// OpenAI Images API client for kit artwork. POST /v1/images/generations (and, printables draw-once 2026-11-17,
+/// POST /v1/images/edits for the color pages), response data[0].b64_json.
 /// Model IDs checked live 2026-11-13: gpt-image-2.6-flare generates successfully (about 6 s per image at
 /// quality medium) and is pinned first. The older IDs stay as fall-throughs, used only when OpenAI says the
 /// model itself is unknown. The first model that works is remembered for the run.
@@ -53,15 +54,56 @@ public final class ImageClient: @unchecked Sendable {
         return req
     }
 
+    /// Printables draw-once (2026-11-17): the image EDIT request (POST /v1/images/edits, multipart): ONE page image
+    /// plus the prompt, with the same model, size, quality, format and moderation as a drawn page. `input_fidelity` is
+    /// never sent (gpt-image-2.6-flare rejects it). The relay forwards it with the same auth, limits and show ticket.
+    func editRequest(image: Data, prompt: String, size: String, model: String, quality: String = "medium",
+                     boundary: String = "pt-" + UUID().uuidString) -> URLRequest {
+        var req: URLRequest
+        switch mode {
+        case .direct(let key):
+            req = URLRequest(url: URL(string: "https://api.openai.com/v1/images/edits")!)
+            req.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+        case .relay(let url, let token):
+            req = URLRequest(url: url.appendingPathComponent("v1/images/edits"))
+            req.setValue(token, forHTTPHeaderField: RelayConfig.tokenHeader)
+            ShowTicket.attach(to: &req)
+        }
+        req.httpMethod = "POST"
+        req.timeoutInterval = 150
+        req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "content-type")
+        var body = Data()
+        func field(_ name: String, _ value: String) {
+            body.append(Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"\(name)\"\r\n\r\n\(value)\r\n".utf8))
+        }
+        for (k, v) in [("model", model), ("prompt", prompt), ("size", size), ("n", "1"), ("quality", quality),
+                       ("output_format", "png"), ("moderation", "auto")] { field(k, v) }
+        body.append(Data("--\(boundary)\r\nContent-Disposition: form-data; name=\"image\"; filename=\"page.png\"\r\nContent-Type: image/png\r\n\r\n".utf8))
+        body.append(image)
+        body.append(Data("\r\n--\(boundary)--\r\n".utf8))
+        req.httpBody = body
+        return req
+    }
+
     /// Returns PNG data. Throws fast once the account is known to be unusable this run (no retries per item).
     public func generate(prompt: String, size: String, quality: String = "medium", background: String? = nil) async throws -> Data {
+        try await send { model in try self.request(prompt: prompt, size: size, model: model, quality: quality, background: background) }
+    }
+
+    /// Printables draw-once: the color page from the coloring page (`image`, PNG) with the edit endpoint. PNG data back.
+    public func edit(image: Data, prompt: String, size: String, quality: String = "medium") async throws -> Data {
+        try await send(edit: true) { model in self.editRequest(image: image, prompt: prompt, size: size, model: model, quality: quality) }
+    }
+
+    /// One image call through the model fall-through, the unusable-account stop and the usage log.
+    private func send(edit: Bool = false, _ make: (String) throws -> URLRequest) async throws -> Data {
         if let reason = unavailableReason { throw ClaudeError.decoding("images unavailable: \(reason)") }
         let candidates = lock.withLock { working.map { [$0] } } ?? Self.models
         var lastError: Error = ClaudeError.transport
         for model in candidates {
             AICallLog.record(.image)   // round D1: counted (numbers only)
             ImageUsageLog.started()    // round 27: timing for the per-minute peak (numbers only)
-            let (data, http) = try await transport.send(try request(prompt: prompt, size: size, model: model, quality: quality, background: background))
+            let (data, http) = try await transport.send(try make(model))
             let err = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["error"] as? [String: Any]
             let code = err?["code"] as? String ?? "", message = (err?["message"] as? String ?? "").lowercased()
             let verification = message.contains("verif")
@@ -79,11 +121,12 @@ public final class ImageClient: @unchecked Sendable {
                   let b64 = ((obj["data"] as? [[String: Any]])?.first?["b64_json"]) as? String,
                   let png = Data(base64Encoded: b64) else { throw ClaudeError.decoding("no b64_json") }
             if let u = obj["usage"] as? [String: Any] {   // round 27: cost measurement (token counts only)
-                ImageUsageLog.usage(input: u["input_tokens"] as? Int ?? 0, output: u["output_tokens"] as? Int ?? 0)
-                #if DEBUG   // cost v2 (2026-11-16): one count line per image (model, size, quality; numbers only)
                 let d = u["input_tokens_details"] as? [String: Any]
-                NSLog("[IMAGE] usage: model=%@ size=%@ quality=%@ bg=%@ in=%d (text %d, image %d) out=%d", model, size, quality,
-                      background ?? "-", u["input_tokens"] as? Int ?? 0, d?["text_tokens"] as? Int ?? 0, d?["image_tokens"] as? Int ?? 0,
+                ImageUsageLog.usage(input: u["input_tokens"] as? Int ?? 0, output: u["output_tokens"] as? Int ?? 0,
+                                    imageInput: d?["image_tokens"] as? Int ?? 0)
+                #if DEBUG   // cost v2 (2026-11-16): one count line per image (model, size, quality; numbers only)
+                NSLog("[IMAGE] usage%@: model=%@ in=%d (text %d, image %d) out=%d", edit ? " (edit)" : "", model,
+                      u["input_tokens"] as? Int ?? 0, d?["text_tokens"] as? Int ?? 0, d?["image_tokens"] as? Int ?? 0,
                       u["output_tokens"] as? Int ?? 0)
                 #endif
             }
@@ -91,5 +134,12 @@ public final class ImageClient: @unchecked Sendable {
             return png
         }
         throw lastError
+    }
+}
+
+/// Printables draw-once: the app's image calls behind the `PageImaging` seam (tests use a fake).
+extension ImageClient: PageImaging {
+    public func generate(prompt: String, size: String, quality: String) async throws -> Data {
+        try await generate(prompt: prompt, size: size, quality: quality, background: nil)
     }
 }

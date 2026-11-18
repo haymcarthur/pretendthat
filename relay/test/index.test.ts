@@ -155,6 +155,64 @@ describe("POST /v1/messages", () => {
   });
 });
 
+function editForm(fields: Record<string, string>, image: Blob | null = new Blob([new Uint8Array([137, 80, 78, 71, 1, 2, 3])], { type: "image/png" })) {
+  const f = new FormData();
+  for (const [k, v] of Object.entries(fields)) f.set(k, v);
+  if (image) f.set("image", image, "page.png");
+  return f;
+}
+function postForm(path: string, form: FormData, headers: Record<string, string> = { "x-pt-token": TOKEN }) {
+  return new Request(`https://relay.test${path}`, { method: "POST", headers: { "cf-connecting-ip": "203.0.113.7", ...headers }, body: form });
+}
+
+describe("POST /v1/images/edits (printables draw-once)", () => {
+  it("forwards one image as multipart to OpenAI's edits endpoint with the key, n = 1 and moderation auto", async () => {
+    const r = await worker.fetch(postForm("/v1/images/edits", editForm({ model: IMAGE_MODELS[0], prompt: "color it in", size: "1024x1536",
+      quality: "low", output_format: "png", n: "4", moderation: "low", input_fidelity: "high" })), makeEnv());
+    expect(r.status).toBe(200);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://api.openai.com/v1/images/edits");
+    expect((init.headers as Record<string, string>).authorization).toBe("Bearer fake-openai");
+    const body = init.body as FormData;
+    expect(body.get("model")).toBe(IMAGE_MODELS[0]);
+    expect(body.get("prompt")).toBe("color it in");
+    expect(body.get("size")).toBe("1024x1536");
+    expect(body.get("quality")).toBe("low");
+    expect(body.get("n")).toBe("1");
+    expect(body.get("moderation")).toBe("auto");
+    expect(body.has("input_fidelity")).toBe(false);   // unknown fields are dropped (the model rejects it anyway)
+    expect(((body.get("image")) as File).size).toBe(7);
+  });
+
+  it("needs the token and uses the image rate limit", async () => {
+    expect((await worker.fetch(postForm("/v1/images/edits", editForm({ model: IMAGE_MODELS[0], prompt: "x" }), {}), makeEnv())).status).toBe(401);
+    const r = await worker.fetch(postForm("/v1/images/edits", editForm({ model: IMAGE_MODELS[0], prompt: "x" })), makeEnv({ IMAGE_LIMIT: limiter(false) }));
+    expect(r.status).toBe(429);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses other models, a missing prompt or image, two images, masks and JSON bodies", async () => {
+    const bad = [
+      editForm({ model: "dall-e-2", prompt: "x" }),
+      editForm({ model: IMAGE_MODELS[0] }),
+      editForm({ model: IMAGE_MODELS[0], prompt: "x" }, null),
+      (() => { const f = editForm({ model: IMAGE_MODELS[0], prompt: "x" }); f.append("image", new Blob([new Uint8Array([1])], { type: "image/png" }), "b.png"); return f; })(),
+      (() => { const f = editForm({ model: IMAGE_MODELS[0], prompt: "x" }); f.set("mask", new Blob([new Uint8Array([1])], { type: "image/png" }), "m.png"); return f; })(),
+      editForm({ model: IMAGE_MODELS[0], prompt: "x" }, new Blob(["hello"], { type: "text/plain" })),
+    ];
+    for (const f of bad) expect((await worker.fetch(postForm("/v1/images/edits", f), makeEnv())).status).toBe(400);
+    expect((await worker.fetch(post("/v1/images/edits", { model: IMAGE_MODELS[0], prompt: "x" }), makeEnv())).status).toBe(400);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses a body over 8 MB", async () => {
+    const big = new Blob([new Uint8Array(8 * 1024 * 1024 + 1)], { type: "image/png" });
+    const r = await worker.fetch(postForm("/v1/images/edits", editForm({ model: IMAGE_MODELS[0], prompt: "x" }, big)), makeEnv());
+    expect([400, 413]).toContain(r.status);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
 describe("POST /v1/images/generations", () => {
   it("forwards to OpenAI with the key and forces n = 1", async () => {
     await worker.fetch(post("/v1/images/generations", { model: IMAGE_MODELS[0], prompt: "line art", n: 8 }), makeEnv());

@@ -54,9 +54,18 @@ export const MODERATION_MAX_CHARS = 4000;
 export const ANTHROPIC_VERSION = "2026-10-21";
 /** Bodies are text prompts; anything bigger is not from the app. */
 export const MAX_BODY_BYTES = 256 * 1024;
+/** Printables draw-once (2026-11-17): an image edit carries ONE page PNG (a 1024x1536 coloring page is ~1-3 MB). */
+export const MAX_EDIT_BYTES = 8 * 1024 * 1024;
+export const MAX_EDIT_PROMPT_CHARS = 32_000;
+/** The only image types an edit may send (the app sends PNG). */
+export const EDIT_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"];
+/** The only plain fields forwarded with an edit (anything else, like input_fidelity, is dropped). n and moderation
+ *  are forced. */
+export const EDIT_FIELDS = ["size", "quality", "output_format", "background"];
 
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const OPENAI_IMAGES_URL = "https://api.openai.com/v1/images/generations";
+const OPENAI_IMAGE_EDITS_URL = "https://api.openai.com/v1/images/edits";
 const OPENAI_MODERATIONS_URL = "https://api.openai.com/v1/moderations";
 const OPENAI_CLIENT_SECRETS_URL = "https://api.openai.com/v1/realtime/client_secrets";
 
@@ -133,6 +142,53 @@ async function images(req: Request, env: Env): Promise<Response> {
   }));
 }
 
+/** Printables draw-once (2026-11-17): POST /v1/images/edits, multipart. The color page is the coloring page colored in
+ *  ("change nothing"), so the app sends that ONE page image plus a text prompt. Same auth, rate limit and show ticket
+ *  as /images/generations; the model is checked, n = 1 and moderation = auto are forced, and only known fields are
+ *  forwarded (a fresh multipart body; nothing is logged or stored). */
+async function imageEdits(req: Request, env: Env): Promise<Response> {
+  const declared = Number(req.headers.get("content-length") ?? "0");
+  if (declared > MAX_EDIT_BYTES) return error(413, "too_large", "Request body too large.");
+  if (!(req.headers.get("content-type") ?? "").toLowerCase().startsWith("multipart/form-data")) {
+    return error(400, "invalid_request", "Body must be multipart/form-data.");
+  }
+  let form: FormData;
+  try { form = await req.formData(); } catch { return error(400, "invalid_request", "Body must be multipart/form-data."); }
+  const model = form.get("model");
+  if (typeof model !== "string" || !IMAGE_MODELS.includes(model)) {
+    return error(400, "model_not_found", "This relay only serves PretendThat's image models.");
+  }
+  const prompt = form.get("prompt");
+  if (typeof prompt !== "string" || prompt.length === 0 || prompt.length > MAX_EDIT_PROMPT_CHARS) {
+    return error(400, "invalid_request", "prompt is required.");
+  }
+  const images = [...form.getAll("image"), ...form.getAll("image[]")];
+  const image = images[0];
+  if (images.length !== 1 || typeof image === "string" || !image) {
+    return error(400, "invalid_request", "Exactly one image is required.");
+  }
+  const file = image as File;
+  if (file.size === 0 || file.size > MAX_EDIT_BYTES || !EDIT_IMAGE_TYPES.includes((file.type || "image/png").toLowerCase())) {
+    return error(400, "invalid_request", "The image must be one PNG, JPEG or WebP under 8 MB.");
+  }
+  if (form.has("mask")) return error(400, "invalid_request", "Masks are not supported by this relay.");
+  const out = new FormData();
+  out.set("model", model);
+  out.set("prompt", prompt);
+  out.set("image", file, file.name || "page.png");
+  for (const k of EDIT_FIELDS) {
+    const v = form.get(k);
+    if (typeof v === "string" && v.length > 0 && v.length <= 32) out.set(k, v);
+  }
+  out.set("n", "1");
+  out.set("moderation", "auto");   // round 19: OpenAI's image moderation always stays on its standard setting
+  return passThrough(await fetch(OPENAI_IMAGE_EDITS_URL, {
+    method: "POST",
+    headers: { authorization: `Bearer ${env.OPENAI_API_KEY}` },   // fetch sets the multipart boundary itself
+    body: out,
+  }));
+}
+
 /** Round 19: the app's kid-safety check (OpenAI Moderation). Text only, the model forced, inputs capped. The app
  *  fails safe to its local filter if this errors, so a refusal here never blocks a game. */
 async function moderations(req: Request, env: Env): Promise<Response> {
@@ -202,7 +258,7 @@ async function showStart(req: Request, env: Env): Promise<Response> {
   }
   const mode = showMode(env);
   const r = await countShow(env.SHOWS!, counted, mode === "enforce");
-  if (!r.allowed) return error(402, "limit_reached", "This plan's new shows are used up for now. Replays are always free.");
+  if (!r.allowed) return error(402, "limit_reached", "This plan's new games are used up for now.");
   return json(200, { ticket: await makeTicket(env.SHOWS_SECRET!, counted.key), remaining: r.remaining, allowance: counted.allowance });
 }
 
@@ -212,6 +268,8 @@ const ROUTES: Record<string, Route> = {
   // Round 38: the guide and kit calls carry the show ticket (checked only when SHOW_LIMITS = "enforce").
   "/v1/messages": { handler: claude, limiter: "CLAUDE_LIMIT", needsShowTicket: true },
   "/v1/images/generations": { handler: images, limiter: "IMAGE_LIMIT", needsShowTicket: true },
+  // Printables draw-once (2026-11-17): the color page is an edit of the coloring page (same limits and ticket).
+  "/v1/images/edits": { handler: imageEdits, limiter: "IMAGE_LIMIT", needsShowTicket: true },
   "/v1/realtime/client_secrets": { handler: realtimeSecret, limiter: "REALTIME_LIMIT" },
   "/v1/moderations": { handler: moderations, limiter: "MODERATION_LIMIT" },
   "/v1/shows/start": { handler: showStart, limiter: "SHOWS_LIMIT" },
@@ -236,7 +294,7 @@ export default {
         { "retry-after": "60" });
     }
     if (route.needsShowTicket && mode === "enforce" && !(await ticketValid(env.SHOWS_SECRET!, req.headers.get(SHOW_TICKET_HEADER)))) {
-      return error(402, "show_ticket_required", "Start a new show first. Replays are always free.");
+      return error(402, "show_ticket_required", "Start a new game first.");
     }
     try {
       return await route.handler(req, env);

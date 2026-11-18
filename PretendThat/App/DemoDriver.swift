@@ -333,14 +333,14 @@ enum DemoDriver {
             }
             if turn == "#shelf" { model.openShelf(); try? await Task.sleep(for: .seconds(1)); continue }
             if turn.hasPrefix("#replay "), let n = Int(turn.dropFirst(8)), model.shelfGames.indices.contains(n) {
-                model.tapSavedGame(model.shelfGames[n])
+                model.playSavedGame(model.shelfGames[n])
                 for _ in 0..<150 where !(model.store.isReplay && (model.realtime.isLive || !model.hasRealtime || !model.network.online)) { try? await Task.sleep(for: .milliseconds(100)) }
                 rtLog("REPLAY: phase=\(model.store.phase) live=\(model.realtime.isLive)")
                 continue
             }
             // Round 34: "#replaytitle TEXT": the saved game whose title contains TEXT.
             if turn.hasPrefix("#replaytitle "), let g = model.shelfGames.first(where: { $0.title.localizedCaseInsensitiveContains(String(turn.dropFirst(13))) }) {
-                model.tapSavedGame(g)
+                model.playSavedGame(g)
                 for _ in 0..<150 where !(model.store.isReplay && (model.realtime.isLive || !model.hasRealtime || !model.network.online)) { try? await Task.sleep(for: .milliseconds(100)) }
                 rtLog("REPLAY \(g.title): phase=\(model.store.phase) live=\(model.realtime.isLive)")
                 continue
@@ -469,6 +469,22 @@ enum DemoDriver {
         }
         // Shelf fix (round 27 follow-up): `-PTDemo shelf` seeds 5 games (env PT_SEED_COUNT for more) (cover from env PT_SEED_COVER on every other
         // one, so both the cover and the fallback show) and opens the bookshelf (two shelves + a second page at 10+).
+        // Saved game page (2026-11-17), with saved games already on the device (no seeding): `-PTDemo savedPage` opens
+        // the bookshelf, then a game's page (env PT_PAGE_TITLE picks one, else the newest). `savedPageAsk`: + Play
+        // without a pass (Nutmeg's ask card). `savedPageCard`: + Grown-ups (with -PTGateOpen: the grown-up card).
+        // `-PTFakePass` = an active pass (Play then starts the replay).
+        if target.hasPrefix("savedPage") {
+            model.refreshShelf(); model.openShelf()
+            try? await Task.sleep(for: .seconds(0.8))
+            let want = ProcessInfo.processInfo.environment["PT_PAGE_TITLE"]
+            guard let g = model.shelfGames.first(where: { want == nil || $0.title.localizedCaseInsensitiveContains(want!) }) ?? model.shelfGames.first else {
+                rtLog("SAVED PAGE demo: no saved games on this device"); return
+            }
+            model.openSavedPage(g)
+            if target == "savedPageAsk" || target == "savedPageCard" { try? await Task.sleep(for: .seconds(1.2)); model.tapPlaySavedPage() }
+            if target == "savedPageCard" { try? await Task.sleep(for: .seconds(1)); model.savedPageGrownUps() }
+            return
+        }
         if target == "shelf" || target == "seed5" {
             await seedGames(store, model: model, count: Int(ProcessInfo.processInfo.environment["PT_SEED_COUNT"] ?? "") ?? 5)
             if target == "shelf" { model.openShelf() }
@@ -483,7 +499,7 @@ enum DemoDriver {
                 g.title = "Sea Clinic \(Int(Date().timeIntervalSince1970) % 1000)"
                 try? model.savedGames.save(g, art: [:], cover: cover)
                 model.leave(); model.refreshShelf()
-                if let saved = model.shelfGames.first(where: { $0.title == g.title }) { model.tapSavedGame(saved) }
+                if let saved = model.shelfGames.first(where: { $0.title == g.title }) { model.playSavedGame(saved) }
             }
             return
         }

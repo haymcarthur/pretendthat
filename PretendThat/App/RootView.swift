@@ -78,10 +78,17 @@ struct RootView: View {
                             if model.showingShelf {
                                 ShelfView(model: model).transition(.opacity)
                             }
+                            // 2026-11-17: a saved game's page (for everyone), over the bookshelf.
+                            if let g = model.savedPage {
+                                SavedGamePageView(model: model, game: g)
+                                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                                    .zIndex(3)
+                            }
                             // Round 33: New game was blocked (no AI consent, or the Free Preview is used up).
                             if let block = model.kidBlock { KidBlockCard(model: model, block: block).zIndex(5) }
                         }
                         .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: model.showingShelf)
+                        .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: model.savedPage?.id)
                         .transition(reduceMotion ? .opacity : .identity)
                     } else {
                         // ONE stage for every phase (conversation, hunt, kit, play, hand-off): same Nutmeg, floor and
@@ -157,7 +164,9 @@ struct RootView: View {
             }
             // Round 40 (Haylee): on the iPhone the chat shelf hides the pill (typing is the chat's input; closing the
             // chat brings the pill back, the mic one tap away). The iPad keeps it.
-            if chromeVisible && !(metrics.isPhone && chatOpen) {
+            // 2026-11-17 (Haylee): no control bar in Play (setup, scenes, clean-up) or The End: it slides away when Play
+            // starts. Each row keeps its 🔊, the scene title has one for the setup line, The End's buttons take its place.
+            if chromeVisible && !(metrics.isPhone && chatOpen) && !playNoBar {
                 PTControlBar(chatOpen: chatOpen, mic: micMode, canRepeat: model.repeatTarget.isAvailable,
                              onChat: { chatOpen.toggle() },
                              onMicPress: { model.talkPressed(touchHost: $0) },
@@ -172,6 +181,13 @@ struct RootView: View {
                     .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: model.isWriting)   // round 11: with the writing shot
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .ignoresSafeArea(.keyboard)   // round 11: the keyboard covers it (the chat panel has its own field)
+            }
+            if store.phase == .end && chromeVisible && !(chatOpen && chromeVisible) {
+                EndButtons(model: model, size: metrics.isPhone ? 104 : 124)
+                    .padding(.bottom, metrics.isPhone ? 10 : metrics.pillBottom + 4)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .ignoresSafeArea(.keyboard)
             }
             // 2026-11-17: offline on a replay, a line she never recorded: her words as a caption at the top of the stage
             // (and in the chat); the game carries on (it used to pause on the full-screen Wi-Fi note below).
@@ -245,6 +261,9 @@ struct RootView: View {
         // Round 10: the panel/rail slide on the same spring as the camera move they cause (one shared animation).
         .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: chatOpen)
         .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: chromeVisible)
+        .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: playNoBar)
+        // No bar in Play: the chat closes with it, and a held mic is let go (sent or cleared).
+        .onChange(of: playNoBar) { _, off in if off { chatOpen = false; model.talkReleased() } }
         .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: model.inConversation)   // round 11: one move
         .environment(\.speak, SpeakAction { model.speak($0) })
         .environment(\.ptCelebrate, model.celebrations)
@@ -387,7 +406,7 @@ struct RootView: View {
 
     /// Her box and the content zone on the phone stage (stage coordinates).
     private func phoneSplit(_ g: PTStageGeometry) -> (nutmeg: CGRect, content: CGRect) {
-        let band = metrics.phoneBand(stage: g.size, screen: screenSize == .zero ? g.size : screenSize, safeTop: rootTop)
+        let band = metrics.phoneBand(stage: g.size, screen: screenSize == .zero ? g.size : screenSize, safeTop: rootTop, bottom: phoneBottomRoom)
         let split = PTPhoneStage.split(width: g.size.width, top: band.top, bottom: band.bottom,
                                        content: LayoutMetrics.phoneContentHeight(phoneContent))
         return (split.nutmeg, split.content.insetBy(dx: LayoutMetrics.phoneSide, dy: 0))
@@ -401,7 +420,7 @@ struct RootView: View {
     }
     /// The phone's whole free band (under the top bar, above the pill), side-inset: the peek scene's card zone.
     private func phoneBandRect(_ g: PTStageGeometry) -> CGRect {
-        let band = metrics.phoneBand(stage: g.size, screen: screenSize == .zero ? g.size : screenSize, safeTop: rootTop)
+        let band = metrics.phoneBand(stage: g.size, screen: screenSize == .zero ? g.size : screenSize, safeTop: rootTop, bottom: phoneBottomRoom)
         return CGRect(x: 0, y: band.top, width: g.size.width, height: band.bottom - band.top).insetBy(dx: LayoutMetrics.phoneSide, dy: 0)
     }
 
@@ -441,7 +460,7 @@ struct RootView: View {
                     // iPhone: no side rail (it's in the top bar); the pill's room at the bottom; the chat is a sheet over
                     // the stage, so the stage never narrows for it.
                     leadingInset: chromeVisible && !metrics.isPhone ? PTStageCamera.chromeLeading : 0,
-                    bottomInset: metrics.isPhone ? metrics.phoneChromeBottom : (chromeVisible ? PTStageCamera.chromeBottom : 0),
+                    bottomInset: metrics.isPhone ? phoneBottomRoom : (chromeVisible ? padBottomRoom : 0),
                     chatOpen: chatOpen && chromeVisible && !metrics.isPhone,
                     faceFocus: (debugPose ?? model.nutmegRestPose).faceFocus,
                     frame: { g in stageFrame(g) }, itemCount: stageItems.count, keyboardUp: keyboardUp) {
@@ -722,7 +741,7 @@ struct RootView: View {
                                             onCelebrate: { celebrate() })
         // Round 36: the story is Nutmeg alone (the talking close-up), no card.
         case .scene(let i): if !(chatOpen && chromeVisible) && !store.inStory { SceneView(model: model, index: i, width: width, maxHeight: height, peek: phonePeek) }   // chat open: pinned in the panel
-        case .end: if !(chatOpen && chromeVisible) { EndView(model: model) }   // chat open: pinned in the panel
+        case .end: if !(chatOpen && chromeVisible) { EndView(model: model, showsButtons: false) }   // its buttons sit where the bar was
         }
     }
 
@@ -758,6 +777,24 @@ struct RootView: View {
 
     /// Step rail and control pill show from the first step on (not on Hello).
     private var chromeVisible: Bool { store.phase != .hello || startExiting }
+    /// 2026-11-17 (Haylee): Play (setup, scenes, clean-up; the story too) and The End have no control bar.
+    private var playNoBar: Bool { switch store.phase { case .scene, .end: true; default: false } }
+    /// The iPad stage's bottom room: the bar's, a margin in Play, The End's bigger buttons there.
+    private var padBottomRoom: CGFloat {
+        switch store.phase {
+        case .scene: Theme.Space.m
+        case .end: 124 + Theme.depth + metrics.pillBottom + 4 + Theme.Space.s
+        default: PTStageCamera.chromeBottom
+        }
+    }
+    /// The phone stage's bottom room: the bar's, none in Play (the peek and the rows get it), The End's buttons there.
+    private var phoneBottomRoom: CGFloat {
+        switch store.phase {
+        case .scene: LayoutMetrics.phoneNoBarBottom
+        case .end: LayoutMetrics.phoneEndBottom
+        default: metrics.phoneChromeBottom
+        }
+    }
 
     /// Round 11 (Haylee: one move): the tap on "Let's play!" starts everything at once. The start screen's exit pushes
     /// its camera to the game's first framing (the close-up when voice is on), so the camera is set there now, without
