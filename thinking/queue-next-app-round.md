@@ -439,3 +439,6 @@ Game arc becomes: Print → **story opener** → **setup scene** → 3 play scen
 
 ## Copy: new tagline + no "off the screen" (queued 2026-11-18, Haylee)
 - decisions/2026-11-18-tagline-and-play-wording.md: onboarding page 1 tagline → "Plan it, print it, play it"; grep app strings and Nutmeg's scripted lines for "off the screen", "steps back", the old flow sentence; use the new wording. Re-record any bundled clip whose words change (one short live recording allowed, voice work).
+
+## App Store slides v3 to compare (queued 2026-11-18, Haylee) — after the current site/slides agent finishes
+- Haylee's reference: the "Rays" set (vitamin D app). Make design/appstore-screens/slides-v3/ alongside v2 (don't replace v2): enlarged real UI cards floating off the phone edges (wider than the phone), a small outlined label chip at the top of each slide, medium-weight headline, a soft colored shape behind the phone (stage arc / warm spotlight), a bottom caption line with one more detail, logo on some slides, full-bleed hero slide 1 with image 49 (Nutmeg on stage). Same screens/copy as v2 (new tagline "Plan it, print it, play it", sparkly talking screen, "Play it out, scene by scene"). iPhone + iPad + 6.3" sets, strips for comparison.
