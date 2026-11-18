@@ -453,3 +453,7 @@ Game arc becomes: Print → **story opener** → **setup scene** → 3 play scen
   - Setup / scene rows and the play guide can refer to "the cups" (plural) correctly.
   - Keep all prop rules: household only, no printed things, no weapons, no-repeat, prop fit.
 - **Update (Haylee, 2026-11-18):** say "**up to** N" for multiples so families without enough never feel they can't play. Card: "Up to 4 cups — tea cups for everyone"; Nutmeg: "Find up to 4 cups — one for each player if you have them!" ✓ = found some; no "we only have 2" step needed. (The no-"up to" rule is only for plan/marketing copy, not here.)
+
+## Onboarding spacing (queued 2026-11-18, Haylee)
+- Haylee: "during onboarding, the spacing is a little weird. It shows the graphic in the middle and then the heading and text are pushed way down by the button making it feel cramped. It is that way on iphone and ipad."
+- Fix: balance each onboarding page vertically — the art sits higher (not centered in the leftover space), heading + body sit right under the art with comfortable spacing, and a clear gap above the button; nothing crowding the button. Check every onboarding page (incl. plans and privacy pages) on iPhone 18 Pro, a small iPhone (SE/17e), iPad portrait-equivalent and iPad landscape; before/after screenshots.
