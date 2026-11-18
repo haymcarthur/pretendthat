@@ -39,3 +39,5 @@ the company team for App Store builds). How it is wired is Claude's call, noted.
    the README.
 3. Organizer → Distribute App → App Store Connect → Upload.
 4. Deploy the relay so show counts accept the new bundle ID.
+
+- **Relay deployed (Haylee, 2026-11-17):** version 3def7a9c accepts both bundle IDs (SHOW_LIMITS still off).
