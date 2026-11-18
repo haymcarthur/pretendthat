@@ -90,34 +90,26 @@ struct PTShelfMomentView: View {
     }
 }
 
-/// Where the round-39 overlays sit on the stage: in the card zone, never over Nutmeg (iPad landscape: the right side;
-/// iPad portrait and iPhone: the lower part, below her).
-struct PTStageCardZone {
-    /// `low`: the conversation close-up on iPhone (she fills the screen), so the card sits lower, under her chin.
-    static func center(in size: CGSize, isPhone: Bool, low: Bool = false) -> CGPoint {
-        if isPhone { return CGPoint(x: size.width / 2, y: size.height * (low ? 0.76 : 0.6)) }
-        if size.width > size.height { return CGPoint(x: size.width * 0.75, y: size.height * 0.56) }
-        return CGPoint(x: size.width / 2, y: size.height * 0.74)
-    }
-}
-
-/// "We already have <title> saved! Want to play that one?" Two big picture buttons: the saved game's card
-/// with a green ▶ (play that one) and the yellow sparkles (make a new one). No words on it; Nutmeg says the question.
-/// It never blocks: the leave X still works, and the sparkles carry on with the new game.
-struct PTSoundsLikeCard: View {
+/// "We already have <title> saved! Do you want to play that one, or make a new game?" (2026-11-18, Haylee's device
+/// testing; was a card in the middle of the stage). Picture first, just above the control bar (never over the mic,
+/// Repeat or chat buttons): the saved game's cover with a green ▶ (play that one) and the yellow sparkles (make a new
+/// game), each with a short word under it. Nutmeg asks out loud; the kids answer by voice (`SavedOrNew`) or a tap.
+struct PTSoundsLikeOffer: View {
     let game: SavedGame
     let cover: UIImage?
     let onReplay: () -> Void
     let onNew: () -> Void
     @Environment(\.layoutMetrics) private var metrics
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var shown = false
 
     var body: some View {
-        GeometryReader { geo in
-            let cardW: CGFloat = metrics.isPhone ? min(210, geo.size.width * 0.5) : 260
-            let card = CGSize(width: cardW, height: cardW * 2 / 3)
-            let newSize: CGFloat = metrics.isPhone ? 96 : 120
-            HStack(alignment: .center, spacing: metrics.isPhone ? Theme.Space.m : Theme.Space.xl) {
+        let phone = metrics.isPhone
+        let cardW: CGFloat = phone ? 150 : 210
+        let card = CGSize(width: cardW, height: cardW * 2 / 3)
+        let newSize: CGFloat = phone ? 78 : 104
+        HStack(alignment: .top, spacing: phone ? Theme.Space.l : Theme.Space.xl) {
+            VStack(spacing: Theme.Space.xs) {
                 Button(action: onReplay) {
                     ZStack(alignment: .bottomTrailing) {
                         PTCoverPicture(cover: cover, props: game.coverProps, size: card)
@@ -128,21 +120,34 @@ struct PTSoundsLikeCard: View {
                             .frame(width: card.height * 0.42, height: card.height * 0.42)
                             .background(Circle().fill(Theme.lime))
                             .background(Circle().fill(Theme.limeShade).offset(y: Theme.depth))
-                            .offset(x: card.height * 0.12, y: card.height * 0.12)
+                            .offset(x: card.height * 0.1, y: card.height * 0.1)
                     }
                 }
                 .buttonStyle(TileButtonStyle())
                 .accessibilityLabel("Play \(game.title)")
                 .accessibilityIdentifier("soundsLike.replay")
+                PTText(GameTitles.shelf(game.title), .caption)
+                    .lineLimit(1).minimumScaleFactor(0.8)
+                    .frame(width: card.width)
+                    .padding(.top, card.height * 0.08)
+                    .accessibilityHidden(true)
+            }
+            VStack(spacing: Theme.Space.xs) {
                 PTBigIconButton(kind: .fresh, size: newSize, label: "Make a new game", action: onNew)
                     .accessibilityIdentifier("soundsLike.new")
+                    .frame(height: card.height)
+                PTText("New game", .caption)
+                    .lineLimit(1)
+                    .padding(.top, card.height * 0.08)
+                    .accessibilityHidden(true)
             }
-            .padding(.horizontal, Theme.Space.l).padding(.vertical, Theme.Space.l)
-            .ptPanel(radius: 32)
-            .scaleEffect(shown ? 1 : 0.85)
-            .opacity(shown ? 1 : 0)
-            .position(PTStageCardZone.center(in: geo.size, isPhone: metrics.isPhone, low: true))
         }
-        .onAppear { withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) { shown = true } }
+        .padding(.horizontal, phone ? Theme.Space.l : Theme.Space.xl)
+        .padding(.top, Theme.Space.m).padding(.bottom, Theme.Space.s)
+        .ptPanel(radius: 28)
+        .scaleEffect(shown ? 1 : 0.9, anchor: .bottom)
+        .opacity(shown ? 1 : 0)
+        .onAppear { withAnimation(reduceMotion ? .easeOut(duration: 0.2) : .spring(response: 0.35, dampingFraction: 0.75)) { shown = true } }
     }
 }
+

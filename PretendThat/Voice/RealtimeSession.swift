@@ -252,16 +252,66 @@ final class RealtimeSession {
     func resumeIfAlive() async -> Bool {
         guard suspended else { return isLive }
         suspended = false
+        // 2026-11-18 (device testing: taps and the mic did nothing after a lock): nothing from before the lock may
+        // stay "on". A hold or a release still finishing, the thinking dots, a reminder that never played.
+        clearAwayState()
         let alive = !socketDropped && socket != nil ? await socket!.ping() : false
         guard alive, status == .live else {
             rtLog("foreground: socket gone (dropped=\(socketDropped)), reconnect needed")
             return false
         }
         do { try startAudio(echoCancel: echoCancel) } catch { rtLog("foreground: audio restart failed: \(error.localizedDescription)"); return false }
+        health.reset()
         updateGate()
         rtLog("foreground: socket alive, audio restarted")
         startSilenceTimer()
         return true
+    }
+
+    /// 2026-11-18: the kid's words were handled on the device (the saved-game question): no reply is coming, so the
+    /// thinking face and dots end now.
+    func endThinking() { thinkingGap = false; gapTask?.cancel() }
+
+    /// Per-turn state that can't carry over a background: the kid's hold, a release still being finished, the
+    /// thinking gap, a reminder that was asked for but never played. The game's state is untouched.
+    private func clearAwayState() {
+        if holdStartedAt != nil || releaseTask != nil {
+            capture.cancel()
+            holdStartedAt = nil; releaseTask?.cancel(); releaseTask = nil
+            rtLog("foreground: an unfinished hold was cleared")
+        }
+        kidIsTalking = false
+        thinkingGap = false; gapTask?.cancel()
+        if reminderPending && !reminderPlaying { reminderPending = false }
+    }
+
+    // MARK: Keepalive (2026-11-18, device testing)
+
+    /// A ping every `SocketHealth.interval` s while the app is in the foreground: a socket that silently died while
+    /// the phone sat idle (Wi-Fi / NAT drop, never reported) is closed after two missed pongs, so the normal drop path
+    /// reconnects silently BEFORE the kids' next tap or mic press goes into a dead socket.
+    @ObservationIgnored private var health = SocketHealth()
+    @ObservationIgnored private var keepaliveTask: Task<Void, Never>?
+
+    private func startKeepalive() {
+        keepaliveTask?.cancel()
+        health.reset()
+        keepaliveTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(SocketHealth.interval))
+                guard let self, !Task.isCancelled else { return }
+                guard self.isLive, !self.suspended, let socket = self.socket else { continue }
+                let ok = await socket.ping()
+                guard !Task.isCancelled, socket === self.socket, !self.suspended else { continue }
+                if self.health.pinged(ok: ok) {
+                    rtLog("keepalive: \(SocketHealth.maxMissed) pongs missed, the socket is dead: closing it (silent reconnect)")
+                    self.health.reset()
+                    socket.close()   // the receive loop ends → socketClosed → onDropped → the app reconnects silently
+                } else if !ok {
+                    rtLog("keepalive: a pong was missed")
+                }
+            }
+        }
     }
 
     /// After a silent reconnect: the writing beat already planned the props if they exist (no second beat), and the
@@ -329,6 +379,7 @@ final class RealtimeSession {
         }
         await openLineSocket(auth: auth, config: config, instructions: instructions)   // round 35 prep: flag, default off
         updateGate()
+        startKeepalive()
         return true
     }
 
@@ -382,6 +433,7 @@ final class RealtimeSession {
     }
 
     func disconnect() {
+        keepaliveTask?.cancel(); keepaliveTask = nil
         receiveTask?.cancel(); receiveTask = nil
         socket?.close(); socket = nil
         lineTask?.cancel(); lineTask = nil; lineSocket?.close(); lineSocket = nil

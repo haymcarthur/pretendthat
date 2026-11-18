@@ -349,6 +349,7 @@ struct NutmegPeek: View {
     var mouthShape: NutmegMouth? = nil
     var isSpeaking = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var gaze = PeekGaze()
 
     static let canvas = CGSize(width: 1536, height: 1024)
     /// The figure's box in the art (ears, tail and paws).
@@ -359,8 +360,27 @@ struct NutmegPeek: View {
     static func heightAboveEdge(width: CGFloat) -> CGFloat { (edgeY - box.minY) * width / box.width }
     /// How far the paws reach below the card's edge (the card keeps its first row clear of them).
     static func pawOverhang(width: CGFloat) -> CGFloat { (box.maxY - edgeY) * width / box.width }
+    /// What's left of the overhang after the lift: the card's content starts this far below its edge.
+    static func pawClearance(width: CGFloat) -> CGFloat { pawOverhang(width: width) * (1 - PeekHands.current.liftShare) }
+
+    /// DEBUG screenshots: `-PTPeekLookUp` holds her looking up at the kids (1) or down at the rows (0).
+    static var debugLookUp: Double? {
+        #if DEBUG
+        let args = ProcessInfo.processInfo.arguments
+        if let i = args.firstIndex(of: "-PTPeekLookUp"), i + 1 < args.count { return Double(args[i + 1]) }
+        #endif
+        return nil
+    }
     /// 2026-11-18: how far the paws are lifted (art px) so they rest on the card's edge instead of hanging over it.
-    static let pawLift: CGFloat = box.maxY - edgeY
+    /// 2026-11-18 (device testing, Haylee: the hands looked worse after the lift): the paws layer carries the whole
+    /// arms, so lifting it slides the arms up off the shoulders. The lift is now a choice (`PeekHands`, one constant)
+    /// so Haylee can pick from screenshots. Offsets only, never a shape edit.
+    static var pawLift: CGFloat { (box.maxY - edgeY) * PeekHands.current.liftShare }
+
+    /// Gaze in Play (2026-11-18): she looks UP at the kids while she says a line (talking eyes, head tipped up a
+    /// little), DOWN at the rows otherwise (focus eyes). `PeekGaze` (NutmegCore) holds the timing.
+    static let lookUpTurn: Double = 4        // degrees added to `headTurn` at full "up" (−5° → −1°)
+    static let lookUpLift: CGFloat = 8       // art px the head rises at full "up"
 
     /// The rig head on the peek body (rig canvas 1178×1335 → peek art), fitted by overlaying the rig head stack on the
     /// art's `head` group (eyes, nose, ears, chin): 0.6 scale, turned −5° around the rig nose, the nose at (795, 314).
@@ -378,22 +398,25 @@ struct NutmegPeek: View {
                 // after the paws, so the shoulders tuck under her cheeks and the head is always in front. The head sits
                 // wholly above the card's edge, so it never covers the card.
                 TimelineView(.animation(minimumInterval: 1.0 / 30, paused: false)) { context in
-                    let m = Motion(state: state, t: context.date.timeIntervalSinceReferenceDate, reduced: reduceMotion,
+                    let now = context.date.timeIntervalSinceReferenceDate
+                    let m = Motion(state: state, t: now, reduced: reduceMotion,
                                    speaking: isSpeaking,
                                    level: mouthShape.map { $0 == .closed ? 0 : ($0 == .small ? 0.4 : 0.9) } ?? mouthLevel * 2)
+                    let up = Self.debugLookUp ?? (reduceMotion ? (gaze.look(at: now) == .up ? 1 : 0) : gaze.headUp(at: now))
+                    let lookingUp = Self.debugLookUp.map { $0 > 0 } ?? (gaze.look(at: now) == .up)
                     ZStack(alignment: .topLeading) {
                         // 2026-11-18 (Haylee: the paws hung over onto the white card): the paws (with their arms) are
-                        // lifted by their overhang so their bottoms REST ON the card's top edge; the shoulders tuck
-                        // further under her cheeks. An offset only, no shape edits.
+                        // lifted (`PeekHands`) so their bottoms rest on or near the card's top edge. Offset only.
                         art("nutmeg-peek-paws", u: u)
                             .offset(y: -Self.pawLift * u)
-                        head(motion: m, u: u)
+                        head(motion: m, u: u, up: up, lookingUp: lookingUp)
                     }
                 }
             case .back:
                 art("nutmeg-peek-back", u: u)
             }
         }
+        .onChange(of: isSpeaking, initial: true) { _, on in gaze.speaking(on, at: Date().timeIntervalSinceReferenceDate) }
         .aspectRatio(Self.box.width / Self.box.height, contentMode: .fit)
         .accessibilityHidden(part == .front)
         .accessibilityElement()
@@ -409,25 +432,58 @@ struct NutmegPeek: View {
             .accessibilityHidden(true)
     }
 
-    private func head(motion m: Motion, u: CGFloat) -> some View {
+    /// `up` 0…1: how far her head is tipped up toward the kids; `lookingUp`: the talking eyes (forward) instead of the
+    /// focus eyes (down at the rows).
+    private func head(motion m: Motion, u: CGFloat, up: Double, lookingUp: Bool) -> some View {
         let size = CGSize(width: NutmegPose.canvas.width * Self.headScale * u, height: NutmegPose.canvas.height * Self.headScale * u)
         let anchor = UnitPoint(x: Self.rigNose.x / NutmegPose.canvas.width, y: Self.rigNose.y / NutmegPose.canvas.height)
-        let nose = CGPoint(x: (Self.peekNose.x - Self.box.minX) * u, y: (Self.peekNose.y - Self.box.minY) * u)
-        let face: NutmegFace = .focus   // eyes down at the rows
+        let nose = CGPoint(x: (Self.peekNose.x - Self.box.minX) * u,
+                           y: (Self.peekNose.y - Self.box.minY - Self.lookUpLift * up) * u)
+        let face: NutmegFace = lookingUp ? .talking : .focus
         return ZStack {
             layer("nutmeg-head-base")
             layer(m.blink ? NutmegFace.nap.asset : face.asset)
-            layer(isSpeaking ? (mouthShape ?? NutmegMouth.forLevel(mouthLevel, oohBeat: m.oohBeat)).asset : face.mouthAsset)
+            layer(isSpeaking ? (mouthShape ?? NutmegMouth.forLevel(mouthLevel, oohBeat: m.oohBeat)).asset : (lookingUp ? NutmegFace.happy : face).mouthAsset)
             layer("nutmeg-headset")
         }
         .frame(width: size.width, height: size.height)
-        .rotationEffect(.degrees(Self.headTurn + m.headTilt), anchor: anchor)
+        .rotationEffect(.degrees(Self.headTurn + Self.lookUpTurn * up + m.headTilt), anchor: anchor)
         .position(x: nose.x - (anchor.x - 0.5) * size.width, y: nose.y - (anchor.y - 0.5) * size.height + max(-2, min(2, m.nod)))
     }
 
     private func layer(_ name: String) -> some View {
         Image(name).resizable().scaledToFit().accessibilityHidden(true)
             .transaction(value: name) { $0.animation = nil }
+    }
+}
+
+/// The peek's hands (2026-11-18, Haylee's device testing: "the hands got worse after the paw lift"). The paws layer
+/// carries the WHOLE arms (shoulder to paw), so lifting it slides the arms up off her shoulders; not lifting it leaves
+/// the paws hanging over the card's top edge. One constant picks the look (Haylee chooses from the screenshots in
+/// decisions/2026-11-18-device-testing-fixes.md); `-PTPeekHands <name>` overrides it for DEBUG screenshots.
+/// If none looks right, the art needs a re-export from Figma (one whole arm + paw layer per side), never a shape edit.
+enum PeekHands: String, CaseIterable {
+    /// The original (before 2026-11-18): arms on her shoulders, paws hanging over the card's edge.
+    case hang
+    /// Halfway: the paws lifted half their overhang (arms stay closer to the shoulders, paw tips just over the edge).
+    case half
+    /// The 2026-11-18 lift: paw bottoms resting exactly on the card's edge (arms slide up off the shoulders).
+    case onEdge
+
+    /// The look in the app.
+    static let chosen: PeekHands = .half
+
+    /// Share of the paws' overhang they're lifted by.
+    var liftShare: CGFloat {
+        switch self { case .hang: 0; case .half: 0.5; case .onEdge: 1 }
+    }
+
+    static var current: PeekHands {
+        #if DEBUG
+        let args = ProcessInfo.processInfo.arguments
+        if let i = args.firstIndex(of: "-PTPeekHands"), i + 1 < args.count, let h = PeekHands(rawValue: args[i + 1]) { return h }
+        #endif
+        return chosen
     }
 }
 

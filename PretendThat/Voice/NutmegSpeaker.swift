@@ -165,17 +165,20 @@ final class NutmegSpeaker {
 
     /// Starts the audio session and the engine. `installInput` is the mic's tap on the shared engine's input node.
     /// `withInput: false` (clips before the mic is allowed): the same session and output chain, no input node.
-    func start(echoCancel: Bool, withInput: Bool = true, installInput: (AVAudioInputNode) -> Void) throws {
+    func start(echoCancel: Bool, withInput: Bool = true, installInput: @escaping (AVAudioInputNode) -> Void) throws {
         if let engine {
             // Round D3b: the engine is already running (clips on a replay): the session only adds its mic tap, so a
             // clip playing while the voice connects isn't cut.
             if inputEnabled {
                 engine.inputNode.removeTap(onBus: 0)
                 installInput(engine.inputNode)
-                ensureRunning()
+                restart = (echoCancel, true, installInput)
+                // 2026-11-18: after a lock the held engine (a replay) needs its session active and its player playing
+                // again, not just `engine.start()` (her voice stayed silent).
+                recover("session start on the held engine")
                 return
             }
-            guard withInput else { ensureRunning(); return }
+            guard withInput else { recover("clips on the held engine"); return }
             // Round 35 prep: an output-only engine (onboarding) gets the input by starting over with it (same session).
             let hold = holdEngine
             shutdown()
@@ -220,7 +223,7 @@ final class NutmegSpeaker {
                 // Re-wire the output chain at our format; a reconfiguration can leave it disconnected.
                 self.wireOutput(engine)
                 self.ensureRunning()
-                self.player.play()
+                if engine.isRunning { self.player.play() }
                 #if DEBUG
                 self.logFormats("after configuration change")
                 #endif
@@ -231,6 +234,56 @@ final class NutmegSpeaker {
         routeObserver = NotificationCenter.default.addObserver(forName: AVAudioSession.routeChangeNotification, object: nil, queue: .main) { [weak self] _ in
             Task { @MainActor in self?.relinkOutput("route change") }
         }
+        restart = (echoCancel, withInput, installInput)
+        observeInterruptions()
+    }
+
+    // MARK: Interruptions and coming back (2026-11-18, Haylee's device testing)
+
+    /// What the last `start` used, so the engine can be rebuilt the same way after the media services reset.
+    @ObservationIgnored private var restart: (echoCancel: Bool, withInput: Bool, install: (AVAudioInputNode) -> Void)?
+    @ObservationIgnored private var interruptionObservers: [NSObjectProtocol] = []
+
+    /// A call, Siri, an alarm or the lock screen interrupts the audio session: the engine stops and nothing used to
+    /// start it again (her voice and the mic stayed dead). Interruption ended → `recover`; media services reset →
+    /// rebuild the engine.
+    private func observeInterruptions() {
+        guard interruptionObservers.isEmpty else { return }
+        let nc = NotificationCenter.default
+        interruptionObservers.append(nc.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] note in
+            let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt
+            let began = raw.flatMap(AVAudioSession.InterruptionType.init(rawValue:)) == .began
+            Task { @MainActor in
+                guard let self else { return }
+                if began { rtLog("audio: interruption began"); self.cancel() } else { self.recover("interruption ended") }
+            }
+        })
+        interruptionObservers.append(nc.addObserver(forName: AVAudioSession.mediaServicesWereResetNotification, object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in self?.rebuild("media services reset") }
+        })
+    }
+
+    /// Back in the foreground or after an interruption: the session active again, the engine running, the player
+    /// playing. A start that fails rebuilds the engine. Does nothing when there's no engine (the session starts its
+    /// own on resume).
+    func recover(_ why: String) {
+        guard let engine else { return }
+        do { try NutmegAudioSession.nutmeg.apply() } catch { rtLog("audio (\(why)): session activation failed: \(error.localizedDescription)") }
+        if !engine.isRunning {
+            do { try engine.start(); rtLog("audio (\(why)): engine restarted") }
+            catch { rebuild(why); return }
+        }
+        if !player.isPlaying, engine.isRunning { player.play() }
+    }
+
+    /// Stops the engine and starts a new one exactly like the last `start` (same mic tap, same output chain).
+    private func rebuild(_ why: String) {
+        guard engine != nil, let r = restart else { return }
+        let hold = holdEngine
+        shutdown()
+        holdEngine = hold
+        do { try start(echoCancel: r.echoCancel, withInput: r.withInput, installInput: r.install); rtLog("audio (\(why)): engine rebuilt") }
+        catch { rtLog("audio (\(why)): engine rebuild failed: \(error.localizedDescription)") }
     }
 
     /// Re-links mixer → output when the hardware rate no longer matches the link (logged). Stops and restarts the engine
@@ -240,7 +293,7 @@ final class NutmegSpeaker {
         let running = engine.isRunning
         if running { engine.pause() }
         SpeakerGraph.wire(engine, player: player, pitchUnit: pitchUnit)
-        if running { try? engine.start(); player.play() }
+        if running { try? engine.start(); if engine.isRunning { player.play() } }
         rtLog(String(format: "VOICEFMT relinked (%@): link %.0f → hardware %.0f (she'd have been heard at ×%.3f)",
                      moment, m.link, m.hardware, shape.rate * m.link / m.hardware))
     }
@@ -313,7 +366,8 @@ final class NutmegSpeaker {
     /// Voice processing / route changes can stop the engine; restart it before scheduling audio.
     private func ensureRunning() {
         guard let engine, !engine.isRunning else { return }
-        do { try engine.start(); rtLog("engine restarted") } catch { rtLog("engine restart failed: \(error.localizedDescription)") }
+        do { try engine.start(); rtLog("engine restarted"); if !player.isPlaying { player.play() } }
+        catch { rtLog("engine restart failed: \(error.localizedDescription)"); recover("restart failed") }
     }
 
     // MARK: Playback
@@ -369,7 +423,7 @@ final class NutmegSpeaker {
         }
         queueMouth(buffer)
         player.scheduleBuffer(buffer, completionHandler: nil)
-        if !player.isPlaying { player.play() }
+        if !player.isPlaying, engine?.isRunning == true { player.play() }
         scheduleEndCheck()
     }
 
@@ -379,7 +433,7 @@ final class NutmegSpeaker {
         let t0 = CACurrentMediaTime()
         let wasClip = clipPlaying
         resetShifters()   // nothing of the cut line is held back for the next one
-        player.stop(); player.play()
+        player.stop(); if engine?.isRunning == true { player.play() }
         silence()
         if wasClip {
             let latency = AVAudioSession.sharedInstance().outputLatency + AVAudioSession.sharedInstance().ioBufferDuration

@@ -179,6 +179,7 @@ The map. Read this first, then open only what you need.
 - [Site v5: roomier hero, Play bar over the real button, 3rd Why card, 6 safety points; slides arch on slide 1 only](decisions/2026-11-18-site-v5-hero-room-playbar-why-safety.md): Haylee, Claude's call on sizes and wording
 - [v3 slides without the gray slashed mic (red-mic retake + real pieces over the bar); site restyled to v3](decisions/2026-11-18-v3-mic-and-site-v3.md): Haylee (how: Claude's call)
 - [Round 2026-11-18: props in multiples ("up to N", rule kept for replays), "Plan it, print it, play it" + no "off the screen", onboarding spacing, iPhone Nutmeg centered alone, peek head in front of the arms, saved-page toggle words only, short shelf titles + bigger iPhone shelf](decisions/2026-11-18-round-props-copy-onboarding.md): Haylee (Claude's calls noted)
+- [Device-testing fixes: idle/lock bug (the voice never came back after a failed reconnect, silent idle drops, the replay speaker never restarted), saved-game offer above the bar with a spoken answer, Nutmeg looks up while she talks in Play, three peek-hand variants to pick from](decisions/2026-11-18-device-testing-fixes.md): Haylee (Claude's calls noted)
 - [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–32 (31: on-device speech + instant mic; 32: Grown-ups menu) + C1 + D1 + D2 + D3a + D3b done (round 27's mockups separate); next: D4 iCloud
 
 - [Libraries and services list](team-profile-libraries.md): what the app uses (Code Camp is finished; no team-profile task)

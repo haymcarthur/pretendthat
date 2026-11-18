@@ -8,14 +8,18 @@ import Foundation
 /// when the kit is made (the game saves itself silently), and kids never hear "bookshelf" (or "shelf"): she says the
 /// game is saved.
 public enum ShelfLines {
-    /// "Sounds like a game you have" at the Pick confirm (said live: it names the saved game).
+    /// "Sounds like a game you have" at the Pick confirm (said live: it names the saved game). 2026-11-18 (Haylee's
+    /// device testing): she asks both choices out loud; the kids answer by voice or by tapping.
     public static func soundsLike(title: String) -> String {
-        "We already have \(title) saved! Want to play that one?"
+        "We already have \(title) saved! Do you want to play that one, or make a new game?"
     }
-    /// The model's tool output while the kids choose (they tap a picture; she says nothing more).
-    public static let soundsLikeOutput = "(Silent coaching, don't mention it.) The app is showing the kids a game they already "
-        + "already saved and asking if they want to play it instead. Say NOTHING now. If the kids talk before "
-        + "they tap, say ONLY: \"Tap the one you want!\""
+    /// Her one follow-up when the kids' spoken answer was unclear (a fixed line, no AI call).
+    public static let soundsLikeAgain = "Tap the picture to play that one, or tap the sparkles to make a new game!"
+    /// The model's tool output while the kids choose. The app hears their answer itself (voice or a tap) and says
+    /// what's next, so the model says nothing now.
+    public static let soundsLikeOutput = "(Silent coaching, don't mention it.) The app is showing the kids a game they "
+        + "already saved and asking if they want to play it or make a new game. The app handles their answer. "
+        + "Say NOTHING now."
     /// The note after the kids picked a NEW game (the yes to the recap stands; carry on to the roles).
     public static func newGameNote(playerCount: Int) -> String {
         "(Silent coaching, don't mention it.) The kids chose to make a NEW game (not the saved one). The plan is "

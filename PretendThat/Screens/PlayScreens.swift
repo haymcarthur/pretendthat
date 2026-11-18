@@ -60,7 +60,9 @@ struct SceneView: View {
             let options = Self.peekShares.map { share -> (fw: CGFloat, above: CGFloat, overhang: CGFloat, l: (tier: Int, fits: Bool, paper: CGSize)) in
                 let fw = width * share
                 let above = NutmegPeek.heightAboveEdge(width: fw), overhang = NutmegPeek.pawOverhang(width: fw)
-                return (fw, above, overhang, layout(room: maxHeight - Self.earGap - (buttonHeight + Theme.Space.s + Theme.depth) - above, topExtra: 0))   // 2026-11-18: the paws rest on the edge, nothing to clear
+                // 2026-11-18: the rows clear whatever's left of the paws' overhang after the lift (`PeekHands`).
+                return (fw, above, overhang, layout(room: maxHeight - Self.earGap - (buttonHeight + Theme.Space.s + Theme.depth) - above,
+                                                    topExtra: NutmegPeek.pawClearance(width: fw)))
             }
             let pick = options.first { $0.l.fits } ?? options[options.count - 1]
             let l = pick.l
@@ -72,8 +74,9 @@ struct SceneView: View {
                         PTSceneCard(model: model, scene: scene, tier: l.tier)
                     }
                 }
+                .padding(.top, NutmegPeek.pawClearance(width: pick.fw))
                 .padding(pad)
-                // 2026-11-18: no top clearance: her paws rest on the card's edge (NutmegPeek.pawLift).
+                // 2026-11-18: the top clearance is what's left of the paws' overhang (none when they rest on the edge).
                 .frame(width: l.paper.width, height: l.paper.height, alignment: .top)
                 .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.white))
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
