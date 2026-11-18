@@ -410,3 +410,10 @@ Game arc becomes: Print → **story opener** → **setup scene** → 3 play scen
 - Use the NEW screenshots and the new AI-drawn kit pages (round 46/47) from design/appstore-screens/raw-v2 + cards-v2: hero, the 4 steps (step 3's print fan and step 4's scene card refreshed), saved games, pricing.
 - Keep the content, pages, header/footer, Poppins, cache-busting and the no-email/no-tracking rules. Preview before publishing; Haylee approves before it goes live.
 - **Site Print section (Haylee, 2026-11-17):** the full-color kit sheets feel like they're from another app and clash with the site. Keep the stack/fan of printables, but make them ALL the black-and-white (outline / coloring-page) versions. Use pages from the new moon bakery game (round 46/47 printables, made by the screenshot agent's live game), not the old Vet Clinic pages. Wait for those pages.
+
+## iPhone play scene: Nutmeg peeks over the scene card (queued 2026-11-17, Haylee)
+- On iPhone, when a scene's action rows are showing, Nutmeg is too small (a little figure on the stage above the card). Instead she **peeks over the top edge of the scene card, paws on the card's edge, looking DOWN at the list**, like the logo art (asset `logo-nutmeg-top`: head, shoulders, paws over the letters).
+- Looking down: use the rig's head with the **focus face** (eyes down) so she still blinks and her mouth moves when she talks; the peek body/paws come from existing art (logo-nutmeg-top or rig parts). Don't draw or patch art (Haylee's rule: regenerate, never patch). If the parts can't be combined cleanly, report back with options instead of editing art.
+- She should be BIG (wider than now, ~60–70% of the card width), centered over the card's title, ears clear of the step rail/top bar.
+- Scope: iPhone play scenes (setup, scenes, clean-up rows). Ask before extending to the prop hunt / kit / The End screens.
+- After: retake the App Store play-scene screenshot (05).
