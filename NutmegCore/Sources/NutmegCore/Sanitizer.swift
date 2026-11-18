@@ -12,7 +12,7 @@ public enum Sanitizer {
     /// `roleCount` is kept for older callers and ignored: round C1 writes every game for 6 ranked roles, and the app
     /// picks each scene's owner (the hand-offs rotate through the playing roles).
     /// Round 45: `picks` = this game's printables plan: the items become a library kit (`libraryItems`: badges first,
-    /// 4 to 6 types, picture-only art, app-picked layouts). Without it, a kit that is already a library kit (the bundled
+    /// 4 to 6 types, app-picked layouts). Round 46: every page of it is drawn whole by the image model (`wholePage`). Without it, a kit that is already a library kit (the bundled
     /// game) is re-shaped the same way, and an older fixed-six kit keeps the old recipe order.
     public static func clean(_ k: Kit, roleCount: Int = RoleCast.count, picks: PrintPicks? = nil) -> Kit {
         var k = k
@@ -21,6 +21,9 @@ public enum Sanitizer {
             var i = item
             i.symbol = PrintSymbols.safe(i.symbol)
             if !i.pictureOnly { i.copies = min(max(i.copies, Limits.copies.lowerBound), Limits.copies.upperBound) }
+            // Round 46: a new library kit's pages are drawn whole by the image model (a saved round 45 kit is never
+            // cleaned again, so it keeps its app-drawn pages).
+            if library { i.wholePage = true }
             return i
         }
         k.scenes = Array(k.scenes.prefix(Limits.scenesMax)).enumerated().map { i, scene in
@@ -98,7 +101,7 @@ public enum Sanitizer {
         }
         out = out.map { shaped($0, picks: picks) }
         // The image budget (one call per printable at most, so 6 items fit; kept as a guard for later types).
-        while KitArtPlan.imageCount(out) > PrintLibrary.imageBudgetPerStyle, out.count > PrintLibrary.minItems,
+        while out.filter({ PrintLibrary.art($0) != .none }).count > PrintLibrary.imageBudgetPerStyle, out.count > PrintLibrary.minItems,
               let drop = out.lastIndex(where: { $0.recipe != .badges && PrintLibrary.art($0) != .none }) {
             out.remove(at: drop)
         }

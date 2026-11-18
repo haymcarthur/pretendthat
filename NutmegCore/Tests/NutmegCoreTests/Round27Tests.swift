@@ -15,16 +15,17 @@ struct Round27Tests {
     // MARK: The both-style kit
 
     @Test func everyPageIsDrawnInBothStylesWithTheSameKeysAndTheSafetySuffix() {
-        let items = a.kit.items
-        let color = KitArtPlan.jobs(items: items, title: "Airplane", style: .fullColor, settled: [], roles: a.plan.roles)
-        let outline = KitArtPlan.jobs(items: items, title: "Airplane", style: .colorIn, settled: [], roles: a.plan.roles)
+        let items = Fallback.airplane(playerCount: 4).kit.items
+        let ctx = KitArtContext(title: "Airplane", roles: a.plan.roles, players: 4)
+        let color = KitArtPlan.jobs(items: items, ctx: ctx, style: .fullColor, settled: [])
+        let outline = KitArtPlan.jobs(items: items, ctx: ctx, style: .colorIn, settled: [])
         // Two separate image calls per page: the same pages (keys, sizes, sheet counts), a different look.
         #expect(color.map(\.key) == outline.map(\.key) && color.map(\.size) == outline.map(\.size) && color.map(\.count) == outline.map(\.count))
         #expect(!color.isEmpty)
         for (c, o) in zip(color, outline) {
             #expect(c.prompt != o.prompt)
-            #expect(c.prompt.contains("Full-color") && o.prompt.contains("Black and white only"))
-            #expect(c.prompt.hasSuffix(ImageSafety.suffix) && o.prompt.hasSuffix(ImageSafety.suffix))
+            #expect(c.prompt.contains(KitPagePrompt.style(.fullColor)) && o.prompt.contains(KitPagePrompt.style(.colorIn)))
+            #expect(c.prompt.hasSuffix(KitPagePrompt.safe) && o.prompt.hasSuffix(KitPagePrompt.safe))
         }
         // A game's images: both sets + the cover.
         #expect(color.count + outline.count + 1 == 2 * color.count + 1)

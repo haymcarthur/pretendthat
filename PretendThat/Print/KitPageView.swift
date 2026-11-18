@@ -15,7 +15,12 @@ struct KitPageView: View {
     private let margin: CGFloat = 24
 
     @ViewBuilder var body: some View {
-        if page.item.pictureOnly {
+        if page.item.aiPage, let art {
+            // Round 46: the image model drew this whole page (frame, layout and every word): the app draws nothing on it
+            // and only fits it, whole, inside the paper's margins.
+            AIPageView(art: art)
+        } else if page.item.pictureOnly {
+            // Round 46: an AI page whose art never came prints app-drawn (round 45's layout) instead.
             // Round 45: a library printable: picture-only art, every frame and word drawn by the app beside it.
             LibraryPageView(page: page, art: art, pictures: cutouts, style: style)
         } else if page.item.recipe == .cutouts, cutouts.contains(where: { $0 != nil }) {
@@ -74,6 +79,23 @@ struct KitPageView: View {
             }
         }
         .frame(width: Self.size.width, height: Self.size.height)
+        .environment(\.colorScheme, .light)
+    }
+}
+
+/// Round 46: one AI-drawn page on the paper: the 2:3 image fitted whole inside the printable area (`PageFit`), centered,
+/// on white. Nothing else is drawn.
+struct AIPageView: View {
+    let art: UIImage
+    var body: some View {
+        let r = PageFit.rect(image: art.size, page: KitPageView.size)
+        ZStack(alignment: .topLeading) {
+            Theme.printPaper
+            Image(uiImage: art).resizable().interpolation(.high)
+                .frame(width: r.width, height: r.height)
+                .offset(x: r.minX, y: r.minY)
+        }
+        .frame(width: KitPageView.size.width, height: KitPageView.size.height)
         .environment(\.colorScheme, .light)
     }
 }

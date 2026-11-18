@@ -7,9 +7,10 @@ import Foundation
 //   set shortlist per suggested game (`PrintShortlist`); badges are in every kit, no sign when the game has no place.
 // - Common types have 2 or 3 app-drawn layout variants, picked by the game's family and turned away from the last 3
 //   games' variants (`PrintVariants`, `RecentPrintMemory`: type.variant ids only, nothing about kids).
-// - One picture per printable (Haylee's answer 2): each printable gets ONE image call: a single picture (a sign's
-//   place, a map, a bill's emblem), or one SHEET of small pictures the app slices (a menu's dishes, clue cards, medals).
-//   Badges are the 6-up character sheet (characters only), cut-outs the cut-out sheet, as before. The decoder needs none.
+// - Round 46 (decisions/2026-11-17-ai-drawn-printables.md): the image model draws each WHOLE page from a recipe
+//   (`KitPagePrompt`; a layout variant is a prompt variant) and the app draws nothing on it. Round 45's app-drawn pages
+//   (LibraryPages) stay for round 45 saved games and as the fallback when a page's art never comes. The decoder is
+//   still app-drawn.
 
 /// An app-drawn layout of a printable (round 45). Free: the app draws them all, the art is the same picture.
 public enum KitVariant: String, Codable, Sendable, CaseIterable {
@@ -58,25 +59,19 @@ extension KitRecipe {
     }
 }
 
-/// What a printable's art is (one image call per printable at most, per style).
+/// What a printable's art is (round 46: one whole-page image per set, drawn by the image model; the decoder none).
 public enum PrintArt: Equatable, Sendable {
-    /// Nothing to draw: the app draws it all (the code decoder).
+    /// Nothing to draw: the app draws it all (the code decoder: its symbols must be exact).
     case none
-    /// ONE picture at this API size.
-    case single(size: String)
-    /// ONE sheet of `count` small pictures, sliced by the app (a menu's dishes, the clue cards' hints).
-    case sheet(count: Int)
-    /// The 6-up character sheet (badges): one character per ranked role.
-    case characters
-    /// The cut-out sheet (unchanged: `KitArtPrompt.cutoutSheetPrompt`, skipped props' cut-outs one each).
-    case cutouts
+    /// ONE whole page (`KitPagePrompt`).
+    case page
 }
 
 public enum PrintLibrary {
-    /// Most pictures on one sheet (the slicer's 3 × 2 grid).
+    /// Most per-entry pictures a printable lists (one per card or menu line).
     public static let maxSheetPictures = 6
-    /// Round 45 (cost): at most this many image calls per style for the pages written at the roles (today's fixed kit
-    /// was 6 a style). Skipped props' cut-outs are extra, as before.
+    /// Round 45/46 (cost): at most this many page images per style for the pages written at the roles. The skipped
+    /// props' extra cut-outs page is one more.
     public static let imageBudgetPerStyle = 6
     /// A kit has 4 to 6 printables (badges always first).
     public static let minItems = 4, maxItems = 6
@@ -85,13 +80,13 @@ public enum PrintLibrary {
 
     public static func guide(_ t: KitRecipe) -> String {
         switch t {
-        case .badges: return "role badges, one per kid, everyone wears one (the app prints each role's title and a blank Name line, and draws each role's character); title = the team's name; lines and pictures: none"
+        case .badges: return "role badges, one per kid, everyone wears one (each badge shows its role's title, the role's character and a blank Name line); title = the team's name; lines and pictures: none"
         case .sign: return "a sign to hang up with the PLACE's name (title, e.g. \"Cozy Café\"), lines = 1 short tagline (\"Now open!\"); pictures = ONE picture of the place. Only for a game with a place"
         case .money: return "play money, every piece worth $1 (bills, coins or tokens); title = the money's name (\"Sea Bucks\"); lines: none; pictures = ONE emblem (\"a seashell\")"
         case .tickets: return "tickets or passes (boarding passes, admission tickets, room keycards, appointment cards), every copy numbered by the app; title (\"Boarding Pass\"), lines = 1 short line (\"Flight to the Moon\"); pictures = ONE small picture"
         case .menu: return "a menu, price list or show program to choose from; lines = 3 to 6 entries, each a thing and a whole-dollar price from $1 to $5 (\"Pancakes $3\"), or for a show an act with no price (\"Juggling Bears\"); pictures = one per line, same order"
         case .cutouts: return "a page of 6 themed prop cut-outs to cut out and use as pretend things; lines = the 6 things (each is drawn as its own picture); pictures: none"
-        case .orderSlips: return "order slips: a waiter ticks what a customer wants, the cook makes it (the app prints Table __ and a tick box by each picture); lines = 3 or 4 things to order, 1 or 2 words; pictures = one per line"
+        case .orderSlips: return "order slips: a waiter ticks what a customer wants, the cook makes it (each slip shows Order, Table __ and a tick box by each thing); lines = 3 or 4 things to order, 1 or 2 words; pictures = one per line"
         case .map: return "a map to follow (treasure map, trail, dig site, blueprint, route); lines = 3 or 4 stops in order, 1 to 3 words each (\"Big Rock\"), real spots the kids set up in the room; pictures = ONE map picture of the place seen from above"
         case .clueCards: return "clue cards to hide and find, numbered by the app; lines = 4 to 6 clues, 3 to 6 easy words each, each pointing to a spot in the room or a found prop (\"Look under something soft\"); pictures = one picture hint per clue (\"a pillow\"). Nutmeg reads each clue out loud"
         case .missionCards: return "mission or job cards to draw and do (rescues, quests, work orders, recipes, lessons); lines = 4 to 6 missions, 2 to 5 words each (\"Rescue the kitten\"); pictures = one per mission. Nutmeg reads each out loud"
@@ -165,20 +160,8 @@ public enum PrintLibrary {
 
     // MARK: The art
 
-    /// What one printable's art is. `roles`: the game's 6 ranked roles (the badge sheet draws one character each).
-    public static func art(_ item: KitItem, roles: [Role] = []) -> PrintArt {
-        guard let t = item.recipe else { return .single(size: KitArtPrompt.size(for: item)) }
-        switch t {
-        case .badges: return roles.count == BadgeSheet.count ? .characters : .single(size: "1024x1024")
-        case .cutouts: return .cutouts
-        case .decoder: return .none
-        case .sign, .controlPanel: return .single(size: "1536x1024")
-        case .money, .tickets, .map, .log, .passport: return .single(size: "1024x1024")
-        case .menu, .orderSlips, .clueCards, .missionCards, .medals, .stickers, .labels:
-            let n = subjects(item).count
-            return n >= 2 ? .sheet(count: n) : .single(size: "1024x1024")
-        }
-    }
+    /// What one printable's art is (round 46: a whole page, except the app-drawn decoder).
+    public static func art(_ item: KitItem) -> PrintArt { item.recipe == .decoder ? .none : .page }
 
     /// Whether a type's pictures are a sheet (one per entry) rather than one picture.
     public static func perEntryPictures(_ t: KitRecipe) -> Bool {

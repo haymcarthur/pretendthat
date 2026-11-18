@@ -146,16 +146,25 @@ public struct KitItem: Codable, Equatable, Sendable, Identifiable {
     /// one picture for a sign, map, bill or ticket; one per card for a menu, clue cards, mission cards, medals, labels
     /// and stickers (drawn as ONE sheet image the app slices). Never words. Nil in older kits.
     public var pictures: [String]?
+    /// Round 46 (decisions/2026-11-17-ai-drawn-printables.md): true = the image model draws this WHOLE page (frame, layout
+    /// and every word, from `KitPagePrompt`) and the app only fits it on the paper. Nil in a round 45 kit (picture-only
+    /// art, app-drawn pages) and in older kits: those print exactly as they did. Set by `Sanitizer.clean` on new kits.
+    public var wholePage: Bool?
+    /// Round 46: how many of the cut-outs' `lines` are on its first page (the themed ones drawn during the hunt); the rest
+    /// (skipped props, added when the hunt ends) are drawn as a second page. Nil = every line is on the one page.
+    public var pageLines: Int?
     public init(id: String, recipe: KitRecipe? = nil, kind: KitKind, size: KitSize, title: String, symbol: String, lines: [String], bigNumber: String?, perPlayer: Bool, copies: Int, colorMe: Bool, purpose: String? = nil,
-                variant: KitVariant? = nil, pictures: [String]? = nil) {
+                variant: KitVariant? = nil, pictures: [String]? = nil, wholePage: Bool? = nil, pageLines: Int? = nil) {
         self.id = id; self.recipe = recipe; self.kind = kind; self.size = size; self.title = title; self.symbol = symbol; self.lines = lines
         self.bigNumber = bigNumber; self.perPlayer = perPlayer; self.copies = copies; self.colorMe = colorMe; self.purpose = purpose
-        self.variant = variant; self.pictures = pictures
+        self.variant = variant; self.pictures = pictures; self.wholePage = wholePage; self.pageLines = pageLines
     }
-    /// Round 45: the art is a picture only and the app draws every frame and word (a new kit); false for older kits.
+    /// Round 45: a library printable (4 to 6 types, a layout variant); false for kits saved before round 45.
     public var pictureOnly: Bool { variant != nil }
+    /// Round 46: an AI-drawn whole page (a new kit); false for round 45 and older kits (their art and layout are kept).
+    public var aiPage: Bool { wholePage == true && variant != nil }
     private enum CodingKeys: String, CodingKey {
-        case id, recipe, kind, size, title, symbol, lines, bigNumber, perPlayer, copies, colorMe, purpose, variant, pictures
+        case id, recipe, kind, size, title, symbol, lines, bigNumber, perPlayer, copies, colorMe, purpose, variant, pictures, wholePage, pageLines
     }
     /// Round 45 (saved-game schema 4): an unknown type or layout name decodes as nil (a newer app's printable in an
     /// older app, or a slip in a model answer), never a failed load. The shape fields the app fixes itself default
@@ -177,6 +186,8 @@ public struct KitItem: Codable, Equatable, Sendable, Identifiable {
         purpose = try c.decodeIfPresent(String.self, forKey: .purpose)
         variant = ((try? c.decodeIfPresent(String.self, forKey: .variant)) ?? nil).flatMap(KitVariant.init(rawValue:))
         pictures = (try? c.decodeIfPresent([String].self, forKey: .pictures)) ?? nil
+        wholePage = (try? c.decodeIfPresent(Bool.self, forKey: .wholePage)) ?? nil
+        pageLines = (try? c.decodeIfPresent(Int.self, forKey: .pageLines)) ?? nil
     }
     // bigNumber must encode as an explicit null (schema requires the key). The round 45 fields only when set, so an
     // older kit encodes exactly as it did.
@@ -188,6 +199,9 @@ public struct KitItem: Codable, Equatable, Sendable, Identifiable {
         try c.encode(copies, forKey: .copies); try c.encode(colorMe, forKey: .colorMe)
         try c.encodeIfPresent(purpose, forKey: .purpose)
         try c.encodeIfPresent(variant, forKey: .variant); try c.encodeIfPresent(pictures, forKey: .pictures)
+        // Round 46: only when set, so a round 45 (or older) kit encodes exactly as it did.
+        if wholePage == true { try c.encode(true, forKey: .wholePage) }
+        try c.encodeIfPresent(pageLines, forKey: .pageLines)
     }
 }
 /// One play-guide task. Round 29 (ensemble scenes): ONE task per role per scene (R1…R6, called out by its title) plus a

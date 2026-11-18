@@ -158,6 +158,7 @@ The map. Read this first, then open only what you need.
 - [Yearly intro: $99.99 / $199.99 first year; Sonnet 5.5 becomes the default play guide + weave](decisions/2026-11-17-yearly-intro-sonnet.md): Haylee
 - [Rename the LLC to **Crimson Foundry LLC** (state → IRS → bank → D-U-N-S → Apple + Google → site/policy)](decisions/2026-11-17-company-rename.md): Haylee
 - [Printables: AI draws the whole page from per-type prompt recipes (replaces round 45's app-drawn look); character sheet for in-app pictures; forgiving OCR check](decisions/2026-11-17-ai-drawn-printables.md): Haylee
+- [Round 46: the AI draws each whole printable page (17 types × layouts, color + bubble-letter sets, badges for the exact count, numbered tickets, no skulls), the app only fits it in the margins; one character sheet per kit for in-app pictures; forgiving on-device word check with one redraw; schema 5; greeting says "a new game"](decisions/2026-11-17-round46.md): Haylee (rebuild), Claude's calls noted; 3 questions (outline OCR false misses, replay badge count, ticket Name line)
 - [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–32 (31: on-device speech + instant mic; 32: Grown-ups menu) + C1 + D1 + D2 + D3a + D3b done (round 27's mockups separate); next: D4 iCloud
 
 - [Libraries and services list](team-profile-libraries.md): what the app uses (Code Camp is finished; no team-profile task)

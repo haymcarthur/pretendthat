@@ -599,10 +599,10 @@ final class AppModel {
         if store.phase == .makingKit { startKitProgress() } else if store.phase != .kitReady { kitWait?.cancel() }
         if store.phase == .makingKit && printReachedAt == nil {
             printReachedAt = Date()
-            let pages = store.draftItems.map { KitArtPlan.keys(items: $0).count } ?? 0
+            let pages = store.draftItems.map { KitArtPlan.keys(items: $0, ctx: artContext()).count } ?? 0
             rtLog(String(format: "TIMING print reached %.1f s after the hunt started; pages written: %@; art landed: %d of %d",
                          huntStartedAt.map { Date().timeIntervalSince($0) } ?? -1, store.draftItems == nil ? "no" : "yes",
-                         colorArt.images.count + colorArt.cutouts.values.map(\.count).reduce(0, +), pages))
+                         colorArt.images.count, pages))
             trackArtTimings()
         }
         // (A fast kit can skip straight to kitReady between two observations; it still gets its writing beat.)
@@ -670,12 +670,30 @@ final class AppModel {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-PTLive") { rtLog("KIT for \(title): \(kit.items.map(\.title).joined(separator: " | "))") }
         #endif
-        // Round 20: the hunt's themed cut-outs were one sheet; the skipped props' cut-outs after them are drawn one each.
-        let sheet = store.draftItems?.first { $0.recipe == .cutouts }.map { KitArtPrompt.cutoutLabels($0).count }
-        // Round 27: both sets (color first: it's the default, and the limiter is FIFO).
-        let roles = store.plan?.roles ?? []
-        Task { await colorArt.generate(kit: kit, gameTitle: title, sheetCount: sheet, roles: roles) }
-        Task { await outlineArt.generate(kit: kit, gameTitle: title, sheetCount: sheet, roles: roles) }
+        // Round 27: both sets (color first: it's the default, and the limiter is FIFO). Round 46: whole pages; only
+        // what isn't drawn yet starts (the skipped props' cut-outs page, the badge page for a changed count).
+        let ctx = artContext(title: title)
+        Task { await colorArt.generate(kit: kit, context: ctx) }
+        Task { await outlineArt.generate(kit: kit, context: ctx) }
+    }
+
+    /// Round 46: what this game's pages are drawn for (the title, the place, the 6 ranked roles and how many kids play:
+    /// the badge page shows exactly the playing roles).
+    func artContext(title: String? = nil) -> KitArtContext {
+        KitArtContext(title: title ?? store.currentTitle, setting: store.plan?.setting, roles: store.plan?.roles ?? [],
+                      players: max(1, store.playerCount))
+    }
+
+    /// Round 46: the player count changed after the pages were written: the badge page for the new count is drawn
+    /// (the other pages don't depend on it). A replay never draws.
+    func playerCountChanged() {
+        guard !store.isReplay else { return }
+        if let kit = store.kit { kitChanged(kit: kit) } else { draftChanged() }
+    }
+    private func kitChanged(kit: Kit) {
+        let ctx = artContext()
+        Task { await colorArt.generate(kit: kit, context: ctx) }
+        Task { await outlineArt.generate(kit: kit, context: ctx) }
     }
 
     // MARK: Kit made during the hunt (round 20, Haylee)
@@ -698,8 +716,9 @@ final class AppModel {
             rtLog(String(format: "TIMING kit pages written during the hunt in %.1f s", ready.timeIntervalSince(started)))
         }
         // Round 27: both sets, then the cover (queued last on the shared limiter).
-        colorArt.prepare(items: items, gameTitle: store.currentTitle, roles: store.plan?.roles ?? [])
-        outlineArt.prepare(items: items, gameTitle: store.currentTitle, roles: store.plan?.roles ?? [])
+        let ctx = artContext()
+        colorArt.prepare(items: items, context: ctx)
+        outlineArt.prepare(items: items, context: ctx)
         coverArt.start(title: store.currentTitle, setting: store.plan?.setting)
     }
 
@@ -866,7 +885,7 @@ final class AppModel {
     /// Round 27: a page of `set` whose art hasn't landed while the set is still drawing (shown in progress).
     func pageDrawing(_ page: KitPage, in set: KitArtService) -> Bool {
         guard !set.finished else { return false }
-        return set.isMissing(page.item)   // round 45: knows the library's pictures and sheets
+        return set.isMissing(page)   // round 46: this page's own whole-page image
     }
     /// Round 27: a set tapped on the Print screen.
     func tapPrintSet(_ style: PrintStyle) {
@@ -2027,8 +2046,10 @@ final class AppModel {
     /// badge sheet: only the illustration between the blank name banners (`BadgeCharacter`), no frame, no blank fields.
     /// nil while it isn't drawn (the row shows the role's color chip). Cropped once per slice.
     func characterPicture(_ role: Role) -> UIImage? {
-        guard let badges = store.kit?.items.first(where: { $0.recipe == .badges }),
-              let slice = colorArt.badgeSlice(badges.id, role: role.id.index) else { return nil }
+        guard let badges = store.kit?.items.first(where: { $0.recipe == .badges }) else { return nil }
+        // Round 46: the kit's character sheet (picture only, color set): its slice IS the character.
+        if badges.aiPage { return colorArt.character(role.id.index) }
+        guard let slice = colorArt.badgeSlice(badges.id, role: role.id.index) else { return nil }
         // Round 45: a picture-only character sheet's slice IS the character (no banners to crop away).
         if badges.pictureOnly { return slice }
         let id = badges.id
@@ -2049,14 +2070,25 @@ final class AppModel {
             return PTPictureTile(image: UIImage(named: PropLibrary.asset(id)), placeholder: PropLibrary.name(id) ?? id, size: size)
         case .action(let id):
             return PTPictureTile(image: UIImage(named: ActionArt.asset(id)), placeholder: id.replacingOccurrences(of: "-", with: " "), size: size)
-        case .kitItem(let itemID, _, let role):
-            let title = store.kit?.items.first { $0.id == itemID }?.title ?? ""
+        case .kitItem(let itemID, let recipe, let role):
+            let item = store.kit?.items.first { $0.id == itemID }
+            let title = item?.title ?? ""
+            // Round 46: a badge's picture is the role's character from the character sheet; another printable's is its
+            // whole page.
+            if item?.aiPage == true {
+                let image = recipe == .badges ? colorArt.character(role?.id.index ?? 0) : (printArt.images[itemID] ?? colorArt.images[itemID])
+                return PTPictureTile(image: image, placeholder: title, roleTitle: role?.roleName, roleTint: Theme.playerColor(role?.id.index ?? 0), size: size)
+            }
             // Round C1: a role's badge shows its own slice of the badge sheet.
             // Round 27: the chosen set's picture (the other set's while it's still drawing).
             let other = artSet(store.printSet == .fullColor ? .colorIn : .fullColor)
             return PTPictureTile(image: printArt.badge(itemID, role: role?.id.index) ?? other.badge(itemID, role: role?.id.index), placeholder: title, roleTitle: role?.roleName,
                                  roleTint: Theme.playerColor(role?.id.index ?? 0), size: size)
         case .cutout(let itemID, let index, let label):
+            // Round 46: a cut-out's picture is its thing on the character sheet (the skipped props' have none: the label).
+            if store.kit?.items.first(where: { $0.id == itemID })?.aiPage == true {
+                return PTPictureTile(image: colorArt.thing(index), placeholder: label, size: size)
+            }
             let other = artSet(store.printSet == .fullColor ? .colorIn : .fullColor)
             return PTPictureTile(image: printArt.cutout(itemID, index) ?? other.cutout(itemID, index), placeholder: label, size: size)
         }

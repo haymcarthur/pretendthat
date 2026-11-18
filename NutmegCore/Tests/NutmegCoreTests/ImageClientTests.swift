@@ -47,12 +47,12 @@ import Testing
                && ProcessInfo.processInfo.environment["OPENAI_API_KEY"]?.isEmpty == false), .timeLimit(.minutes(4)))
 func liveImage() async throws {
     let c = ImageClient(mode: .direct(apiKey: ProcessInfo.processInfo.environment["OPENAI_API_KEY"]!))
-    let item = KitItem(id: "menu", kind: .card, size: .ticket, title: "Café Menu", symbol: "cup.and.saucer", lines: ["Cocoa", "Cupcake"],
-                       bigNumber: nil, perPlayer: true, copies: 1, colorMe: true)
-    let prompt = KitArtPrompt.prompt(for: item, gameTitle: "Cozy Café")
+    let item = KitItem(id: "menu", recipe: .menu, kind: .sheet, size: .fullPage, title: "Café Menu", symbol: "cup.and.saucer", lines: ["Cocoa $1", "Cupcake $2"],
+                       bigNumber: nil, perPlayer: false, copies: 1, colorMe: true, variant: .menuCard, wholePage: true)
+    let prompt = KitPagePrompt.prompt(for: item, ctx: KitArtContext(title: "Cozy Café"), style: .fullColor)!.prompt
     do {
         let started = Date()
-        let png = try await c.generate(prompt: prompt, size: KitArtPrompt.size(for: item))
+        let png = try await c.generate(prompt: prompt, size: KitPagePrompt.size)
         try? FileManager.default.createDirectory(atPath: "/tmp/pt-shots2/img", withIntermediateDirectories: true)
         try png.write(to: URL(fileURLWithPath: "/tmp/pt-shots2/img/live-image.png"))
         print("LIVE image OK, bytes:", png.count, "model:", c.workingModel ?? "?", "seconds:", Int(Date().timeIntervalSince(started)))

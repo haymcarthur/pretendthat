@@ -88,28 +88,30 @@ import Testing
     }
 
     @Test func artJobsDuringTheHuntAndAfterIt() {
-        let draft = Fallback.airplane.kit.items
-        let hunt = KitArtPlan.jobs(items: draft, title: "Sky", style: .fullColor, settled: [])
-        #expect(hunt.count == 6)                                                 // 5 pages + ONE sheet of 6 cut-outs
-        #expect(hunt.contains { $0.key == "cutouts#sheet" && $0.size == "1536x1024" } && hunt.contains { $0.key == "badges" })
-        #expect(hunt.first { $0.key == "cutouts#sheet" }?.prompt.contains("3 columns and 2 rows") == true)
-        #expect(hunt.allSatisfy { $0.prompt.contains("Full-color") && $0.prompt.hasSuffix(ImageSafety.suffix) })
-        // Hunt over with one skip: only the skipped prop's cut-out is new.
+        // Round 46: one whole page per printable during the hunt; the color set also draws the character sheet.
+        let a = Fallback.airplane(playerCount: 3)
+        let draft = a.kit.items
+        let ctx = KitArtContext(title: "Sky", roles: a.plan.roles, players: 3)
+        let hunt = KitArtPlan.jobs(items: draft, ctx: ctx, style: .fullColor, settled: [], characters: true)
+        #expect(hunt.count == draft.count + 1)                                   // 6 pages + the character sheet
+        #expect(hunt.contains { $0.key == "badges@3" } && hunt.contains { $0.key == KitArtPlan.characterKey })
+        #expect(hunt.filter { !$0.isSheet }.allSatisfy { $0.size == KitPagePrompt.size && $0.prompt.hasPrefix(KitPagePrompt.page) })
+        // Hunt over with one skip: only the cut-outs' extra page (the skipped prop) is new.
         let props = Props(nutmegSays: "", props: [Prop(id: "pot", householdItem: "Pot", becomes: "the big oven", forRole: .all, safetyOK: true, skipped: true),
                                                    Prop(id: "bowl", householdItem: "Bowl", becomes: "the mixing bowl", forRole: .all, safetyOK: true)])
         let final = KitDraft.finalItems(draft, props: props)
-        let after = KitArtPlan.jobs(items: final, title: "Sky", style: .fullColor, settled: Set(hunt.map(\.key)), sheetCount: 6)
-        #expect(after.map(\.key) == ["cutouts#6"] && after[0].prompt.contains("big oven"))
-        #expect(KitArtPlan.keys(items: final).count == 12)                       // the kit is final per cut-out
-        // The sheet failed twice: those 6 cut-outs are drawn one each instead.
-        let fallback = KitArtPlan.jobs(items: draft, title: "Sky", style: .colorIn,
-                                       settled: Set(hunt.map(\.key)).union([KitArtPlan.sheetFailedKey("cutouts")]))
-        #expect(fallback.map(\.key) == (0..<6).map { "cutouts#\($0)" })
+        let after = KitArtPlan.jobs(items: final, ctx: ctx, style: .fullColor, settled: Set(hunt.map(\.key)), characters: true)
+        #expect(after.map(\.key) == ["cutouts#more"] && after[0].prompt.contains("big oven") && !after[0].prompt.contains("suitcase"))
+        #expect(KitArtPlan.keys(items: final, ctx: ctx).count == draft.count + 1)   // the kit is final per page
+        // A new count only adds that count's badge page.
+        var four = ctx; four.players = 4
+        #expect(KitArtPlan.jobs(items: final, ctx: four, style: .fullColor, settled: Set(hunt.map(\.key) + after.map(\.key))).map(\.key) == ["badges@4"])
+        let draftItems = draft
         // Labels and limits.
         #expect(KitDraft.cutoutLabel(becomes: "The steering wheel.") == "steering wheel")
         #expect(KitDraft.cutoutLabel(becomes: "a pirate map") == "pirate map")
-        #expect(KitDraft.finalItems(draft, props: nil) == draft)
-        var eight = draft; eight[5].lines = (1...8).map { "thing \($0)" }
+        #expect(KitDraft.finalItems(draftItems, props: nil) == draftItems)
+        var eight = draftItems; eight[5].lines = (1...8).map { "thing \($0)" }
         let three = (1...3).map { Prop(id: "p\($0)", householdItem: "Pot", becomes: "skip \($0)", forRole: .all, safetyOK: true, skipped: true) }
         let capped = KitDraft.finalItems(eight, props: Props(nutmegSays: "", props: three))[5].lines
         #expect(capped.count == PictureResolver.maxCutouts && capped.suffix(2) == ["skip 1", "skip 2"] && capped[0] == "thing 1")
@@ -183,8 +185,6 @@ struct Round20CutoutSheetTests {
         let r = CutoutSheet.cells(gray: blank, width: 40, height: 20, count: 2)
         #expect(r == [.init(x: 0, y: 0, width: 20, height: 20), .init(x: 20, y: 0, width: 20, height: 20)])
         #expect(CutoutSheet.cells(gray: [], width: 0, height: 0, count: 6).isEmpty)
-        let p = KitArtPrompt.cutoutSheetPrompt(["cupcake", "cookie", "pie"], gameTitle: "Moon Bakery", style: .colorIn)
-        #expect(p.contains("1. cupcake, 2. cookie, 3. pie") && p.contains("Black and white only") && p.hasSuffix(ImageSafety.suffix))
     }
 }
 

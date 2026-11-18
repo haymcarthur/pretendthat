@@ -3,7 +3,7 @@
 Last updated 2026-11-17. **No longer needed:** Code Camp is finished (Haylee). Kept only as a list of what the app uses.
 
 **App (iPad + iPhone, Swift/SwiftUI)**
-- SwiftUI, AVFoundation / AVAudioEngine, Speech (on-device recognition), StoreKit 2 + StoreKitTest: Apple
+- SwiftUI, AVFoundation / AVAudioEngine, Speech (on-device recognition), StoreKit 2 + StoreKitTest, Vision (round 46: on-device text check of the printed pages): Apple
 - Signalsmith Stretch 1.4.0 (MIT): Nutmeg's voice pitch
 - Signalsmith Linear 0.6.6 (MIT): required by Signalsmith Stretch
 - TelemetryDeck SwiftSDK 2.14.2 (MIT): anonymous usage counts
