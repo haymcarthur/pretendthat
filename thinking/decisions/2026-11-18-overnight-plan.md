@@ -9,3 +9,5 @@
 - **Upload blocked (Claude, overnight):** archive 1.0 (1) built and signed OK (commit 4535754) and is in Xcode Organizer, but `xcodebuild -exportArchive` upload failed: "App Store Connect access for 66898X3HH3 is required. Ensure that your Apple Account usernames and passwords are correct in Accounts settings." Needs Haylee: Xcode → Settings → Accounts (re-sign in if it asks), then Window → Organizer → the archive → Distribute App → TestFlight & App Store → Upload. Beta review submission waits for that.
 
 - **Update (Haylee, 2026-11-18 morning):** hold uploads and beta review while she plays with the app; batch her changes, then upload one build and submit for beta review together. Build 3 is uploaded (full TestFlight) but NOT submitted for beta review; Friends & Family group exists with no build.
+
+- **Beta submitted (Haylee OK, 2026-11-18):** build 3 (APP_STORE_ELIGIBLE) in "Friends & Family" (external) and "Haylee" (internal); status WAITING_FOR_BETA_REVIEW. Public link https://testflight.apple.com/join/bAmsh9cq, limit 15 (works after approval). Build 2 was uploaded as TestFlight Internal Only, so it cannot go external.
