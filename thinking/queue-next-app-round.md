@@ -424,3 +424,8 @@ Game arc becomes: Print → **story opener** → **setup scene** → 3 play scen
 - Without a voice session (offline, voice down, no keys), the kid still answers by **typing** (keyboard button) or **speaking** (on-device speech recognition works offline): parse the count **on the device** ("3", "three", "we have four", "me and my sister" = 2 is a nice-to-have; NumberWords exists in GrownUps.swift) and call `replayPick(n)`. Nutmeg's question is her recorded clip, so nothing needs the internet. Out-of-range (0 or >6): her recorded "1 to 6" nudge if one exists, else a gentle text prompt.
 - Make sure the chat/keyboard and the mic both work in that state on replays, and that it can't dead-end. Tests for the parser and the no-voice replay path.
 - Same round as the iPhone peek-over-the-card change.
+
+## Printables: draw once, color in (queued 2026-11-17, Haylee approved) — after the peek/replay round
+- Spec: decisions/2026-11-17-printables-draw-once-color-in.md. Test code/prompts: design/printables-match-test/ (scripts/, notes.md, prompts.json; the tuned v2 color prompt). The model rejects `input_fidelity`.
+- Relay must allow POST /v1/images/edits (multipart, image input); Haylee redeploys. Keep the badge/ticket draw-6-then-crop flow; the crop works on both versions since they match.
+- Guardrails: dark/saturated letter fills only (no cream/white/pale yellow letters, no yellow-on-white), white paper; Vision contrast check per text box + one redraw; word check on the color page; the outline page's word check follows the round 46 rule.
