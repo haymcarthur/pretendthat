@@ -6,15 +6,15 @@ Copy each field into App Store Connect → Distribution → iOS App 1.0.
 PretendThat
 
 ## Subtitle (30 max) — App Information page
-Pretend play, off the screen
+Plan it, print it, play it
 
 ## Promotional Text (170 max)
-Kids plan a pretend game just by talking with Nutmeg, hunt for props around the house, print a kit drawn just for their game, and play together, off the screen.
+Kids plan a game by talking with Nutmeg, hunt for props around the house, print a kit made for their game, and act it out together, scene by scene.
 
 ## Description (4000 max)
 Turn your living room into a pretend-play adventure.
 
-Meet Nutmeg, a friendly mouse stage manager for kids ages 4 to 8. Kids tell her what they want to play, like "a bakery on the moon" or "a vet clinic for sea animals," and she helps them plan the game, find props at home and print a kit. Then she steps back, and the play happens off the screen.
+Meet Nutmeg, a friendly mouse stage manager for kids ages 4 to 8. Kids tell her what they want to play, like "a bakery on the moon" or "a vet clinic for sea animals," and she helps them plan the game, find props at home and print a kit. Then Nutmeg sets each scene, and the kids act it out together.
 
 PICK A GAME BY TALKING
 No reading or typing needed. Kids talk with Nutmeg, and she offers ideas, asks how many kids are playing (1 to 6) and gives everyone a role. Big picture buttons let kids who can't read yet lead the game. Nutmeg never asks for names; she uses roles like "the Captain" or "the Head Baker."
@@ -25,8 +25,8 @@ Nutmeg sends kids on a prop hunt, one thing at a time: a bowl becomes a mixing c
 PRINT A CUSTOM KIT
 Every new game gets its own printable kit, drawn just for it: role badges, a sign, play money, tickets, a menu and more. Print in full color, or as coloring pages kids color in themselves, with AirPrint.
 
-PLAY, SCENE BY SCENE
-Nutmeg tells a short story, then guides the setup, three play scenes and the clean-up. Each player gets their own part, which they can tap to hear again.
+PLAY IT OUT, SCENE BY SCENE
+Nutmeg tells a short story, then sets up each scene: the setup, three play scenes and the clean-up. Every player gets their own part, which they can tap to hear again, and the kids act it out together.
 
 EVERY GAME SAVES ITSELF
 Each new game lands on Nutmeg's bookshelf with its own picture. Its printables are yours to view and print anytime, and with a pass you can play it again with Nutmeg for any number of players. Saved games sync through your family's own iCloud, so they show up on your other iPads and iPhones.
