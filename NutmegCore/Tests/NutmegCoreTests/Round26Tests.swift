@@ -38,7 +38,7 @@ import Testing
         #expect(HandOffLines.printReady == "Your kit is ready! Want them in color, or plain to color yourself? Tap the ones you like, then the printer! Tap the green play button when you're set!")
         #expect(HandOffLines.nextSceneHowTo == "Tap the green play button for the next scene!")
         // Round 39: no star: the arrow plays it again, the house goes home. Round 42 (Haylee): "This game is saved".
-        #expect(HandOffLines.end() == "The end! What a show! Take a bow! This game is saved, so you can play it again later. Tap the arrow to play it again, or the house to go home!")
+        #expect(HandOffLines.end() == "The end! What a game! Take a bow! This game is saved, so you can play it again later. Tap the arrow to play it again, or the house to go home!")
         #expect(HandOffLines.end(replay: true) == HandOffLines.end())
         #expect(BackNav.arrivalLine(.print) == "Back to Print! Tap the printer to print it again.")
         #expect(AdventureStore.firstPropLine(item: "bowl", becomes: "the mixing bowl").contains("tap the green check"))

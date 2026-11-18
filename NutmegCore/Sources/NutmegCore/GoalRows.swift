@@ -144,7 +144,7 @@ extension Bookends {
             guard let role = roles.first(where: { $0.id == row.role }) else { return nil }
             let goal = trimEnd(b.goal(row.goalOf).flatMap { isValidGoal($0) ? $0 : nil } ?? fallbackGoal(row.goalOf, cleanup: cleanup, title: b.title))
             let says = row.items.compactMap { jobs[$0] }.map { trimEnd($0.say) }.filter { !$0.isEmpty }
-            let filler = cleanup ? "give everyone a big high five for a great show" : "check that everything is ready and give a big thumbs up"
+            let filler = cleanup ? "give everyone a big high five for a great game" : "check that everything is ready and give a big thumbs up"
             let text = "\(role.roleName), " + goalLine(goal: goal, says: says.isEmpty ? [filler] : says) + "!"
             var short = capFirst(goal)
             if p > 1 { short = PlayCast.unname(short, roles: roles, players: p) }

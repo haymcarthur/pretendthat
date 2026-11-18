@@ -367,7 +367,7 @@ enum DemoDriver {
             // Cost v2 (2026-11-16): "#cost": the AI call counts and token totals so far (numbers only).
             if turn == "#cost" {
                 let c = ClaudeUsageMeter.shared.calls, im = ImageUsageLog.snapshot(), r = model.realtime.usageTotals
-                rtLog("COST calls: \(AICallLog.summary()); claude \(c.count) calls, in \(c.map(\.input).reduce(0, +)), out \(c.map(\.output).reduce(0, +)); "
+                rtLog("COST calls: \(AICallLog.summary()); claude \(c.count) calls, in \(c.map(\.input).reduce(0, +)), out \(c.map(\.output).reduce(0, +)), \(String(format: "%.2f", ClaudeUsageMeter.cents(c))) cents (each at its model's price); "
                       + "images \(im.requests) requests, in \(im.inputTokens), out \(im.outputTokens); realtime \(r.responses) responses, "
                       + "in \(r.input) (text \(r.textIn), audio \(r.audioIn)), cached \(r.cached), out \(r.output) (audio \(r.outAudio))")
                 let l = model.realtime.lineUsageTotals

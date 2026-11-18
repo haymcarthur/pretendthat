@@ -190,7 +190,7 @@ enum KitPageGallery {
             }
             liveKitReport(game, dir: dir, sets: [color, outline])
             let calls = ClaudeUsageMeter.shared.calls
-            let cents = calls.map { ClaudeUsageMeter.cents(input: $0.input, output: $0.output) }.reduce(0, +)
+            let cents = ClaudeUsageMeter.cents(calls)
             let u = ImageUsageLog.snapshot()
             NSLog("[RT] LIVEKIT COST %@: claude %d calls %.2f cents; images %d requests (%d pages per set + character sheet + cover) %d in + %d out tokens = $%.3f; %.0f s",
                   game, calls.count, cents, u.requests, KitArtPlan.imageCount(kit.items, ctx: art), u.inputTokens, u.outputTokens, u.dollars,

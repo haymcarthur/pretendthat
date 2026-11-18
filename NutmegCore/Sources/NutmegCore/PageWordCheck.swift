@@ -95,9 +95,10 @@ public enum PageWordCheck {
 /// Printables draw-once (2026-11-17): which word check each page gets. The coloring (outline) page is drawn first and
 /// keeps the round 46 rule: it is read and, on a real miss, redrawn ONCE (the better kept), because the color page is
 /// colored in from it and copies its words. The color page (an edit of the kept outline) is ALWAYS read too (an edit
-/// once turned "002" into "202") and gets the contrast check (`LetterContrast`); a miss or pale letters → one re-edit
-/// (`ColorInFlow`). Round 47's "read the outline only when the color page missed" (option b) is retired: the color page
-/// no longer exists when the outline is checked.
+/// once turned "002" into "202"); a miss → one re-edit (`ColorInFlow`). It also gets the contrast check
+/// (`LetterContrast`), logged only since 2026-11-18 (pale letters never trigger a re-edit). Round 47's "read the
+/// outline only when the color page missed" (option b) is retired: the color page no longer exists when the outline is
+/// checked.
 public enum PageCheckRule {
     /// Read this page's words (any page with words, in either set).
     public static func readsWords(style: PrintStyle, words: [String]) -> Bool { !words.isEmpty }

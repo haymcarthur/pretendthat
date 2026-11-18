@@ -200,7 +200,7 @@ public enum Sanitizer {
 /// prompt asks for it; a line that still lacks it gets a short varied "Pretend that…" opener in front.
 public enum PretendLine {
     public static let openers = [
-        "Pretend that the show is starting!",
+        "Pretend that the game is starting!",   // 2026-11-18: "game", never "show"
         "Pretend that the curtain just went up!",
         "Pretend that something exciting is about to happen!",
         "Pretend that everyone is watching!",
