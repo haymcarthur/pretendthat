@@ -51,6 +51,18 @@ public enum StoreProducts {
         }
     }
 
+    /// The App Store display name and description of each product (the same words in StoreKit/PretendThat.storekit
+    /// and App Store Connect). Round 44: "game", never "show"; the IDs never change.
+    public static let groupDescription = "New pretend-play games with Nutmeg every month"
+    public static func displayName(_ productID: String) -> String? {
+        guard let tier = tier(for: productID), let period = period(for: productID) else { return nil }
+        return period == .yearly ? "\(tier.name) (Yearly)" : tier.name
+    }
+    public static func storeDescription(_ productID: String) -> String? {
+        guard let tier = tier(for: productID) else { return nil }
+        return "\(tier.allowance) new games a month. Saved games are free to play again."
+    }
+
     public static func tier(for productID: String) -> PlanTier? {
         switch productID {
         case showPassMonthly, showPassYearly: .showPass
@@ -192,16 +204,16 @@ public struct ShowAllowance: Equatable, Sendable {
         return ShowAllowance(tier: e.tier, used: counter.used(in: w), refillsAt: w.end)
     }
 
-    /// "7 of 10 new shows left this month" / "1 of 2 free new shows left".
+    /// "7 of 10 new games left this month" / "1 of 2 free new games left".
     public var summary: String {
-        tier.isPaid ? "\(remaining) of \(allowance) new shows left this month" : "\(remaining) of \(allowance) free new shows left"
+        tier.isPaid ? "\(remaining) of \(allowance) new games left this month" : "\(remaining) of \(allowance) free new games left"
     }
 
-    /// "More new shows arrive Dec 3." (paid plans only).
+    /// "More new games arrive Dec 3." (paid plans only).
     public func refillText(locale: Locale = .current) -> String? {
         guard tier.isPaid, let r = refillsAt else { return nil }
         let f = DateFormatter(); f.locale = locale; f.setLocalizedDateFormatFromTemplate("MMMd")
-        return "More new shows arrive \(f.string(from: r))."
+        return "More new games arrive \(f.string(from: r))."
     }
 }
 
@@ -232,7 +244,7 @@ public enum PurchaseOutcome: Equatable, Sendable {
 
     public var message: String {
         switch self {
-        case .purchased(let t): "Thank you! \(t.name) is active. \(t.allowance) new shows a month, and replays are always free."
+        case .purchased(let t): "Thank you! \(t.name) is active. \(t.allowance) new games a month, and playing a saved game again is always free."
         case .pending: "Waiting for approval. If Ask to Buy is on, the family organizer can approve it. The plan starts as soon as it's approved."
         case .cancelled: "No problem. Nothing was bought."
         case .failed(.network): "Couldn't reach the App Store. Check the Wi-Fi and try again."

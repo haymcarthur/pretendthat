@@ -199,7 +199,7 @@ final class FakeDefaults: OnboardingDefaults {
         #expect(PlanCatalog.showPass.detailText(.yearly) == "about $12.50 a month · save 17%")
         #expect(PlanCatalog.seasonPass.detailText(.yearly) == "about $25.00 a month · save 17%")
         // Config values: the cards read the caps.
-        #expect(PlanCatalog.seasonPass.showsText == "\(PlanCatalog.seasonPassShows) new shows a month")
+        #expect(PlanCatalog.seasonPass.showsText == "\(PlanCatalog.seasonPassShows) new games a month")
         // Never "Unlimited" as a plan name; never "trial".
         for o in PlanCatalog.offers { #expect(!o.name.lowercased().contains("unlimited")) }
         for l in [OnboardingCopy.plansTitle, OnboardingCopy.plansBody, OnboardingCopy.freePreviewButton] {

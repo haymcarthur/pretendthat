@@ -85,43 +85,43 @@ final class StoreKitFlowTests: XCTestCase {
         try await session.buyProduct(identifier: id, options: [])
     }
 
-    // MARK: 1. Free Preview: 2 new shows, then the paywall; buy Show Pass (intro price) → 10 a month
+    // MARK: 1. Free Preview: 2 new games, then the paywall; buy Show Pass (intro price) → 10 a month
 
     func test1_FreePreviewRunsOutThenShowPass() throws {
         var app = launch(["-PTConsent", "-PTResetFreePreview"])
         tapNewGame(app)
-        XCTAssertFalse(text(app, containing: "That's all the new shows").waitForExistence(timeout: 3))
+        XCTAssertFalse(text(app, containing: "That's all the new games").waitForExistence(timeout: 3))
         shot("01-free-show-1-started")
         app.terminate()
 
         app = launch(["-PTConsent"])
         tapNewGame(app)
-        XCTAssertFalse(text(app, containing: "That's all the new shows").waitForExistence(timeout: 3))
+        XCTAssertFalse(text(app, containing: "That's all the new games").waitForExistence(timeout: 3))
         app.terminate()
 
         app = launch(["-PTConsent"])
         tapNewGame(app)
-        waitFor(text(app, containing: "That's all the new shows for now! Ask a grown-up."))
+        waitFor(text(app, containing: "That's all the new games for now! Ask a grown-up."))
         shot("02-kid-card-free-preview-used")
         app.buttons["kidCard.grownUps"].tap()
         passGate(app)
         waitFor(text(app, containing: "Your Free Preview is used up"))
         waitFor(text(app, containing: "for 12 months, then $14.99/month"))
-        waitFor(text(app, containing: "0 of 2 free new shows left"))
+        waitFor(text(app, containing: "0 of 2 free new games left"))
         shot("03-paywall-free-preview-used-intro-price")
 
         button(app, beginningWith: "Get Show Pass").tap()
         waitFor(text(app, containing: "Thank you! Show Pass is active."), 20)
-        waitFor(text(app, containing: "10 of 10 new shows left this month"))
+        waitFor(text(app, containing: "10 of 10 new games left this month"))
         shot("04-bought-show-pass-10-left")
         app.buttons["Close"].tap()
 
         tapNewGame(app)
-        XCTAssertFalse(text(app, containing: "That's all the new shows").waitForExistence(timeout: 3))
+        XCTAssertFalse(text(app, containing: "That's all the new games").waitForExistence(timeout: 3))
         app.terminate()
 
         app = launch(["-PTGrownUps", "plans"])
-        waitFor(text(app, containing: "9 of 10 new shows left this month"))
+        waitFor(text(app, containing: "9 of 10 new games left this month"))
         waitFor(text(app, containing: "Your plan: Show Pass"))
         shot("05-grownups-plans-9-of-10")
         app.terminate()
@@ -133,11 +133,11 @@ final class StoreKitFlowTests: XCTestCase {
         try await buyWithSession("app.pretendthat.showpass.monthly")
         let app = await launch(["-PTConsent", "-PTPlanUsed", "10"])
         await tapNewGame(app)
-        await waitFor(text(app, containing: "That's all the new shows for now! Ask a grown-up."))
+        await waitFor(text(app, containing: "That's all the new games for now! Ask a grown-up."))
         await app.buttons["kidCard.grownUps"].tap()
         await passGate(app)
-        await waitFor(text(app, containing: "This month's new shows are used up"))
-        await waitFor(text(app, containing: "0 of 10 new shows left this month"))
+        await waitFor(text(app, containing: "This month's new games are used up"))
+        await waitFor(text(app, containing: "0 of 10 new games left this month"))
         await shot("06-paywall-show-pass-month-used-up")
         await app.terminate()
     }
@@ -187,7 +187,7 @@ final class StoreKitFlowTests: XCTestCase {
         try await buyWithSession("app.pretendthat.seasonpass.monthly")
         let app = await launch(["-PTGrownUps", "plans"])
         await waitFor(text(app, containing: "Your plan: Season Pass"), 20)
-        await waitFor(text(app, containing: "30 of 30 new shows left this month"))
+        await waitFor(text(app, containing: "30 of 30 new games left this month"))
         await shot("11-season-pass-active")
         let t = try XCTUnwrap(session.allTransactions().first { $0.productIdentifier == "app.pretendthat.seasonpass.monthly" })
         try session.refundTransaction(identifier: t.identifier)
@@ -210,12 +210,12 @@ final class StoreKitFlowTests: XCTestCase {
         let game = await app.buttons.matching(identifier: "shelf.game").firstMatch
         await waitFor(game)
         await game.tap()
-        let blocked = await text(app, containing: "That's all the new shows").waitForExistence(timeout: 4)
+        let blocked = await text(app, containing: "That's all the new games").waitForExistence(timeout: 4)
         XCTAssertFalse(blocked, "a replay must never be blocked")
         await shot("13-replay-free-with-preview-used")
         await app.terminate()
         app = await launch(["-PTGrownUps", "plans"])
-        await waitFor(text(app, containing: "0 of 2 free new shows left"))   // still 2 used: the replay didn't count
+        await waitFor(text(app, containing: "0 of 2 free new games left"))   // still 2 used: the replay didn't count
         await app.terminate()
     }
 

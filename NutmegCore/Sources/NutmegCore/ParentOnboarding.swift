@@ -260,7 +260,7 @@ public enum NewGameGate: Equatable, Sendable {
     /// The Free Preview is used up and there's no plan: the plans screen (behind the gate), not a new game.
     case needsPlan
     /// Round 38: a paid plan's new shows for this month are used up: the plans screen (behind the gate) says when more
-    /// arrive. Kids see only "That's all the new shows for now! Ask a grown-up."
+    /// arrive. Kids see only "That's all the new games for now! Ask a grown-up."
     case outOfShows
 
     /// New game. Consent first (no AI calls without it), then the Free Preview count unless a plan is active.
@@ -323,8 +323,8 @@ public struct PlanOffer: Equatable, Sendable, Identifiable {
         }
     }
 
-    /// "10 new shows a month (planned)": the cap is a config value until the cost decision.
-    public var showsText: String { "\(newShowsPerMonth) new shows a month" }
+    /// "10 new games a month" (round 44: "game", never "show", in everything a grown-up reads).
+    public var showsText: String { "\(newShowsPerMonth) new games a month" }
 }
 
 public enum PlanCatalog {
@@ -426,24 +426,24 @@ public enum OnboardingCopy {
 
     // Plans behind the gate (the Free Preview used up)
     public static let plansTitle = "Start with your Free Preview"
-    public static let plansBody = "Your first 2 brand-new shows are free. No card, nothing to cancel. Replays of saved games are always free."
+    public static let plansBody = "Your first 2 brand-new games are free. No card, nothing to cancel. Playing a saved game again is always free."
     public static let freePreviewButton = "Start my Free Preview"
     public static let continueButton = "Continue"
     public static let plansFooter = "Show Pass and Season Pass are subscriptions billed by Apple. They renew automatically until cancelled in Settings, at least 24 hours before renewal."
     public static let plannedNote = "planned"
     public static let comingSoon = "Coming soon"
     public static let comingSoonNote = "Plans can't be bought yet. They're coming soon."
-    public static let replaysLine = "Replay saved games as often as you like"
+    public static let replaysLine = "Play saved games again as often as you like"
     public static let restore = "Restore purchases"
     public static let terms = "Terms of Use"
     public static let privacy = "Privacy Policy"
     // Round 38: real purchases.
     public static let plansGrownUpsTitle = "Plans"
-    public static let plansGrownUpsBody = "Every plan includes unlimited replays of saved games. Plans are billed by Apple to your Apple ID."
-    public static func planOutTitle(_ tier: PlanTier) -> String { "This month's new shows are used up" }
+    public static let plansGrownUpsBody = "With every plan, playing a saved game again is always free. Plans are billed by Apple to your Apple ID."
+    public static func planOutTitle(_ tier: PlanTier) -> String { "This month's new games are used up" }
     public static func planOutBody(_ tier: PlanTier, refill: String?) -> String {
-        "\(tier.name) includes \(tier.allowance) new shows a month. \(refill ?? "More arrive when your plan renews.") Saved games are still free to replay."
-            + (tier == .showPass ? " Want more? Season Pass has up to \(PlanTier.seasonPass.allowance) a month." : "")
+        "\(tier.name) includes \(tier.allowance) new games a month. \(refill ?? "More arrive when your plan renews.") Playing a saved game again is still free."
+            + (tier == .showPass ? " Want more? Season Pass has \(PlanTier.seasonPass.allowance) new games a month." : "")
     }
     public static let buying = "Talking to the App Store…"
     public static let loadingPrices = "Loading prices from the App Store…"
@@ -454,7 +454,7 @@ public enum OnboardingCopy {
     public static let yearlyLink = "Yearly plans"
     public static let monthlyLink = "Monthly plans"
     public static let outOfShowsTitle = "Your Free Preview is used up"
-    public static let outOfShowsBody = "Your 2 free new shows are done. Pick a plan for more new shows. Saved games are still free to replay."
+    public static let outOfShowsBody = "Your 2 free new games are done. Pick a plan for more new games. Playing a saved game again is still free."
 
     // 6 · You're all set (the logo; "your device" is the device word)
     public static let handOffTitle = "You're all set"
@@ -464,7 +464,7 @@ public enum OnboardingCopy {
 
     // Kid-facing cards on the start screen (no prices; the grown-up opens the gate)
     public static let kidNeedsGrownUp = "Ask a grown-up to finish setting up."
-    public static let kidOutOfShows = "That's all the new shows for now! Ask a grown-up."
+    public static let kidOutOfShows = "That's all the new games for now! Ask a grown-up."
     public static let kidGrownUpsButton = "Grown-ups"
 
     // The Grown-ups row

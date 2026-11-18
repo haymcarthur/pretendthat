@@ -92,11 +92,11 @@ import Testing
         // Show Pass: 10 a month, then out of shows until the window ends.
         let e = PlanEntitlement(productID: StoreProducts.showPassMonthly, tier: .showPass, purchaseDate: date(2026, 11, 3), expirationDate: date(2026, 12, 3))
         var a = ShowAllowance.current(entitlement: e, freeUsed: 2, counter: c, now: now)
-        #expect(a.remaining == 10 && a.summary == "10 of 10 new shows left this month" && a.refillsAt == e.window(now: now).end)
+        #expect(a.remaining == 10 && a.summary == "10 of 10 new games left this month" && a.refillsAt == e.window(now: now).end)
         for _ in 0..<10 { c.gameStarted(in: e.window(now: now), isReplay: false) }
         a = .current(entitlement: e, freeUsed: 2, counter: c, now: now)
         #expect(a.exhausted && NewGameGate.newGame(consent: true, allowance: a) == .outOfShows)
-        #expect(a.refillText(locale: Locale(identifier: "en_US"))?.hasPrefix("More new shows arrive Dec") == true)
+        #expect(a.refillText(locale: Locale(identifier: "en_US"))?.hasPrefix("More new games arrive Dec") == true)
         // Replays never need an allowance.
         #expect(NewGameGate.replay(consent: true) == .start)
         // Season Pass: 30.
@@ -105,7 +105,7 @@ import Testing
     }
 
     @Test func purchaseMessagesAreForGrownUps() {
-        #expect(PurchaseOutcome.purchased(.showPass).message.contains("10 new shows a month"))
+        #expect(PurchaseOutcome.purchased(.showPass).message.contains("10 new games a month"))
         #expect(PurchaseOutcome.pending.message.contains("Ask to Buy"))
         #expect(PurchaseOutcome.cancelled.message == "No problem. Nothing was bought.")
         for f in [PurchaseFailure.network, .notAvailable, .unverified, .productMissing, .other] {

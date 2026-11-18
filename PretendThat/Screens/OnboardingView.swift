@@ -229,7 +229,7 @@ struct PlansContent: View {
             }
             .buttonStyle(.plain)
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("\(tier.name), \(price.full), \(tier.allowance) new shows a month\(isCurrent ? ", your current plan" : "")")
+            .accessibilityLabel("\(tier.name), \(price.full), \(tier.allowance) new games a month\(isCurrent ? ", your current plan" : "")")
             .accessibilityAddTraits(on ? .isSelected : [])
         }
     }

@@ -142,7 +142,7 @@ public enum GrownUpsSection: String, CaseIterable, Hashable, Sendable {
     public var subtitle: String {
         switch self {
         case .savedGames: "See, sort and delete the games saved on this \(DeviceWord.noun)"
-        case .plans: "Show Pass, Season Pass and the new shows left"
+        case .plans: "Show Pass, Season Pass and the new games left"
         case .subscription: "Change or cancel your plan with Apple"
         case .restorePurchases: "Bought a plan before? Bring it to this \(DeviceWord.noun)"
         case .aiPartners: "Turn Nutmeg's AI partners on or off"

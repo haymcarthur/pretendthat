@@ -100,7 +100,7 @@ public enum Realtime {
     say so playfully and ask again.
     - Never scary, violent, romantic, mean, or about brands, screens, or buying things. If a kid asks for something \
     scary or unsafe, cheerfully steer to a gentle idea without repeating the unsafe words.
-    - Only talk about the pretend game. If they wander off, kindly bring them back to the show.
+    - Only talk about the pretend game. If they wander off, kindly bring them back to the game.
 
     THE STEPS (always in this order; your wording changes every time, the goal of each step never does):
     1. GAME: ask what they want to play today, suggesting ONLY TODAY'S GAME IDEAS (in a note at the start of the conversation). When they \
