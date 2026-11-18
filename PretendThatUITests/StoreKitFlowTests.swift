@@ -4,11 +4,11 @@ import StoreKit
 
 /// Round 38: the StoreKit flows on the simulator with StoreKit/PretendThat.storekit (SKTestSession). The app runs with
 /// `-PTNoAI` (no AI calls: New game falls back to the bundled tap game), so only the counting and the store are tested.
-/// Screenshots: /tmp/pt-round38/ (the simulator shares the Mac's /tmp).
+/// Screenshots: /tmp/pt-round44/storekit/ (the simulator shares the Mac's /tmp).
 @MainActor
 final class StoreKitFlowTests: XCTestCase {
     var session: SKTestSession!
-    let out = "/tmp/pt-round38"
+    let out = "/tmp/pt-round44/storekit"
 
     override func setUpWithError() throws {
         continueAfterFailure = false
@@ -88,18 +88,9 @@ final class StoreKitFlowTests: XCTestCase {
     // MARK: 1. Free Preview: 2 new games, then the paywall; buy Show Pass (intro price) → 10 a month
 
     func test1_FreePreviewRunsOutThenShowPass() throws {
-        var app = launch(["-PTConsent", "-PTResetFreePreview"])
-        tapNewGame(app)
-        XCTAssertFalse(text(app, containing: "That's all the new games").waitForExistence(timeout: 3))
-        shot("01-free-show-1-started")
-        app.terminate()
-
-        app = launch(["-PTConsent"])
-        tapNewGame(app)
-        XCTAssertFalse(text(app, containing: "That's all the new games").waitForExistence(timeout: 3))
-        app.terminate()
-
-        app = launch(["-PTConsent"])
+        // Round 39 counts a new game when its kit is made (not at New game), which the tap game here never reaches, so
+        // the two free games are set as used (`-PTFreeUsed 2`; the counting itself is unit-tested).
+        var app = launch(["-PTConsent", "-PTResetFreePreview", "-PTFreeUsed", "2", "-PTAnalyticsOff"])
         tapNewGame(app)
         waitFor(text(app, containing: "That's all the new games for now! Ask a grown-up."))
         shot("02-kid-card-free-preview-used")
@@ -121,9 +112,9 @@ final class StoreKitFlowTests: XCTestCase {
         app.terminate()
 
         app = launch(["-PTGrownUps", "plans"])
-        waitFor(text(app, containing: "9 of 10 new games left this month"))
+        waitFor(text(app, containing: "10 of 10 new games left this month"))   // round 39: counted at the kit
         waitFor(text(app, containing: "Your plan: Show Pass"))
-        shot("05-grownups-plans-9-of-10")
+        shot("05-grownups-plans-10-of-10")
         app.terminate()
     }
 
@@ -219,16 +210,29 @@ final class StoreKitFlowTests: XCTestCase {
         await app.terminate()
     }
 
-    // MARK: 7. Onboarding page 6: real prices, buy without the gate → the hand-off page
+    // MARK: 7. Onboarding page 5 (v3): real prices, buy without the gate → the last page
 
     func test7_OnboardingPlansPage() throws {
-        let app = launch(["-PTResetOnboarding", "-PTOnboarding", "plans"])
-        waitFor(text(app, containing: "for 12 months, then $14.99/month"), 20)
-        waitFor(text(app, containing: "for 12 months, then $29.99/month"))
+        let app = launch(["-PTResetOnboarding", "-PTOnboarding", "plans", "-PTAnalyticsOff"])
+        waitFor(button(app, beginningWith: "Get Show Pass, $9.99/month for 12 months, then $14.99/month"), 20)
+        waitFor(button(app, beginningWith: "Get Season Pass, $19.99/month for 12 months, then $29.99/month"))
         shot("14-onboarding-plans-real-prices")
         button(app, beginningWith: "Get Show Pass").tap()
-        waitFor(text(app, containing: "Hand the \(UIDevice.current.userInterfaceIdiom == .phone ? "iPhone" : "iPad") to your child"), 20)
-        shot("15-onboarding-bought-hand-off")
+        waitFor(text(app, containing: "You're all set"), 20)
+        shot("15-onboarding-bought-all-set")
+        app.terminate()
+    }
+
+    // MARK: 8. Round 44: Grown-ups → Plans, yearly with the first-year intro price
+
+    func test8_GrownUpsPlansYearlyIntro() throws {
+        let app = launch(["-PTGrownUps", "plans", "-PTAnalyticsOff"])
+        waitFor(text(app, containing: "for 12 months, then $14.99/month"), 20)
+        shot("16-grownups-plans-monthly")
+        app.buttons["Yearly"].tap()
+        waitFor(text(app, containing: "for the first year, then $149.99/year"))
+        waitFor(text(app, containing: "for the first year, then $299.99/year"))
+        shot("17-grownups-plans-yearly-intro")
         app.terminate()
     }
 }

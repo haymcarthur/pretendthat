@@ -369,29 +369,29 @@ Game arc becomes: Print → **story opener** → **setup scene** → 3 play scen
 5. **Step rail too close to the top** (iPhone), especially the active step's ring. Add breathing room below the Dynamic Island / safe area.
 6. **iPad: Nutmeg zooms out during steps with a panel or card** (props hunt, chat panel). She should stay framed like the plain talking view. Same as the queued "too zoomed out on iPad when the chat panel is open" item.
 
-## Rename "show" → "game" everywhere (queued 2026-11-17, Haylee)
+## Rename "show" → "game" everywhere (queued 2026-11-17, Haylee): APP PART DONE in round 44 (see [decision](decisions/2026-11-17-round44.md)); the site is still to do
 - App: plans/paywall, Grown-ups → Plans, the kids' "out of new games" line, onboarding, analytics event labels only if user-visible. "Replays" become "playing a saved game again". Keep StoreKit product IDs; update the display names and descriptions in StoreProducts and the .storekit file, and note any App Store Connect text Haylee must change.
 - Site: same wording on home, pricing, FAQ, terms and privacy ("new game", "2 free games", "10 new games a month").
 
-## Usage counts: remove the switch (queued 2026-11-17, Haylee)
+## Usage counts: remove the switch (queued 2026-11-17, Haylee): DONE in round 44
 - Remove the "Share anonymous usage counts" switch from onboarding and from Grown-ups → About what we save. Analytics are always on (anonymous TelemetryDeck counts), and the About text says so in one line. Migrate existing installs to on. Update the analytics tests. Remove "15–25 min" from onboarding.
 
 ## From Haylee's answers on rounds 41/42 (2026-11-17)
-- **Chat open = no card on the stage.** While the chat panel/shelf is open, the current card (hunt card, print fans, scene rows) lives only in the chat's own tab (Props / Setup / ...), never on the stage too, and Nutmeg keeps the talking close-up. Verify iPad and iPhone; fix anything that still draws the card on stage while the chat is open.
-- **Leave dialog:** remove the little card-going-onto-the-shelf picture (after the kit, and on replays). Just the question and the two buttons.
+- **DONE R44: Chat open = no card on the stage.** While the chat panel/shelf is open, the current card (hunt card, print fans, scene rows) lives only in the chat's own tab (Props / Setup / ...), never on the stage too, and Nutmeg keeps the talking close-up. Verify iPad and iPhone; fix anything that still draws the card on stage while the chat is open.
+- **DONE R44: Leave dialog:** remove the little card-going-onto-the-shelf picture (after the kit, and on replays). Just the question and the two buttons.
 - **Prop sense:** add the "only soft or flat things can be cloths" rule, as part of the prop audit (research/2026-11-17-prop-audit.md, in progress).
 
-## Round 44 (queued 2026-11-17, Haylee approved onboarding v3): build after round 43
+## Round 44 (queued 2026-11-17, Haylee approved onboarding v3): DONE (see [decision](decisions/2026-11-17-round44.md))
 1. Onboarding v3 exactly as the mockup design/mockups/onboarding-v3/ (6 pages; spec in ideas/2026-11-17-onboarding-v3.md + decisions/2026-11-17-onboarding-v3-feedback.md), Poppins, purple buttons, no scrolling on the iPhone 17e. Season Pass "30 new games a month".
 2. Rename "show" → "game" everywhere in the app (section above).
 3. Remove the usage-counts switch (section above).
 4. Chat open = no card on the stage; leave dialog without the shelf picture (section "From Haylee's answers on rounds 41/42").
 
-## Relay redeployed (Haylee, 2026-11-17, version 8ed4aa7c): turn on the mini voice for scripted lines
+## Relay redeployed (Haylee, 2026-11-17, version 8ed4aa7c): turn on the mini voice for scripted lines: DEFAULT ON in round 44 (the live pitch check is still to do: the one live run used a stale build)
 - The relay now allows the mini Realtime model and Sonnet 5.5. SHOW_LIMITS is "off" until the subscriptions exist.
 - Haylee approved the mini voice for scripted lines (decisions/2026-11-17-mini-voice-approved.md); the voice now matches 1.20 + Signalsmith +2. Round 44: make `-PTMiniLines` the default (scripted/app lines spoken by gpt-realtime-2.1-mini through the same NutmegSpeaker). Verify with one short live check that the pitch stays in band.
 - The Sonnet 5.5 guide/weave (`-PTSonnetGuide`) is still waiting on Haylee's OK (cost v3: saves about $0.09 a game, no quality loss found).
 
-## Round 44 additions (Haylee, 2026-11-17)
+## Round 44 additions (Haylee, 2026-11-17): DONE in round 44
 - Yearly intro prices $99.99 (Show Pass) / $199.99 (Season Pass) for the first year: StoreKit config + StoreProducts + Plans/paywall copy (decisions/2026-11-17-yearly-intro-sonnet.md).
 - Make the Sonnet 5.5 play guide + weave the default (`-PTSonnetGuide`).
