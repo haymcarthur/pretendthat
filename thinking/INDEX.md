@@ -166,6 +166,7 @@ The map. Read this first, then open only what you need.
 - [Friends & family TestFlight beta before launch: public link capped (~15), spend limits on the AI accounts](decisions/2026-11-17-friends-family-beta.md): Haylee (beta, link), Claude (cap, cost guard)
 - [App Store images match the "Cheat Day" reference: white, one coral accent word, alternating layouts, floating chips; Claude lays them out](decisions/2026-11-17-appstore-image-style.md): Haylee
 - [Home stage polish: logo card in front of the curtains, Grown-ups is a gear icon in the top corner, iPhone bookshelf Nutmeg sits with legs dangling (mockup's perky-sit vector)](decisions/2026-11-17-home-stage-polish.md): Haylee (Claude's calls noted) · retake the App Store home shots
+- [iPhone play scenes: Nutmeg peeks over the scene card (rig head, focus eyes); Replay Pick without number tiles (count read on the device); offline replays never block (her text + recorded stand-ins); plain paper is never a prop, recipe sheets are printed](decisions/2026-11-17-peek-and-replay-pick.md): Haylee (Claude's calls noted) · retake App Store shot 05
 - [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–32 (31: on-device speech + instant mic; 32: Grown-ups menu) + C1 + D1 + D2 + D3a + D3b done (round 27's mockups separate); next: D4 iCloud
 
 - [Libraries and services list](team-profile-libraries.md): what the app uses (Code Camp is finished; no team-profile task)

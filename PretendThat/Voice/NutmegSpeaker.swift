@@ -121,7 +121,7 @@ final class NutmegSpeaker {
 
     /// One of her fixed app lines (round D3b, §D4.4): a clip first when the game (or the bundle) has one; else the live
     /// voice, recorded when `record` (her app lines are; a safety steer isn't). Returns how it was said; on
-    /// `.waitForNetwork` nothing was said and the caller pauses on the line (Haylee's answer 1).
+    /// `.caption` nothing was said and the caller shows the line as her text and carries on (2026-11-17).
     @discardableResult
     func say(_ line: String, thinking: Bool = false, echo: Bool = false, record: Bool = true, replay: Bool = false) -> LineRoute {
         let clip = clips?.clip(for: line)
@@ -129,7 +129,7 @@ final class NutmegSpeaker {
         switch route {
         case .clip: playClip(clip!, echo: echo)
         case .live(let rec): live?.say(line, thinking: thinking, echo: echo, record: rec)
-        case .waitForNetwork, .unavailable: break
+        case .caption, .unavailable: break
         }
         return route
     }

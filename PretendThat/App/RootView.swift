@@ -173,7 +173,19 @@ struct RootView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .ignoresSafeArea(.keyboard)   // round 11: the keyboard covers it (the chat panel has its own field)
             }
-            // Round D3b: offline on a replay, a line she never said: paused on it until the Wi-Fi is back.
+            // 2026-11-17: offline on a replay, a line she never recorded: her words as a caption at the top of the stage
+            // (and in the chat); the game carries on (it used to pause on the full-screen Wi-Fi note below).
+            if let caption = model.offlineCaption, !(chatOpen && chromeVisible), store.phase != .hello {
+                PTOfflineCaption(text: caption)
+                    .padding(.horizontal, metrics.isPhone ? LayoutMetrics.phoneSide : Theme.Space.xl)
+                    .padding(.top, metrics.isPhone
+                             ? LayoutMetrics.phoneTopInset(screen: screenSize == .zero ? rootSize : screenSize, safeTop: rootTop) + LayoutMetrics.phoneTopBar + Theme.Space.xs
+                             : PTCurtain.metrics(screenSize == .zero ? rootSize : screenSize).valance + Theme.Space.m)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+                    .zIndex(17)
+            }
             if model.wifiPause.isPaused && store.phase != .hello {
                 PTWiFiNote(note: WiFiPause.note, onLeave: { chatOpen = false; model.leave() })
                     .transition(.opacity)
@@ -229,6 +241,7 @@ struct RootView: View {
         .onChange(of: model.debugLeaveDialog) { _, v in confirmLeave = v }
         #endif
         .animation(.easeOut(duration: 0.25), value: model.wifiPause.isPaused)
+        .animation(.easeOut(duration: 0.25), value: model.offlineCaption)
         // Round 10: the panel/rail slide on the same spring as the camera move they cause (one shared animation).
         .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: chatOpen)
         .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: chromeVisible)
@@ -376,8 +389,20 @@ struct RootView: View {
     private func phoneSplit(_ g: PTStageGeometry) -> (nutmeg: CGRect, content: CGRect) {
         let band = metrics.phoneBand(stage: g.size, screen: screenSize == .zero ? g.size : screenSize, safeTop: rootTop)
         let split = PTPhoneStage.split(width: g.size.width, top: band.top, bottom: band.bottom,
-                                       content: LayoutMetrics.phoneContentHeight(phoneContent, noVoice: model.noVoiceSession))
+                                       content: LayoutMetrics.phoneContentHeight(phoneContent))
         return (split.nutmeg, split.content.insetBy(dx: LayoutMetrics.phoneSide, dy: 0))
+    }
+
+    /// iPhone play scenes (Haylee, 2026-11-17): Nutmeg peeks over the scene card (`NutmegPeek` in `SceneView`), so the
+    /// stage Nutmeg hides and the card zone is the whole band (only the scene rows; not the prop hunt, kit or The End).
+    private var phonePeek: Bool {
+        guard metrics.isPhone, case .scene = phoneContent else { return false }
+        return true
+    }
+    /// The phone's whole free band (under the top bar, above the pill), side-inset: the peek scene's card zone.
+    private func phoneBandRect(_ g: PTStageGeometry) -> CGRect {
+        let band = metrics.phoneBand(stage: g.size, screen: screenSize == .zero ? g.size : screenSize, safeTop: rootTop)
+        return CGRect(x: 0, y: band.top, width: g.size.width, height: band.bottom - band.top).insetBy(dx: LayoutMetrics.phoneSide, dy: 0)
     }
 
     /// The phone stage's overlay: the hunt card, the legacy prop grid, or the phase content in the zone under her.
@@ -423,6 +448,9 @@ struct RootView: View {
             NutmegCharacter(state: model.nutmegState, mouthLevel: model.mouthLevel, mouthShape: model.mouthShape,
                             isSpeaking: model.isSpeaking, cue: model.cue, forcedPose: debugPose, showsGround: true,
                             holdsClipboard: model.nutmegHoldsClipboard, writing: model.isWriting)
+                // iPhone play scenes: she's the peek over the card instead (SceneView).
+                .opacity(phonePeek ? 0 : 1)
+                .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: phonePeek)
         } overlay: { g, L in
             if metrics.isPhone {
                 phoneOverlay(g, L)
@@ -644,7 +672,8 @@ struct RootView: View {
     @ViewBuilder private func classicContent(_ g: PTStageGeometry, _ L: PTStageCamera.Layout) -> some View {
         // Round 11: every phase's content sits in the prop-card step's card zone (one framing, one zone).
         // iPhone: the content zone under her.
-        let r = metrics.isPhone ? phoneSplit(g).content : PTStageDirector.huntContent(g, nutmeg: L, curtainInset: curtainInset(g))
+        let r = phonePeek ? phoneBandRect(g)
+            : metrics.isPhone ? phoneSplit(g).content : PTStageDirector.huntContent(g, nutmeg: L, curtainInset: curtainInset(g))
         // Round 14 (Haylee: the cards got smaller): every phase's content draws at its NATURAL size in the shared card
         // zone (`PTStageDirector.cardZoneWidth`); it only scales down on a stage too narrow for ~300 pt.
         let fit = min(1, r.width / Self.minContentWidth)
@@ -652,7 +681,9 @@ struct RootView: View {
         let kitWaiting = (store.phase == .makingKit || store.phase == .kitReady) && model.kitBeat != .papers && !store.isReplay
         VStack(spacing: Theme.Space.m) {
             ViewThatFits(in: .vertical) {
-                stage(clipboard: clipboard(L, in: r), width: w, height: h - 2 * Theme.Space.s).padding(.vertical, Theme.Space.s)
+                // Peek scenes: the whole band (no extra vertical padding: every point goes to the rows).
+                let vpad = phonePeek ? 0 : Theme.Space.s
+                stage(clipboard: clipboard(L, in: r), width: w, height: h - 2 * vpad).padding(.vertical, vpad)
                 ScrollView(.vertical) { stage(clipboard: clipboard(L, in: r), width: w, height: .infinity).padding(.vertical, Theme.Space.m) }.scrollIndicators(.visible)
             }
             .transition(.ptStage)
@@ -690,7 +721,7 @@ struct RootView: View {
         case .makingKit, .kitReady: KitView(model: model, clipboard: clipboard, chatOpen: chatOpen && chromeVisible, preview: $kitPreview,
                                             onCelebrate: { celebrate() })
         // Round 36: the story is Nutmeg alone (the talking close-up), no card.
-        case .scene(let i): if !(chatOpen && chromeVisible) && !store.inStory { SceneView(model: model, index: i, width: width, maxHeight: height) }   // chat open: pinned in the panel
+        case .scene(let i): if !(chatOpen && chromeVisible) && !store.inStory { SceneView(model: model, index: i, width: width, maxHeight: height, peek: phonePeek) }   // chat open: pinned in the panel
         case .end: if !(chatOpen && chromeVisible) { EndView(model: model) }   // chat open: pinned in the panel
         }
     }

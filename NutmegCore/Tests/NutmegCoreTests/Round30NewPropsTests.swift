@@ -3,14 +3,15 @@ import Testing
 
 /// Round 30 (Haylee): 30 new household props (set 2), tagged by shape/function with plausible pretend uses.
 struct Round30NewPropsTests {
-    static let newIDs = ["paper", "paper-towel-tube", "paper-bag", "egg-carton", "crayons", "tape", "paper-plate",
+    // 2026-11-17: plain "paper" is retired (it became a printed "recipe sheet" in a live game).
+    static let newIDs = ["paper-towel-tube", "paper-bag", "egg-carton", "crayons", "tape", "paper-plate",
                          "plastic-container", "measuring-cup", "colander", "baking-sheet", "wooden-spoon", "apron", "oven-mitt",
                          "ball", "scarf", "sunglasses", "sneakers", "headband", "sock", "mittens", "umbrella", "pillowcase",
                          "toy-keys", "wagon", "jump-rope", "hula-hoop", "sidewalk-chalk", "plastic-cups", "sticky-notes"]
 
     @Test func allThirtyAreInTheLibraryWithTagsUsesAndArtNames() {
-        #expect(Self.newIDs.count == 30)
-        #expect(PropLibrary.ids.count == 59 && Set(PropLibrary.ids).count == 59)   // round 43: the lamp is retired
+        #expect(Self.newIDs.count == 29)
+        #expect(PropLibrary.ids.count == 58 && Set(PropLibrary.ids).count == 58)   // round 43: the lamp is retired; 2026-11-17: paper too
         for id in Self.newIDs {
             #expect(PropLibrary.contains(id), "\(id) missing")
             #expect(PropLibrary.tags[id] != nil, "\(id) has no tags")
@@ -31,7 +32,6 @@ struct Round30NewPropsTests {
 
     @Test func thePairingsHaylee() {
         let good: [(String, String)] = [
-            ("paper", "the fan"), ("paper", "the snowballs"),   // round 42: never a map, letter or ticket (printed)
             ("paper-towel-tube", "the telescope"), ("paper-towel-tube", "the microphone"), ("paper-towel-tube", "the magic wand"),
             ("colander", "the knight's helmet"), ("baking-sheet", "the steering wheel"), ("baking-sheet", "the tray"),
             ("baking-sheet", "the shield"), ("umbrella", "the cane"), ("umbrella", "the magic wand"),

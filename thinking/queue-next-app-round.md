@@ -411,7 +411,7 @@ Game arc becomes: Print → **story opener** → **setup scene** → 3 play scen
 - Keep the content, pages, header/footer, Poppins, cache-busting and the no-email/no-tracking rules. Preview before publishing; Haylee approves before it goes live.
 - **Site Print section (Haylee, 2026-11-17):** the full-color kit sheets feel like they're from another app and clash with the site. Keep the stack/fan of printables, but make them ALL the black-and-white (outline / coloring-page) versions. Use pages from the new moon bakery game (round 46/47 printables, made by the screenshot agent's live game), not the old Vet Clinic pages. Wait for those pages.
 
-## iPhone play scene: Nutmeg peeks over the scene card (queued 2026-11-17, Haylee)
+## iPhone play scene: Nutmeg peeks over the scene card (queued 2026-11-17, Haylee): DONE 2026-11-17 (decisions/2026-11-17-peek-and-replay-pick.md)
 - On iPhone, when a scene's action rows are showing, Nutmeg is too small (a little figure on the stage above the card). Instead she **peeks over the top edge of the scene card, paws on the card's edge, looking DOWN at the list**, like the logo art (asset `logo-nutmeg-top`: head, shoulders, paws over the letters).
 - Looking down: use the rig's head with the **focus face** (eyes down) so she still blinks and her mouth moves when she talks; the peek body/paws come from existing art (logo-nutmeg-top or rig parts). Don't draw or patch art (Haylee's rule: regenerate, never patch). If the parts can't be combined cleanly, report back with options instead of editing art.
 - She should be BIG (wider than now, ~60–70% of the card width), centered over the card's title, ears clear of the step rail/top bar.
@@ -419,7 +419,7 @@ Game arc becomes: Print → **story opener** → **setup scene** → 3 play scen
 - **Art is ready:** design/nutmeg/peek/nutmeg-peek-parts.svg (1536×1024, from Haylee's Figma frame 22:2509, extracted read-only, no edits): groups `tail`, `body` (vest, shoulders, star), `head` (ears, face, headset), `paw-left`, `paw-right`. Body is cut flat at the bottom (sits behind the card edge); paws go in front of the edge. Use `body`+`tail`+paws with the rig head (focus face) on top, aligned to where `head` sits.
 - After: retake the App Store play-scene screenshot (05).
 
-## Replay Pick: no number tiles, ever (queued 2026-11-17, Haylee)
+## Replay Pick: no number tiles, ever (queued 2026-11-17, Haylee): DONE 2026-11-17 (decisions/2026-11-17-peek-and-replay-pick.md; offline replays never block and no plain-paper props are in the same round)
 - Haylee: "Even if they don't have internet they can just type in their answer right? So we shouldn't have that screen." Remove the 1–6 tiles from the replay Pick (ReplayScreens.swift, shown today when `model.noVoiceSession`).
 - Without a voice session (offline, voice down, no keys), the kid still answers by **typing** (keyboard button) or **speaking** (on-device speech recognition works offline): parse the count **on the device** ("3", "three", "we have four", "me and my sister" = 2 is a nice-to-have; NumberWords exists in GrownUps.swift) and call `replayPick(n)`. Nutmeg's question is her recorded clip, so nothing needs the internet. Out-of-range (0 or >6): her recorded "1 to 6" nudge if one exists, else a gentle text prompt.
 - Make sure the chat/keyboard and the mic both work in that state on replays, and that it can't dead-end. Tests for the parser and the no-voice replay path.

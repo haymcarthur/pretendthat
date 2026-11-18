@@ -511,7 +511,8 @@ final class AppModel {
         repeatTask?.cancel(); pointTask?.cancel(); beatEndTask?.cancel(); kitWait?.cancel()
         speaker.holdEngine = false   // round D3b: the session's stop now stops the engine too
         wifiPause.clear(); wifiTask?.cancel(); wifiTask = nil
-        clipStore.reset()            // an unsaved game's clips go with it
+        captionTask?.cancel(); offlineCaption = nil
+        clipStore.reset()           // an unsaved game's clips go with it
         realtime.disconnect()
         speaker.shutdown()
         gameVoice = nil
@@ -548,6 +549,12 @@ final class AppModel {
         // the release (the on-device words are part of its latency).
         if kind == .typed { realtime.beginTrace("typed") } else { realtime.markTrace("scrubbed") }
         wakeUp()
+        // 2026-11-17 (Haylee: no number tiles, ever): a replay's Pick with no voice session reads the count here, on
+        // the device. Nothing is sent anywhere (no Claude, no moderation): only the number is used.
+        if ReplayCount.handlesOnDevice(isReplay: store.isReplay, phase: store.phase, voiceLive: realtime.isLive) {
+            replayCountAnswer(text)
+            return
+        }
         // Round 20: the kid's own turn stops anything she's saying or about to say (cheers, repeats, deferred lines).
         if realtime.isLive && store.phase != .makingKit { userAction(kind == .typed ? .typedTurn : .micPressed) }
         let live = realtime.isLive && store.phase != .makingKit
@@ -855,7 +862,7 @@ final class AppModel {
             rtLog("repeat last line: \(line)")
             // Round D3b: Repeat replays the clip (her recorded voice), or says it live; never the device voice on a replay.
             if realtime.isLive || clipStore.has(line) { speaker.say(line, echo: true, replay: store.isReplay) }
-            else if store.isReplay { owe(line) }
+            else if store.isReplay { showOffline(line, bubble: false) }   // 2026-11-17: her text again, never a pause
             else { rtLog("repeat: no clip and no live voice: she stays quiet (never the system voice)") }
         }
     }
@@ -1364,8 +1371,9 @@ final class AppModel {
         // Round 9: away (background, or reconnecting): an important line (kit ready) waits for the session; others drop.
         // Round D1: a replay's first lines wait for its voice session (never the device voice while it connects).
         if replayConnecting { deferredLine = text; return }
-        // Round D3b (Haylee's answer 1): offline on a replay, a line she never said: the Wi-Fi note, paused on it.
-        if store.isReplay && !realtime.isLive { owe(text); return }
+        // Offline on a replay, a line she never said. 2026-11-17: never the full-screen Wi-Fi pause (a game's first
+        // offline replay dead-ended on it): her text, a recorded line that fits, and the game goes on (`OfflineLine`).
+        if store.isReplay && !realtime.isLive { showOffline(text); return }
         if store.isReplay && realtime.isLive {
             store.ledger.paidAICall(kind: .replayLine)   // E hook: a live replay line
             clipLog.note(.live(record: true), kind: ClipMeta.kind(of: text))
@@ -1974,18 +1982,31 @@ final class AppModel {
     }
     #endif
 
-    /// Haylee's answer 1: a replay line she never said, with no voice: the Wi-Fi note (her bundled clip says it) and
-    /// the game pauses on this line until the connection is back; then she says it live (and it's saved).
-    private func owe(_ line: String) {
-        let first = !wifiPause.isPaused
-        wifiPause.owe(line)
-        clipLog.note(.waitForNetwork, kind: ClipMeta.kind(of: line))
-        rtLog("WIFI pause: a never-said line with no voice (\(ClipMeta.kind(of: line).rawValue)); waiting for the network")
-        if first {
-            gesture(.point, hold: 2)
-            _ = speaker.say(WiFiPause.spokenNote, record: false)   // her bundled clip; nothing if it isn't bundled
+    /// 2026-11-17 (was Haylee's answer 1, the Wi-Fi pause, which dead-ended a game's first offline replay): a replay
+    /// line she never said, with no voice: it shows as her text (a chat bubble and a caption by her on the stage), a
+    /// recorded generic line plays if one fits ("How many friends…"), and the game carries on. The line is recorded
+    /// the next time she says it live (any later replay with a voice session).
+    private func showOffline(_ line: String, bubble: Bool = true) {
+        let plan = OfflineLine.plan(line, hasClip: { clipStore.has($0) })
+        clipLog.note(.caption, kind: ClipMeta.kind(of: line))
+        rtLog("OFFLINE line shown as text (\(ClipMeta.kind(of: line).rawValue))\(plan.standIn == nil ? "" : " + a recorded stand-in")")
+        if bubble { realtime.showLine(plan.caption) }
+        showCaption(plan.caption)
+        if let stand = plan.standIn { speaker.say(stand, echo: true, replay: true) }   // echo: the bubble is already there
+    }
+
+    /// Her caption on the stage (offline replay lines only): stays ~0.35 s a word (at least 4 s), or until the next one.
+    private(set) var offlineCaption: String?
+    @ObservationIgnored private var captionTask: Task<Void, Never>?
+    private func showCaption(_ text: String) {
+        captionTask?.cancel()
+        offlineCaption = text
+        let hold = max(4, Double(text.split(separator: " ").count) * 0.35)
+        captionTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(hold))
+            guard !Task.isCancelled else { return }
+            offlineCaption = nil
         }
-        if network.online { resumeAfterWiFi() }   // online but the voice dropped: try to get it back
     }
 
     private func networkChanged(_ online: Bool) {
@@ -2023,6 +2044,25 @@ final class AppModel {
     /// Round 26: the count on a replay's Pick (voice: set_player_count; the tiles only without a voice session). It
     /// goes straight on to Props, the first saved card.
     @ObservationIgnored private var lastReplayCardKey: String?
+
+    /// 2026-11-17: a typed or spoken answer on a replay's Pick with no voice session. 1–6 goes on to Props; anything
+    /// else gets her recorded question again (with a "1 to 6" text hint when the number was out of range), so the
+    /// kid can always answer again by voice or keyboard (never a dead end, never tiles).
+    func replayCountAnswer(_ text: String) {
+        // The kid's own words in the chat only when the local filter passes (the same instant check as a typed turn).
+        if Sanitizer.kidSafety([text]) == nil { realtime.showKidLine(text) }
+        switch ReplayCount.decide(text) {
+        case .pick(let n):
+            rtLog("REPLAY pick on the device: \(n)")
+            replayPick(n)
+        case .outOfRange, .noNumber:
+            if case .outOfRange = ReplayCount.decide(text) { realtime.showLine(ReplayCount.rangeHint) }
+            rtLog("REPLAY pick on the device: no count 1–6, she asks again")
+            speaker.cancel()
+            speak(ReplayCount.reask)
+        }
+    }
+
     func replayPick(_ n: Int) {
         userAction(.replayPick)
         store.replayPick(n)

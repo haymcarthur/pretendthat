@@ -624,6 +624,15 @@ final class RealtimeSession {
     /// Round D3b: a replay starts a fresh chat (its first clip may play before the voice connects).
     func resetChat() { chat.clear() }
 
+    /// 2026-11-17: her line as a text bubble only (an offline replay line she never recorded, or the "1 to 6" hint).
+    func showLine(_ text: String) {
+        chat.breakTurn()
+        chat.apply(.transcriptDone(text))
+        chat.breakTurn()
+    }
+    /// 2026-11-17: the kid's answer in the chat when it's read on the device (a replay's Pick with no voice session).
+    func showKidLine(_ text: String) { chat.kidTyped(text) }
+
     /// Applies pitch changes right away (a method change takes effect on the next conversation).
     private func fail(_ reason: String) -> Bool {
         rtLog("failed: \(reason)")

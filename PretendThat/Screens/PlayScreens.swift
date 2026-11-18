@@ -31,7 +31,93 @@ struct SceneView: View {
     private var pad: CGFloat { metrics.isPhone ? Theme.Space.s : Self.pad }
     private var slack: CGFloat { metrics.isPhone ? 6 : 20 }
 
+    /// iPhone play scenes (Haylee, 2026-11-17): Nutmeg peeks over the card's top edge (`NutmegPeek`) instead of standing
+    /// small on the stage above it. RootView hides the stage Nutmeg and gives this view the whole band.
+    var peek = false
+    /// The peek figure's width as a share of the card's: big (Haylee: ~60–70%), smaller only when the rows need the room.
+    static let peekShares: [CGFloat] = [0.66, 0.62, 0.58, 0.54, 0.5, 0.46, 0.42, 0.38, 0.34]
+    /// Air between her ear tips and the top bar.
+    static let earGap: CGFloat = 6
+
     var body: some View {
+        if peek { peekBody } else { standardBody }
+    }
+
+    /// The densest-needed tier and the paper size for `room` (the height the paper may take, padding included).
+    private func layout(room: CGFloat, topExtra: CGFloat = 0) -> (tier: Int, fits: Bool, paper: CGSize) {
+        let avail = room - 2 * pad - topExtra
+        let tierList = PTSceneCard.tiers(phone: metrics.isPhone)
+        let fits = tierList.indices.first { (heights[$0] ?? .infinity) <= avail }
+        let tier = fits ?? tierList.count - 1
+        let natural = (heights[tier] ?? 300) + 2 * pad + topExtra
+        let paper = CGSize(width: width, height: fits == nil && room.isFinite ? max(200, room) : natural)
+        return (tier, fits != nil, paper)
+    }
+
+    @ViewBuilder private var peekBody: some View {
+        if let scene = store.kit?.scenes[index] {
+            // The biggest figure that still lets the rows fit without scrolling (else the smallest, and the rows scroll).
+            let options = Self.peekShares.map { share -> (fw: CGFloat, above: CGFloat, overhang: CGFloat, l: (tier: Int, fits: Bool, paper: CGSize)) in
+                let fw = width * share
+                let above = NutmegPeek.heightAboveEdge(width: fw), overhang = NutmegPeek.pawOverhang(width: fw)
+                return (fw, above, overhang, layout(room: maxHeight - Self.earGap - (buttonHeight + Theme.Space.s + Theme.depth) - above, topExtra: overhang))
+            }
+            let pick = options.first { $0.l.fits } ?? options[options.count - 1]
+            let l = pick.l
+            VStack(spacing: Theme.Space.s) {
+                Group {
+                    if !l.fits {
+                        ScrollView { PTSceneCard(model: model, scene: scene, tier: l.tier) }.scrollIndicators(.visible).scrollIndicatorsFlash(onAppear: true)   // small iPhones: the rows that don't fit scroll, and say so
+                    } else {
+                        PTSceneCard(model: model, scene: scene, tier: l.tier)
+                    }
+                }
+                .padding(pad)
+                .padding(.top, pick.overhang)   // the title clears her paws
+                .frame(width: l.paper.width, height: l.paper.height, alignment: .top)
+                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.white))
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .shadow(color: Theme.panelShadow, radius: 10, y: 3)
+                // Tail and body behind the card, paws in front of its top edge.
+                .background(alignment: .top) {
+                    peekPart(.back).frame(width: pick.fw, height: pick.above + pick.overhang).offset(y: -pick.above)
+                }
+                .overlay(alignment: .top) {
+                    peekPart(.front).frame(width: pick.fw, height: pick.above + pick.overhang).offset(y: -pick.above)
+                        .allowsHitTesting(false)
+                }
+                .padding(.top, pick.above)
+                .opacity(revealed ? 1 : 0)
+                .offset(y: revealed ? 0 : 24)
+                PTNextSceneButton(height: buttonHeight) { model.tapNextScene() }
+                    .padding(.bottom, Theme.depth)
+                    .opacity(revealed ? 1 : 0)
+            }
+            .padding(.top, Self.earGap)   // her ears clear the top bar
+            .background { measurer(scene) }
+            .onAppear { withAnimation(Theme.stageMove) { revealed = true } }
+        }
+    }
+
+    private func peekPart(_ part: NutmegPeek.Part) -> some View {
+        NutmegPeek(part: part, state: model.nutmegState, mouthLevel: model.mouthLevel, mouthShape: model.mouthShape,
+                   isSpeaking: model.isSpeaking)
+    }
+
+    /// Measure every tier's natural height at this width (hidden), then use the densest one that's needed.
+    private func measurer(_ scene: KitScene) -> some View {
+        ZStack {
+            ForEach(PTSceneCard.tiers(phone: metrics.isPhone).indices, id: \.self) { t in
+                PTSceneCard(model: model, scene: scene, tier: t)
+                    .frame(width: width - 2 * pad)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { heights[t] = $0 }
+            }
+        }
+        .hidden().allowsHitTesting(false).accessibilityHidden(true)
+    }
+
+    @ViewBuilder private var standardBody: some View {
         if let scene = store.kit?.scenes[index] {
             let avail = maxHeight - chrome - 2 * pad
             let tierList = PTSceneCard.tiers(phone: metrics.isPhone)
@@ -95,7 +181,10 @@ struct PTSceneCard: View {
     /// iPhone version: one denser tier (smaller pictures, 16 pt text) so a 4-row setup fits under Nutmeg.
     @Environment(\.layoutMetrics) private var metrics
     static let phoneDense = Tier(title: 24, picture: 36, font: 16, padding: 3, spacing: 3)
-    static func tiers(phone: Bool) -> [Tier] { phone ? tiers + [phoneDense] : tiers }
+    /// iPhone peek scenes (2026-11-17): the last resort so 6 rows fit under the big peeking Nutmeg without scrolling
+    /// (16 pt text stays; smaller pictures and a 36 pt 🔊, the whole row is still the button).
+    static let peekDense = Tier(title: 22, picture: 30, font: 16, padding: 2, spacing: 3)
+    static func tiers(phone: Bool) -> [Tier] { phone ? tiers + [phoneDense, peekDense] : tiers }
 
     var body: some View {
         let list = Self.tiers(phone: metrics.isPhone)
@@ -111,7 +200,7 @@ struct PTSceneCard: View {
                 if let role = step.role.role.flatMap({ store.plan?.role(for: $0) }) {
                     // Round 34 (Haylee): the row SHOWS the short task; a tap anywhere on it SAYS the specifics (`text`).
                     PTTaskRow(text: step.short ?? step.text, tint: Theme.playerColor(role.id.index), fontSize: t.font, padding: t.padding,
-                              speaker: metrics.isPhone ? 44 : 56,
+                              speaker: metrics.isPhone ? (t.picture <= 30 ? 36 : 44) : 56,
                               speakLabel: SceneRowTap.accessibilityLabel(roleName: role.roleName), onSpeak: { model.readTask(i) }) {
                         PTCharacterPicture(role: role, image: model.characterPicture(role), size: t.picture, ring: PTRowLook.current.rings)
                     }

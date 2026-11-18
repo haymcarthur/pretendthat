@@ -12,7 +12,7 @@ public enum PropLibrary {
         ("stool", "Step stool"), ("sheet", "Bedsheet"), ("basket", "Basket"), ("bucket", "Bucket"),
         // Round 30 (Haylee): set 2, 30 more everyday things (crayons, tape and sticky notes are craft items; nothing
         // here implies cutting).
-        ("paper", "Paper"), ("paper-towel-tube", "Paper towel tube"), ("paper-bag", "Paper bag"), ("egg-carton", "Egg carton"),
+        ("paper-towel-tube", "Paper towel tube"), ("paper-bag", "Paper bag"), ("egg-carton", "Egg carton"),
         ("crayons", "Crayons"), ("tape", "Tape"), ("paper-plate", "Paper plate"), ("plastic-container", "Plastic container"),
         ("measuring-cup", "Measuring cup"), ("colander", "Colander"), ("baking-sheet", "Baking sheet"),
         ("wooden-spoon", "Wooden spoon"), ("apron", "Apron"), ("oven-mitt", "Oven mitt"), ("ball", "Ball"), ("scarf", "Scarf"),
@@ -23,8 +23,22 @@ public enum PropLibrary {
     ]
     public static let ids: [String] = items.map(\.id)
     /// Round 43 (Haylee): items taken off the list (the unplugged lamp: a cord and a bulb). Never picked again, but an
-    /// older saved game that has one still shows its name and art.
-    public static let retired: [(id: String, name: String)] = [("lamp-off", "Lamp (unplugged)")]
+    /// older saved game that has one still shows its name and art. 2026-11-17 (a live test game: "Paper" became the
+    /// "recipe sheet", a printed thing): plain paper is retired too; props are never paper or printouts.
+    public static let retired: [(id: String, name: String)] = [("lamp-off", "Lamp (unplugged)"), ("paper", "Paper")]
+
+    /// 2026-11-17: a household item that is just paper (plain paper, cardstock, a sheet of paper, printer paper,
+    /// newspaper…) is never a prop, on or off the list. Paper THINGS are fine: a paper plate, bag or towel tube.
+    /// A bedsheet ("sheet") is cloth and stays allowed.
+    public static func isPlainPaper(_ item: String) -> Bool {
+        let words = item.lowercased().split { !$0.isLetter }.map(String.init)
+            .filter { !["a", "an", "the", "some", "piece", "pieces", "of", "sheet", "sheets", "stack", "pile", "blank", "white",
+                        "colored", "coloured", "scrap", "plain"].contains($0) }
+        guard !words.isEmpty else { return item.lowercased().contains("sheet of paper") || item.lowercased().contains("sheets of paper") }
+        let paperish: Set<String> = ["paper", "papers", "cardstock", "newspaper", "newspapers", "printer", "construction",
+                                     "notebook", "copy", "computer", "card", "stock", "tissue", "wrapping"]
+        return words.allSatisfy(paperish.contains) && words.contains { ["paper", "papers", "cardstock", "newspaper", "newspapers"].contains($0) }
+    }
     public static func name(_ id: String) -> String? { (items + retired).first { $0.id == id }?.name }
     /// Has hand-drawn art (`prop-<id>`): the list items and the retired ones.
     public static func hasArt(_ id: String) -> Bool { name(id) != nil }

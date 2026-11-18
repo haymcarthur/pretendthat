@@ -3,48 +3,31 @@ import NutmegCore
 
 // Round D1 (Haylee, design §D5): a replay's Pick and Props steps, in the same card zone as a first play's screens. No AI
 // calls for content. Round 26 (Haylee's button audit): a replay reuses the FIRST-PLAY flows. Pick: the count is said
-// out loud ("How many friends are playing this time? Tell me!"); number tiles only when there's no voice session (the
-// fallback, so it can't dead-end). Props: one saved card at a time with the hunt card's ✓ / ✗. Print is the first
-// play's KitView (printer + ▶).
+// out loud ("How many friends are playing this time? Tell me!"). 2026-11-17 (Haylee): no number tiles, ever. With no
+// voice session the kid types or speaks the count (keyboard and mic in the pill; on-device speech works offline) and
+// the app reads it on the device (`ReplayCount`, `AppModel.replayCountAnswer`). Props: one saved card at a time with
+// the hunt card's ✓ / ✗. Print is the first play's KitView (printer + ▶).
 
-/// Pick on a replay: the game's title; with no voice session, tiles 1–6 (a tile goes straight on to Props).
+/// Pick on a replay: the game's cover (or title). The count is answered by voice or typing, never by tiles.
 struct ReplayPickView: View {
     let model: AppModel
     /// Round 30: narrower in the chat panel's cover tab.
     var coverWidth: CGFloat = 360
     /// Round 40 (Haylee: the cover was cut off at the bottom on the iPhone): the room the card zone has; the cover
-    /// shrinks to fit it whole (with the number tiles under it when they show).
+    /// shrinks to fit it whole.
     var maxHeight: CGFloat = .infinity
     private var store: AdventureStore { model.store }
-    /// Two rows of 92 pt tiles, their gap, and the gap above them.
-    private static let tilesHeight: CGFloat = 2 * 92 + Theme.Space.s + Theme.Space.l
     var body: some View {
-        VStack(spacing: Theme.Space.l) {
-            // Round 28 (Haylee): the game's wide cover (round 27), framed on the stage where the title was; else its
-            // color sign page (`AppModel.cover(for:)` falls back); the title text only when there's no picture at all.
-            // Nutmeg still says the name.
-            if let g = model.replayGame, let cover = model.cover(for: g) {
-                let room = maxHeight - (model.noVoiceSession ? Self.tilesHeight : 0) - PTReplayCover.matExtra
-                PTReplayCover(image: cover, title: store.currentTitle,
-                              width: max(120, min(coverWidth, room / PTReplayCover.aspect(cover).height * PTReplayCover.aspect(cover).width)))
-            } else {
-                PTText(store.currentTitle, .title).multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.7)
-            }
-            if model.noVoiceSession {
-                // Two rows of three (six in a row reached Nutmeg's face in the card zone).
-                VStack(spacing: Theme.Space.s) {
-                    ForEach([1, 4], id: \.self) { first in
-                        HStack(spacing: Theme.Space.s) {
-                            ForEach(first..<(first + 3), id: \.self) { n in
-                                PTChoiceTile(label: "\(n)", isSelected: store.playerCount == n, size: 92) { model.replayPick(n) }
-                            }
-                        }
-                    }
-                }
-                .transition(.opacity)
-            }
+        // Round 28 (Haylee): the game's wide cover (round 27), framed on the stage where the title was; else its
+        // color sign page (`AppModel.cover(for:)` falls back); the title text only when there's no picture at all.
+        // Nutmeg still says the name.
+        if let g = model.replayGame, let cover = model.cover(for: g) {
+            let room = maxHeight - PTReplayCover.matExtra
+            PTReplayCover(image: cover, title: store.currentTitle,
+                          width: max(120, min(coverWidth, room / PTReplayCover.aspect(cover).height * PTReplayCover.aspect(cover).width)))
+        } else {
+            PTText(store.currentTitle, .title).multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.7)
         }
-        .animation(Theme.springy, value: model.noVoiceSession)
     }
 }
 
