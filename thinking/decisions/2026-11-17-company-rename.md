@@ -48,3 +48,20 @@
   - Delete the separate PretendThat Workspace (nothing set up there), add pretendthat.app to the main Workspace, and add support@pretendthat.app as an alias with "Send mail as".
   - Expect a short bounce window for support@pretendthat.app (the site form sends there), so do it in one sitting.
 - **Then move vendor logins** (OpenAI, Anthropic, Cloudflare, GitHub, Figma, TelemetryDeck, registrars, Apple ID) to the new main address over time.
+
+## Filed (Haylee, 2026-11-17 18:54)
+- Utah: **Amendment to Certificate of Organization** (Tittl LLC → **Crimson Foundry LLC**, entity 14618068-0160): **Accepted**.
+- **Annual Report / Renewal without changes** (it was due 10/31/2026): **Accepted**.
+- The Utah ID login is the old haylee@tittl.ai (now an alias in the Crimson Foundry Workspace); change the Utah ID email to the new main address.
+- **Next:**
+  1. Download the filed amendment (Correspondence History) and keep it as proof.
+  2. Washington City business license.
+  3. Utah tax account if any.
+  4. Operating agreement note.
+  5. IRS name-change letter.
+  6. Bank.
+  7. D-U-N-S.
+  8. Apple + Google Play (legal name, new W-9s).
+  9. Vendors.
+  10. The PretendThat site/privacy/terms operator name (still needs the mailing address decision).
+- **Christie:** not a listed principal on the Utah record (only Haylee as Manager/Member/Organizer). Check separately whether she was ever an owner on paper (operating agreement, taxes, bank).
