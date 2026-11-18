@@ -7,3 +7,5 @@
   2. Automatic check: the word check (Vision) already finds the text on the color page; also measure contrast between letter fill and the background inside each text box; too light → one redraw with the contrast note; still light → keep the page but log it.
   3. Keep the word check on the color page (the test once turned "002" into "202").
 - **Who decided:** Haylee (adopt, guardrails); Claude (how the guardrails work).
+
+- **Update (Haylee, 2026-11-18):** remove the automatic pale-letter re-color (it cost ~10¢ a game and fixed nothing in the live test). Keep the no-pale-letters rule in the color prompt.
