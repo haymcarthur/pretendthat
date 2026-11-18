@@ -95,8 +95,6 @@ final class AppModel {
     @ObservationIgnored var gameStats = AnalyticsGameTracker()
     /// When the first-launch onboarding opened (for its coarse duration bucket only).
     @ObservationIgnored var onboardingStartedAt: Date?
-    /// Mirrors the grown-up's "Share anonymous usage counts" switch so the toggles update.
-    var analyticsSharing = Analytics.sharing
     /// The current plan (StoreKit entitlements; none until products exist).
     var planStatus: PlanStatus = .none
     /// Nutmeg's two onboarding lines (bundled clips through her one speaker; round 35 prep).
@@ -2171,11 +2169,5 @@ extension AppModel {
             Analytics.send(e)
         }
         if store.usingFallback, store.phase != .hello, let e = gameStats.error(.aiUnavailable) { Analytics.send(e) }
-    }
-
-    /// The grown-up's switch (onboarding's privacy page, Grown-ups → About what we save).
-    func setAnalyticsSharing(_ on: Bool) {
-        Analytics.setSharing(on)
-        analyticsSharing = Analytics.sharing
     }
 }

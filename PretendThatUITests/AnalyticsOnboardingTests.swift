@@ -1,16 +1,16 @@
 import XCTest
 
 /// Anonymous analytics (2026-11-17-analytics-build.md): one first-launch onboarding with a dummy TelemetryDeck app ID
-/// (Debug = TelemetryDeck Test mode). The grown-up turns "Share anonymous usage counts" on on the privacy page (it starts
-/// OFF). The events are read from the app's console (`ANALYTICS` lines), e.g.
+/// (Debug = TelemetryDeck Test mode). Round 44: counts are always on (no switch); every onboarding event is sent. The
+/// events are read from the app's console (`ANALYTICS` lines), e.g.
 /// `xcrun simctl spawn <udid> log stream --predicate 'eventMessage CONTAINS "ANALYTICS"'`.
 /// `-PTNoAI`: no AI calls; the onboarding ends on "Go to the home page".
 @MainActor
 final class AnalyticsOnboardingTests: XCTestCase {
-    func testOnboardingWithSharingTurnedOn() throws {
+    func testOnboardingSendsCountsWithNoSwitch() throws {
         continueAfterFailure = false
         let app = XCUIApplication()
-        app.launchArguments = ["-PTNoAI", "-PTResetOnboarding", "-PTAnalyticsOff", "-PTAnalyticsAppID", "00000000-0000-0000-0000-00000000DEAD"]
+        app.launchArguments = ["-PTNoAI", "-PTResetOnboarding", "-PTAnalyticsAppID", "00000000-0000-0000-0000-00000000DEAD"]
         // The mic page's system prompts: "Don't Allow" (no permission is granted to the simulator by this test).
         addUIInterruptionMonitor(withDescription: "permissions") { alert in
             for label in ["Don’t Allow", "Don't Allow"] where alert.buttons[label].exists { alert.buttons[label].firstMatch.tap(); return true }

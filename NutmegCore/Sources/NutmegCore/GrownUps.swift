@@ -357,9 +357,8 @@ public enum GrownUpsCopy {
     public static let billingNote = "Billing and refunds go through Apple."
     public static let billingLink = "Report a purchase problem to Apple"
     public static let webFailed = "This page couldn't be opened."
-    /// Anonymous usage counts (2026-11-17-analytics-build.md): the grown-up's switch, OFF until they turn it on.
-    public static let analyticsToggle = "Share anonymous usage counts"
-    public static let analyticsFooter = "Off unless you turn it on. It sends simple counts, like \"a game reached Print\" or \"a plan was bought\", to help us improve PretendThat. Never names, voices, words or anything about your child. No ads, no tracking."
+    /// Round 44: anonymous usage counts are always on (no switch); About says so in one line.
+    public static let analyticsLine = "PretendThat sends anonymous counts, like \"a game reached Print\", to help us improve it, never anything about your child."
 
     /// About what we save (round 31: kids' voices become words on the iPad and are never sent).
     public static let about: [(title: String, body: String)] = [
@@ -370,6 +369,7 @@ public enum GrownUpsCopy {
         // Round 37 (Anthropic's rule for products used by minors + App Store 1.2 / 5.1.2(i)): say plainly that Nutmeg is AI.
         ("Nutmeg is an AI helper", "Nutmeg is a computer character, not a person. Her words, the story and the printed pages are made by AI and checked for kid safety. The first time your child plays, she tells them she's a pretend helper made by a computer. AI can get things wrong: if something seems off, use Report a problem in Grown-ups."),
         ("No accounts, ads or tracking", "There's nothing to sign up for. PretendThat has no ads and doesn't track you or your child."),
+        ("Anonymous counts", analyticsLine),
         // Round 39 (auto-save): every new game saves itself once its printable kit is made.
         ("You're in charge", "Every new game saves itself once its printable kit is made, so it's on the bookshelf to play again. A game closed before that isn't kept. Delete any game in Saved games."),
     ]
@@ -377,7 +377,7 @@ public enum GrownUpsCopy {
     /// Voice pitch build (2026-11-17): open-source credits at the end of About (the MIT notice must ship with the app).
     public static let creditsTitle = "Credits"
     /// Round 39: + TelemetryDeck (MIT) and the Poppins font (SIL Open Font License 1.1).
-    public static let creditsFooter = "Thank you to these open-source projects: Signalsmith makes Nutmeg's voice a little higher on this \(DeviceWord.noun), TelemetryDeck sends the anonymous counts (only if you turn them on), and Poppins is the font on these grown-up pages."
+    public static let creditsFooter = "Thank you to these open-source projects: Signalsmith makes Nutmeg's voice a little higher on this \(DeviceWord.noun), TelemetryDeck sends the anonymous counts, and Poppins is the font on these grown-up pages."
     /// The licenses the credits use (the full text of each is in About).
     public static let mitLicenseName = "MIT License"
     public static let oflLicenseName = "SIL Open Font License 1.1"

@@ -528,16 +528,7 @@ struct GUAboutView: View {
     let model: AppModel
     var body: some View {
         List {
-            // Anonymous usage counts (2026-11-17-analytics-build.md): OFF until a grown-up turns it on.
-            Section {
-                Toggle(isOn: Binding(get: { model.analyticsSharing }, set: { model.setAnalyticsSharing($0) })) {
-                    Text(GrownUpsCopy.analyticsToggle).font(GUType.button)
-                }
-                .tint(Theme.purple)
-                .accessibilityIdentifier("analyticsToggle")
-            } footer: {
-                Text(GrownUpsCopy.analyticsFooter).font(GUType.footnote)
-            }
+            // Round 44: anonymous usage counts are always on (no switch); the About list says so in one line.
             ForEach(GrownUpsCopy.about, id: \.title) { item in
                 Section {
                     VStack(alignment: .leading, spacing: 6) {

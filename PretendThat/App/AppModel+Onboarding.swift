@@ -47,7 +47,6 @@ extension AppModel {
         let args = ProcessInfo.processInfo.arguments
         #endif
         aiConsent = parentSettings.aiConsent
-        analyticsSharing = Analytics.sharing   // (Analytics.configure ran in init)
         // Round 38: StoreKit: the updates listener, the products and the current entitlement.
         purchases.onChange = { [weak self] in
             guard let self else { return }

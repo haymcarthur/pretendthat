@@ -3,6 +3,8 @@
 //
 // Paste the TelemetryDeck app ID below (TelemetryDeck dashboard → the app → its "App ID", a UUID) and rebuild.
 // No `xcodegen generate` needed. EMPTY = analytics off in every build (no SDK start, nothing sent).
-// Even with an ID, nothing is sent until a grown-up turns on "Share anonymous usage counts" (onboarding's privacy page
-// or Grown-ups → About what we save). Debug builds send in TelemetryDeck's Test mode; Release builds send live.
+// Round 44 (Haylee): there is NO switch. With an ID, counts are always on for everyone (disclosed in the privacy policy
+// and in Grown-ups → About what we save); installs that had the old switch are moved to on at launch.
+// Debug builds send in TelemetryDeck's Test mode; Release builds send live. Debug runs can pass `-PTAnalyticsOff`
+// (DEBUG only) to send nothing for that run.
 TELEMETRYDECK_APP_ID = C0AFCF1C-CCB0-48EF-A5D9-F40E63764249
