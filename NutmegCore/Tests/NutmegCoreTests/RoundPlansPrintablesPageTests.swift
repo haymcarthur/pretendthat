@@ -56,20 +56,18 @@ final class FakeImaging: PageImaging, @unchecked Sendable {
         #expect(!p.lowercased().contains("input_fidelity"))
     }
 
-    @Test func paleLettersGetOneDarkerRedraw() async {
+    /// 2026-11-18 (Haylee): pale letters are measured and logged, never re-colored (the re-color cost ~10¢ a game and
+    /// fixed nothing). One edit, the page kept, flagged for the log.
+    @Test func paleLettersAreLoggedNotRecolored() async {
         let f = FakeImaging(edits: [Data([2]), Data([1])])
         let r = await ColorInFlow.color(outline: outline, size: "1024x1536", quality: "low", client: f) { Self.inspect($0) }
-        #expect(r.calls == 2 && r.keptRedraw && r.data == Data([1]) && !r.stillLight)
-        #expect(r.redrawReason == "light letters")
+        #expect(r.calls == 1 && r.redraw == nil && !r.keptRedraw && r.redrawReason == nil)
+        #expect(r.data == Data([2]) && r.stillLight && r.first?.lightBoxes == 2)
+        #expect(f.editPrompts.count == 1)
         #expect(!f.editPrompts[0].contains("too light to read"))
-        #expect(f.editPrompts[1].contains("too light to read") && f.editPrompts[1].contains("dark purple or dark navy"))
-        #expect(f.editImages == [outline, outline])   // the redraw colors the SAME outline again
-    }
-
-    @Test func stillPaleAfterTheRedrawKeepsThePageAndSaysSo() async {
-        let f = FakeImaging(edits: [Data([2]), Data([2])])
-        let r = await ColorInFlow.color(outline: outline, size: "1024x1536", quality: "low", client: f) { Self.inspect($0) }
-        #expect(r.calls == 2 && !r.keptRedraw && r.data == Data([2]) && r.stillLight)
+        // The no-pale-letters rule stays in the prompt.
+        #expect(f.editPrompts[0].contains("Never fill letters with white, cream, pale yellow or any pastel"))
+        #expect(!ColorInPrompt.prompt(missing: ["002"]).contains("too light to read"))
     }
 
     @Test func theWordCheckRunsOnTheColorPage() async {
@@ -79,12 +77,16 @@ final class FakeImaging: PageImaging, @unchecked Sendable {
         #expect(r.first?.words?.missing == ["002"])
         #expect(r.redrawReason == "words" && r.keptRedraw && r.data == Data([1]))
         #expect(f.editPrompts[1].contains("letter for letter: \"002\""))
+        #expect(f.editImages == [outline, outline])   // the redraw colors the SAME outline again
     }
 
     @Test func aWorseRedrawKeepsTheFirst() async {
-        let f = FakeImaging(edits: [Data([2]), Data([3])])   // pale first, then a misspelling: words matter most
+        let f = FakeImaging(edits: [Data([3]), Data([2])])   // a misspelling, then a re-edit that's pale but no better on words
         let r = await ColorInFlow.color(outline: outline, size: "1024x1536", quality: "low", client: f) { Self.inspect($0) }
-        #expect(!r.keptRedraw && r.data == Data([2]))
+        #expect(r.calls == 2 && r.data == Data([2]) && r.keptRedraw)   // fewer word misses wins, pale or not
+        let g = FakeImaging(edits: [Data([3]), Data([3])])
+        let r2 = await ColorInFlow.color(outline: outline, size: "1024x1536", quality: "low", client: g) { Self.inspect($0) }
+        #expect(!r2.keptRedraw && r2.data == Data([3]))   // no better: keep the first
     }
 
     @Test func editsThatFailTwiceLeaveNoPage() async {
@@ -92,9 +94,9 @@ final class FakeImaging: PageImaging, @unchecked Sendable {
         let r = await ColorInFlow.color(outline: outline, size: "1024x1536", quality: "low", client: f) { Self.inspect($0) }
         #expect(r.data == nil && f.editPrompts.count == 2)   // the edit and its one retry
         // A failed redraw keeps the first page.
-        let g = FakeImaging(edits: [Data([2]), nil, nil])
+        let g = FakeImaging(edits: [Data([3]), nil, nil])
         let r2 = await ColorInFlow.color(outline: outline, size: "1024x1536", quality: "low", client: g) { Self.inspect($0) }
-        #expect(r2.data == Data([2]) && r2.redraw == nil)
+        #expect(r2.data == Data([3]) && r2.redraw == nil)
     }
 }
 

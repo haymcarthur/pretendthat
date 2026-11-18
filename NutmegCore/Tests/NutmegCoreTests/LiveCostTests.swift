@@ -27,7 +27,7 @@ func liveCostPerGame() async throws {
     let all = ClaudeUsageMeter.shared.calls
     let scenes = Array(all.dropFirst(pages.count))
     func sum(_ c: [ClaudeUsageMeter.Call]) -> (Int, Int, Double) {
-        let i = c.map(\.input).reduce(0, +), o = c.map(\.output).reduce(0, +); return (i, o, ClaudeUsageMeter.cents(input: i, output: o))
+        let i = c.map(\.input).reduce(0, +), o = c.map(\.output).reduce(0, +); return (i, o, ClaudeUsageMeter.cents(c))
     }
     let p = sum(pages), s = sum(scenes), t = sum(all)
     print("LIVECOST players=\(players) pages calls=\(pages.count) in=\(p.0) out=\(p.1) cents=\(String(format: "%.2f", p.2)) | scenes calls=\(scenes.count) in=\(s.0) out=\(s.1) cents=\(String(format: "%.2f", s.2)) | total cents=\(String(format: "%.2f", t.2)) | \(kit.scenes.count) scenes, steps \(kit.scenes.map(\.steps.count)), role gaps: \(Validate.scenes(kit.scenes, roles: 6)?.message ?? "none")")

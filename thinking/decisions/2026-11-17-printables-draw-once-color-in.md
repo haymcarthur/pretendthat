@@ -7,3 +7,4 @@
   2. Automatic check: the word check (Vision) already finds the text on the color page; also measure contrast between letter fill and the background inside each text box; too light → one redraw with the contrast note; still light → keep the page but log it.
   3. Keep the word check on the color page (the test once turned "002" into "202").
 - **Who decided:** Haylee (adopt, guardrails); Claude (how the guardrails work).
+- **Update 2026-11-18 (Haylee):** guardrail 2's automatic re-color is removed (it cost ~10¢ a game and fixed nothing). The contrast is still measured on the device and logged, but it never causes a redraw. The prompt rule (1) and the word check with its one re-edit (3) stay. See decisions/2026-11-18-small-fixes.md.

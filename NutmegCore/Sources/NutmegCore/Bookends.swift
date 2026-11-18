@@ -221,14 +221,16 @@ public enum Bookends {
             setup.title = "Getting Ready"; fixed.append("setup title")
         }
         if !PretendLine.has(setup.nutmegSays) {
-            setup.nutmegSays = "Pretend that \(place.isEmpty ? "the show" : "the " + place) opens in just a minute, so let's get everything ready!"
+            setup.nutmegSays = place.isEmpty ? "Pretend that the game starts in just a minute, so let's get everything ready!"
+                : "Pretend that the \(place) opens in just a minute, so let's get everything ready!"
             fixed.append("setup line")
         }
         if cleanup.title.trimmingCharacters(in: .whitespaces).isEmpty || GuideRepair.isPlaceholderTitle(cleanup.title) {
             cleanup.title = "Clean-Up Time"; fixed.append("clean-up title")
         }
         if !PretendLine.has(cleanup.nutmegSays) {
-            cleanup.nutmegSays = "Pretend that \(place.isEmpty ? "the show" : "the " + place) is closing for the night, so let's put everything away!"
+            cleanup.nutmegSays = place.isEmpty ? "Pretend that the game is over for the night, so let's put everything away!"
+                : "Pretend that the \(place) is closing for the night, so let's put everything away!"
             fixed.append("clean-up line")
         }
         let story = (k.story ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
@@ -299,7 +301,7 @@ public enum Bookends {
     }
 
     static func fallbackStory(title: String, roles: [Role]) -> String {
-        let place = title.isEmpty ? "our show" : "the " + title
+        let place = title.isEmpty ? "our game" : "the " + title
         let lead = roles.first?.roleName ?? "star"
         return "Welcome to \(place)! Today you are the \(lead) and the crew, and everyone is counting on you. "
             + "First we'll set everything up, and then the big adventure begins!"
@@ -504,7 +506,7 @@ public enum Bookends {
         let plan = cleanupAssignment(items: items, jobs: jobs, roles: roles, players: n)
         let byID = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
         let steps = plan.flatMap { group -> [Step] in
-            let filler = "give everyone a big high five for a great show"
+            let filler = "give everyone a big high five for a great game"
             let rs = rows(group.items, players: n)
             if rs.isEmpty { return [task([], items: [], role: group.role, roles: roles, players: n, verb: "High fives", filler: filler)] }
             return rs.map { ids in

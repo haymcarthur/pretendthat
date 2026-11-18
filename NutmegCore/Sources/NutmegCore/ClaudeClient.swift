@@ -144,7 +144,9 @@ public final class ClaudeClient: LLM {
         // Round 35 prep: a flagged model the relay doesn't allow yet (400 model_not_allowed before Haylee redeploys)
         // falls back to the configured model once, so turning the flag on can never break a game.
         let routed = ClaudeRouting.model(default: config.model)
+        var asked = routed
         if http.statusCode == 400, routed != config.model {
+            asked = config.model
             NSLog("[CLAUDE] %@ refused (400): retrying on %@", routed, config.model)
             let retry = try makeRequest(system: system, user: user, schema: schema, effort: effort, model: config.model)
             do { (data, http) = try await transport.send(retry) } catch let e as ClaudeError { throw e } catch { throw ClaudeError.transport }
@@ -158,7 +160,9 @@ public final class ClaudeClient: LLM {
         }
         // Round C1: token usage is metered (in memory only, no content) so the cost per game can be measured.
         if let u = obj["usage"] as? [String: Any] {
-            ClaudeUsageMeter.shared.record(input: u["input_tokens"] as? Int ?? 0, output: u["output_tokens"] as? Int ?? 0)
+            // 2026-11-18: priced by the model that answered (the response's `model`, else the one asked for).
+            ClaudeUsageMeter.shared.record(input: u["input_tokens"] as? Int ?? 0, output: u["output_tokens"] as? Int ?? 0,
+                                           model: obj["model"] as? String ?? asked)
             #if DEBUG   // cost v2 (2026-11-16): cache counts and effort too (numbers only, never content)
             NSLog("[CLAUDE] usage detail: call=%@ effort=%@ cache_read=%d cache_write=%d model=%@", ClaudeRouting.call?.rawValue ?? "?", effort.rawValue,
                   u["cache_read_input_tokens"] as? Int ?? 0, u["cache_creation_input_tokens"] as? Int ?? 0, obj["model"] as? String ?? "?")
@@ -177,23 +181,53 @@ public final class ClaudeClient: LLM {
     }
 }
 
+/// Claude list prices, dollars per 1M tokens (input, output), per model. From the repo's cost research
+/// (thinking/research/2026-11-18-cost-per-game.md, the claude-api skill's 2026-11-03 table): Opus 5.5 $4 / $20,
+/// Sonnet 5.5 $2 / $10. Until 2026-11-18 the meter priced every call at Opus rates, so Sonnet calls (the guide and the
+/// weaves) read double (~10¢ a game too high).
+public enum ClaudePrices {
+    public static let opus55 = (input: 4.0, output: 20.0)
+    public static let sonnet55 = (input: 2.0, output: 10.0)
+    /// NOT a researched price: any other model (Haiku included; its price isn't in the repo's research) is metered at
+    /// Opus rates, so the meter can only read high, never low.
+    public static let unknownModelFallback = opus55
+    /// The price for a model id ("claude-sonnet-5-5", or a dated / suffixed form of it).
+    public static func perMillion(model: String) -> (input: Double, output: Double) {
+        let m = model.lowercased()
+        if m.hasPrefix("claude-opus-5-5") { return opus55 }
+        if m.hasPrefix("claude-sonnet-5-5") { return sonnet55 }
+        return unknownModelFallback
+    }
+    public static func cents(input: Int, output: Int, model: String) -> Double {
+        let p = perMillion(model: model)
+        return (Double(input) * p.input + Double(output) * p.output) / 10_000
+    }
+}
+
 /// Round C1: Claude token counts per call (numbers only), for measuring the cost per game. Debug builds log each call.
 public final class ClaudeUsageMeter: @unchecked Sendable {
     public static let shared = ClaudeUsageMeter()
-    public struct Call: Equatable, Sendable { public let input: Int, output: Int }
+    public struct Call: Equatable, Sendable {
+        public let input: Int, output: Int
+        /// The model that answered (prices differ: `ClaudePrices`).
+        public let model: String
+        public init(input: Int, output: Int, model: String) {
+            self.input = input; self.output = output; self.model = model
+        }
+        /// This call's cost at its own model's price.
+        public var cents: Double { ClaudePrices.cents(input: input, output: output, model: model) }
+    }
     private let lock = NSLock()
     private var log: [Call] = []
-    /// Opus 5.5 list prices, dollars per 1M tokens (input, output).
-    public static let pricePerMillion = (input: 4.0, output: 20.0)
-    public func record(input: Int, output: Int) {
-        lock.withLock { log.append(Call(input: input, output: output)) }
+    public func record(input: Int, output: Int, model: String) {
+        let call = Call(input: input, output: output, model: model)
+        lock.withLock { log.append(call) }
         #if DEBUG
-        NSLog("[CLAUDE] usage: %d in, %d out (%.2f cents)", input, output, Self.cents(input: input, output: output))
+        NSLog("[CLAUDE] usage: %d in, %d out (%.2f cents, %@)", input, output, call.cents, model)
         #endif
     }
     public var calls: [Call] { lock.withLock { log } }
     public func reset() { lock.withLock { log = [] } }
-    public static func cents(input: Int, output: Int) -> Double {
-        (Double(input) * pricePerMillion.input + Double(output) * pricePerMillion.output) / 10_000
-    }
+    /// The calls' total cost, each at its own model's price.
+    public static func cents(_ calls: [Call]) -> Double { calls.map(\.cents).reduce(0, +) }
 }

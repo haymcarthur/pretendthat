@@ -5,7 +5,7 @@ import NutmegCore
 /// Round 46: reads an AI-drawn page's words on the device (Apple Vision, accurate, language correction off so a
 /// misspelling isn't silently "fixed"), for `PageWordCheck`. Nothing leaves the device; the page's words are the kit's
 /// own (never anything about kids). Printables draw-once (2026-11-17): the same read also measures each text box's
-/// letter contrast on a color page (`LetterContrast`, guardrail 2).
+/// letter contrast on a color page (`LetterContrast`, guardrail 2; logged only since 2026-11-18).
 enum PageOCR {
     /// The text Vision reads on the image, top to bottom, with each line's box (Vision's normalized, bottom-left origin).
     nonisolated static func observations(_ cg: CGImage) -> [(text: String, box: CGRect)] {

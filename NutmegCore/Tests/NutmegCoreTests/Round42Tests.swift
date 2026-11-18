@@ -9,7 +9,7 @@ import Testing
     // MARK: 7. No bookshelf moment; the End line says the game is saved
 
     @Test func theEndLineIsExactlyHaylees() {
-        #expect(HandOffLines.end() == "The end! What a show! Take a bow! This game is saved, so you can play it again later. Tap the arrow to play it again, or the house to go home!")
+        #expect(HandOffLines.end() == "The end! What a game! Take a bow! This game is saved, so you can play it again later. Tap the arrow to play it again, or the house to go home!")
         #expect(HandOffLines.end(replay: true) == HandOffLines.end())
         #expect(CommonLines.all.contains(HandOffLines.end()))   // a bundled clip (recorded with -PTRecordCommon)
         #expect(ClipMeta.kind(of: HandOffLines.end()) == .end)

@@ -33,7 +33,8 @@ public enum HandOffLines {
     /// The End. Round 39 (Haylee, auto-save): no star any more; The End has Play it again (the arrow) and the house.
     /// Round 41 (Haylee, decisions/2026-11-17-no-shelf-moment.md): kids don't know "the bookshelf", so she says the game
     /// is saved. The same words for a new game and a replay (one bundled clip; `replay` is kept for the callers).
-    public static let endLine = "The end! What a show! Take a bow! This game is saved, so you can play it again later. "
+    /// 2026-11-18 (Haylee: it's a "game", never a "show"): "What a game!" (was "What a show!"; re-recorded clip).
+    public static let endLine = "The end! What a game! Take a bow! This game is saved, so you can play it again later. "
         + "Tap the arrow to play it again, or the house to go home!"
     public static func end(replay: Bool = false) -> String { endLine }
 }

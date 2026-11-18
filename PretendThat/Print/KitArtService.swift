@@ -297,8 +297,8 @@ final class KitArtService {
     }
 
     /// Printables draw-once: the color page = the outline colored in (edit), inspected on the device (word check +
-    /// letter contrast), one re-edit when it missed a word or its letters are pale (`ColorInFlow`). Returns the kept
-    /// PNG (nil: both edits failed) and logs counts only.
+    /// letter contrast), one re-edit only when it missed a word (pale letters are logged, never re-colored: 2026-11-18,
+    /// `ColorInFlow`). Returns the kept PNG (nil: both edits failed) and logs counts only.
     private func colorIn(_ job: KitArtJob, outline: Data, client: ImageClient) async -> Data? {
         let limiter = self.limiter, words = job.words, size = job.size
         let imaging = LimitedImaging(client: client, limiter: limiter)
@@ -318,7 +318,7 @@ final class KitArtService {
         NSLog("[RT] kit art color-in %@: %d edit(s)%@%@%@", job.key, outcome.calls,
               outcome.first.map { String(format: ", words %d of %d, %d pale letter box(es)", ($0.words?.wanted.count ?? 0) - ($0.words?.missing.count ?? 0), $0.words?.wanted.count ?? 0, $0.lightBoxes) } ?? ", the edit failed",
               outcome.redrawReason.map { ": re-edited for \($0), kept the \(outcome.keptRedraw ? "re-edit" : "first")" } ?? "",
-              outcome.stillLight ? " (still pale: kept and logged)" : "")
+              outcome.stillLight ? " (pale letters: logged only)" : "")
         return outcome.data
     }
 

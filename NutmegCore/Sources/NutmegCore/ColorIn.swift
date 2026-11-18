@@ -5,8 +5,10 @@ import Foundation
 // from that exact image with the image EDIT endpoint ("color it in, change nothing"), so both sets match except for
 // color. Guardrails (Haylee: "as long as we can put guardrails around some of the light color choices"):
 //   1. the color prompt forbids white / cream / pale-yellow / pastel letter fills and yellow on white, keeps white paper;
-//   2. an on-device contrast check per text box (letter fill vs what's around it) → one redraw with a darker-letters note;
-//   3. the word check runs on the color page (an edit once turned "002" into "202").
+//   2. an on-device contrast check per text box (letter fill vs what's around it), LOG ONLY since 2026-11-18 (Haylee,
+//      decisions/2026-11-18-small-fixes.md): its automatic re-color cost ~10¢ a game and fixed nothing (the pet hotel
+//      game: 3 pages re-colored, all still flagged, the letters were readable), so pale letters never trigger a redraw;
+//   3. the word check runs on the color page (an edit once turned "002" into "202"): a miss gets ONE re-edit.
 // This file is pure (bytes and numbers in, decisions out) so it's unit-tested; the app supplies Vision and the pixels.
 
 // MARK: - The edit prompt
@@ -25,19 +27,15 @@ public enum ColorInPrompt {
         + "outline. Never fill letters with white, cream, pale yellow or any pastel, and never put yellow letters on "
         + "white. Keep the paper white: no full-page or big background color fills, color sits inside the shapes."
 
-    /// The tuned v2 color prompt (design/printables-match-test/notes.md) plus the letters rule. `darkerLetters`: the
-    /// redraw after the contrast check found pale letters. `missing`: the words the color page's word check missed.
-    public static func prompt(darkerLetters: Bool = false, missing: [String] = []) -> String {
+    /// The tuned v2 color prompt (design/printables-match-test/notes.md) plus the letters rule. `missing`: the words
+    /// the color page's word check missed (the one re-edit).
+    public static func prompt(missing: [String] = []) -> String {
         var p = "This is a finished coloring page. Color it in, exactly like a child filling a coloring book with flat "
             + "paint: keep every existing line exactly where it is and fill only the enclosed shapes. Color style: "
             + colorStyle + " Copy every word, letter and number exactly as it is drawn, character for character (for "
             + "example \"002\" stays \"002\"); never redraw, flip or rewrite any text. Keep the thin gray dashed cut lines "
             + "exactly as they are. Keep the paper background and the big empty areas white; no full dark or saturated "
             + "background fill. Do not change, move, add or remove any line, shape, character or letter. " + letters
-        if darkerLetters {
-            p += " IMPORTANT: on the last try some letters were too light to read. Fill EVERY letter with dark purple or "
-                + "dark navy ink this time, on white or a light background."
-        }
         let m = KitPagePrompt.unique(missing.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty })
         if !m.isEmpty {
             p += " Copy these words exactly as they are drawn on the page, letter for letter: "
@@ -47,7 +45,7 @@ public enum ColorInPrompt {
     }
 }
 
-// MARK: - The contrast check (guardrail 2)
+// MARK: - The contrast check (guardrail 2: measured and logged only, never a redraw)
 
 /// One text box Vision found on a color page, as RGBA pixels (8 bits each, row by row) of the box grown by a margin,
 /// with the text's own rect inside it. The margin is the "surrounding" the letters are read against.
@@ -147,14 +145,14 @@ public protocol PageImaging: Sendable {
 public struct PageInspection: Equatable, Sendable {
     public var words: PageWordCheck.Result?
     public var read: [String]
-    /// Letter boxes judged too light (guardrail 2).
+    /// Letter boxes judged too light (guardrail 2: logged only, never a redraw).
     public var lightBoxes: Int
     public var tooLight: Bool { lightBoxes > 0 }
     public init(words: PageWordCheck.Result?, read: [String] = [], lightBoxes: Int) {
         self.words = words; self.read = read; self.lightBoxes = lightBoxes
     }
-    /// Words fine (or none to check) and no pale letters.
-    public var ok: Bool { (words?.ok ?? true) && !tooLight }
+    /// Words fine (or none to check). Pale letters don't count (2026-11-18: logged only, no re-color).
+    public var ok: Bool { words?.ok ?? true }
 
     /// `b` is strictly better than `a`: fewer word misses first (the words matter most), then fewer pale letter boxes.
     public static func better(_ b: PageInspection, than a: PageInspection) -> Bool {
@@ -173,18 +171,18 @@ public enum ColorInFlow {
         public var first: PageInspection?
         public var redraw: PageInspection?
         public var keptRedraw: Bool
-        /// Edits asked for: 1, or 2 with the redraw (each may have been retried once on an error).
+        /// Edits asked for: 1, or 2 with the word redraw (each may have been retried once on an error).
         public var calls: Int
         /// Why the redraw was asked for (nil = no redraw).
         public var redrawReason: String?
-        /// The kept page is still too light (kept anyway, logged).
+        /// The kept page has letter boxes the contrast check calls pale (logged only).
         public var stillLight: Bool { (keptRedraw ? redraw : first)?.tooLight ?? false }
     }
 
     /// The color page of one printable: the outline page colored in with the edit endpoint (retried once on an error),
-    /// then inspected on the device (`inspect`: the word check + the contrast check). A word miss or pale letters get
-    /// ONE redraw (another edit of the SAME outline, with the missed words and / or the darker-letters note); the
-    /// strictly better of the two is kept, else the first.
+    /// then inspected on the device (`inspect`: the word check + the contrast check). Only a word miss gets ONE redraw
+    /// (another edit of the SAME outline, with the missed words); pale letters are logged, never redrawn (2026-11-18).
+    /// The strictly better of the two is kept, else the first.
     public static func color(outline: Data, size: String, quality: String, client: PageImaging,
                              inspect: @Sendable (Data) async -> PageInspection) async -> Outcome {
         var calls = 0
@@ -200,9 +198,9 @@ public enum ColorInFlow {
         let i1 = await inspect(first)
         guard !i1.ok else { return Outcome(data: first, first: i1, redraw: nil, keptRedraw: false, calls: calls, redrawReason: nil) }
         let missing = i1.words?.missing ?? []
-        let reason = [missing.isEmpty ? nil : "words", i1.tooLight ? "light letters" : nil].compactMap { $0 }.joined(separator: " + ")
+        let reason = "words"
         calls += 1
-        guard let second = await edit(ColorInPrompt.prompt(darkerLetters: i1.tooLight, missing: missing)) else {
+        guard let second = await edit(ColorInPrompt.prompt(missing: missing)) else {
             return Outcome(data: first, first: i1, redraw: nil, keptRedraw: false, calls: calls, redrawReason: reason)
         }
         let i2 = await inspect(second)
