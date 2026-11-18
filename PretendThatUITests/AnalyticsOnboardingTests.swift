@@ -22,23 +22,17 @@ final class AnalyticsOnboardingTests: XCTestCase {
             XCTAssertTrue(b.waitForExistence(timeout: timeout), "missing \(label)")
             b.tap()
         }
-        tap("Let's get started")
+        tap("Get started")
         tap("Next")
         tap("Next")
-        let toggle = app.switches["analyticsToggle"]
-        XCTAssertTrue(toggle.waitForExistence(timeout: 10))
-        XCTAssertEqual(toggle.value as? String, "0")   // OFF until the grown-up turns it on
-        toggle.switches.firstMatch.exists ? toggle.switches.firstMatch.tap() : toggle.tap()
-        XCTAssertEqual(toggle.value as? String, "1")
-        tap("I agree")
-        tap("Continue")
+        tap("I agree")   // v3: consent and the mic in one step (the system prompts come next)
         sleep(2)
         app.tap()   // lets the interruption monitor answer the system prompts
         sleep(2)
         app.tap()
         let next = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Next")).firstMatch
-        if next.waitForExistence(timeout: 8) { next.tap() }   // the mic-denied note's Next
-        tap("Start my Free Preview", timeout: 30)
+        if next.waitForExistence(timeout: 8) { next.tap() }   // the mic-denied state's Next
+        tap("Start with 2 free games", timeout: 30)
         tap("Go to the home page")
         sleep(3)
         app.terminate()

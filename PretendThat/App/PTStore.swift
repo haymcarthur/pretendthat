@@ -194,6 +194,10 @@ struct PlanPrice {
     var billedAmount: String { eligible ? (intro ?? regular) : regular }
     var introThen: String? { PriceText.introThen(regular: regular, intro: intro, introPeriods: introPeriods, eligible: eligible, period: period) }
     var full: String { PriceText.full(regular: regular, intro: intro, introPeriods: introPeriods, eligible: eligible, period: period) }
+    /// Onboarding v3's plan row: ("$9.99/mo", "for 12 months, then $14.99/mo").
+    var row: (amount: String, then: String?) {
+        PriceText.rowParts(regular: regular, intro: intro, introPeriods: introPeriods, eligible: eligible, period: period)
+    }
 }
 
 /// Round 32: Restore and Manage (static; used by the Grown-ups screens and the plans).

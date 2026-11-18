@@ -92,19 +92,17 @@ extension AppModel {
     }
 
     #if DEBUG
-    /// `-PTOnboarding <screen>[Denied]`: open the flow on a page (for screenshots).
+    /// `-PTOnboarding <screen>[Denied]`: open the flow on a page (for screenshots). `privacyDenied` = the mic-denied
+    /// state ("No mic? Kids can type.").
     static func debugFlow(at name: String) -> OnboardingFlow {
         var f = OnboardingFlow()
         let target = OnboardingScreen(rawValue: name.replacingOccurrences(of: "Denied", with: "")) ?? .hello
-        let order: [OnboardingScreen] = [.hello, .howItWorks, .needs, .privacy]
-        for page in order {
-            if f.screen == target { return f }
-            if page != .privacy { f.next() }
+        while f.screen != target && f.screen != .privacy { f.next() }
+        if f.screen == target {
+            if target == .privacy && name.hasSuffix("Denied") { f.agree(); f.micAnswered(granted: false) }
+            return f
         }
-        if target == .privacy { return f }
-        if target == .aiDeclined { f.notNow(); return f }
         f.agree()
-        if target == .microphone { if name.hasSuffix("Denied") { f.micAnswered(granted: false) }; return f }
         f.micAnswered(granted: true)
         if target == .plans { return f }
         f.startFreePreview()
@@ -132,7 +130,8 @@ extension AppModel {
         if f.finished { finishOnboarding(f) } else { parentSettings.saveProgress(f) }
     }
 
-    /// The mic screen's Continue: the system prompts (microphone, then speech recognition), then on.
+    /// v3 privacy page's "I agree, turn on the mic" (after `agree`): the system prompts (microphone, then speech
+    /// recognition), then on to the plans (or the "No mic? Kids can type." state).
     func onboardingMicContinue() async {
         let micOK = await AVAudioApplication.requestRecordPermission()
         let speech = await Listener.speechAuth()
@@ -151,7 +150,7 @@ extension AppModel {
         onboardingUpdate { $0.micAnswered(granted: granted) }
     }
 
-    /// v2 page 7's "Start our first game": straight into a new game on the stage, Nutmeg visible and talking (her
+    /// v3 page 6's "Start our first game": straight into a new game on the stage, Nutmeg visible and talking (her
     /// game greeting is the first thing she says). The onboarding stays on screen until the game's first phase is
     /// set (`startConversation` closes it in the same update), so the home page never flashes in between. If New game
     /// is blocked (a replay with the Free Preview used up), it lands on the home page with the kid card, silently.

@@ -272,6 +272,20 @@ public enum PriceText {
         return "\(b) \(t)"
     }
 
+    /// "mo" or "yr" (onboarding v3's compact plan rows).
+    public static func shortUnit(_ period: BillingPeriod) -> String { period == .monthly ? "mo" : "yr" }
+
+    /// Onboarding v3's plan row, the renewal price in plain words: ("$9.99/mo", "for 12 months, then $14.99/mo"), or
+    /// ("$14.99/mo", nil) with no offer (the bold amount is the price billed first).
+    public static func rowParts(regular: String, intro: String?, introPeriods: Int, eligible: Bool,
+                                period: BillingPeriod) -> (amount: String, then: String?) {
+        let u = shortUnit(period)
+        guard eligible, let intro, introPeriods > 0 else { return ("\(regular)/\(u)", nil) }
+        let long = unit(period)
+        let n = introPeriods == 1 ? "1 \(long)" : "\(introPeriods) \(long)s"
+        return ("\(intro)/\(u)", "for \(n), then \(regular)/\(u)")
+    }
+
     /// The buy button: "Subscribe · $9.99/month".
     public static func buyLabel(_ tier: PlanTier, billed: String) -> String { "Get \(tier.name) · \(billed)" }
 }

@@ -12,12 +12,12 @@ import Foundation
 public protocol AnalyticsValue: RawRepresentable, CaseIterable, Sendable where RawValue == String {}
 
 public enum OnboardingPageValue: String, AnalyticsValue {
-    case hello, howItWorks, needs, privacy, aiDeclined, microphone, plans, handOff
+    case hello, howItWorks, needs, privacy, plans, handOff
     public init(_ screen: OnboardingScreen) { self = OnboardingPageValue(rawValue: screen.rawValue) ?? .hello }
 }
 
 public enum OnboardingExitValue: String, AnalyticsValue {
-    case firstGame, home, closedWithoutConsent
+    case firstGame, home
     public init(_ exit: OnboardingExit) { self = OnboardingExitValue(rawValue: exit.rawValue) ?? .home }
 }
 
