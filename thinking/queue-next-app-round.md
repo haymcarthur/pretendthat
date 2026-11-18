@@ -429,3 +429,7 @@ Game arc becomes: Print → **story opener** → **setup scene** → 3 play scen
 - Spec: decisions/2026-11-17-printables-draw-once-color-in.md. Test code/prompts: design/printables-match-test/ (scripts/, notes.md, prompts.json; the tuned v2 color prompt). The model rejects `input_fidelity`.
 - Relay must allow POST /v1/images/edits (multipart, image input); Haylee redeploys. Keep the badge/ticket draw-6-then-crop flow; the crop works on both versions since they match.
 - Guardrails: dark/saturated letter fills only (no cream/white/pale yellow letters, no yellow-on-white), white paper; Vision contrast check per text box + one redraw; word check on the color page; the outline page's word check follows the round 46 rule.
+
+## Plans 5/20 in the app + relay (queued 2026-11-17, Haylee locked) — in the printables round
+- decisions/2026-11-17-plans-5-and-20.md. Subscriptions.swift, ParentOnboarding.swift, GrownUps.swift, the StoreKit test config, paywall/plans copy, onboarding pages: Show 5 / Season 20, $9.99 / $99.99 and $24.99 / $249.99, remove intro offers and intro copy. Free Preview copy must say 2 games to try, ONCE ("2 free games to try", never "a month"); check every place the free games are mentioned (onboarding, paywall, Grown-ups, Nutmeg's lines/clips if any say it).
+- relay/src/shows.ts plan limits 10/30 → 5/20 (Haylee redeploys with the image-edit change).
