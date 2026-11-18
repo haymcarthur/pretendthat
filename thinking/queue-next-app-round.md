@@ -398,3 +398,9 @@ Game arc becomes: Print → **story opener** → **setup scene** → 3 play scen
 ## Round 44 additions (Haylee, 2026-11-17): DONE in round 44
 - Yearly intro prices $99.99 (Show Pass) / $199.99 (Season Pass) for the first year: StoreKit config + StoreProducts + Plans/paywall copy (decisions/2026-11-17-yearly-intro-sonnet.md).
 - Make the Sonnet 5.5 play guide + weave the default (`-PTSonnetGuide`).
+
+## Next round (queued 2026-11-17, Haylee): home stage polish, after the iCloud round merges
+1. **Logo in front of the curtains** on the home stage, iPhone and iPad. Today the white logo card sits behind the curtain panels (the curtains cover its left and right edges). The logo (and its card, if kept) layers above the curtains.
+2. **Grown-ups button → a gear icon only**, tucked into the top corner (iPhone and iPad). No "Grown-ups" text; keep VoiceOver label "Grown-ups" and the same grown-ups check behind it. Clear of the Dynamic Island / status bar and the curtain valance.
+3. **Encryption key** in Info.plist via project.yml: `ITSAppUsesNonExemptEncryption = NO` (only Apple's standard HTTPS), so App Store Connect stops asking each upload.
+- After this round: retake the App Store home-screen screenshots (the first set shows the old logo and button).
