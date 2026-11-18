@@ -237,6 +237,14 @@ extension GuideRepair {
             }
         }
         for i in items { ok.formUnion(words(i.title)); for l in i.lines { ok.formUnion(words(l)) } }
+        // Round 45: the library's printables by their kind ("the map", "a clue card", "your medal", "the stickers").
+        // (The original six are in `kitWords` already; play money adds its own kind: coins or tokens.)
+        for i in items {
+            guard let t = i.recipe else { continue }
+            if !KitRecipe.original.contains(t) { for n in PrintLibrary.nouns(t) { ok.formUnion(words(n)) } }
+            if t == .money, i.variant == .coins { ok.insert("coin") }
+            if t == .money, i.variant == .tokens { ok.insert("token") }
+        }
         return ok
     }
 

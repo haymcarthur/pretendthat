@@ -109,7 +109,7 @@
     "nutmegSays": "Wow! Your kit is ready! Grown-ups, time to print!",
     "items": [
       {
-        "id": "badge",
+        "id": "badges",
         "kind": "card",
         "size": "badge",
         "title": "Crew Badge",
@@ -122,7 +122,8 @@
         "copies": 1,
         "colorMe": true,
         "recipe": "badges",
-        "purpose": "Each kid wears one so everyone knows who is the Captain and who is a passenger."
+        "purpose": "Each kid wears one so everyone knows who is the Captain and who is a passenger.",
+        "variant": "idCard"
       },
       {
         "id": "sign",
@@ -140,7 +141,11 @@
         "perPlayer": false,
         "copies": 1,
         "colorMe": true,
-        "purpose": "Hang it at the gate so passengers know where to board."
+        "purpose": "Hang it at the gate so passengers know where to board.",
+        "variant": "door",
+        "pictures": [
+          "an airport gate with a big airplane at the window"
+        ]
       },
       {
         "id": "money",
@@ -156,10 +161,14 @@
         "copies": 8,
         "colorMe": true,
         "recipe": "money",
-        "purpose": "Passengers pay for snacks with them."
+        "purpose": "Passengers pay for snacks with them.",
+        "variant": "bills",
+        "pictures": [
+          "a smiling airplane"
+        ]
       },
       {
-        "id": "pass",
+        "id": "tickets",
         "kind": "card",
         "size": "ticket",
         "title": "Boarding Pass",
@@ -167,12 +176,16 @@
         "lines": [
           "Flight: Ocean Express"
         ],
-        "bigNumber": "1A",
+        "bigNumber": null,
         "perPlayer": true,
         "copies": 1,
         "colorMe": true,
         "recipe": "tickets",
-        "purpose": "Passengers show it at the door to get on the plane."
+        "purpose": "Passengers show it at the door to get on the plane.",
+        "variant": "boarding",
+        "pictures": [
+          "an airplane flying over clouds"
+        ]
       },
       {
         "id": "menu",
@@ -181,16 +194,22 @@
         "title": "Snack Menu",
         "symbol": "cup.and.saucer",
         "lines": [
-          "Juice box  2",
-          "Crackers  3",
-          "Cloud cookies  5"
+          "Juice box $2",
+          "Crackers $3",
+          "Cloud cookies $5"
         ],
         "bigNumber": null,
         "perPlayer": false,
         "copies": 1,
         "colorMe": true,
         "recipe": "menu",
-        "purpose": "Passengers read it to choose a snack."
+        "purpose": "Passengers read it to choose a snack.",
+        "variant": "menuCard",
+        "pictures": [
+          "a juice box",
+          "crackers",
+          "a cloud-shaped cookie"
+        ]
       },
       {
         "id": "cutouts",
@@ -211,7 +230,8 @@
         "perPlayer": false,
         "copies": 1,
         "colorMe": true,
-        "purpose": "The suitcases and snacks the crew loads onto the plane."
+        "purpose": "The suitcases and snacks the crew loads onto the plane.",
+        "variant": "standard"
       }
     ],
     "scenes": [

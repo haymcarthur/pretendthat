@@ -294,7 +294,8 @@ public struct KitScenesSix: Decodable, Sendable, SafetyText {
         if let b = Self.bookends(c) { setup = b.setup; cleanup = b.cleanup }
     }
 
-    public static func schema() -> [String: Any] {
+    /// Round 45: `pages` = this kit's printable types (one page job each; the kit is custom per game now).
+    public static func schema(pages kitPages: [KitRecipe] = KitRecipe.original) -> [String: Any] {
         var sceneProps: [String: Any] = ["title": Schemas.str, "nutmegSays": Schemas.str]
         // Round 34 (Haylee): every task has two texts: `short` (shown on the row) and `say` (spoken by its 🔊).
         for k in taskKeys {
@@ -320,7 +321,7 @@ public struct KitScenesSix: Decodable, Sendable, SafetyText {
         props["setupScene"] = ["$ref": "#/$defs/bookend"]
         props["cleanupScene"] = ["$ref": "#/$defs/bookend"]
         var pages: [String: Any] = [:]
-        for r in KitRecipe.allCases { pages[r.rawValue] = ["$ref": "#/$defs/job"] }
+        for r in (kitPages.isEmpty ? KitRecipe.original : kitPages) { pages[r.rawValue] = ["$ref": "#/$defs/job"] }
         props["pageJobs"] = Schemas.obj(pages)
         var o = Schemas.obj(props)
         // One definition each (inline copies make the grammar and the input bigger for nothing; round 36: the 6 page

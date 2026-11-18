@@ -61,7 +61,7 @@ final class FakeLLM: LLM, @unchecked Sendable {
     #expect(a.ideas.ideas.count == 3)
     #expect(a.plan.roles.count == 6)   // round C1: 6 ranked roles
     #expect((3...5).contains(a.props.props.count))
-    #expect(a.kit.items.map(\.recipe) == KitRecipe.allCases.map { Optional($0) })
+    #expect(a.kit.items.map(\.recipe) == KitRecipe.original.map { Optional($0) })
     #expect(a.kit.scenes.count == 3)
     // Round 29: every scene has ONE task for each of the 6 roles plus a solo task, none for everyone, no scripted lines.
     #expect(Validate.scenes(a.kit.scenes, roles: 6) == nil)

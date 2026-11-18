@@ -48,6 +48,17 @@ public enum KitLayout {
         case .fullPage: Grid(columns: 1, rows: 1)
         }
     }
+    /// Round 45: a library item's grid comes from its type and layout (an ID-card badge page is 2 × 3, coins 3 × 4…);
+    /// an older kit's from its size, as before.
+    public static func grid(for item: KitItem) -> Grid {
+        guard item.pictureOnly, let t = item.recipe else { return grid(for: item.size) }
+        return PrintLibrary.grid(t, item.variant)
+    }
+
+    /// Round 45: the number the app prints on THIS copy (every ticket its own seat or number, clue cards 1, 2, 3…).
+    public static func copyNumber(for item: KitItem, slot: KitSlot) -> String? {
+        PrintLibrary.copyNumber(item, index: slot.index)
+    }
 
     /// Small items tile the whole sheet (Haylee fix round 1: one ticket in a corner looked broken): round the slot
     /// count up to whole pages. Full-page sheets (capacity 1) are unchanged.
@@ -76,21 +87,22 @@ public enum KitLayout {
                 // Round 23 (Haylee): exactly one badge per kid (2 kids → 2 badges), no spare badges. Tickets still fill
                 // their page (spares keep counting seats).
                 if isBadge { return base }
-                return filled(base, capacity: grid(for: item.size).capacity) { k in KitSlot(index: k) }
+                return filled(base, capacity: grid(for: item).capacity) { k in KitSlot(index: k) }
             }
-            let base = (0..<item.copies).map { KitSlot(index: $0) }
-            return filled(base, capacity: grid(for: item.size).capacity) { k in KitSlot(index: k) }
+            // Round 45: a library card page prints its copies (cards fill their page; clue cards one per clue).
+            let base = (0..<(item.pictureOnly ? PrintLibrary.copies(item) : item.copies)).map { KitSlot(index: $0) }
+            return filled(base, capacity: grid(for: item).capacity) { k in KitSlot(index: k) }
         }
         // 2. Enforce the page cap: trim trailing slots from the item using the most pages, never below 1 page.
-        func pageCount(_ i: Int) -> Int { max(1, Int(ceil(Double(perItem[i].count) / Double(grid(for: kit.items[i].size).capacity)))) }
+        func pageCount(_ i: Int) -> Int { max(1, Int(ceil(Double(perItem[i].count) / Double(grid(for: kit.items[i]).capacity)))) }
         while perItem.indices.map(pageCount).reduce(0, +) > maxPages {
             guard let i = perItem.indices.filter({ pageCount($0) > 1 }).max(by: { pageCount($0) < pageCount($1) }) else { break }
-            let cap = grid(for: kit.items[i].size).capacity
+            let cap = grid(for: kit.items[i]).capacity
             perItem[i] = Array(perItem[i].prefix((pageCount(i) - 1) * cap))
         }
         // 3. Chunk into pages.
         return kit.items.indices.flatMap { i -> [KitPage] in
-            let cap = grid(for: kit.items[i].size).capacity
+            let cap = grid(for: kit.items[i]).capacity
             let slots = perItem[i].isEmpty ? [KitSlot(index: 0)] : perItem[i]
             return stride(from: 0, to: slots.count, by: cap).enumerated().map { n, start in
                 KitPage(item: kit.items[i], pageIndex: n, slots: Array(slots[start..<min(start + cap, slots.count)]))
@@ -121,7 +133,58 @@ public enum KitArtPrompt {
             + " for a kids' pretend-play game called \"\(gameTitle)\"."
     }
 
+    /// Round 45 (picture-only art): what every new kit image ends with. The art is a picture and nothing else: the app
+    /// draws the card, its border, every word, number and blank line in its own space beside the picture.
+    public static let pictureOnlyRule = " No words, no letters, no numbers, no writing of any kind anywhere. No frame, no "
+        + "border, no card, badge, ticket or sign shape, no banner, ribbon or label, no empty box or blank space for writing: "
+        + "just the picture on plain white paper. No real brands, no logos, nothing scary."
+
+    /// Round 45: the ONE picture of a library printable (a sign's place, a map, a bill's emblem, a ticket's picture…).
+    public static func picturePrompt(for item: KitItem, gameTitle: String, style printStyle: PrintStyle = .colorIn) -> String {
+        let subject = PrintLibrary.subjects(item).first ?? gameTitle
+        let what: String
+        switch item.recipe {
+        case .sign?: what = "ONE wide picture of the place: \(subject), a cheerful scene that fills the frame"
+        case .map?: what = "ONE simple picture-map seen from above: \(subject), with a winding path, a few big landmarks "
+            + "and open space, like a picture-book map (no compass, no X, no dotted numbers, no route labels)"
+        case .money?: what = "ONE round emblem picture for play money: \(subject), centered, simple and bold"
+        case .controlPanel?: what = "ONE wide picture of the view through a window or on a screen: \(subject), filling the frame"
+        case .badges?: what = "ONE cute character for the team: \(subject), centered"
+        default: what = "ONE simple picture: \(subject), centered, filling most of the square"
+        }
+        return opener(printStyle, gameTitle: gameTitle) + " Draw \(what). " + style(printStyle, cutout: false)
+            + pictureOnlyRule + ImageSafety.suffix
+    }
+
+    /// Round 45: the small pictures of a per-entry printable as ONE sheet (a menu's dishes, clue hints, medal pictures…),
+    /// in the cut-out sheet's grid; the app slices it into one picture per entry.
+    public static func pictureSheetPrompt(for item: KitItem, gameTitle: String, style printStyle: PrintStyle = .colorIn) -> String {
+        let subjects = Array(PrintLibrary.subjects(item).prefix(PrintLibrary.maxSheetPictures))
+        let (cols, rows) = CutoutSheet.grid(subjects.count)
+        let list = subjects.enumerated().map { "\($0.offset + 1). \($0.element)" }.joined(separator: ", ")
+        return opener(printStyle, gameTitle: gameTitle) + " Draw a sheet of exactly \(subjects.count) separate small pictures "
+            + "in a grid of \(cols) columns and \(rows) row\(rows == 1 ? "" : "s"), in this order, left to right and top to "
+            + "bottom: \(list). Each picture is ONE simple thing centered in its own equal grid cell, filling most of the "
+            + "cell. Leave wide plain white gaps between the cells; nothing touches or crosses into another cell, no grid "
+            + "lines. " + style(printStyle, cutout: false) + pictureOnlyRule + ImageSafety.suffix
+    }
+
+    /// Round 45: the badges' 6 role CHARACTERS as one sheet (characters only, no badge shapes): the app slices one per
+    /// role and draws the badge around it (lanyard tag, round pin or ID card), with the role title and a Name line.
+    public static func characterSheetPrompt(roles: [Role], gameTitle: String, style printStyle: PrintStyle = .colorIn) -> String {
+        let list = roles.prefix(BadgeSheet.count).enumerated().map { i, r in
+            let job = r.job.trimmingCharacters(in: .whitespacesAndNewlines)
+            return "\(i + 1): \(r.roleName)" + (job.isEmpty ? "" : " (\(job))")
+        }.joined(separator: "; ")
+        return opener(printStyle, gameTitle: gameTitle) + " Draw a sheet of exactly 6 separate cute cartoon characters in a "
+            + "grid of 3 columns and 2 rows, all the same size, each one character from the waist up dressed and holding "
+            + "things for that job, in this order, left to right and top to bottom: \(list). Each character is centered in "
+            + "its own equal cell. Leave wide plain white gaps between the characters; nothing touches or crosses into "
+            + "another cell, no grid lines. " + style(printStyle, cutout: false) + pictureOnlyRule + ImageSafety.suffix
+    }
+
     public static func prompt(for item: KitItem, gameTitle: String, style printStyle: PrintStyle = .colorIn) -> String {
+        if item.pictureOnly { return picturePrompt(for: item, gameTitle: gameTitle, style: printStyle) }
         let text = KitLayout.printedLines(for: item)
         let shape: String
         switch item.recipe {
@@ -131,6 +194,7 @@ public enum KitArtPrompt {
         case .cutouts?: shape = "a full page (portrait, US Letter) of 6 to 8 separate cut-out props, each a simple object with a thick cut-around outline and space between them"
         case .badges?: shape = "a single name badge (portrait) with a clip hole at the top and one cute themed picture in the middle"
         case .tickets?: shape = item.size == .keycard ? "a single key card (landscape, about 2 by 1)" : "a single ticket or pass (landscape, about 2 by 1)"
+        case .some: return picturePrompt(for: item, gameTitle: gameTitle, style: printStyle)   // round 45 types are picture-only
         case nil:
             switch item.size {
             case .ticket: shape = "a single wide ticket card (landscape, about 2 by 1)"
@@ -165,6 +229,7 @@ public enum KitArtPrompt {
     /// Round C1: the 6 role badges as ONE portrait image, a 3 × 2 grid (one badge picture per role, rank order), which
     /// the app slices into one badge per role and prints the role title and a blank name line on.
     public static func badgeSheetPrompt(_ item: KitItem, roles: [Role], gameTitle: String, style printStyle: PrintStyle = .colorIn) -> String {
+        if item.pictureOnly { return characterSheetPrompt(roles: roles, gameTitle: gameTitle, style: printStyle) }
         let list = roles.prefix(BadgeSheet.count).enumerated().map { i, r in
             let job = r.job.trimmingCharacters(in: .whitespacesAndNewlines)
             return "\(i + 1): \(r.roleName)" + (job.isEmpty ? "" : " (\(job))")
@@ -207,7 +272,8 @@ public enum KitArtPrompt {
 
     /// Image size to request per item shape.
     public static func size(for item: KitItem) -> String {
-        switch item.size {
+        if item.pictureOnly, item.recipe != nil, case .single(let s) = PrintLibrary.art(item) { return s }
+        return switch item.size {
         case .badge, .fullPage: "1024x1536"
         default: "1536x1024"
         }

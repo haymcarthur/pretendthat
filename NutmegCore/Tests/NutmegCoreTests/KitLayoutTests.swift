@@ -117,7 +117,7 @@ func kitItem(_ id: String, size: KitSize, perPlayer: Bool = false, copies: Int =
 @Test func recipeKitFitsSevenPages() {
     let pages = KitLayout.pages(for: Fallback.airplane.kit, roles: cast(4), playerCount: 4)
     #expect(pages.count <= 7)
-    #expect(pages.map(\.item.recipe) == KitRecipe.allCases.map { Optional($0) })   // one page each, in recipe order
+    #expect(pages.map(\.item.recipe) == KitRecipe.original.map { Optional($0) })   // one page each, in recipe order
 }
 
 @Test func oneBadgePerRoleWithItsTitle() {

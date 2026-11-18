@@ -42,6 +42,8 @@ public enum KitProgress {
     /// written while the kit's content (`store.kit`) hasn't come back yet.
     public enum Topic: String, CaseIterable, Sendable {
         case badges, sign, money, tickets, menu, cutouts, checklists
+        /// Round 45: the library's other printables (maps, clue cards, medals…), in general words that are always true.
+        case pages
         public init(_ recipe: KitRecipe) {
             switch recipe {
             case .badges: self = .badges
@@ -50,6 +52,7 @@ public enum KitProgress {
             case .tickets: self = .tickets
             case .menu: self = .menu
             case .cutouts: self = .cutouts
+            default: self = .pages
             }
         }
     }
@@ -72,6 +75,8 @@ public enum KitProgress {
         .cutouts: ["I'm drawing little cut-outs for you!", "The cut-outs are getting so cute!",
                    "Every cut-out gets a thick line to cut on!", "So many tiny things to cut out!",
                    "I'm drawing the cut-outs one by one!", "Your cut-outs will be fun to hold!"],
+        .pages: ["I'm drawing more pages for your game!", "Ooh, this page is going to be fun!", "I'm adding little pictures to a page!",
+                 "One more page is on its way!", "I'm making something special to print!", "This page is getting so cute!"],
         .checklists: ["I'm writing the checklists for your scenes!", "I'm planning the scenes for your story!",
                       "Each scene gets its own little checklist!", "I'm thinking up fun things for every scene!",
                       "I'm putting pictures on your checklists!", "I'm writing down what happens in each scene!"]

@@ -36,7 +36,7 @@ struct KitView: View {
 
     private func page(_ i: Int, _ style: PrintStyle) -> some View {
         let art = model.artSet(style)
-        return KitPageView(page: pages[i], art: art.images[pages[i].item.id], cutouts: art.cutoutImages(pages[i].item))
+        return KitPageView(page: pages[i], art: art.images[pages[i].item.id], cutouts: art.cutoutImages(pages[i].item), style: art.style)
     }
 
     private var printBody: some View {
@@ -275,7 +275,7 @@ struct PrintTabView: View {
             ScrollView(.horizontal) {
                 HStack(spacing: Theme.Space.s) {
                     ForEach(pages.indices, id: \.self) { i in
-                        KitPageView(page: pages[i], art: art.images[pages[i].item.id], cutouts: art.cutoutImages(pages[i].item))
+                        KitPageView(page: pages[i], art: art.images[pages[i].item.id], cutouts: art.cutoutImages(pages[i].item), style: art.style)
                             .scaleEffect(Self.thumb.width / KitPageView.size.width)
                             .frame(width: Self.thumb.width, height: Self.thumb.height)
                             .background(Theme.white)
