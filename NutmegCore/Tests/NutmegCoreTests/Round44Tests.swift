@@ -34,8 +34,8 @@ import Testing
             #expect(!l.contains("replay"), "\(line)")
         }
         #expect(OnboardingCopy.kidOutOfShows == "That's all the new games for now! Ask a grown-up.")
-        #expect(OnboardingCopy.plansBody.contains("Playing a saved game again is always free"))
-        #expect(PlanCatalog.seasonPass.showsText == "30 new games a month")
+        #expect(OnboardingCopy.plansBody.contains("always yours to view and print"))   // saved game page round
+        #expect(PlanCatalog.seasonPass.showsText == "20 new games a month")
     }
 
     @Test func productIDsAreUnchanged() {
@@ -43,7 +43,7 @@ import Testing
                                       "app.pretendthat.seasonpass.monthly", "app.pretendthat.seasonpass.yearly"])
         #expect(StoreProducts.displayName(StoreProducts.showPassYearly) == "Show Pass (Yearly)")
         #expect(StoreProducts.displayName(StoreProducts.seasonPassMonthly) == "Season Pass")
-        #expect(StoreProducts.storeDescription(StoreProducts.seasonPassYearly) == "30 new games a month. Saved games are free to play again.")
+        #expect(StoreProducts.storeDescription(StoreProducts.seasonPassYearly) == "20 new games a month. Play your saved games again with Nutmeg anytime.")
     }
 
     @Test func chatOpenKeepsTheTalkingCloseUpWhenCardsArePresented() {
@@ -66,29 +66,22 @@ import Testing
         }
     }
 
-    @Test func yearlyPlansHaveAFirstYearIntroPrice() throws {
-        #expect(PlanCatalog.showPass.yearlyIntro == Decimal(string: "99.99") && PlanCatalog.showPass.yearly == Decimal(string: "149.99"))
-        #expect(PlanCatalog.seasonPass.yearlyIntro == Decimal(string: "199.99") && PlanCatalog.seasonPass.yearly == Decimal(string: "299.99"))
-        #expect(PlanCatalog.showPass.yearlyIntroText == "$99.99 for the first year, then $149.99/year")
-        #expect(PlanCatalog.seasonPass.yearlyIntroText == "$199.99 for the first year, then $299.99/year")
-        // Cheaper than a year of the monthly intro ($119.88 / $239.88), as Haylee intended.
-        for o in PlanCatalog.offers { #expect(o.yearlyIntro < o.monthlyIntro * 12) }
-        // The paywall's price lines (StoreKit's pay-up-front offer = 1 period).
-        #expect(PriceText.full(regular: "$149.99", intro: "$99.99", introPeriods: 1, eligible: true, period: .yearly)
-                == "$99.99/year for the first year, then $149.99/year")
-        #expect(PriceText.full(regular: "$149.99", intro: "$99.99", introPeriods: 1, eligible: false, period: .yearly) == "$149.99/year")
-        let row = PriceText.rowParts(regular: "$299.99", intro: "$199.99", introPeriods: 1, eligible: true, period: .yearly)
-        #expect(row.amount == "$199.99/yr" && row.then == "for the first year, then $299.99/yr")
-        // The .storekit file has the same offers: pay up front, 1 year.
+    @Test func plansHaveNoIntroOffersAndTheNewPrices() throws {
+        // Plans 5/20 (Haylee, 2026-11-17): no introductory offers; yearly = 12 months for the price of 10.
+        for o in PlanCatalog.offers {
+            #expect(o.yearly < o.monthly * 12 && o.yearly > o.monthly * 9)
+        }
+        // The .storekit file: the same prices and descriptions, and no introductory offer on any plan.
         let root = try #require(JSONSerialization.jsonObject(with: Data(contentsOf: Self.storeKitURL)) as? [String: Any])
         let subs = try #require(((root["subscriptionGroups"] as? [[String: Any]])?.first)?["subscriptions"] as? [[String: Any]])
-        for (id, intro, regular) in [(StoreProducts.showPassYearly, "99.99", "149.99"), (StoreProducts.seasonPassYearly, "199.99", "299.99")] {
+        let want = [(StoreProducts.showPassMonthly, "9.99"), (StoreProducts.showPassYearly, "99.99"),
+                    (StoreProducts.seasonPassMonthly, "24.99"), (StoreProducts.seasonPassYearly, "249.99")]
+        for (id, price) in want {
             let s = try #require(subs.first { $0["productID"] as? String == id })
-            let o = try #require(s["introductoryOffer"] as? [String: Any])
-            #expect(s["displayPrice"] as? String == regular)
-            #expect(o["displayPrice"] as? String == intro && o["paymentMode"] as? String == "payUpFront")
-            #expect(o["subscriptionPeriod"] as? String == "P1Y" && o["numberOfPeriods"] as? Int == 1)
+            #expect(s["displayPrice"] as? String == price)
+            #expect(s["introductoryOffer"] == nil)
         }
+        #expect(subs.count == 4)
     }
 
     @Test func storeKitFileMatchesStoreProducts() throws {

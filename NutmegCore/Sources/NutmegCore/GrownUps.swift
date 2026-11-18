@@ -373,7 +373,7 @@ public enum GrownUpsCopy {
         ("No accounts, ads or tracking", "There's nothing to sign up for. PretendThat has no ads and doesn't track you or your child."),
         ("Anonymous counts", analyticsLine),
         // Round 39 (auto-save): every new game saves itself once its printable kit is made.
-        ("You're in charge", "Every new game saves itself once its printable kit is made, so it's on the bookshelf to play again. A game closed before that isn't kept. Delete any game in Saved games; it's removed from your other devices too."),
+        ("You're in charge", "Every new game saves itself once its printable kit is made, so it's on the bookshelf: its printables are always yours to view and print, and a pass plays it again with Nutmeg. A game closed before that isn't kept. Delete any game in Saved games; it's removed from your other devices too."),
     ]
 
     /// Voice pitch build (2026-11-17): open-source credits at the end of About (the MIT notice must ship with the app).

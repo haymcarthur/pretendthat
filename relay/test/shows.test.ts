@@ -104,16 +104,16 @@ describe("StoreKit JWS verification", () => {
 describe("what gets counted", () => {
   it("a plan: a one-way hash of the original transaction, this month's window, the plan's allowance", async () => {
     const c = await countedFrom("subscription", sub(), SECRET, NOW);
-    expect(c.allowance).toBe(10);
+    expect(c.allowance).toBe(5);
     expect(c.key).toMatch(/^[0-9a-f]{32}$/);
     expect(c.key).not.toContain("2000000123456789");
     expect(c.key).toBe(await hashKey(SECRET, "sub:2000000123456789"));
     expect(c.windowStart).toBe(Date.UTC(2026, 10, 3));
-    expect((await countedFrom("subscription", sub({ productId: "app.pretendthat.seasonpass.yearly", expiresDate: Date.UTC(2027, 10, 3) }), SECRET, NOW)).allowance).toBe(30);
+    expect((await countedFrom("subscription", sub({ productId: "app.pretendthat.seasonpass.yearly", expiresDate: Date.UTC(2027, 10, 3) }), SECRET, NOW)).allowance).toBe(20);
   });
 
   it("accepts the pre-App Store bundle ID during the transition", async () => {
-    expect((await countedFrom("subscription", sub({ bundleId: "app.pretendthat.ios" }), SECRET, NOW)).allowance).toBe(10);
+    expect((await countedFrom("subscription", sub({ bundleId: "app.pretendthat.ios" }), SECRET, NOW)).allowance).toBe(5);
   });
 
   it("refuses other apps, unknown products, revoked or expired plans and Xcode data", async () => {
@@ -146,12 +146,12 @@ describe("what gets counted", () => {
   it("the KV counter stops at the allowance only when enforcing", async () => {
     const kv = new MemKV();
     const c = await countedFrom("subscription", sub(), SECRET, NOW);
-    for (let i = 0; i < 10; i++) expect((await countShow(kv, c, true)).allowed).toBe(true);
-    expect(await countShow(kv, c, true)).toEqual({ allowed: false, used: 10, remaining: 0 });
+    for (let i = 0; i < 5; i++) expect((await countShow(kv, c, true)).allowed).toBe(true);
+    expect(await countShow(kv, c, true)).toEqual({ allowed: false, used: 5, remaining: 0 });
     expect((await countShow(kv, c, false)).allowed).toBe(true);   // count mode never blocks
     // Stored: only the hash, the window and a number.
     expect([...kv.data.keys()]).toEqual([`c:${c.key}:${c.windowStart}`]);
-    expect([...kv.data.values()]).toEqual(["11"]);
+    expect([...kv.data.values()]).toEqual(["6"]);
   });
 
   it("tickets are signed and expire", async () => {
@@ -174,15 +174,15 @@ describe("POST /v1/shows/start and the ticket on paid calls", () => {
     expect((await worker.fetch(post("/v1/shows/start", {}, { "x-pt-token": "nope" }), env())).status).toBe(401);
   });
 
-  it("counts a Show Pass to 10 a month, then 402 limit_reached", async () => {
+  it("counts a Show Pass to 5 a month, then 402 limit_reached", async () => {
     const e = env();
     const jws = await sign(future());
-    for (let i = 9; i >= 0; i--) {
+    for (let i = 4; i >= 0; i--) {
       const r = await worker.fetch(post("/v1/shows/start", { kind: "subscription", jws }), e);
       expect(r.status).toBe(200);
       const b = await r.json() as { ticket: string; remaining: number; allowance: number };
       expect(b.remaining).toBe(i);
-      expect(b.allowance).toBe(10);
+      expect(b.allowance).toBe(5);
       expect(typeof b.ticket).toBe("string");
     }
     const over = await worker.fetch(post("/v1/shows/start", { kind: "subscription", jws }), e);

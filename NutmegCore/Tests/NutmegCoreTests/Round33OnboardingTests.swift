@@ -149,8 +149,9 @@ final class FakeDefaults: OnboardingDefaults {
         #expect(NewGameGate.newGame(consent: true, plan: .none, freeRemaining: 2) == .start)
         #expect(NewGameGate.newGame(consent: true, plan: .none, freeRemaining: 0) == .needsPlan)
         #expect(NewGameGate.newGame(consent: true, plan: .active(name: "Season Pass"), freeRemaining: 0) == .start)
-        #expect(NewGameGate.replay(consent: true) == .start)
-        #expect(NewGameGate.replay(consent: false) == .needsConsent)
+        #expect(NewGameGate.replay(consent: true, hasPass: true) == .start)
+        #expect(NewGameGate.replay(consent: false, hasPass: true) == .needsConsent)
+        #expect(NewGameGate.replay(consent: true, hasPass: false) == .needsPlan)   // saved game page round
     }
 
     // MARK: The Free Preview counter
@@ -187,17 +188,15 @@ final class FakeDefaults: OnboardingDefaults {
     @Test func plansAreConfigWithBilledPriceFirst() {
         #expect(PlanCatalog.freePreviewShows == 2)
         #expect(PlanCatalog.defaultPeriod == .monthly)
-        #expect(PlanCatalog.showPass.newShowsPerMonth == 10 && PlanCatalog.seasonPass.newShowsPerMonth == 30)
-        // Haylee's pricing (2026-11-16): an intro price for 12 months, then the regular price. Round 44: yearly has a first-year intro.
+        #expect(PlanCatalog.showPass.newShowsPerMonth == 5 && PlanCatalog.seasonPass.newShowsPerMonth == 20)
+        // Plans 5/20 (Haylee, 2026-11-17): regular prices only, no intro offers.
         #expect(PlanCatalog.showPass.billedText(.monthly) == "$9.99/month")
-        #expect(PlanCatalog.showPass.introOfferText == "$9.99/month for 12 months, then $14.99/month")
-        #expect(PlanCatalog.showPass.detailText(.monthly) == "for your first 12 months, then $14.99/month")
         #expect(PlanCatalog.showPass.billedText(.yearly) == "$99.99/year")
-        #expect(PlanCatalog.seasonPass.billedText(.monthly) == "$19.99/month")
-        #expect(PlanCatalog.seasonPass.introOfferText == "$19.99/month for 12 months, then $29.99/month")
-        #expect(PlanCatalog.seasonPass.billedText(.yearly) == "$199.99/year")
-        #expect(PlanCatalog.showPass.detailText(.yearly) == "about $8.33 a month the first year")
-        #expect(PlanCatalog.seasonPass.detailText(.yearly) == "about $16.67 a month the first year")
+        #expect(PlanCatalog.seasonPass.billedText(.monthly) == "$24.99/month")
+        #expect(PlanCatalog.seasonPass.billedText(.yearly) == "$249.99/year")
+        #expect(PlanCatalog.showPass.detailText(.monthly) == nil)
+        #expect(PlanCatalog.showPass.detailText(.yearly) == "about $8.33 a month")
+        #expect(PlanCatalog.seasonPass.detailText(.yearly) == "about $20.83 a month")
         // Config values: the cards read the caps.
         #expect(PlanCatalog.seasonPass.showsText == "\(PlanCatalog.seasonPassShows) new games a month")
         // Never "Unlimited" as a plan name; never "trial".
@@ -232,17 +231,15 @@ final class FakeDefaults: OnboardingDefaults {
     }
 
     @Test func v3PlansPageSaysGamesAndTheRenewalPricePlainly() {
-        #expect(OnboardingCopy.plansV3Title == "Start with 2 free games")
-        #expect(OnboardingCopy.freeGamesButton == "Start with 2 free games")
-        // Haylee's follow-up 3 line, word for word ("saves itself" + "play it again ... free").
-        #expect(OnboardingCopy.plansV3Lead == "Each new game is a fresh story and printable kit made just for your kids. Every game saves itself, so they can play it again as many times as they like, free.")
-        #expect(OnboardingCopy.planGames(.showPass) == "10 new games a month")
-        #expect(OnboardingCopy.planGames(.seasonPass) == "30 new games a month")   // no "Up to" (Haylee)
+        // Plans 5/20: the Free Preview reads as one-time ("to try"), never per month.
+        #expect(OnboardingCopy.plansV3Title == "2 free games to try")
+        #expect(OnboardingCopy.freeGamesButton == "Try 2 free games")
+        // The saved game page round: printables are always theirs (no promise of free replays).
+        #expect(OnboardingCopy.plansV3Lead == "Each new game is a fresh story and printable kit made just for your kids. Every game saves itself, and its printables are always yours to view and print.")
+        #expect(OnboardingCopy.planGames(.showPass) == "5 new games a month")
+        #expect(OnboardingCopy.planGames(.seasonPass) == "20 new games a month")   // no "Up to" (Haylee)
         #expect(OnboardingCopy.billedByApple == "Billed by Apple. Renews until cancelled.")
-        let row = PriceText.rowParts(regular: "$14.99", intro: "$9.99", introPeriods: 12, eligible: true, period: .monthly)
-        #expect(row.amount == "$9.99/mo" && row.then == "for 12 months, then $14.99/mo")
-        let used = PriceText.rowParts(regular: "$14.99", intro: "$9.99", introPeriods: 12, eligible: false, period: .monthly)
-        #expect(used.amount == "$14.99/mo" && used.then == nil)
+        #expect(PriceText.rowAmount(regular: "$9.99", period: .monthly) == "$9.99/mo")
         for l in [OnboardingCopy.plansV3Title, OnboardingCopy.plansV3Lead, OnboardingCopy.freeGamesButton] {
             let w = l.lowercased()
             #expect(!w.contains("trial") && !w.contains("show") && !w.contains("replay"))

@@ -17,7 +17,8 @@ public enum PlanTier: String, CaseIterable, Sendable, Codable {
         }
     }
 
-    /// New shows: Free Preview 2 in total; Show Pass 10 a month; Season Pass 30 a month. Replays are always free.
+    /// New games: Free Preview 2 to try, ONCE (never per month); Show Pass 5 a month; Season Pass 20 a month (plans 5/20).
+    /// Replays never count, and playing a saved game again with Nutmeg needs an active pass.
     public var allowance: Int {
         switch self {
         case .freePreview: PlanCatalog.freePreviewShows
@@ -60,7 +61,7 @@ public enum StoreProducts {
     }
     public static func storeDescription(_ productID: String) -> String? {
         guard let tier = tier(for: productID) else { return nil }
-        return "\(tier.allowance) new games a month. Saved games are free to play again."
+        return "\(tier.allowance) new games a month. Play your saved games again with Nutmeg anytime."
     }
 
     public static func tier(for productID: String) -> PlanTier? {
@@ -183,7 +184,7 @@ public final class PlanShowCounter {
 
 // MARK: - The allowance
 
-/// What's left right now: the Free Preview (2 in total) or the plan's monthly shows.
+/// What's left right now: the Free Preview (2 to try, once) or the plan's monthly games.
 public struct ShowAllowance: Equatable, Sendable {
     public let tier: PlanTier
     public let used: Int
@@ -204,9 +205,9 @@ public struct ShowAllowance: Equatable, Sendable {
         return ShowAllowance(tier: e.tier, used: counter.used(in: w), refillsAt: w.end)
     }
 
-    /// "7 of 10 new games left this month" / "1 of 2 free new games left".
+    /// "3 of 5 new games left this month" / "1 of 2 free games to try left" (the Free Preview is once, never a month).
     public var summary: String {
-        tier.isPaid ? "\(remaining) of \(allowance) new games left this month" : "\(remaining) of \(allowance) free new games left"
+        tier.isPaid ? "\(remaining) of \(allowance) new games left this month" : "\(remaining) of \(allowance) free games to try left"
     }
 
     /// "More new games arrive Dec 3." (paid plans only).
@@ -220,7 +221,7 @@ public struct ShowAllowance: Equatable, Sendable {
 extension NewGameGate {
     /// Round 38: New game with the real allowance. No consent → the explanation; shows left → start; Free Preview
     /// used up → the plans; a paid plan's month used up → `.outOfShows` (the grown-up's plans screen says when more
-    /// arrive). Replays never come here (they're always free).
+    /// arrive). Replays never come here (`replay(consent:hasPass:)`: they never count, and need an active pass).
     public static func newGame(consent: Bool, allowance: ShowAllowance) -> NewGameGate {
         guard consent else { return .needsConsent }
         if !allowance.exhausted { return .start }
@@ -244,7 +245,7 @@ public enum PurchaseOutcome: Equatable, Sendable {
 
     public var message: String {
         switch self {
-        case .purchased(let t): "Thank you! \(t.name) is active. \(t.allowance) new games a month, and playing a saved game again is always free."
+        case .purchased(let t): "Thank you! \(t.name) is active. \(t.allowance) new games a month, and your saved games play again with Nutmeg."
         case .pending: "Waiting for approval. If Ask to Buy is on, the family organizer can approve it. The plan starts as soon as it's approved."
         case .cancelled: "No problem. Nothing was bought."
         case .failed(.network): "Couldn't reach the App Store. Check the Wi-Fi and try again."
@@ -264,41 +265,20 @@ public enum PriceText {
     /// "/month" or "/year".
     public static func unit(_ period: BillingPeriod) -> String { period == .monthly ? "month" : "year" }
 
-    /// The price billed first, the most prominent number (3.1.2): the intro price when eligible, else the regular one.
-    public static func billed(regular: String, intro: String?, eligible: Bool, period: BillingPeriod) -> String {
-        "\(eligible ? (intro ?? regular) : regular)/\(unit(period))"
-    }
+    /// The price billed, the most prominent number (3.1.2). Plans 5/20 (2026-11-17): no introductory offers, so it's
+    /// always the regular price: "$9.99/month".
+    public static func billed(regular: String, period: BillingPeriod) -> String { "\(regular)/\(unit(period))" }
 
-    /// The line under it, with the renewal price visible: "for 12 months, then $14.99/month", or nil with no offer.
-    public static func introThen(regular: String, intro: String?, introPeriods: Int, eligible: Bool, period: BillingPeriod) -> String? {
-        guard eligible, intro != nil, introPeriods > 0 else { return nil }
-        let u = unit(period)
-        let n = introPeriods == 1 ? "the first \(u)" : "\(introPeriods) \(u)s"
-        return "for \(n), then \(regular)/\(u)"
-    }
-
-    /// VoiceOver / one-line form: "$9.99/month for 12 months, then $14.99/month".
-    public static func full(regular: String, intro: String?, introPeriods: Int, eligible: Bool, period: BillingPeriod) -> String {
-        let b = billed(regular: regular, intro: intro, eligible: eligible, period: period)
-        guard let t = introThen(regular: regular, intro: intro, introPeriods: introPeriods, eligible: eligible, period: period) else { return b }
-        return "\(b) \(t)"
-    }
+    /// VoiceOver / one-line form (the same as `billed`: there is no "then" price any more).
+    public static func full(regular: String, period: BillingPeriod) -> String { billed(regular: regular, period: period) }
 
     /// "mo" or "yr" (onboarding v3's compact plan rows).
     public static func shortUnit(_ period: BillingPeriod) -> String { period == .monthly ? "mo" : "yr" }
 
-    /// Onboarding v3's plan row, the renewal price in plain words: ("$9.99/mo", "for 12 months, then $14.99/mo"), or
-    /// ("$14.99/mo", nil) with no offer (the bold amount is the price billed first).
-    public static func rowParts(regular: String, intro: String?, introPeriods: Int, eligible: Bool,
-                                period: BillingPeriod) -> (amount: String, then: String?) {
-        let u = shortUnit(period)
-        guard eligible, let intro, introPeriods > 0 else { return ("\(regular)/\(u)", nil) }
-        let long = unit(period)
-        let n = introPeriods == 1 ? "the first \(long)" : "\(introPeriods) \(long)s"
-        return ("\(intro)/\(u)", "for \(n), then \(regular)/\(u)")
-    }
+    /// Onboarding v3's plan row amount: "$9.99/mo".
+    public static func rowAmount(regular: String, period: BillingPeriod) -> String { "\(regular)/\(shortUnit(period))" }
 
-    /// The buy button: "Subscribe · $9.99/month".
+    /// The buy button: "Get Show Pass · $9.99/month".
     public static func buyLabel(_ tier: PlanTier, billed: String) -> String { "Get \(tier.name) · \(billed)" }
 }
 

@@ -212,10 +212,7 @@ struct PlansContent: View {
                     }
                     Text(price.billed).font(OBType.price).foregroundStyle(Theme.ink)
                         .redacted(reason: price.loaded ? [] : .placeholder)
-                    // The renewal price in body text (Apple: the regular price stays visible).
-                    if let then = price.introThen {
-                        Text(then).font(OBType.small).foregroundStyle(Theme.ink).fixedSize(horizontal: false, vertical: true)
-                    }
+                    // Plans 5/20 (2026-11-17): no intro offers, so there is no "then" price under the billed one.
                     Text(OnboardingCopy.planGames(tier))
                         .font(OBType.small).foregroundStyle(Theme.ink)
                     Text(OnboardingCopy.replaysLine).font(OBType.small).foregroundStyle(Theme.inkMuted)
@@ -289,7 +286,7 @@ struct KidBlockCard: View {
                     .fixedSize(horizontal: false, vertical: true)
                 }
                 if block != .needsConsent && !model.shelfGames.isEmpty {
-                    Text("You can still play your saved games!").font(OBType.small).foregroundStyle(Theme.inkMuted)
+                    Text("You can still look at and print your saved games!").font(OBType.small).foregroundStyle(Theme.inkMuted)
                 }
                 HStack(spacing: Theme.Space.s) {
                     Button { model.kidBlock = nil } label: {

@@ -1,11 +1,7 @@
 {
   "identifier" : "7E1B3A52-38D4-4B8C-9C2E-5D2F0A1C8E01",
-  "nonRenewingSubscriptions" : [
-
-  ],
-  "products" : [
-
-  ],
+  "nonRenewingSubscriptions" : [],
+  "products" : [],
   "settings" : {
     "_applicationInternalID" : "6740000000",
     "_developerTeamID" : "",
@@ -13,9 +9,7 @@
     "_lastSynchronizedDate" : 0,
     "_locale" : "en_US",
     "_storefront" : "USA",
-    "_storeKitErrors" : [
-
-    ]
+    "_storeKitErrors" : []
   },
   "subscriptionGroups" : [
     {
@@ -30,26 +24,15 @@
       "name" : "PretendThat Passes",
       "subscriptions" : [
         {
-          "adHocOffers" : [
-
-          ],
-          "codeOffers" : [
-
-          ],
-          "displayPrice" : "29.99",
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "24.99",
           "familyShareable" : false,
           "groupNumber" : 1,
           "internalID" : "6740000003",
-          "introductoryOffer" : {
-            "displayPrice" : "19.99",
-            "internalID" : "6740000013",
-            "numberOfPeriods" : 12,
-            "paymentMode" : "payAsYouGo",
-            "subscriptionPeriod" : "P1M"
-          },
           "localizations" : [
             {
-              "description" : "30 new games a month. Saved games are free to play again.",
+              "description" : "20 new games a month. Play your saved games again with Nutmeg anytime.",
               "displayName" : "Season Pass",
               "locale" : "en_US"
             }
@@ -59,31 +42,18 @@
           "referenceName" : "Season Pass Monthly",
           "subscriptionGroupID" : "21580001",
           "type" : "RecurringSubscription",
-          "winbackOffers" : [
-
-          ]
+          "winbackOffers" : []
         },
         {
-          "adHocOffers" : [
-
-          ],
-          "codeOffers" : [
-
-          ],
-          "displayPrice" : "299.99",
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "249.99",
           "familyShareable" : false,
           "groupNumber" : 1,
           "internalID" : "6740000004",
-          "introductoryOffer" : {
-            "displayPrice" : "199.99",
-            "internalID" : "6740000014",
-            "numberOfPeriods" : 1,
-            "paymentMode" : "payUpFront",
-            "subscriptionPeriod" : "P1Y"
-          },
           "localizations" : [
             {
-              "description" : "30 new games a month. Saved games are free to play again.",
+              "description" : "20 new games a month. Play your saved games again with Nutmeg anytime.",
               "displayName" : "Season Pass (Yearly)",
               "locale" : "en_US"
             }
@@ -93,31 +63,18 @@
           "referenceName" : "Season Pass Yearly",
           "subscriptionGroupID" : "21580001",
           "type" : "RecurringSubscription",
-          "winbackOffers" : [
-
-          ]
+          "winbackOffers" : []
         },
         {
-          "adHocOffers" : [
-
-          ],
-          "codeOffers" : [
-
-          ],
-          "displayPrice" : "14.99",
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "9.99",
           "familyShareable" : false,
           "groupNumber" : 2,
           "internalID" : "6740000001",
-          "introductoryOffer" : {
-            "displayPrice" : "9.99",
-            "internalID" : "6740000011",
-            "numberOfPeriods" : 12,
-            "paymentMode" : "payAsYouGo",
-            "subscriptionPeriod" : "P1M"
-          },
           "localizations" : [
             {
-              "description" : "10 new games a month. Saved games are free to play again.",
+              "description" : "5 new games a month. Play your saved games again with Nutmeg anytime.",
               "displayName" : "Show Pass",
               "locale" : "en_US"
             }
@@ -127,31 +84,18 @@
           "referenceName" : "Show Pass Monthly",
           "subscriptionGroupID" : "21580001",
           "type" : "RecurringSubscription",
-          "winbackOffers" : [
-
-          ]
+          "winbackOffers" : []
         },
         {
-          "adHocOffers" : [
-
-          ],
-          "codeOffers" : [
-
-          ],
-          "displayPrice" : "149.99",
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "99.99",
           "familyShareable" : false,
           "groupNumber" : 2,
           "internalID" : "6740000002",
-          "introductoryOffer" : {
-            "displayPrice" : "99.99",
-            "internalID" : "6740000012",
-            "numberOfPeriods" : 1,
-            "paymentMode" : "payUpFront",
-            "subscriptionPeriod" : "P1Y"
-          },
           "localizations" : [
             {
-              "description" : "10 new games a month. Saved games are free to play again.",
+              "description" : "5 new games a month. Play your saved games again with Nutmeg anytime.",
               "displayName" : "Show Pass (Yearly)",
               "locale" : "en_US"
             }
@@ -161,9 +105,7 @@
           "referenceName" : "Show Pass Yearly",
           "subscriptionGroupID" : "21580001",
           "type" : "RecurringSubscription",
-          "winbackOffers" : [
-
-          ]
+          "winbackOffers" : []
         }
       ]
     }

@@ -10,3 +10,4 @@
 - **Who decided:** Haylee; Claude's calls: the title speaker, the bar sliding away.
 
 - **Update (Haylee, 2026-11-17):** the 2 Free Preview games get the SAME experience as other saved games: without a pass, only viewing and printing; "Play with Nutmeg" asks for a grown-up and shows the pass card. No exception and no footnote promising free games replay.
+- **Update (Haylee, 2026-11-17, during the build):** the 2 Free Preview games get the SAME experience as any saved game: without a pass, Play with Nutmeg asks a grown-up. Only viewing and printing are free. The grown-up card has no footnote. Also: Play with Nutmeg is the unmistakable main action (▶ + Nutmeg's face), and Nutmeg says a short line when the page opens. Built: decisions/2026-11-17-round-plans-printables-page.md.

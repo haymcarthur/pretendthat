@@ -12,6 +12,7 @@ Every request must carry the header `X-PT-Token` matching the Worker's `APP_TOKE
 |---|---|---|
 | `POST /v1/messages` | Anthropic `api.anthropic.com/v1/messages` (adds the key, keeps the app's `anthropic-version` and `anthropic-beta`) | Model must be `claude-opus-5-5` or `claude-sonnet-5-5` (round 35 prep: guide + weave, app flag off by default); `max_tokens` capped at 16,000; no streaming |
 | `POST /v1/images/generations` | OpenAI `api.openai.com/v1/images/generations` | Model must be one of the app's `gpt-image-2` family; `n` forced to 1; `moderation` forced to `auto` |
+| `POST /v1/images/edits` | OpenAI `api.openai.com/v1/images/edits` | Printables draw-once (2026-11-17): multipart with ONE page image (PNG/JPEG/WebP, under 8 MB) + the prompt; same model list, rate limit and show ticket as generations; `n` forced to 1, `moderation` to `auto`; only `size`, `quality`, `output_format`, `background` are forwarded (no masks, no `input_fidelity`) |
 | `POST /v1/realtime/client_secrets` | OpenAI `api.openai.com/v1/realtime/client_secrets` | Mints a **120-second** ephemeral secret for `gpt-realtime-2.1` (or `gpt-realtime-2.1-mini` when the body asks for it: the scripted-lines session, round 35 prep, app flag off by default; anything else gets `gpt-realtime-2.1`) and returns only `{value, expires_at}`. The app then opens OpenAI's realtime WebSocket directly with it. The secret only has to *start* the session, and the app fetches a fresh one on every connect and reconnect. |
 | `POST /v1/moderations` | OpenAI `api.openai.com/v1/moderations` | Kid-safety checks (round 19). Model forced to `omni-moderation-latest`; 1 to 32 text inputs of at most 4,000 characters, no images. Free on OpenAI. The app fails safe to its local filter if this errors. |
 
@@ -23,7 +24,7 @@ Every request must carry the header `X-PT-Token` matching the Worker's `APP_TOKE
 
 ## Show counts (round 38, optional, off until you turn it on)
 
-The app's plans allow a number of **new** shows (Free Preview 2 in total, Show Pass 10 a month, Season Pass 30 a month; replays are always free). The app counts on the iPad; this lets the relay count too, so a modified app can't run up the AI bill.
+The app's plans allow a number of **new** shows (Free Preview: 2 to try, once; Show Pass 5 a month; Season Pass 20 a month; replays never count). The app counts on the iPad; this lets the relay count too, so a modified app can't run up the AI bill.
 
 **How it works**
 - When a new show starts, the app calls `POST /v1/shows/start` with StoreKit's own signed proof: the plan's **signed transaction** (a JWS), or for the Free Preview the **AppTransaction** JWS. No account, no name, no device ID.

@@ -246,7 +246,7 @@ public final class FreePreviewCounter {
         return n
     }
 
-    /// DEBUG flag (`-PTResetFreePreview`): back to 2 free shows.
+    /// DEBUG flag (`-PTResetFreePreview`): back to the 2 free games to try.
     public func reset() { defaults.removeObject(forKey: OnboardingKeys.freePreviewUsed) }
 }
 
@@ -270,8 +270,13 @@ public enum NewGameGate: Equatable, Sendable {
         return freeRemaining > 0 ? .start : .needsPlan
     }
 
-    /// A saved game's replay: free (never counted), but Nutmeg's live voice still needs the AI consent.
-    public static func replay(consent: Bool) -> NewGameGate { consent ? .start : .needsConsent }
+    /// A saved game's replay with Nutmeg (never counted). Saved game page (Haylee, 2026-11-17): it needs an ACTIVE pass
+    /// (the 2 Free Preview games included: only viewing and printing are free), and Nutmeg's live voice still needs the
+    /// AI consent. No pass → `.needsPlan` (her ask-a-grown-up line, the gate, the grown-up card).
+    public static func replay(consent: Bool, hasPass: Bool) -> NewGameGate {
+        guard hasPass else { return .needsPlan }
+        return consent ? .start : .needsConsent
+    }
 }
 
 // MARK: - Plans (config values; the limits are finalized after the cost decision)
@@ -284,75 +289,50 @@ public enum BillingPeriod: String, CaseIterable, Sendable {
 public struct PlanOffer: Equatable, Sendable, Identifiable {
     public let id: String
     public let name: String
-    /// New shows a month (planned: finalized after the cost decision).
+    /// New games a month.
     public let newShowsPerMonth: Int
-    /// Monthly: the introductory price for the first `introMonths` months, then the regular price.
-    public let monthlyIntro: Decimal
-    public let introMonths: Int
+    /// Plans 5/20 (2026-11-17): the regular prices, billed from the first period (no introductory offers).
     public let monthly: Decimal
     public let yearly: Decimal
-    /// Round 44 (Haylee, decisions/2026-11-17-yearly-intro-sonnet.md): the yearly plan's first year, paid up front
-    /// (App Store Connect: an introductory offer, "Pay up front, 1 year", new subscribers), then `yearly`.
-    public let yearlyIntro: Decimal
 
-    /// What's billed first: the intro price (12 months monthly, or the first year).
-    public func price(_ period: BillingPeriod) -> Decimal { period == .monthly ? monthlyIntro : yearlyIntro }
-
-    /// The first year's wording: "$99.99 for the first year, then $149.99/year".
-    public var yearlyIntroText: String {
-        "\(PlanCatalog.dollars(yearlyIntro)) for the first year, then \(PlanCatalog.dollars(yearly))/year"
+    public init(id: String, name: String, newShowsPerMonth: Int, monthly: Decimal, yearly: Decimal) {
+        self.id = id; self.name = name; self.newShowsPerMonth = newShowsPerMonth; self.monthly = monthly; self.yearly = yearly
     }
 
-    /// The billed price, the most prominent number (3.1.2): "$9.99/month", "$149.99/year".
+    /// What's billed each period.
+    public func price(_ period: BillingPeriod) -> Decimal { period == .monthly ? monthly : yearly }
+
+    /// The billed price, the most prominent number (3.1.2): "$9.99/month", "$99.99/year".
     public func billedText(_ period: BillingPeriod) -> String {
         "\(PlanCatalog.dollars(price(period)))/\(period == .monthly ? "month" : "year")"
     }
 
-    /// Apple's intro-offer wording with the regular price visible: "$9.99/month for 12 months, then $14.99/month".
-    public var introOfferText: String {
-        "\(PlanCatalog.dollars(monthlyIntro))/month for \(introMonths) months, then \(PlanCatalog.dollars(monthly))/month"
+    /// The line under the big price: monthly → nil; yearly → "about $8.33 a month" (subordinate to the billed price).
+    public func detailText(_ period: BillingPeriod) -> String? {
+        guard period == .yearly else { return nil }
+        return String(format: "about $%.2f a month", NSDecimalNumber(decimal: yearly).doubleValue / 12)
     }
 
-    /// v2 plan cards, under the big monthly price: "for 12 months, then $14.99/month".
-    public var introThenText: String {
-        "for \(introMonths) months, then \(PlanCatalog.dollars(monthly))/month"
-    }
-
-    /// The line under the big price: monthly → "for your first 12 months, then $14.99/month" (the renewal price, in
-    /// body text); yearly → "about $8.33 a month the first year" (the intro year, subordinate to the billed price).
-    public func detailText(_ period: BillingPeriod) -> String {
-        switch period {
-        case .monthly:
-            return "for your first \(introMonths) months, then \(PlanCatalog.dollars(monthly))/month"
-        case .yearly:
-            let perMonth = NSDecimalNumber(decimal: yearlyIntro).doubleValue / 12
-            return String(format: "about $%.2f a month the first year", perMonth)
-        }
-    }
-
-    /// "10 new games a month" (round 44: "game", never "show", in everything a grown-up reads).
+    /// "5 new games a month" (round 44: "game", never "show", in everything a grown-up reads).
     public var showsText: String { "\(newShowsPerMonth) new games a month" }
 }
 
 public enum PlanCatalog {
-    /// The Free Preview's allowance of new shows (no card).
+    /// The Free Preview: 2 new games to try, ONCE (never per month; no card).
     public static let freePreviewShows = 2
-    /// Config values: Show Pass 10, Season Pass 30 for now (marked "planned" on screen).
-    public static let showPassShows = 10
-    public static let seasonPassShows = 30
+    /// Plans 5/20 (Haylee, decisions/2026-11-17-plans-5-and-20.md): Show Pass 5, Season Pass 20 new games a month.
+    public static let showPassShows = 5
+    public static let seasonPassShows = 20
     public static let defaultPeriod: BillingPeriod = .monthly
 
-    // THE one place for prices (Haylee, 2026-11-16): StoreKit's products replace these later.
-    public static let introMonths = 12
+    // THE one place for prices (plans 5/20, 2026-11-17): no introductory offers. Yearly = 12 months for the price of 10.
     public static var showPass: PlanOffer {
-        PlanOffer(id: "showpass", name: "Show Pass", newShowsPerMonth: showPassShows, monthlyIntro: Decimal(string: "9.99")!,
-                  introMonths: introMonths, monthly: Decimal(string: "14.99")!, yearly: Decimal(string: "149.99")!,
-                  yearlyIntro: Decimal(string: "99.99")!)
+        PlanOffer(id: "showpass", name: "Show Pass", newShowsPerMonth: showPassShows,
+                  monthly: Decimal(string: "9.99")!, yearly: Decimal(string: "99.99")!)
     }
     public static var seasonPass: PlanOffer {
-        PlanOffer(id: "seasonpass", name: "Season Pass", newShowsPerMonth: seasonPassShows, monthlyIntro: Decimal(string: "19.99")!,
-                  introMonths: introMonths, monthly: Decimal(string: "29.99")!, yearly: Decimal(string: "299.99")!,
-                  yearlyIntro: Decimal(string: "199.99")!)
+        PlanOffer(id: "seasonpass", name: "Season Pass", newShowsPerMonth: seasonPassShows,
+                  monthly: Decimal(string: "24.99")!, yearly: Decimal(string: "249.99")!)
     }
     public static var offers: [PlanOffer] { [showPass, seasonPass] }
 
@@ -363,6 +343,7 @@ public enum PlanCatalog {
         String(format: "$%.2f", NSDecimalNumber(decimal: d).doubleValue)
     }
 }
+
 
 // MARK: - Words
 
@@ -420,14 +401,15 @@ public enum OnboardingCopy {
     public static let declinedTitle = "PretendThat needs this to work"
     public static let declinedBody = "Nutmeg uses our AI partners to listen, talk and make each game, so PretendThat can't play without them. That's OK. You can turn it on any time in Grown-ups."
 
-    // 5 · Start with 2 free games (no Monthly/Yearly switch: yearly lives in Grown-ups → Plans)
-    public static var plansV3Title: String { "Start with \(PlanCatalog.freePreviewShows) free games" }
+    // 5 · 2 free games to try (no Monthly/Yearly switch: yearly lives in Grown-ups → Plans). Plans 5/20 (Haylee): the
+    // Free Preview is ONCE, so every mention reads "to try", never "a month".
+    public static var plansV3Title: String { "\(PlanCatalog.freePreviewShows) free games to try" }
     /// Haylee's follow-up 3 wording (decisions/2026-11-17-onboarding-v3-feedback.md).
-    public static let plansV3Lead = "Each new game is a fresh story and printable kit made just for your kids. Every game saves itself, so they can play it again as many times as they like, free."
-    /// The plan row's line: "10 new games a month" / "30 new games a month" (no "Up to", Haylee).
+    public static let plansV3Lead = "Each new game is a fresh story and printable kit made just for your kids. Every game saves itself, and its printables are always yours to view and print."
+    /// The plan row's line: "5 new games a month" / "20 new games a month" (no "Up to", Haylee).
     public static func planGames(_ tier: PlanTier) -> String { "\(tier.allowance) new games a month" }
     public static let getPlan = "Get"
-    public static var freeGamesButton: String { "Start with \(PlanCatalog.freePreviewShows) free games" }
+    public static var freeGamesButton: String { "Try \(PlanCatalog.freePreviewShows) free games" }
     public static let billedByApple = "Billed by Apple. Renews until cancelled."
     public static let restoreShort = "Restore"
     public static let termsShort = "Terms"
@@ -435,23 +417,23 @@ public enum OnboardingCopy {
 
     // Plans behind the gate (the Free Preview used up)
     public static let plansTitle = "Start with your Free Preview"
-    public static let plansBody = "Your first 2 brand-new games are free. No card, nothing to cancel. Playing a saved game again is always free."
+    public static let plansBody = "2 free games to try. No card, nothing to cancel. Your saved games' printables are always yours to view and print."
     public static let freePreviewButton = "Start my Free Preview"
     public static let continueButton = "Continue"
     public static let plansFooter = "Show Pass and Season Pass are subscriptions billed by Apple. They renew automatically until cancelled in Settings, at least 24 hours before renewal."
     public static let plannedNote = "planned"
     public static let comingSoon = "Coming soon"
     public static let comingSoonNote = "Plans can't be bought yet. They're coming soon."
-    public static let replaysLine = "Play saved games again as often as you like"
+    public static let replaysLine = "Play your saved games again with Nutmeg"
     public static let restore = "Restore purchases"
     public static let terms = "Terms of Use"
     public static let privacy = "Privacy Policy"
     // Round 38: real purchases.
     public static let plansGrownUpsTitle = "Plans"
-    public static let plansGrownUpsBody = "With every plan, playing a saved game again is always free. Plans are billed by Apple to your Apple ID."
+    public static let plansGrownUpsBody = "Every pass includes playing your saved games again with Nutmeg. Saved games' printables are always yours to view and print. Passes are billed by Apple to your Apple ID."
     public static func planOutTitle(_ tier: PlanTier) -> String { "This month's new games are used up" }
     public static func planOutBody(_ tier: PlanTier, refill: String?) -> String {
-        "\(tier.name) includes \(tier.allowance) new games a month. \(refill ?? "More arrive when your plan renews.") Playing a saved game again is still free."
+        "\(tier.name) includes \(tier.allowance) new games a month. \(refill ?? "More arrive when your plan renews.") Playing your saved games again with Nutmeg is still included."
             + (tier == .showPass ? " Want more? Season Pass has \(PlanTier.seasonPass.allowance) new games a month." : "")
     }
     public static let buying = "Talking to the App Store…"
@@ -459,11 +441,10 @@ public enum OnboardingCopy {
     public static let pricesUnavailable = "Prices couldn't be loaded from the App Store. Check the Wi-Fi and try again."
     public static let currentPlan = "Your plan"
     public static let manage = "Manage subscription"
-    public static let introNote = "Introductory price for new subscribers"
     public static let yearlyLink = "Yearly plans"
     public static let monthlyLink = "Monthly plans"
     public static let outOfShowsTitle = "Your Free Preview is used up"
-    public static let outOfShowsBody = "Your 2 free new games are done. Pick a plan for more new games. Playing a saved game again is still free."
+    public static let outOfShowsBody = "You've played your 2 free games to try. Pick a pass for new games, and to play your saved games again with Nutmeg. Their printables are always yours to view and print."
 
     // 6 · You're all set (the logo; "your device" is the device word)
     public static let handOffTitle = "You're all set"

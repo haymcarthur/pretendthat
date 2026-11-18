@@ -198,23 +198,21 @@ struct OnboardingView: View {
             .task { if model.purchases.products.isEmpty { await model.purchases.loadProducts() } }
         } actions: {
             OBPill(label: continueOnly ? OnboardingCopy.continueButton : OnboardingCopy.freeGamesButton) { go { $0.startFreePreview() } }
-                .accessibilityHint(continueOnly ? "" : "\(PlanCatalog.freePreviewShows) free new games, no card")
+                .accessibilityHint(continueOnly ? "" : "\(PlanCatalog.freePreviewShows) free games to try, no card")
             plansFine
         }
     }
 
     private func planRow(_ tier: PlanTier) -> some View {
-        // Round 38: StoreKit's localized price and intro offer (PlanCatalog's numbers until the App Store answers).
+        // Round 38: StoreKit's localized price (PlanCatalog's numbers until the App Store answers). Plans 5/20: no intros.
         let price = PlanPrice(tier, .monthly, purchases: model.purchases)
-        let row = price.row
         let isCurrent = model.purchases.entitlement?.tier == tier
         let buying = model.purchases.buying == price.productID
         return HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 0) {
                 Text(tier.name).font(OB.font(15, .semibold)).foregroundStyle(OB.ink)
                 Text(OnboardingCopy.planGames(tier)).font(OB.font(12, .regular)).foregroundStyle(OB.gray)
-                (Text(row.amount).font(OB.font(12.5, .semibold)).foregroundStyle(OB.ink)
-                 + Text(row.then.map { " " + $0 } ?? "").font(OB.font(11.5, .regular)).foregroundStyle(OB.gray))
+                Text(price.rowAmount).font(OB.font(12.5, .semibold)).foregroundStyle(OB.ink)
                     .lineLimit(1).minimumScaleFactor(0.8)
                     .padding(.top, 2)
             }

@@ -132,7 +132,7 @@ enum KitPageGallery {
             // The art (both sets + the character sheet) starts now, like the hunt; the guide is written meanwhile.
             let art = KitArtContext(title: game, setting: plan.setting, roles: plan.roles, players: players)
             let limiter = AsyncLimiter(limit: KitArtService.concurrency)
-            let board = WordCheckBoard()
+            let board = OutlineBoard()
             let color = KitArtService(client: images, style: .fullColor, limiter: limiter, board: board)
             let outline = KitArtService(client: images, style: .colorIn, limiter: limiter, board: board)
             let cover = CoverArtService(client: images, limiter: limiter)

@@ -111,21 +111,32 @@ public enum ImageUsageLog {
     nonisolated(unsafe) private static var _rateLimited = 0
     nonisolated(unsafe) private static var _outputTokens = 0
     nonisolated(unsafe) private static var _inputTokens = 0
+    nonisolated(unsafe) private static var _imageInputTokens = 0
 
     public static func started(at date: Date = Date()) { lock.withLock { starts.append(date) } }
     public static func rateLimited() { lock.withLock { _rateLimited += 1 } }
-    public static func usage(input: Int, output: Int) { lock.withLock { _inputTokens += input; _outputTokens += output } }
+    /// `input` is every input token (text + image); `imageInput` the image part (printables draw-once: an edit sends
+    /// the coloring page back in, ~1,536 image tokens).
+    public static func usage(input: Int, output: Int, imageInput: Int = 0) {
+        lock.withLock { _inputTokens += input; _outputTokens += output; _imageInputTokens += imageInput }
+    }
 
     public struct Snapshot: Equatable, Sendable {
         public let requests: Int, rateLimited: Int, inputTokens: Int, outputTokens: Int, peakPerMinute: Int
-        /// $5 per 1M text input tokens, $30 per 1M image output tokens (gpt-image-2.x list prices).
-        public var dollars: Double { Double(inputTokens) * 5 / 1_000_000 + Double(outputTokens) * 30 / 1_000_000 }
+        /// Image input tokens (part of `inputTokens`): the coloring page an edit sends back in.
+        public var imageInputTokens: Int = 0
+        /// $5 per 1M text input tokens, $8 per 1M image input tokens, $30 per 1M image output tokens (gpt-image-2.x list
+        /// prices). Printables draw-once: an edit ≈ 3.3¢ against ≈ 2.2¢ for a drawn page (≈ 6–7¢ more a 6-page kit).
+        public var dollars: Double {
+            Double(inputTokens - imageInputTokens) * 5 / 1_000_000 + Double(imageInputTokens) * 8 / 1_000_000
+                + Double(outputTokens) * 30 / 1_000_000
+        }
     }
     public static func snapshot(since: Date = .distantPast) -> Snapshot {
         lock.withLock {
             let s = starts.filter { $0 >= since }
             return Snapshot(requests: s.count, rateLimited: _rateLimited, inputTokens: _inputTokens, outputTokens: _outputTokens,
-                            peakPerMinute: peakPerMinute(s))
+                            peakPerMinute: peakPerMinute(s), imageInputTokens: _imageInputTokens)
         }
     }
     /// The most requests started inside any 60 s window.
@@ -138,5 +149,5 @@ public enum ImageUsageLog {
         }
         return best
     }
-    public static func reset() { lock.withLock { starts = []; _rateLimited = 0; _outputTokens = 0; _inputTokens = 0 } }
+    public static func reset() { lock.withLock { starts = []; _rateLimited = 0; _outputTokens = 0; _inputTokens = 0; _imageInputTokens = 0 } }
 }

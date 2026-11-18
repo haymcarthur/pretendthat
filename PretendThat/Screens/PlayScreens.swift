@@ -189,13 +189,31 @@ struct PTSceneCard: View {
     var body: some View {
         let list = Self.tiers(phone: metrics.isPhone)
         let t = list[min(tier, list.count - 1)]
+        let titleSpeaker: CGFloat = metrics.isPhone ? (t.picture <= 30 ? 34 : 40) : 48
         VStack(spacing: t.spacing) {
-            Text(scene.title).font(Theme.displayFont(t.title)).foregroundStyle(Theme.ink)
-                .multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.75)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity)
-                .padding(.bottom, 2)
-                .accessibilityAddTraits(.isHeader)
+            // 2026-11-17 (no control bar in Play): a small 🔊 on the title says Nutmeg's setup line again (the bar's
+            // Repeat did this before). The title stays centered on the card.
+            HStack(spacing: 6) {
+                Color.clear.frame(width: titleSpeaker, height: 1)
+                Text(scene.title).font(Theme.displayFont(t.title)).foregroundStyle(Theme.ink)
+                    .multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.75)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity)
+                    .accessibilityAddTraits(.isHeader)
+                Button { model.repeatScene() } label: {
+                    Image(systemName: "speaker.wave.2.fill")
+                        .font(.system(size: titleSpeaker * 0.42, weight: .bold))
+                        .foregroundStyle(Theme.purple)
+                        .frame(width: titleSpeaker, height: titleSpeaker)
+                        .background(Circle().fill(Theme.white))
+                        .background(Circle().fill(Theme.purple.opacity(0.18)).offset(y: 2))
+                        .contentShape(Circle())
+                }
+                .buttonStyle(PTPressStyle())
+                .accessibilityLabel("Hear the scene again")
+                .accessibilityIdentifier("scene.titleSpeaker")
+            }
+            .padding(.bottom, 2)
             ForEach(Array(scene.steps.enumerated()), id: \.offset) { i, step in
                 if let role = step.role.role.flatMap({ store.plan?.role(for: $0) }) {
                     // Round 34 (Haylee): the row SHOWS the short task; a tap anywhere on it SAYS the specifics (`text`).
@@ -256,16 +274,28 @@ struct PTScenePinnedCard: View {
 /// The End. Round 39 (Haylee, auto-save): no star (every game is already on the bookshelf). Two big icon buttons, no
 /// text: the green round arrow plays it again (the scenes from the top, same kids and props) and the house goes home
 /// (the round 19 hang-up rules). Nutmeg says the game is saved (round 41, never "bookshelf"). The same for a new game and a replay.
+/// 2026-11-17 (no control bar in Play / The End): on the stage the two buttons sit where the bar was, bigger
+/// (`EndButtons`, RootView); this view is then just the title.
 struct EndView: View {
     let model: AppModel
+    var showsButtons = true
     var body: some View {
         VStack(spacing: Theme.Space.l) {
             PTText("The End!", .hero)
-            HStack(spacing: Theme.Space.xl) {
-                PTBigIconButton(kind: .again, size: 96, label: "Play it again") { model.tapPlayAgain() }
-                PTBigIconButton(kind: .home, size: 96, label: "Go home") { model.tapNewGame() }
-            }
-            .padding(.bottom, Theme.depth)
+            if showsButtons { EndButtons(model: model, size: 96) }
         }
+    }
+}
+
+/// The End's two big buttons: play it again (the green arrow) and go home (the house).
+struct EndButtons: View {
+    let model: AppModel
+    var size: CGFloat = 96
+    var body: some View {
+        HStack(spacing: size * 0.5) {
+            PTBigIconButton(kind: .again, size: size, label: "Play it again") { model.tapPlayAgain() }
+            PTBigIconButton(kind: .home, size: size, label: "Go home") { model.tapNewGame() }
+        }
+        .padding(.bottom, Theme.depth)
     }
 }
