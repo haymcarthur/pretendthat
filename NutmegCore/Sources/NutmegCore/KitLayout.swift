@@ -91,6 +91,8 @@ public enum KitLayout {
             }
             // Round 45: a library card page prints its copies (cards fill their page; clue cards one per clue).
             let base = (0..<(item.pictureOnly ? PrintLibrary.copies(item) : item.copies)).map { KitSlot(index: $0) }
+            // Clue and mission cards print each card once (a repeated clue would confuse the hunt).
+            if item.pictureOnly, item.recipe == .clueCards || item.recipe == .missionCards { return base }
             return filled(base, capacity: grid(for: item).capacity) { k in KitSlot(index: k) }
         }
         // 2. Enforce the page cap: trim trailing slots from the item using the most pages, never below 1 page.

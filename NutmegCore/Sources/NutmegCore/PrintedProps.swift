@@ -65,6 +65,7 @@ public enum PrintedProps {
             switch item.recipe {
             case .tickets, .money, .menu:
                 if let n = headNoun(item.title) { out.insert(n) }
+                if item.variant == .program { out.insert("program") }   // round 45: a show's printed program
             case .cutouts:
                 for line in item.lines { if let n = headNoun(line) { out.insert(n) } }
             case .badges?, .sign?, nil: break

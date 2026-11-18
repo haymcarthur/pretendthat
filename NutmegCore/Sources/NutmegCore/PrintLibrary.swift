@@ -202,7 +202,8 @@ public enum PrintLibrary {
     }
 
     static func clean(_ s: String) -> String {
-        s.replacingOccurrences(of: "\"", with: "").trimmingCharacters(in: .whitespacesAndNewlines.union(CharacterSet(charactersIn: ".!,;:")))
+        let s = Money.withoutPrice(s)
+        return s.replacingOccurrences(of: "\"", with: "").trimmingCharacters(in: .whitespacesAndNewlines.union(CharacterSet(charactersIn: ".!,;:")))
     }
 
     // MARK: Layout (pages)

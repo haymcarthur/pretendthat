@@ -127,9 +127,8 @@ public enum Sanitizer {
             if i.lines.isEmpty { i.lines = PrintDefaults.lines(.decoder) }
         default: i.bigNumber = nil
         }
-        i.copies = PrintLibrary.copies(i)
-        // Pictures: never words (one per entry for a sheet type, else one), at most the sheet's size.
-        let pics = (i.pictures ?? []).map(PrintLibrary.clean).filter { !$0.isEmpty }
+        // Pictures: never words or prices (one per entry for a sheet type, else one), at most the sheet's size.
+        let pics = (i.pictures ?? []).map { PrintLibrary.clean(Money.withoutPrice($0)) }.filter { !$0.isEmpty }
         switch t {
         case .badges, .cutouts, .decoder: i.pictures = nil
         default:
@@ -145,6 +144,7 @@ public enum Sanitizer {
         if let v = i.variant, !t.variants.contains(v) { i.variant = nil }
         if i.variant == nil { i.variant = picks.variant(for: i) }
         if t == .menu, i.variant == .program { i.lines = i.lines.map(Money.withoutPrice) }
+        i.copies = PrintLibrary.copies(i)   // after the layout (coins print 12 a page, bills 8)
         return i
     }
 
