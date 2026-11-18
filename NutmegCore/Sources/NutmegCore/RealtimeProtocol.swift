@@ -320,7 +320,9 @@ public enum Realtime {
            + " If the kid corrects it at ANY point later (any step), call this again with the fix.",
            ["title": str], required: ["title"]),
         fn("set_theme", "The kids picked the theme or twist (step 2). title = the full game title with the theme, "
-           + "e.g. \"Pancake Restaurant on the Moon\". If the kid corrects it before saying yes to your recap, call this again with the fix (after the yes the app refuses: the result says what to say).", ["title": str], required: ["title"]),
+           + "e.g. \"Pancake Restaurant on the Moon\". short_title = the same game in 1 to 3 words, 18 letters at most, for the "
+           + "bookshelf (\"Moon Pancakes\", \"Pet Hotel\", \"Sea Vet Clinic\"). If the kid corrects it before saying yes to your recap, call this again with the fix (after the yes the app refuses: the result says what to say).",
+           ["title": str, "short_title": ["type": "string", "description": "1 to 3 words, 18 characters max"] as [String: Any]], required: ["title", "short_title"]),
         fn("set_player_count", "How many kids are playing (a number only; we never ask for names). 1 to 6 kids can play "
            + "(max 6). If a kid says more than 6, still call this with the number they said: the result says what to tell "
            + "them. The question is open (\"How many friends are playing today?\"), never a list of numbers. Then recap (step 3b)."
@@ -343,10 +345,16 @@ public enum Realtime {
            + "for sitting, rides and tents are big; a stuffed animal is only ever an animal, a pet, a patient or a passenger. "
            + "Never an item or a pretend use already in this hunt. It is NEVER something the kit prints (tickets, "
            + "passes, money, coins, menus, signs, badges, maps, cards, letters, notes): the app rejects those. reason = ONE "
-           + "short kid-friendly sentence saying what about its shape or use makes it work (never just the pair again).",
+           + "short kid-friendly sentence saying what about its shape or use makes it work (never just the pair again). "
+           + "how_many: \"one\" for most props; \"per_player\" when every kid needs their own (a cup or plate each at a "
+           + "tea party or restaurant, a chair each on a plane or bus); a number 2 to 6 when the game needs a few of the same "
+           + "thing (3 stuffed animals as patients or guests). Only everyday things families have several of (cups, plates, "
+           + "bowls, spoons, chairs, pillows, hats, stuffed animals, toy cars, balls, socks...); big or one-of-a-kind things are "
+           + "always one. The card and the app say \"up to\" that many, so a family with fewer can still play.",
            ["item_id": propID, "becomes": ["type": "string", "description": "6 words or fewer, kid-friendly"] as [String: Any],
             "for_role": str, "alternates": array(propID),
-            "reason": ["type": "string", "description": "one short sentence: why this item works (its shape or use)"] as [String: Any]],
+            "reason": ["type": "string", "description": "one short sentence: why this item works (its shape or use)"] as [String: Any],
+            "how_many": ["type": "string", "description": "\"one\" (most props), \"per_player\", or a number \"2\" to \"6\""] as [String: Any]],
            required: ["item_id", "becomes", "for_role", "alternates", "reason"]),
         fn("mark_found", "The kids found the current prop: its card checks off. Then call show_next_prop (or "
            + "finish_planning once all the props are out: 4 for 1 or 2 kids, 5 for 3 or more) before you speak.", ["id": str], required: ["id"]),
@@ -598,14 +606,19 @@ public enum PlanningCall: Equatable, Sendable {
         public var itemID: String; public var becomes: String; public var forRole: String; public var alternates: [String]
         /// Round 24: why it works ("A bowl is round like a captain's hat!"); empty = the app writes one.
         public var reason: String
-        public init(itemID: String, becomes: String, forRole: String, alternates: [String] = [], reason: String = "") {
+        /// 2026-11-18: how many (one, one per player, or a fixed small number). The app clamps it (`PropQuantity`).
+        public var quantity: PropQuantity
+        public init(itemID: String, becomes: String, forRole: String, alternates: [String] = [], reason: String = "",
+                    quantity: PropQuantity = .one) {
             self.itemID = itemID; self.becomes = becomes; self.forRole = forRole; self.alternates = alternates; self.reason = reason
+            self.quantity = quantity
         }
         public var inLibrary: Bool { PropLibrary.contains(itemID) }
     }
     case showGameIdeas([GameIdea])
     case setGame(String)
-    case setTheme(String)
+    /// 2026-11-18: `short` = the AI's 1–3 word shelf title ("Moon Pancakes"); "" when it gave none.
+    case setTheme(String, short: String = "")
     case setPlayerCount(Int)
     case setRoles([RoleDraft])
     case showProps([PropDraft])
@@ -639,7 +652,7 @@ public enum PlanningCall: Equatable, Sendable {
         case "set_game":
             let t = s(a, "title"); return t.isEmpty ? nil : .setGame(t)
         case "set_theme":
-            let t = s(a, "title"); return t.isEmpty ? nil : .setTheme(t)
+            let t = s(a, "title"); return t.isEmpty ? nil : .setTheme(t, short: s(a, "short_title"))
         case "set_player_count":
             guard let count = (a["count"] as? Int) ?? (a["count"] as? Double).map(Int.init) else { return nil }
             // Round 23: a number over the cap is kept (up to 99) so the store can say "up to six friends can play".
@@ -653,7 +666,7 @@ public enum PlanningCall: Equatable, Sendable {
             guard !id.isEmpty else { return nil }
             return .showNextProp(PropDraft(itemID: id, becomes: s(a, "becomes"), forRole: s(a, "for_role"),
                                            alternates: (a["alternates"] as? [String] ?? []).filter(PropLibrary.contains).prefix(2).map { $0 },
-                                           reason: s(a, "reason")))
+                                           reason: s(a, "reason"), quantity: PropQuantity(toolValue: a["how_many"])))
         case "mark_found":
             let id = s(a, "id"); return id.isEmpty ? nil : .markFound(id)
         case "show_props":

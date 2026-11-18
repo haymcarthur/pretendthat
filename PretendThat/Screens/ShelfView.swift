@@ -62,11 +62,11 @@ struct ShelfView: View {
                     PTPageDots(count: pages.count, current: page)
                         .position(x: L.shelf.midX, y: L.dotsY)
                     if page < pages.count - 1 {
-                        PTShelfArrow(symbol: "arrow.right", label: "Next bookshelf") { withAnimation(Theme.stageMove) { page += 1 } }
+                        PTShelfArrow(symbol: "arrow.right", label: "Next bookshelf", size: L.arrowSize) { withAnimation(Theme.stageMove) { page += 1 } }
                             .position(x: L.nextArrow.x, y: L.nextArrow.y)
                     }
                     if page > 0 {
-                        PTShelfArrow(symbol: "arrow.left", label: "Previous bookshelf") { withAnimation(Theme.stageMove) { page -= 1 } }
+                        PTShelfArrow(symbol: "arrow.left", label: "Previous bookshelf", size: L.arrowSize) { withAnimation(Theme.stageMove) { page -= 1 } }
                             .position(x: L.prevArrow.x, y: L.prevArrow.y)
                     }
                 }
@@ -85,6 +85,8 @@ struct ShelfView: View {
 struct PTShelfLayout {
     let shelf: CGRect, nutmeg: CGRect, back: CGRect
     let nextArrow: CGPoint, prevArrow: CGPoint, dotsY: CGFloat
+    /// The yellow arrows' size (smaller on the phone, beside the dots, so the shelf can be bigger).
+    var arrowSize: CGFloat = 76
     /// iPhone version (mockup screen 7): the tall phone bookshelf centered under Nutmeg (sitting on its top), the back
     /// arrow top-left under the valance, the dots under it and the yellow arrow bottom-right.
     init(phone s: CGSize, safe: EdgeInsets) {
@@ -94,14 +96,16 @@ struct PTShelfLayout {
         let back: CGFloat = 52
         self.back = CGRect(x: max(16, curtain.visible * 0.25), y: top, width: back, height: back)
         // Room: her sitting picture above the shelf, the dots + arrow row below it.
-        let nutH: CGFloat = min(190, s.height * 0.2)
+        // 2026-11-18 (Haylee: "make the bookshelf a little bigger so the images can be bigger on mobile"): she is a bit
+        // smaller and the shelf uses nearly the whole width.
+        let nutH: CGFloat = min(158, s.height * 0.18)
         // The perky sit's seat (the shelf's top edge) is 82.4% down her 1178 × 1335 canvas (mockup screen 7: canvas top
         // 88.5, shelf top 226, canvas 166.9 tall); her ear tips are ~2% down, so the shelf top sits 80% of her height
         // under the top row. Below the seat her legs hang in front of the shelf's crown.
         let seat: CGFloat = 0.824
-        let bottomRoom = max(safe.bottom, 12) + 78
+        let bottomRoom = max(safe.bottom, 12) + 46   // the dots row, with smaller arrows beside the dots
         let maxH = s.height - top - nutH * (seat - 0.024) - bottomRoom
-        var w = min(s.width * 0.84, 360)
+        var w = min(s.width - 16, 440)
         var h = w * art.height / art.width
         if h > maxH { h = maxH; w = h * art.width / art.height }
         let shelfTop = top + nutH * (seat - 0.024)
@@ -109,9 +113,10 @@ struct PTShelfLayout {
         // Centered on the shelf (as in the mockup), her seat on its top edge.
         let nw = nutH * 1178 / 1335
         nutmeg = CGRect(x: s.width / 2 - nw / 2, y: shelfTop - nutH * seat, width: nw, height: nutH)
-        dotsY = shelf.maxY + 26
-        nextArrow = CGPoint(x: min(shelf.maxX + 8, s.width - 44), y: shelf.maxY + 34)
-        prevArrow = CGPoint(x: max(shelf.minX - 8, 44), y: shelf.maxY + 34)
+        dotsY = shelf.maxY + 24
+        nextArrow = CGPoint(x: min(shelf.maxX - 20, s.width - 36), y: shelf.maxY + 24)
+        prevArrow = CGPoint(x: max(shelf.minX + 20, 36), y: shelf.maxY + 24)
+        arrowSize = 52
     }
 
     init(_ s: CGSize) {
@@ -171,7 +176,8 @@ struct PTBookshelf: View {
                 let r = phone ? Self.phoneCard(i, in: size) : Self.card(i, in: size)
                 PTGameCard(game: g, cover: cover(g), size: r.card.size) { onTap(g) }
                     .position(x: r.card.midX, y: r.card.midY)
-                PTShelfLabel(title: g.title, width: r.label.width, height: r.label.height)
+                // 2026-11-18 (Haylee): always the SHORT title (an older game's long title is cut, never rewritten).
+                PTShelfLabel(title: GameTitles.shelf(g.title), width: r.label.width, height: r.label.height)
                     .position(x: r.label.midX, y: r.label.midY)
                     .allowsHitTesting(false)
             }
@@ -192,7 +198,8 @@ struct PTBookshelf: View {
         let x = innerX + gap + CGFloat(col) * (w + gap)
         let card = CGRect(x: x, y: bottom - side, width: w, height: side)
         // The board's front face (shelfFrontY → boardFaceBottomY ≈ +0.027 of the art) holds the label.
-        let lh = max(16, size.height * 0.024), lw = w + gap * 0.5
+        // 2026-11-18: a bigger label for the short titles (nice and big, one line).
+        let lh = max(22, size.height * 0.032), lw = w + gap * 1.5
         let label = CGRect(x: card.midX - lw / 2, y: (slot.shelfFrontY + 0.0135) * size.height - lh / 2, width: lw, height: lh)
         return (card, label)
     }
@@ -276,11 +283,12 @@ struct PTShelfLabel: View {
 struct PTShelfArrow: View {
     let symbol: String
     let label: String
+    var size: CGFloat = 76
     let action: () -> Void
     var body: some View {
         Button(action: action) {
-            Image(systemName: symbol).font(.system(size: 30, weight: .heavy, design: .rounded)).foregroundStyle(Theme.ink)
-                .frame(width: 76, height: 76)
+            Image(systemName: symbol).font(.system(size: size * 0.4, weight: .heavy, design: .rounded)).foregroundStyle(Theme.ink)
+                .frame(width: size, height: size)
                 .background(Circle().fill(Theme.yellow))
                 .background(Circle().fill(Theme.yellowShade).offset(y: Theme.depth))
         }

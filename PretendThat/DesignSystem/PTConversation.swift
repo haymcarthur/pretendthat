@@ -9,6 +9,8 @@ struct PTStageItem: Identifiable, Equatable {
     let title: String
     var subtitle: String? = nil
     var image: UIImage? = nil
+    /// 2026-11-18: how many to find (a "×4" badge on the picture when more than 1; the title says "Up to 4 …").
+    var count: Int = 1
     var tint: Color = Theme.coral
     /// Changing this flips the card over to the new picture (a swapped prop).
     var flipKey: String = ""

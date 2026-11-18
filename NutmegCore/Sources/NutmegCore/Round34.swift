@@ -40,6 +40,30 @@ public enum PropLines {
 
     /// The ask for prop `n` (1-based). Prop 1 opens with "First," and explains the buttons; every 3rd prop uses the
     /// words "pretend that" (round 13); the others rotate four phrasings. The reason (round 24) follows in a few words.
+    /// 2026-11-18: the button explanation for a multiple ("when you find them", "if you don't have any").
+    public static let howToMany = "Tap the green check when you find some, or the X if you don't have any!"
+
+    /// `count` > 1 (2026-11-18, Haylee: props can come in multiples, always "up to"): "Can you find up to four plastic
+    /// cups? One for each player, if you have them! They'll be the tea cups!" Numbers are spelled out for her voice.
+    public static func ask(item: String, becomes: String, reason: String?, n: Int, count: Int, perPlayer: Bool) -> String {
+        guard count > 1 else { return ask(item: item, becomes: becomes, reason: reason, n: n) }
+        let many = "up to \(PropCount.word(count)) \(PropCount.plural(item))"
+        let the = "the " + label(becomes)
+        let each = perPlayer ? " One for each player, if you have them!" : ""
+        let why = reason.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.flatMap { $0.isEmpty ? nil : PlayCast.endSentence($0) }
+        let core: String
+        if n <= 1 {
+            core = "First, can you find \(many)?\(each) They'll be \(the)!"
+        } else if n % 3 == 0 {
+            core = "Can you find \(many)?\(each) Let's pretend that they're \(the)!"
+        } else if (n / 3 + n) % 2 == 0 {
+            core = "Can you find \(many)?\(each) They'll be \(the)!"
+        } else {
+            core = "Now let's look for \(many).\(each) They'll be \(the)!"
+        }
+        return [core, why, n <= 1 ? howToMany : nil].compactMap { $0 }.joined(separator: " ")
+    }
+
     public static func ask(item: String, becomes: String, reason: String?, n: Int) -> String {
         let a = some(item), what = label(becomes)
         let the = "the " + what
@@ -63,8 +87,9 @@ public enum PropLines {
 
     /// The whole line for prop `n`: the lead for the answer before it (a cheer after a found prop, the pretend line after
     /// a missing one), then the ask. Prop 1 has no lead.
-    public static func line(item: String, becomes: String, reason: String?, n: Int, previous: Answer?) -> String {
-        let ask = ask(item: item, becomes: becomes, reason: reason, n: n)
+    public static func line(item: String, becomes: String, reason: String?, n: Int, previous: Answer?,
+                            count: Int = 1, perPlayer: Bool = false) -> String {
+        let ask = ask(item: item, becomes: becomes, reason: reason, n: n, count: count, perPlayer: perPlayer)
         guard n > 1, let previous else { return ask }
         switch previous {
         case .found: return cheer(n: n) + " " + ask
@@ -80,11 +105,13 @@ public enum PropLines {
         return p.isSkipped ? .pretend(becomes: p.becomes) : .found
     }
 
-    /// The prop line for card `index` of `props` (first play and replay share it).
-    public static func line(for props: [Prop], index: Int) -> String? {
+    /// The prop line for card `index` of `props` (first play and replay share it). `players` sizes a multiple (a
+    /// per-player prop asks for up to one each; a replay with a different count scales by itself).
+    public static func line(for props: [Prop], index: Int, players: Int = 1) -> String? {
         guard props.indices.contains(index) else { return nil }
         let p = props[index]
-        return line(item: p.householdItem, becomes: p.becomes, reason: p.reason, n: index + 1, previous: previous(props, before: index))
+        return line(item: p.householdItem, becomes: p.becomes, reason: p.reason, n: index + 1, previous: previous(props, before: index),
+                    count: p.count(players: players), perPlayer: p.isPerPlayer)
     }
 
     /// The tool output on a FIRST play when the app says the prop line itself (the model picked the prop; it says nothing,

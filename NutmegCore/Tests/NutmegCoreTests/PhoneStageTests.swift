@@ -19,8 +19,12 @@ final class PhoneStageTests: XCTestCase {
             XCTAssertEqual(split.content.height, 0)
             XCTAssertEqual(split.nutmeg.height, s.height - 190, accuracy: 0.5)
             let L = PTStageCamera.layout(PTStageFrame(shot: .closeUp, phoneRegion: split.nutmeg), geometry(s))
-            // Whole body inside her box, as wide as it allows (width or height limited), feet on its bottom edge.
-            XCTAssertEqual(L.feetPoint.y, split.nutmeg.maxY, accuracy: 0.5)
+            // Whole body inside her box, as wide as it allows (width or height limited). 2026-11-18 (Haylee: too low
+            // alone): a width-limited body is centered vertically in the box (equal room above her head and below
+            // her feet), never standing on its bottom edge with the sky empty.
+            let headY = L.origin.y + PTStageCamera.headTop * L.k
+            XCTAssertLessThanOrEqual(L.feetPoint.y, split.nutmeg.maxY + 0.5)
+            XCTAssertEqual(headY - split.nutmeg.minY, split.nutmeg.maxY - L.feetPoint.y, accuracy: 1)
             XCTAssertGreaterThanOrEqual(L.origin.y + PTStageCamera.headTop * L.k, split.nutmeg.minY - 0.5)
             XCTAssertLessThanOrEqual(L.maxX - L.minX, s.width + 0.5)
             XCTAssertGreaterThan(L.k, 0.3, "she grows to fill the empty stage")

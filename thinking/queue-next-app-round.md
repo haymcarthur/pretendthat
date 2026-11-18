@@ -437,13 +437,13 @@ Game arc becomes: Print → **story opener** → **setup scene** → 3 play scen
 ## Saved game page + replays need a pass + no bar in Play/The End (queued 2026-11-17, Haylee): DONE 2026-11-17 (decisions/2026-11-17-round-plans-printables-page.md)
 - Spec: decisions/2026-11-17-saved-game-page-and-play-bar.md; mockup design/mockups/after-cancel/ (main version A, no player picker).
 
-## Copy: new tagline + no "off the screen" (queued 2026-11-18, Haylee)
+## Copy: new tagline + no "off the screen" (queued 2026-11-18, Haylee): DONE 2026-11-18 (decisions/2026-11-18-round-props-copy-onboarding.md)
 - decisions/2026-11-18-tagline-and-play-wording.md: onboarding page 1 tagline → "Plan it, print it, play it"; grep app strings and Nutmeg's scripted lines for "off the screen", "steps back", the old flow sentence; use the new wording. Re-record any bundled clip whose words change (one short live recording allowed, voice work).
 
 ## App Store slides v3 to compare (queued 2026-11-18, Haylee) — after the current site/slides agent finishes
 - Haylee's reference: the "Rays" set (vitamin D app). Make design/appstore-screens/slides-v3/ alongside v2 (don't replace v2): enlarged real UI cards floating off the phone edges (wider than the phone), a small outlined label chip at the top of each slide, medium-weight headline, a soft colored shape behind the phone (stage arc / warm spotlight), a bottom caption line with one more detail, logo on some slides, full-bleed hero slide 1 with image 49 (Nutmeg on stage). Same screens/copy as v2 (new tagline "Plan it, print it, play it", sparkly talking screen, "Play it out, scene by scene"). iPhone + iPad + 6.3" sets, strips for comparison.
 
-## Prop hunt: props can come in multiples (queued 2026-11-18, Haylee)
+## Prop hunt: props can come in multiples (queued 2026-11-18, Haylee): DONE 2026-11-18 (decisions/2026-11-18-round-props-copy-onboarding.md)
 - Haylee: "when they are playing something like tea party or restaurant and there are more than one person playing, they may need multiples like a cup for every player or a plate for every player or a chair for every player or multiple stuffed animals to be guests or patients… I'd like the prop hunt to be able to suggest more than one item if it is appropriate for the game."
 - Claude's proposed design (confirm with Haylee before building if anything is unclear):
   - Each prop gets a quantity rule: **one** (default), **one per player** (cups, plates, chairs, badges-holders), or **a fixed small number** (e.g. 3 stuffed animals as patients). The AI chooses it when it plans props; the app clamps it (max = player count for per-player; fixed max 6).
@@ -454,10 +454,10 @@ Game arc becomes: Print → **story opener** → **setup scene** → 3 play scen
   - Keep all prop rules: household only, no printed things, no weapons, no-repeat, prop fit.
 - **Update (Haylee, 2026-11-18):** say "**up to** N" for multiples so families without enough never feel they can't play. Card: "Up to 4 cups — tea cups for everyone"; Nutmeg: "Find up to 4 cups — one for each player if you have them!" ✓ = found some; no "we only have 2" step needed. (The no-"up to" rule is only for plan/marketing copy, not here.)
 
-## Onboarding spacing (queued 2026-11-18, Haylee)
+## Onboarding spacing (queued 2026-11-18, Haylee): DONE 2026-11-18 (decisions/2026-11-18-round-props-copy-onboarding.md)
 - Haylee: "during onboarding, the spacing is a little weird. It shows the graphic in the middle and then the heading and text are pushed way down by the button making it feel cramped. It is that way on iphone and ipad."
 - Fix: balance each onboarding page vertically — the art sits higher (not centered in the leftover space), heading + body sit right under the art with comfortable spacing, and a clear gap above the button; nothing crowding the button. Check every onboarding page (incl. plans and privacy pages) on iPhone 18 Pro, a small iPhone (SE/17e), iPad portrait-equivalent and iPad landscape; before/after screenshots.
 
-## iPhone Nutmeg placement fixes (queued 2026-11-18, Haylee, from her phone)
+## iPhone Nutmeg placement fixes (queued 2026-11-18, Haylee, from her phone): DONE 2026-11-18 (decisions/2026-11-18-round-props-copy-onboarding.md)
 1. **Nutmeg alone on the stage sits too low** (e.g. the Play story moment with no card, now that the control bar is gone): she's anchored near the bottom with lots of empty sky above, so the screen feels bottom-heavy. Re-center her vertically in the free space (iPhone; check iPad too), keep her feet on the stage floor arc.
 2. **Peek-over-the-scene-card arms look wrong**: in the peek pose the shoulders/arms read as odd brown wedges with dark outlines and the paws don't look attached (screenshot: "Open the Salon" scene). Investigate the layering of nutmeg-peek-back / nutmeg-peek-paws vs the rig head (design/nutmeg/peek/nutmeg-peek-parts.svg; groups body/paw-left/paw-right from Haylee's Figma logo frame 22:2509): likely the arm shapes are split between the body group (behind the card) and the paw groups (in front) so the arms are cut by the card edge, or the rig head covers/misaligns the shoulders. Try layering/offset fixes first (e.g. whole arms incl. upper arm in front of the card, or the card edge lower so the arms are fully visible). If it needs new art, STOP and report: Haylee's rule is regenerate/vectorize the pose, never patch shapes — she can export a better split from Figma.

@@ -360,16 +360,25 @@ struct OBPage<Visual: View, Copy: View, Extra: View, Actions: View>: View {
         .frame(maxWidth: .infinity)
     }
 
+    /// 2026-11-18 (Haylee: "the graphic in the middle and then the heading and text pushed way down by the button,
+    /// cramped"): the art, heading and body are ONE block, balanced a little above the middle of the free space (one
+    /// share of the leftover room above it, two below), the heading right under the art, and a clear gap above the
+    /// button. The art takes the room it needs first (up to `maxVisual`), never the whole leftover space.
     private func column(minVisual: CGFloat) -> some View {
-        VStack(spacing: 0) {
+        let pad = !metrics.isPhone
+        return VStack(spacing: 0) {
             OBTopBar(dot: dot, back: back)
             if titleOnTop { copy().padding(.top, 28) }
+            Spacer(minLength: titleOnTop ? 16 : 8)
             visual()
-                .frame(maxWidth: .infinity, minHeight: minVisual, maxHeight: .infinity)
-            if !titleOnTop { copy().padding(.top, 6) }
+                .frame(maxWidth: .infinity, minHeight: minVisual, maxHeight: pad ? 380 : 300)
+                .layoutPriority(1)
+            if !titleOnTop { copy().padding(.top, 18) }
             extra()
+            Spacer(minLength: 28)
+            Spacer(minLength: 0)
             VStack(spacing: 0) { actions() }
-                .padding(.top, 16).padding(.bottom, 8)
+                .padding(.bottom, 8)
         }
     }
 }

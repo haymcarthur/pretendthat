@@ -45,6 +45,8 @@ public final class AdventureStore {
     /// Where the planning conversation is (conversation-structure.md); driven by the function calls.
     public private(set) var planningStep: PlanningStep = .game
     public private(set) var gameTitle: String?
+    /// 2026-11-18: the AI's short shelf title from set_theme (checked by `GameTitles`; nil = cut from the full title).
+    public private(set) var shortTitle: String?
     /// Round 39: the game type as set_game named it ("Pizza Restaurant"), before the theme renamed the title (the
     /// "sounds like a game you have" check matches type + theme). Never saved.
     public private(set) var gameType: String?
@@ -198,7 +200,7 @@ public final class AdventureStore {
     /// Round 34: the row `read_job` asked for (the app reads it and clears this).
     @ObservationIgnored public var lastReadJobRow: Int?
     /// The first prop's line (said by the app once the roles line has played).
-    public var firstPropAppLine: String? { props.flatMap { PropLines.line(for: $0.props, index: 0) } }
+    public var firstPropAppLine: String? { props.flatMap { PropLines.line(for: $0.props, index: 0, players: max(1, playerCount)) } }
 
     /// Round 19: the line when a late theme fix remakes the kit.
     public nonisolated static func remakeLine(_ title: String) -> String {
@@ -393,7 +395,7 @@ public final class AdventureStore {
 
     public func newGame() {
         phase = .hello
-        playerCount = 0; gameTitle = nil; gameType = nil; printStyle = nil; planningStep = .game; themeIdeas = []
+        playerCount = 0; gameTitle = nil; shortTitle = nil; gameType = nil; printStyle = nil; planningStep = .game; themeIdeas = []
         printSet = PrintStyle.defaultSet; availableSets = PrintStyle.sets   // round 27
         ideas = nil; plan = nil; props = nil; fullKit = nil
         choices = []; lastError = nil; usingFallback = false
@@ -494,7 +496,7 @@ public final class AdventureStore {
         guard let first = list.first else { currentPropID = nil; phase = .kitReady; return HandOffLines.printReady }
         currentPropID = first.id
         phase = .props
-        return PropLines.line(for: list, index: 0) ?? ReplayLines.propAsk(first, n: 1)   // round 34: the first play's words
+        return PropLines.line(for: list, index: 0, players: playerCount) ?? ReplayLines.propAsk(first, n: 1)   // round 34: the first play's words
     }
 
     /// The replay's hunt is on: one card, ✓ / ✗ (or "found it" / "we don't have one").
@@ -525,7 +527,7 @@ public final class AdventureStore {
             p.props[i].alternates = p.props[i].alternates?.filter { $0 != alt }
             props = p
             replayRefreshGuide()
-            say(ReplayLines.useInstead(p.props[i].householdItem))
+            say(ReplayLines.useInstead(p.props[i].count(players: playerCount) > 1 ? PropCount.plural(p.props[i].householdItem) : p.props[i].householdItem))
             return
         }
         p.props[i].skipped = true
@@ -542,7 +544,7 @@ public final class AdventureStore {
             currentPropID = all[k].id
             // Round 34 (Haylee): the first play's prop line, word for word (its lead says the answer before it: a
             // cheer, or the pretend line), so the first play's clip plays again.
-            return PropLines.line(for: all, index: k) ?? ReplayLines.propAsk(all[k], n: k + 1)
+            return PropLines.line(for: all, index: k, players: playerCount) ?? ReplayLines.propAsk(all[k], n: k + 1)
         } else {
             currentPropID = nil
             presenting = .none
@@ -734,6 +736,7 @@ public final class AdventureStore {
         case .setGame(let title):
             if let refused = afterYesRefusal() { return refused }
             gameType = title
+            shortTitle = nil   // a new game: its theme gives the short title again
             if planningStep >= .players {
                 // A fix while the count is asked or the plan is being confirmed (or after the roles): stay on track.
                 return correct(title: title, what: "Game fixed: \(title).")
@@ -743,8 +746,9 @@ public final class AdventureStore {
             let ideas = themeIdeas.isEmpty ? "with 2 or 3 example themes that fit this game"
                 : "suggesting EXACTLY these \(themeIdeas.count) theme ideas, all of them and no others, and make it sound open (\"Any twist you like! Maybe \(Suggestions.spoken(themeIdeas))?\"; you may say them so they fit this game, but never drop one or add your own)"
             return "Game set: \(title). Step 2: react in one short sentence, then ask what theme or twist it should have, \(ideas). If the kids say their own theme, take it. Call set_theme when they pick."
-        case .setTheme(let title):
+        case .setTheme(let title, let short):
             if let refused = afterYesRefusal() { return refused }
+            shortTitle = GameTitles.cleanShort(short)
             if planningStep >= .players { return correct(title: title, what: "Theme fixed: \(title).") }
             gameTitle = title; plan = nil; props = nil
             phase = .players; presenting = .none; planningStep = .players
@@ -860,7 +864,7 @@ public final class AdventureStore {
             if p.props.contains(where: { $0.id == id }) { id += "-\(p.props.count)" }
             p.props.append(Prop(id: id, householdItem: PropLibrary.name(d.itemID) ?? d.itemID, becomes: d.becomes,
                                 forRole: owner, safetyOK: true, libraryID: d.itemID, alternates: d.alternates, skipped: false,
-                                reason: d.reason))
+                                reason: d.reason, quantity: PropQuantity.canMultiply(d.itemID) ? d.quantity : nil))
             props = p; currentPropID = id
             phase = .props; presenting = .props; planningStep = .props
             let n = p.props.count
@@ -868,11 +872,16 @@ public final class AdventureStore {
             // Round 34 (Haylee): the app writes and says every prop line after the first (the first follows the roles
             // line, `firstPropAppLine`), recorded as her clip, so a replay says exactly the same words.
             pendingPropLine = nil
-            if appSaysPropLines, n > 1, let line = PropLines.line(for: p.props, index: n - 1) {
+            if appSaysPropLines, n > 1, let line = PropLines.line(for: p.props, index: n - 1, players: max(1, playerCount)) {
                 pendingPropLine = line
                 return swapNote + freshNote + PropLines.appSaysOutput(id: id, n: n, target: propTarget, line: line)
             }
-            return swapNote + freshNote + Self.nextPropOutput(id: id, item: PropLibrary.name(d.itemID) ?? d.itemID, becomes: d.becomes, n: n,
+            let added = p.props[n - 1], many = added.count(players: max(1, playerCount))
+            // 2026-11-18 (Haylee): a multiple is always "up to N" (a family with fewer can still play).
+            let manyNote = many > 1
+                ? "(This card asks for UP TO \(PropCount.word(many)) \(PropCount.plural(added.householdItem))\(added.isPerPlayer ? ", one for each player" : ""): say \"up to \(PropCount.word(many))\" in your line, like \"Can you find up to \(PropCount.word(many)) \(PropCount.plural(added.householdItem))?\"\(added.isPerPlayer ? " and \"one for each player, if you have them\"" : ""). Finding some counts as found.) "
+                : ""
+            return swapNote + freshNote + manyNote + Self.nextPropOutput(id: id, item: PropLibrary.name(d.itemID) ?? d.itemID, becomes: d.becomes, n: n,
                                                   reason: d.reason, target: propTarget)
         case .markFound(let id):
             guard let p = props, let prop = p.props.first(where: { $0.id == id || $0.libraryID == id }) ?? p.props.first(where: { $0.id == currentPropID }) else {

@@ -548,7 +548,8 @@ struct RootView: View {
                 let current = p.id == store.replayCurrentProp?.id
                 guard answered || current else { return nil }
                 let art = p.libraryID.flatMap { UIImage(named: PropLibrary.asset($0)) } ?? model.stickers.art(.prop, p.householdItem)
-                return PTStageItem(id: "prop-\(p.id)", title: p.householdItem, subtitle: p.becomes, image: art,
+                return PTStageItem(id: "prop-\(p.id)", title: p.cardTitle(players: store.playerCount), subtitle: p.becomes, image: art,
+                                   count: p.count(players: store.playerCount),
                                    tint: Theme.playerColor(i), flipKey: p.libraryID ?? p.householdItem, isPretend: p.isSkipped,
                                    chip: p.isSkipped ? .pretend : (store.foundProps.contains(p.id) ? .found : (p.swapped == true ? .swapped : .none)),
                                    huntButtons: current)
@@ -651,9 +652,9 @@ struct RootView: View {
             return (store.props?.props ?? []).prefix(model.visibleProps).enumerated().map { i, prop in
                 // Library props use the hand-drawn art (prop-<id>); off-list props fall back to a generated sticker.
                 let art = prop.libraryID.flatMap { UIImage(named: PropLibrary.asset($0)) } ?? model.stickers.art(.prop, prop.householdItem)
-                return PTStageItem(id: "prop-\(prop.id)", title: prop.householdItem,
+                return PTStageItem(id: "prop-\(prop.id)", title: prop.cardTitle(players: store.playerCount),
                                    subtitle: prop.becomes,
-                                   image: art, tint: Theme.playerColor(i),
+                                   image: art, count: prop.count(players: store.playerCount), tint: Theme.playerColor(i),
                                    flipKey: prop.libraryID ?? prop.householdItem, isPretend: prop.isSkipped,
                                    chip: prop.isSkipped ? .pretend : (store.foundProps.contains(prop.id) ? .found : (prop.swapped == true ? .swapped : .none)),
                                    huntButtons: store.huntActive && prop.id == store.currentPropID

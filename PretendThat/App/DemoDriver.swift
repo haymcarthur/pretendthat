@@ -617,6 +617,12 @@ enum DemoDriver {
             _ = await store.apply(.showNextProp(.init(itemID: "tray", becomes: "a serving tray for delivering orders across the restaurant", forRole: "all")))
             return
         }
+        if target == "convHuntMany" {   // 2026-11-18: a multiple (up to one chair per player), after one found prop
+            _ = await store.apply(.showNextProp(.init(itemID: "plate", becomes: "the steering wheel", forRole: "all")))
+            _ = await store.apply(.markFound("plate"))
+            _ = await store.apply(.showNextProp(.init(itemID: "cup", becomes: "the tea cups", forRole: "all", quantity: .perPlayer)))
+            return
+        }
         if target.hasPrefix("convHunt") {   // the one-at-a-time prop hunt: convHunt1, convHunt3 (2 done), convHuntLast
             let hunt: [(String, String)] = [("plate", "the steering wheel"), ("chair", "the plane seats"), ("tray", "the snack cart"), ("backpack", "a suitcase")]
             let upTo = target == "convHunt1" ? 1 : (target == "convHunt3" ? 3 : 4)

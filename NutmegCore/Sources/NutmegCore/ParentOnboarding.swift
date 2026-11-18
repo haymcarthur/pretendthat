@@ -352,7 +352,8 @@ public enum OnboardingCopy {
     public static let getAGrownUp = "Hi! I'm Nutmeg. Can you get a grown-up? This part is just for them."
     public static let greetKid = "Hi! I'm Nutmeg, your pretend-play stage manager. Tap the big play button, and let's make up a game!"
 
-    public static let tagline = "Turn your living room into a pretend-play adventure."
+    /// 2026-11-18 (decisions/2026-11-18-tagline-and-play-wording.md): the tagline everywhere, onboarding page 1 included.
+    public static let tagline = "Plan it, print it, play it"
     public static let nutmegIntro = "Meet Nutmeg, your pretend-play stage manager."
 
 
@@ -366,10 +367,11 @@ public enum OnboardingCopy {
     // 2 · How it works (four rows: an icon, one word, one short line)
     public static let howTitle = "How it works"
     public static let steps: [(step: JourneyStep, title: String, body: String)] = [
-        (.game, "Pick", "Pick a game by talking with Nutmeg"),
-        (.getReady, "Props", "Find props around the house"),
-        (.print, "Print", "Print your custom kit"),
-        (.play, "Play", "Play scene by scene, off the screen"),
+        // 2026-11-18: the one flow sentence, as parallel steps (never "off the screen": kids still read between scenes).
+        (.game, "Pick", "Plan a game by talking with Nutmeg"),
+        (.getReady, "Props", "Hunt for props around the house"),
+        (.print, "Print", "Print a kit made for your game"),
+        (.play, "Play", "Act it out together, scene by scene"),
     ]
 
     // 3 · What you'll need (three tiles; no game length anywhere)

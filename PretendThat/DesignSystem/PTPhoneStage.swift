@@ -38,6 +38,7 @@ struct PTPhonePropHunt: View {
                 .saturation(item.isPretend ? 0 : 1).opacity(item.isPretend ? 0.5 : 1)
                 .overlay(alignment: .bottomTrailing) {
                     if item.isDone || item.chip == .swapped { PTPropBadge(item: item, side: 28).offset(x: 4, y: 4) }
+                    else { PTPropCountBadge(count: item.count, side: 34).offset(x: 6, y: 6) }   // 2026-11-18: "×4"
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.title).font(Theme.displayFont(24)).foregroundStyle(Theme.ink)

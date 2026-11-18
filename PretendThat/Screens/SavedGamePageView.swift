@@ -164,20 +164,11 @@ struct SavedGamePageView: View {
     private func setButton(_ style: PrintStyle) -> some View {
         let on = model.savedPageStyle == style
         return Button { model.savedPageStyle = style } label: {
-            HStack(spacing: 10) {
-                HStack(spacing: -5) {
-                    ForEach(0..<4, id: \.self) { k in
-                        if style == .fullColor {
-                            Circle().fill([Theme.coral, Theme.yellow, Theme.lime, Theme.purple][k]).frame(width: 18, height: 18)
-                        } else {
-                            Circle().strokeBorder(Theme.ink, lineWidth: 2.5).background(Circle().fill(Theme.white)).frame(width: 18, height: 18)
-                        }
-                    }
-                }
-                Text(style == .fullColor ? SavedGamePageCopy.color : SavedGamePageCopy.blackAndWhite)
-                    .font(Theme.headlineFont(phone ? 18 : 22)).foregroundStyle(Theme.ink)
-                    .lineLimit(1).minimumScaleFactor(0.7)
-            }
+            // 2026-11-18 (Haylee: the label was cut off): words only, no dot / ring icons, so the label fits everywhere.
+            Text(style == .fullColor ? SavedGamePageCopy.color : SavedGamePageCopy.blackAndWhite)
+                .font(Theme.headlineFont(phone ? 18 : 22)).foregroundStyle(Theme.ink)
+                .lineLimit(1).minimumScaleFactor(0.7)
+                .padding(.horizontal, 12)
             .frame(maxWidth: .infinity, minHeight: phone ? 56 : 64)
             .background(Capsule().fill(on ? Theme.cream : Theme.white))
             .overlay(Capsule().strokeBorder(on ? Theme.yellow : Theme.lavenderShade, lineWidth: on ? 4 : 2.5))

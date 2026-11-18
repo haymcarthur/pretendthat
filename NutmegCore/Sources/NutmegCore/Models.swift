@@ -118,10 +118,15 @@ public struct Prop: Codable, Equatable, Sendable, Identifiable {
     public var swapped: Bool?
     /// Round 24: the short kid-friendly "why it works" ("A bowl is round like a captain's hat!").
     public var reason: String?
+    /// 2026-11-18 (Haylee): props can come in multiples (`PropQuantity`): nil = one. The RULE is kept (per player or a
+    /// fixed number), so a replay with a different count scales by itself. Use `rule` / `count(players:)` to read it.
+    public var quantity: PropQuantity?
     public init(id: String, householdItem: String, becomes: String, emoji: String? = nil, forRole: SceneOwner, safetyOK: Bool,
-                libraryID: String? = nil, alternates: [String]? = nil, skipped: Bool? = nil, reason: String? = nil) {
+                libraryID: String? = nil, alternates: [String]? = nil, skipped: Bool? = nil, reason: String? = nil,
+                quantity: PropQuantity? = nil) {
         self.id = id; self.householdItem = householdItem; self.becomes = becomes; self.emoji = emoji; self.forRole = forRole; self.safetyOK = safetyOK
         self.libraryID = libraryID; self.alternates = alternates; self.skipped = skipped; self.reason = reason
+        self.quantity = quantity == .one ? nil : quantity
     }
     public var isSkipped: Bool { skipped ?? false }
 }

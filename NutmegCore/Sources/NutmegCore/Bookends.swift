@@ -358,7 +358,7 @@ public enum Bookends {
         case .decoder: (short, say) = ("Put the decoder away", "put the code decoder with the pages")
         case .controlPanel: (short, say) = ("Power down the panel", "switch off the control panel and lay it flat")
         case nil:
-            let thing = (item.prop?.householdItem ?? "prop").lowercased()
+            let thing = item.prop?.itemWords ?? "prop"   // 2026-11-18: "the plastic cups" for a multiple
             (short, say) = ("Put the \(thing) away", "put the \(thing) back where it lives")
         }
         return ItemJob(item: item.id, short: short, say: say, role: item.prop?.forRole.role,
@@ -557,7 +557,7 @@ public enum Bookends {
         case let t?: full = t.spokenName
         case nil:
             let p = item.prop
-            full = (cleanup ? p?.householdItem : p.map { KitDraft.cutoutLabel(becomes: $0.becomes) })?.lowercased() ?? "prop"
+            full = (cleanup ? p?.itemWords : p.map { KitDraft.cutoutLabel(becomes: $0.becomes) })?.lowercased() ?? "prop"
         }
         let words = full.split(separator: " ")
         guard tight || words.count > 2, let last = words.last else { return full }

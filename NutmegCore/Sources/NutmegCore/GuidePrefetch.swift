@@ -106,7 +106,9 @@ public enum GuideWeave {
             }.joined(separator: "\n")
         }.joined(separator: "\n")
         let list = props.map { p in
-            "- id \(p.id): a \(p.householdItem.lowercased()) that becomes \(p.becomes)"
+            // 2026-11-18: a multiple is plural in the guide ("the cups"), never a count (replays change the count).
+            (p.rule == .one ? "- id \(p.id): a \(p.householdItem.lowercased()) that becomes \(p.becomes)"
+                : "- id \(p.id): several \(p.itemWords)\(p.isPerPlayer ? " (one for each player)" : "") that become \(p.becomes) (always say them in the plural, like \"the \(p.itemWords)\", never a number)")
                 + (p.forRole.role.map { r in r.rank <= n ? " (for the \(roles.first { $0.id == r }?.roleName ?? r.rawValue))" : "" } ?? "")
                 + (p.isSkipped ? " (pretend: they don't have it, they'll use a printed cut-out)" : "")
         }.joined(separator: "\n")

@@ -210,11 +210,11 @@ final class FakeDefaults: OnboardingDefaults {
 
     @Test func v3CopyIsTheApprovedMockupsWords() {
         #expect(OnboardingCopy.helloTitle == "Welcome to PretendThat")
-        #expect(OnboardingCopy.helloBody == "Turn your living room into a pretend-play adventure.")
+        #expect(OnboardingCopy.helloBody == "Plan it, print it, play it")   // 2026-11-18: the new tagline
         #expect(OnboardingCopy.helloButton == "Get started")
         #expect(OnboardingCopy.steps.map(\.title) == JourneyStep.allCases.map(\.label))
-        #expect(OnboardingCopy.steps.map(\.body) == ["Pick a game by talking with Nutmeg", "Find props around the house",
-                                                     "Print your custom kit", "Play scene by scene, off the screen"])
+        #expect(OnboardingCopy.steps.map(\.body) == ["Plan a game by talking with Nutmeg", "Hunt for props around the house",
+                                                     "Print a kit made for your game", "Act it out together, scene by scene"])
         #expect(OnboardingCopy.needs.map(\.title) == ["A printer", "Crayons & scissors", "Space to play"])
         // No game length anywhere (Haylee, follow-up 2).
         let all = ([OnboardingCopy.needLead] + OnboardingCopy.needs.flatMap { [$0.title, $0.detail] }).joined(separator: " ")

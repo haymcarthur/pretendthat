@@ -372,17 +372,20 @@ struct NutmegPeek: View {
             let u = geo.size.width / Self.box.width
             switch part {
             case .front:
-                art("nutmeg-peek-paws", u: u)
-            case .back:
+                // 2026-11-18 (Haylee: her arms/shoulders drew OVER her face): the head is drawn in the FRONT layer,
+                // after the paws, so the shoulders tuck under her cheeks and the head is always in front. The head sits
+                // wholly above the card's edge, so it never covers the card.
                 TimelineView(.animation(minimumInterval: 1.0 / 30, paused: false)) { context in
                     let m = Motion(state: state, t: context.date.timeIntervalSinceReferenceDate, reduced: reduceMotion,
                                    speaking: isSpeaking,
                                    level: mouthShape.map { $0 == .closed ? 0 : ($0 == .small ? 0.4 : 0.9) } ?? mouthLevel * 2)
                     ZStack(alignment: .topLeading) {
-                        art("nutmeg-peek-back", u: u)
+                        art("nutmeg-peek-paws", u: u)
                         head(motion: m, u: u)
                     }
                 }
+            case .back:
+                art("nutmeg-peek-back", u: u)
             }
         }
         .aspectRatio(Self.box.width / Self.box.height, contentMode: .fit)
