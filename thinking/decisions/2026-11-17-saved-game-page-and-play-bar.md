@@ -8,3 +8,5 @@
   - **Copy everywhere** must change from "saved games are free to play again" to: printables are always yours; playing saved games with Nutmeg is included with a pass (the 2 free games always replay).
 - **Control bar (Haylee: yes):** remove the mic / repeat / chat bar during Play (setup, scenes, clean-up) and The End. Each role row's speaker stays; add a small speaker on the scene title that replays Nutmeg's setup line ("Pretend that…"). The End: Home and Play again sit where the bar was, bigger. The freed space lets the iPhone peek Nutmeg stay big at 5–6 rows. Saying "next scene" out loud stops working (the button covers it). Check whether the voice session can close earlier in Play (cost), report only.
 - **Who decided:** Haylee; Claude's calls: the title speaker, the bar sliding away.
+
+- **Update (Haylee, 2026-11-17):** the 2 Free Preview games get the SAME experience as other saved games: without a pass, only viewing and printing; "Play with Nutmeg" asks for a grown-up and shows the pass card. No exception and no footnote promising free games replay.
