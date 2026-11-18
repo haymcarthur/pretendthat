@@ -1,6 +1,6 @@
 # Project rules: PretendThat (pretend-play game master app)
 
-**What it is:** an iPad app (Swift/SwiftUI) for kids ages 4–8. A voice-first stage-manager mouse mascot named **Nutmeg** (a girl, she/her) takes kids from "I'm bored" through roles, household props, an AI-generated printable kit, and a scene-by-scene play guide, then steps back so play happens off the screen. App name: **PretendThat**.
+**What it is:** an iPad and iPhone app (Swift/SwiftUI) for kids ages 4–8. A voice-first stage-manager mouse mascot named **Nutmeg** (a girl, she/her) takes kids from "I'm bored" through roles, household props, an AI-generated printable kit, and a scene-by-scene play guide: Nutmeg sets each scene, and the kids act it out together. Tagline: "Plan it, print it, play it". App name: **PretendThat**.
 
 **Competition:** Southern Utah Code Camp 2026, solo (Haylee). **Code freeze: Sat Nov 14, 7:59:59 AM.** Code Camp is finished (Haylee, 2026-11-17): no more team-profile or competition tasks.
 
