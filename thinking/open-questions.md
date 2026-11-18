@@ -67,3 +67,5 @@
 - Round 45: the printables overhaul, then refresh the site's print fan.
 
 **Ideas parked:** mini voice for the whole conversation; voice-light replays for families without a plan; iCloud sync; Season Pass extras.
+
+- (2026-11-17, round plans/printables/page) The End's bundled clip still says "This game is saved, so you can play it again later." Without a pass, playing it again needs a grown-up. Re-record with new words (suggestion: "This game is saved, so you can print it again later.")? Needs one live recording run.

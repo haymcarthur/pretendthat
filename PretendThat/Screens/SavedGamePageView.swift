@@ -20,7 +20,7 @@ struct SavedGamePageView: View {
                               height: geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom)
             let curtain = PTCurtain.metrics(full)
             let sheetW = min(full.width - (phone ? 0 : 2 * Theme.Space.xl), 760)
-            let peekW = min(phone ? full.width * 0.5 : 300, 300)
+            let peekW = phone ? min(full.width * 0.42, 190) : 200
             let above = NutmegPeek.heightAboveEdge(width: peekW), overhang = NutmegPeek.pawOverhang(width: peekW)
             let sheetTop = max(curtain.valance * 0.55, geo.safeAreaInsets.top + 8) + above
             ZStack(alignment: .top) {
@@ -81,7 +81,7 @@ struct SavedGamePageView: View {
     }
 
     private var header: some View {
-        let coverW: CGFloat = phone ? 132 : 190
+        let coverW: CGFloat = phone ? 132 : 160
         return HStack(spacing: phone ? 14 : 20) {
             Group {
                 if let c = model.cover(for: game) {
@@ -104,7 +104,7 @@ struct SavedGamePageView: View {
 
     /// The one main action: big, yellow, ▶ and Nutmeg's face (her live head: it talks when she does).
     private var playButton: some View {
-        let h: CGFloat = phone ? 84 : 104
+        let h: CGFloat = phone ? 84 : 96
         return Button { model.tapPlaySavedPage() } label: {
             HStack(spacing: phone ? 10 : 16) {
                 Image(systemName: "play.fill").font(.system(size: phone ? 30 : 38, weight: .black)).foregroundStyle(Theme.ink)
@@ -114,8 +114,8 @@ struct SavedGamePageView: View {
             }
             .padding(.horizontal, phone ? 14 : 24)
             .frame(maxWidth: .infinity, minHeight: h)
-            .background(Capsule().fill(Theme.yellowShade).offset(y: Theme.depth))
             .background(Capsule().fill(Theme.yellow))
+            .background(Capsule().fill(Theme.yellowShade).offset(y: Theme.depth))
             .padding(.bottom, Theme.depth)
             .contentShape(Capsule())
         }
@@ -138,7 +138,7 @@ struct SavedGamePageView: View {
                     setButton(.colorIn)
                 }
             }
-            let thumbW: CGFloat = phone ? 132 : 180
+            let thumbW: CGFloat = phone ? 132 : 148
             let thumbH = thumbW * KitPageView.size.height / KitPageView.size.width
             let art = model.pageArtSet(model.savedPageStyle)
             ScrollView(.horizontal) {
@@ -192,8 +192,8 @@ struct SavedGamePageView: View {
             Label(SavedGamePageCopy.print, systemImage: "printer.fill")
                 .font(Theme.displayFont(phone ? 24 : 30)).foregroundStyle(Theme.white)
                 .frame(maxWidth: .infinity, minHeight: phone ? 68 : 80)
-                .background(Capsule().fill(Color.black).offset(y: Theme.depth))
                 .background(Capsule().fill(Theme.cta))
+                .background(Capsule().fill(Color.black).offset(y: Theme.depth))
                 .padding(.bottom, Theme.depth)
                 .contentShape(Capsule())
         }
@@ -242,8 +242,8 @@ struct SavedPageAskCard: View {
                         Label(SavedGamePageCopy.grownUps, systemImage: "lock.fill")
                             .font(Theme.headlineFont(phone ? 22 : 26)).foregroundStyle(Theme.ink)
                             .frame(maxWidth: .infinity, minHeight: phone ? 64 : 72)
-                            .background(Capsule().fill(Theme.yellowShade).offset(y: Theme.depth))
                             .background(Capsule().fill(Theme.yellow))
+                            .background(Capsule().fill(Theme.yellowShade).offset(y: Theme.depth))
                             .padding(.bottom, Theme.depth)
                             .contentShape(Capsule())
                     }
@@ -268,8 +268,8 @@ struct SavedPageAskCard: View {
             Button { model.repeatSavedPageAsk() } label: {
                 Image(systemName: "speaker.wave.2.fill").font(.system(size: phone ? 30 : 36, weight: .bold)).foregroundStyle(Theme.ink)
                     .frame(width: phone ? 84 : 96, height: phone ? 84 : 96)
-                    .background(Circle().fill(Theme.lavenderShade).offset(y: 5))
                     .background(Circle().fill(Theme.white))
+                    .background(Circle().fill(Theme.lavenderShade).offset(y: 5))
                     .contentShape(Circle())
             }
             .buttonStyle(PTPressStyle())

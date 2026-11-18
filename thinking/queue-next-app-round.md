@@ -425,14 +425,14 @@ Game arc becomes: Print → **story opener** → **setup scene** → 3 play scen
 - Make sure the chat/keyboard and the mic both work in that state on replays, and that it can't dead-end. Tests for the parser and the no-voice replay path.
 - Same round as the iPhone peek-over-the-card change.
 
-## Printables: draw once, color in (queued 2026-11-17, Haylee approved) — after the peek/replay round
+## Printables: draw once, color in (queued 2026-11-17, Haylee approved): DONE 2026-11-17 (decisions/2026-11-17-round-plans-printables-page.md; relay redeploy + live check pending)
 - Spec: decisions/2026-11-17-printables-draw-once-color-in.md. Test code/prompts: design/printables-match-test/ (scripts/, notes.md, prompts.json; the tuned v2 color prompt). The model rejects `input_fidelity`.
 - Relay must allow POST /v1/images/edits (multipart, image input); Haylee redeploys. Keep the badge/ticket draw-6-then-crop flow; the crop works on both versions since they match.
 - Guardrails: dark/saturated letter fills only (no cream/white/pale yellow letters, no yellow-on-white), white paper; Vision contrast check per text box + one redraw; word check on the color page; the outline page's word check follows the round 46 rule.
 
-## Plans 5/20 in the app + relay (queued 2026-11-17, Haylee locked) — in the printables round
+## Plans 5/20 in the app + relay (queued 2026-11-17, Haylee locked): DONE 2026-11-17 (decisions/2026-11-17-round-plans-printables-page.md; relay redeploy + App Store Connect pending)
 - decisions/2026-11-17-plans-5-and-20.md. Subscriptions.swift, ParentOnboarding.swift, GrownUps.swift, the StoreKit test config, paywall/plans copy, onboarding pages: Show 5 / Season 20, $9.99 / $99.99 and $24.99 / $249.99, remove intro offers and intro copy. Free Preview copy must say 2 games to try, ONCE ("2 free games to try", never "a month"); check every place the free games are mentioned (onboarding, paywall, Grown-ups, Nutmeg's lines/clips if any say it).
 - relay/src/shows.ts plan limits 10/30 → 5/20 (Haylee redeploys with the image-edit change).
 
-## Saved game page + replays need a pass + no bar in Play/The End (queued 2026-11-17, Haylee) — same round as printables + plans
+## Saved game page + replays need a pass + no bar in Play/The End (queued 2026-11-17, Haylee): DONE 2026-11-17 (decisions/2026-11-17-round-plans-printables-page.md)
 - Spec: decisions/2026-11-17-saved-game-page-and-play-bar.md; mockup design/mockups/after-cancel/ (main version A, no player picker).
