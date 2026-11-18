@@ -13,7 +13,10 @@ const OID_ECDSA_SHA384 = "1.2.840.10045.4.3.3";
 const OID_P256 = "1.2.840.10045.3.1.7";
 const OID_P384 = "1.3.132.0.34";
 
-export const BUNDLE_ID = "app.pretendthat.ios";
+/** The App Store bundle ID (Crimson Foundry LLC team, 2026-11-17). */
+export const BUNDLE_ID = "co.crimsonfoundry.pretendthat";
+/** Accepted bundle IDs: the current one, plus the pre-App Store one during the transition (no store build ever used it). */
+export const BUNDLE_IDS = [BUNDLE_ID, "app.pretendthat.ios"];
 /** Product IDs (NutmegCore StoreProducts) → new shows a month. The Free Preview is 2 in total. */
 export const PLAN_SHOWS: Record<string, number> = {
   "app.pretendthat.showpass.monthly": 10,
@@ -230,7 +233,7 @@ export async function hashKey(secret: string, value: string): Promise<string> {
 
 /** Reads only what's needed from a verified payload. Throws for anything that isn't an active PretendThat plan / app. */
 export async function countedFrom(kind: string, p: Record<string, unknown>, secret: string, now = Date.now()): Promise<Counted> {
-  if (p.bundleId !== BUNDLE_ID) throw new Error("wrong app");
+  if (!BUNDLE_IDS.includes(String(p.bundleId))) throw new Error("wrong app");
   if (typeof p.environment === "string" && !ENVIRONMENTS.includes(p.environment)) throw new Error("environment");
   if (kind === "subscription") {
     const allowance = PLAN_SHOWS[String(p.productId)];

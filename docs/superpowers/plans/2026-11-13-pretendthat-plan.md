@@ -16,7 +16,7 @@
 
 ## Global Constraints
 
-- iPadOS 17.0 minimum, landscape only, iPad only. Bundle id `app.pretendthat.ios` (Haylee may change it).
+- iPadOS 17.0 minimum, landscape only, iPad only. Bundle id `co.crimsonfoundry.pretendthat` (was `app.pretendthat.ios` until 2026-11-17).
 - No third-party runtime dependencies. XcodeGen is a dev tool only.
 - API: `POST https://api.anthropic.com/v1/messages`, header `anthropic-version: 2026-10-21`, model `claude-opus-5-5`, `output_config.format = {type:"json_schema", schema}`, `output_config.effort` `"low"` (chat, help) or `"medium"` (ideas, plan, props, kit). Header `anthropic-beta: server-side-fallback-2026-07-01` and body `fallbacks: "default"`. Never send `temperature`, `thinking: disabled`, or an assistant prefill. `max_tokens` 16000.
 - Real kid names never appear in any request to Claude. Use only tokens `{P1}`…`{P4}`. For OpenAI image prompts, see the spec C8 open question (default until Haylee decides: **blank name banner plus app overlay**, so names never leave the device).
