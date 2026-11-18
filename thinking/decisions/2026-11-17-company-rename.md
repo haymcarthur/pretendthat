@@ -39,3 +39,12 @@
   3. Optionally grab a domain (crimsonfoundry.co/.app/.studio, or ask about the .com).
   4. File the Utah LLC name amendment.
   5. Then everything else in the update list above (city license, Utah tax, operating agreement, IRS, W-9s, bank, D-U-N-S, Apple, Google Play, vendors, public text).
+
+## Email and domain (Haylee, 2026-11-17)
+- **Company domain:** **crimsonfoundry.co** (the main address is rarely emailed by anyone else, so .co is fine).
+- **One Google Workspace:**
+  - The existing Tittl Workspace becomes the Crimson Foundry Workspace: add crimsonfoundry.co and make it primary.
+  - Rename support@tittl.ai to the new main address; the old address stays as an alias, and Play Console stays on the same account.
+  - Delete the separate PretendThat Workspace (nothing set up there), add pretendthat.app to the main Workspace, and add support@pretendthat.app as an alias with "Send mail as".
+  - Expect a short bounce window for support@pretendthat.app (the site form sends there), so do it in one sitting.
+- **Then move vendor logins** (OpenAI, Anthropic, Cloudflare, GitHub, Figma, TelemetryDeck, registrars, Apple ID) to the new main address over time.
