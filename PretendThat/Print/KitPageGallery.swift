@@ -200,8 +200,32 @@ enum KitPageGallery {
         NSLog("[RT] LIVEKIT-END")
     }
 
-    /// The word checks of both sets (round 46 step 3 fills this in).
-    @MainActor static func liveKitReport(_ game: String, dir: URL, sets: [KitArtService]) {}
+    /// The word checks of both sets: ocr-results.json (per page: the words wanted, what Vision read, the missing words, a
+    /// redraw and which one was kept) and the not-kept drawing of every redrawn page.
+    @MainActor static func liveKitReport(_ game: String, dir: URL, sets: [KitArtService]) {
+        var out: [String: Any] = [:]
+        for set in sets {
+            for (key, c) in set.wordChecks {
+                func row(_ r: PageWordCheck.Result, _ read: [String]) -> [String: Any] {
+                    ["wanted": r.wanted, "found": r.found, "missing": r.missing, "shortfall": r.shortfall, "ok": r.ok, "read": read]
+                }
+                var entry: [String: Any] = ["first": row(c.first, c.firstRead), "keptRedraw": c.keptRedraw]
+                if let r = c.redraw, let read = c.redrawRead { entry["redraw"] = row(r, read) }
+                out["\(set.style.toolValue) \(key)"] = entry
+                NSLog("[RT] LIVEKIT WORDS %@ %@: %@%@", set.style.toolValue, key, c.first.ok ? "ok" : "missed \(c.first.missing.joined(separator: " | "))",
+                      c.redraw.map { " → redraw \($0.ok ? "ok" : "missed \($0.missing.joined(separator: " | "))"), kept \(c.keptRedraw ? "redraw" : "first")" } ?? "")
+            }
+            for (key, img) in set.firstDrawings {
+                try? img.pngData()?.write(to: dir.appendingPathComponent("not-kept-\(set.style.toolValue)-\(ArtKey.fileName(key).replacingOccurrences(of: ".heic", with: "")).png"))
+            }
+        }
+        let checks = sets.flatMap { $0.wordChecks.values }
+        NSLog("[RT] LIVEKIT WORDS %@: %d pages checked, %d passed first time, %d redrawn, %d redraws kept", game, checks.count,
+              checks.filter { $0.first.ok }.count, checks.filter { $0.redraw != nil }.count, checks.filter(\.keptRedraw).count)
+        if let d = try? JSONSerialization.data(withJSONObject: out, options: [.prettyPrinted, .sortedKeys]) {
+            try? d.write(to: dir.appendingPathComponent("ocr-results.json"))
+        }
+    }
 
     /// Thumbnails in a grid with a label under each.
     static func contactSheet(_ thumbs: [(String, UIImage)], title: String, cols: Int = 7, tw: CGFloat = 306, th: CGFloat = 396) -> UIImage? {

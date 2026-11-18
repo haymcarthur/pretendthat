@@ -42,7 +42,10 @@ final class KitArtService {
     func reset() {
         generation += 1; images = [:]; cutouts = [:]; isGenerating = false; progress = 0; finished = false
         drawnFor = nil; inFlight = []; failed = []; retriedAfterAway = []; finalItems = nil; landedAt = [:]
-        context = nil; finishedAt = nil
+        context = nil; finishedAt = nil; wordChecks = [:]
+        #if DEBUG
+        firstDrawings = [:]
+        #endif
     }
 
     func cutout(_ itemID: String, _ index: Int) -> UIImage? { cutouts[itemID]?[index] }
@@ -204,6 +207,32 @@ final class KitArtService {
         drawnFor = key
     }
 
+    /// Round 46: the word check of each page (the first drawing, and the redraw when there was one), for the logs and
+    /// the DEBUG live harness. Page keys and counts only; the words are the kit's own (nothing about kids).
+    struct WordCheck {
+        var first: PageWordCheck.Result
+        var firstRead: [String]
+        var redraw: PageWordCheck.Result?
+        var redrawRead: [String]?
+        var keptRedraw: Bool
+    }
+    @ObservationIgnored private(set) var wordChecks: [String: WordCheck] = [:]
+    #if DEBUG
+    /// The first drawing of a page that was redrawn (the live harness saves both).
+    @ObservationIgnored private(set) var firstDrawings: [String: UIImage] = [:]
+    #endif
+
+    /// One drawing, decoded off the main actor: paper-white, then sliced (a sheet) or read for its words (a page).
+    private nonisolated static func decode(_ data: Data, job: KitArtJob, style: PrintStyle) async -> (images: [UIImage], check: (PageWordCheck.Result, [String])?) {
+        await Task.detached(priority: .utility) { () -> ([UIImage], (PageWordCheck.Result, [String])?) in
+            guard let img = UIImage(data: data) else { return ([], nil) }
+            let white = PaperWhite.normalize(img, style: job.isSheet ? .fullColor : style)
+            if job.isSheet { return (CutoutSlicer.slice(white, columns: job.columns, rows: job.rows, count: job.count), nil) }
+            let page = white.preparedForDisplay()
+            return ([page], job.words.isEmpty ? nil : PageOCR.check(page, words: job.words))
+        }.value
+    }
+
     private func launch(_ jobs: [KitArtJob], client: ImageClient) {
         let gen = generation, style = style
         isGenerating = isGenerating || !jobs.isEmpty
@@ -211,22 +240,52 @@ final class KitArtService {
             inFlight.insert(job.key)
             Task { @MainActor in
                 let limiter = self.limiter
-                // Retry once, then the existing fallback (that page is app-drawn).
-                let result: Result<Data, Error>
-                do { result = .success(try await RetryOnce.run { try await limiter.run { try await client.generate(prompt: job.prompt, size: job.size, quality: ImageQuality.kit) } }) }
-                catch { result = .failure(error) }
-                // Round 21: decode + paper-white + slicing run OFF the main actor (they held the main thread for a
-                // moment during the prop hunt, when taps and her voice need it).
-                var decoded: [UIImage] = []
-                if case .success(let data) = result {
-                    decoded = await Task.detached(priority: .utility) { () -> [UIImage] in
-                        guard let img = UIImage(data: data) else { return [] }
-                        let white = PaperWhite.normalize(img, style: job.isSheet ? .fullColor : style)
-                        return job.isSheet ? CutoutSlicer.slice(white, columns: job.columns, rows: job.rows, count: job.count)
-                            : [white.preparedForDisplay()]
-                    }.value
+                func draw(_ prompt: String) async -> Result<Data, Error> {
+                    // Retry once, then the existing fallback (that page is app-drawn).
+                    do { return .success(try await RetryOnce.run { try await limiter.run { try await client.generate(prompt: prompt, size: job.size, quality: ImageQuality.kit) } }) }
+                    catch { return .failure(error) }
                 }
+                // Round 21: decode + paper-white + slicing (+ round 46's word check) run OFF the main actor.
+                let result = await draw(job.prompt)
+                var decoded: [UIImage] = []
+                var check: (PageWordCheck.Result, [String])?
+                if case .success(let data) = result { (decoded, check) = await Self.decode(data, job: job, style: style) }
                 guard gen == self.generation else { return }   // a remade kit: this old page is dropped
+                // Round 46: a word really missing or misspelled: the page is redrawn ONCE and the better one kept.
+                if let (first, read) = check, let firstImage = decoded.first {
+                    var log = WordCheck(first: first, firstRead: read, redraw: nil, redrawRead: nil, keptRedraw: false)
+                    NSLog("[RT] kit art words %@ (%@): %d of %d words read%@", job.key, style.toolValue,
+                          first.wanted.count - first.missing.count, first.wanted.count, first.ok ? "" : ": redrawing once")
+                    #if DEBUG
+                    if !first.ok { NSLog("[RT] kit art words %@ missing: %@", job.key, first.missing.joined(separator: " | ")) }
+                    #endif
+                    if !first.ok {
+                        let again = KitPagePrompt.redraw(PagePrompt(prompt: job.prompt, words: job.words), missing: first.missing)
+                        if case .success(let d2) = await draw(again.prompt) {
+                            let (images2, check2) = await Self.decode(d2, job: job, style: style)
+                            guard gen == self.generation else { return }
+                            if let (second, read2) = check2, let image2 = images2.first {
+                                log.redraw = second; log.redrawRead = read2
+                                log.keptRedraw = !PageWordCheck.better(first, second)   // strictly better, else the first stays
+                                if log.keptRedraw {
+                                    #if DEBUG
+                                    self.firstDrawings[job.key] = firstImage
+                                    #endif
+                                    decoded = [image2]
+                                } else {
+                                    #if DEBUG
+                                    self.firstDrawings[job.key] = image2   // (the one not kept)
+                                    #endif
+                                }
+                                NSLog("[RT] kit art words %@ (%@): redraw %d of %d words read: kept the %@", job.key, style.toolValue,
+                                      second.wanted.count - second.missing.count, second.wanted.count, log.keptRedraw ? "redraw" : "first drawing")
+                            }
+                        } else {
+                            NSLog("[RT] kit art words %@ (%@): the redraw failed: kept the first drawing", job.key, style.toolValue)
+                        }
+                    }
+                    self.wordChecks[job.key] = log
+                }
                 self.inFlight.remove(job.key)
                 switch result {
                 case .success:

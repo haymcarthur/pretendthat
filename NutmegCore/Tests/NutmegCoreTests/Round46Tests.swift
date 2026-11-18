@@ -288,6 +288,68 @@ import Testing
         #expect(CharacterSheet.id == "characters" && CharacterSheet.roleCount == 6)
     }
 
+    // MARK: Step 3: the forgiving word check
+
+    /// The test's 4 false misses (a strict match failed them; every word was right by eye), with Vision's real readings.
+    @Test func theFourFalseMissesFromTheTestPass() {
+        let table: [(word: String, want: Int, lines: [String])] = [
+            ("$3", 1, ["Cozy Café", "Menu", "Pancakes .", "S3", "Pizza", "•", "•", "$4", "Soup....", "•", "$2", "Cupcake ......", "$1"]),
+            ("Name:", 6, ["Captain", "Name:.", "Map Reader", "Name:_", "Clue Finder", "Name:_", "Lookout", "Name:.", "First Mate", "Name:_", "Ship's Cook", "Name:."]),
+            ("Check inside the laundry basket", 1, ["1", "Look under the", "couch cushion", "3", "Check insidethe", "laundry basket", "5"]),
+            ("3A", 1, ["Boarding Pass", "1A", "2A", "ЗА", "4A", "1B", "Boarding Pass!", "2B", "3B", "4B"]),   // Cyrillic З and А
+        ]
+        for row in table {
+            let r = PageWordCheck.check(words: Array(repeating: row.word, count: row.want), lines: row.lines)
+            #expect(r.ok && r.found[row.word]! >= row.want, "\(row.word): \(r)")
+        }
+    }
+
+    /// Every page of the approved test (17 pages, words and Vision's readings) passes; a strict match passed 13.
+    @Test func everyPageOfTheApprovedTestPasses() throws {
+        let dir = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("../../../design/printables-ai-test")
+        let ocr = try JSONSerialization.jsonObject(with: Data(contentsOf: dir.appendingPathComponent("ocr-results.json"))) as! [String: [String: Any]]
+        #expect(ocr.count == 17)
+        for (id, r) in ocr {
+            let page = try JSONSerialization.jsonObject(with: Data(contentsOf: dir.appendingPathComponent("\(id).json"))) as! [String: Any]
+            let check = PageWordCheck.check(words: page["words"] as! [String], lines: r["ocr_lines"] as! [String])
+            #expect(check.ok, "\(id): missing \(check.missing)")
+        }
+    }
+
+    @Test func aRealMissIsCaught() {
+        let lines = ["Captian", "Name:", "Map Reader", "Name:", "Lookout"]
+        // A misspelled word and a missing one are misses; a word on only 1 of 4 badges too; on 2 of 4 it's fine.
+        let r = PageWordCheck.check(words: ["Captain", "Map Reader", "Clue Finder", "Lookout"] + Array(repeating: "Name:", count: 4), lines: lines)
+        #expect(r.missing == ["Captain", "Clue Finder"] && !r.ok && r.found["Name:"] == 2 && r.shortfall == 4)
+        #expect(PageWordCheck.check(words: Array(repeating: "Name:", count: 4), lines: ["Name:"]).missing == ["Name:"])
+        // A wrong price or a wrong per-copy number is caught; a coin's lone "1" never forces a redraw.
+        #expect(PageWordCheck.check(words: ["Pancakes", "$3"], lines: ["Pancakes", "$8"]).missing == ["$3"])
+        #expect(PageWordCheck.check(words: ["1A", "1B"], lines: ["1A", "1A"]).missing == ["1B"])
+        #expect(PageWordCheck.check(words: ["Island Gold"] + Array(repeating: "1", count: 12), lines: ["Island Gold"]).ok)
+        // Nothing read at all: every real word is missing.
+        #expect(PageWordCheck.check(words: ["Cozy Café", "Now Open"], lines: []).missing == ["Cozy Café", "Now Open"])
+    }
+
+    @Test func theMatchIgnoresSpacingCaseAccentsAndLookAlikes() {
+        let pairs: [(String, String)] = [("Cozy Café", "COZY CAFE"), ("Ship's Cook", "Ship’s  Cook"), ("Big Rock!", "Big_Rock"),
+                                         ("Room 101", "ROOM IOI"), ("Order", "0rder"), ("$5", "S5"), ("Moon Bucks", "Мооn Вucks"),
+                                         ("Look up high", "look up high")]
+        for (w, read) in pairs { #expect(PageWordCheck.check(words: [w], lines: [read]).ok, "\(w) vs \(read)") }
+        #expect(PageWordCheck.fold("S3 ЗА Name:_") == "$33aname")
+    }
+
+    @Test func theBetterDrawingIsKept() {
+        let words = ["Captain", "Lookout", "Name:", "Name:"]
+        let first = PageWordCheck.check(words: words, lines: ["Captian", "Lookout", "Name:"])
+        let second = PageWordCheck.check(words: words, lines: ["Captain", "Lookout", "Name:", "Name:"])
+        #expect(!first.ok && second.ok && PageWordCheck.better(second, first) && !PageWordCheck.better(first, second))
+        #expect(PageWordCheck.better(first, first))   // a tie keeps the first drawing
+        // The redraw prompt is the same page with the missed words named once more (same words to check).
+        let p = PagePrompt(prompt: "Draw it.", words: words)
+        let again = KitPagePrompt.redraw(p, missing: first.missing)
+        #expect(again.words == words && again.prompt.hasPrefix("Draw it.") && again.prompt.contains("\"Captain\""))
+    }
+
     // MARK: Step 4: schema compatibility
 
     @Test func newGamesAreSchemaFiveAndOlderGamesReplayUnchanged() throws {
