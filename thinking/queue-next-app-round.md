@@ -466,3 +466,4 @@ Game arc becomes: Print → **story opener** → **setup scene** → 3 play scen
 - **Peek pose (The End / last screens + scene cards):** her arms/shoulders draw OVER her face (layering wrong: the body/arms are in front of the rig head). Fix the layer order so the head is in front of the shoulders and the paws/arms read as attached (see the earlier peek-arms item).
 - **Saved game page: the "Black & white" toggle button is cut off.** Remove the color dots/rings icons on the Color / Black & white buttons (Haylee: "maybe we get rid of the dots on those buttons") so both labels fit on every iPhone and iPad.
 - Haylee: build this round now, but do NOT upload a new TestFlight build yet.
+- **Short saved-game titles + bigger iPhone bookshelf (Haylee, 2026-11-18):** titles too long to read on the shelf; keep new titles 1–3 words (~18 chars) and show a short version for old saved games; make the iPhone bookshelf bigger so covers are larger. (Sent to the running round.)
