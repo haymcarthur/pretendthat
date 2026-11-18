@@ -474,8 +474,8 @@ public enum Realtime {
                       // cached prefix; the line goes in as the only input item.
                       "input": [(systemNote(sayExactlyInstructions(line))["item"] as? [String: Any]) ?? [:]] as [Any]] as [String: Any]]
     }
-    /// Round 35 prep: the model of the scripted-lines session, nil = off (the default). On with `CostFlags.miniLines`
-    /// (`-PTMiniLines YES` or the `PTMiniLines` UserDefaults bool), in any build; `-PTMiniLines <model>` tries another.
+    /// Round 35 prep: the model of the scripted-lines session, nil = off. Round 44: ON by default (`CostFlags.miniLines`;
+    /// `-PTMiniLines NO` turns it off for testing), in any build; `-PTMiniLines <model>` tries another.
     /// The session itself is configured exactly like the conversation (`VoiceSessionPlan`).
     public static var lineModel: String? {
         guard CostFlags.miniLines else { return nil }
