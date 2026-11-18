@@ -436,3 +436,6 @@ Game arc becomes: Print → **story opener** → **setup scene** → 3 play scen
 
 ## Saved game page + replays need a pass + no bar in Play/The End (queued 2026-11-17, Haylee): DONE 2026-11-17 (decisions/2026-11-17-round-plans-printables-page.md)
 - Spec: decisions/2026-11-17-saved-game-page-and-play-bar.md; mockup design/mockups/after-cancel/ (main version A, no player picker).
+
+## Copy: new tagline + no "off the screen" (queued 2026-11-18, Haylee)
+- decisions/2026-11-18-tagline-and-play-wording.md: onboarding page 1 tagline → "Plan it, print it, play it"; grep app strings and Nutmeg's scripted lines for "off the screen", "steps back", the old flow sentence; use the new wording. Re-record any bundled clip whose words change (one short live recording allowed, voice work).
