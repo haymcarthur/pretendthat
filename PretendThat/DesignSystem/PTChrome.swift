@@ -140,7 +140,7 @@ struct PTStepRail: View {
         let phone = metrics.isPhone
         let circle: CGFloat = phone ? 42 : 56
         return Button { if !isCurrent { onTap(s) } } label: {
-            VStack(spacing: phone ? 2 : 4) {
+            VStack(spacing: phone ? 8 : 4) {   // phone: room between the circle (and its redo mark) and the label (Haylee)
                 ZStack {
                     Circle().fill(done ? Theme.lime : (isCurrent ? Theme.yellow : Theme.chipGray))
                     if isCurrent { Circle().strokeBorder(Theme.ink, lineWidth: 1.5).padding(-4) }
@@ -162,7 +162,7 @@ struct PTStepRail: View {
                     .foregroundStyle(Theme.ink.opacity(isCurrent ? 1 : (reachable ? 0.8 : 0.35)))
                     .lineLimit(1).fixedSize()
             }
-            .frame(minWidth: phone ? 56 : 72, minHeight: phone ? 58 : 64)
+            .frame(minWidth: phone ? 56 : 72, minHeight: phone ? 64 : 64)
             .contentShape(Rectangle())
         }
         .buttonStyle(PTRailButtonStyle(enabled: tappable))
