@@ -46,6 +46,26 @@ import Testing
         #expect(StoreProducts.storeDescription(StoreProducts.seasonPassYearly) == "30 new games a month. Saved games are free to play again.")
     }
 
+    @Test func chatOpenKeepsTheTalkingCloseUpWhenCardsArePresented() {
+        typealias D = PTStageDirector
+        // Chat closed: the legacy presented cards get the wide shot beside her.
+        #expect(D.preset(phase: .pickGame, conversation: true, conversationShot: .wide, cards: 3, hunt: false,
+                         kitBeat: .coloring, chatOpen: false) == .presentedCards)
+        // Chat open: the cards are only in the panel's tab; she keeps the talking close-up (no camera move).
+        let open = D.preset(phase: .pickGame, conversation: true, conversationShot: .wide, cards: 3, hunt: false,
+                            kitBeat: .coloring, chatOpen: true)
+        #expect(open == .propCardChat)
+        let g = PTStageGeometry(size: CGSize(width: 1194, height: 834), leadingInset: 0, bottomInset: 0,
+                                floor: .zero, chatOpen: true)
+        #expect(D.frame(open, curtainInset: 80, g) == D.frame(.talk, curtainInset: 80, g))
+        // Every other chat-open card step is the same framing.
+        for phase in [Phase.makingKit, .kitReady, .scene(0), .end] {
+            let p = D.preset(phase: phase, conversation: false, conversationShot: .closeUp, cards: 0, hunt: false,
+                             kitBeat: .papers, chatOpen: true)
+            #expect(p == .propCardChat || p == .talk)
+        }
+    }
+
     @Test func storeKitFileMatchesStoreProducts() throws {
         let data = try Data(contentsOf: Self.storeKitURL)
         let root = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])

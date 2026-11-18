@@ -187,9 +187,7 @@ struct RootView: View {
                     .zIndex(18)
             }
             if confirmLeave {
-                PTLeaveDialog(onShelf: LeaveDialogMode.current(isReplay: store.isReplay, savedAs: store.savedAs) == .onShelf
-                                ? (model.currentCoverPicture(), model.currentCoverProps) : nil,
-                              onStay: { confirmLeave = false },
+                PTLeaveDialog(onStay: { confirmLeave = false },
                               onLeave: { confirmLeave = false; chatOpen = false; model.leave() })
                     .transition(.opacity.combined(with: .scale(scale: 0.96)))
                     .zIndex(20)
@@ -346,7 +344,8 @@ struct RootView: View {
 
     /// What the phone shows in the content zone under Nutmeg right now (its height comes from `LayoutMetrics`).
     private var phoneContent: LayoutMetrics.PhoneContent {
-        if model.isWriting { return .none }
+        // Round 44 (Haylee): chat open = no card on the stage; the card lives only in the chat's tab.
+        if model.isWriting || (chatOpen && chromeVisible) { return .none }
         if model.inConversation {
             if huntOnStage { return stageItems.isEmpty ? .none : .hunt }
             if shot == .wide && !stageItems.isEmpty { return .cards }
@@ -383,7 +382,9 @@ struct RootView: View {
     /// The phone stage's overlay: the hunt card, the legacy prop grid, or the phase content in the zone under her.
     @ViewBuilder private func phoneOverlay(_ g: PTStageGeometry, _ L: PTStageCamera.Layout) -> some View {
         let zone = phoneSplit(g).content
-        if model.inConversation {
+        if chatOpen && chromeVisible {
+            EmptyView()   // round 44: chat open = no card on the stage (it's in the chat's tab)
+        } else if model.inConversation {
             if huntOnStage {
                 PTPhonePropHunt(items: stageItems, total: store.props?.props.count, onHunt: { model.huntReply(found: $0) })
                     .frame(width: zone.width, height: zone.height)
@@ -431,7 +432,7 @@ struct RootView: View {
                                     onHunt: { _, found in model.huntReply(found: found) })
                         .opacity(model.isWriting ? 0 : 1)
                         .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: model.isWriting)   // round 11: with the writing shot
-                } else if shot == .wide && !model.isWriting && !(chatOpen && chromeVisible && stepTab == .props) {
+                } else if shot == .wide && !model.isWriting && !(chatOpen && chromeVisible) {   // round 44: chat open = no card on the stage
                     PTPresentedCards(items: stageItems, nutmeg: L, size: g.size, onTapItem: { silentTap($0) },
                                      onHunt: { _, found in model.huntReply(found: found) })
                 }

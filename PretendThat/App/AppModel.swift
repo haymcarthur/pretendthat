@@ -1699,17 +1699,6 @@ final class AppModel {
         soundsLike = nil
     }
 
-    // MARK: The game's card (the leave dialog's little shelf)
-
-    /// The card's picture right now: the generated cover, else the sign page, else nil (the props).
-    func currentCoverPicture() -> UIImage? {
-        if store.isReplay, let g = replayGame { return cover(for: g) }
-        if let c = coverArt.image { return c }
-        let signID = store.kit?.items.first { $0.recipe == .sign }?.id
-        return CoverArt.pick(cover: nil, colorSign: signID.flatMap { colorArt.images[$0] }, outlineSign: signID.flatMap { outlineArt.images[$0] })
-    }
-    var currentCoverProps: [String] { Array((store.props?.props ?? []).compactMap(\.libraryID).prefix(3)) }
-
     // MARK: "Sounds like a game you have" (round 39, Haylee)
 
     /// The saved game the kids might want instead (the card is on screen), or nil.

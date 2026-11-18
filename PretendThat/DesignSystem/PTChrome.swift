@@ -296,12 +296,9 @@ struct PTMicPillShape: Shape {
 
 /// "Leave the game?" (decisions/2026-11-13-push-to-talk.md): a friendly kid-and-grown-up confirm in the app's style
 /// (white rounded panel over a soft scrim, big words, the black primary pill to stay). Tapping the scrim keeps playing.
-/// Round 39 (auto-save): before the kit nothing is counted or saved, so it only asks; after the kit (or on a replay)
-/// the game is on the bookshelf, and the dialog shows its cover card going onto the little shelf. The old "you'll
-/// start a new game next time" line is gone.
+/// Round 44 (Haylee): just the question and the two buttons; the little card-going-onto-the-shelf picture is gone
+/// (after the kit and on replays too).
 struct PTLeaveDialog: View {
-    /// The game's card when it's on the shelf (after the kit), nil before the kit.
-    var onShelf: (cover: UIImage?, props: [String])? = nil
     var onStay: () -> Void
     var onLeave: () -> Void
     @Environment(\.layoutMetrics) private var metrics
@@ -322,10 +319,6 @@ struct PTLeaveDialog: View {
                 }
                 .accessibilityElement(children: .combine)
                 .accessibilityAddTraits(.isHeader)
-                if let shelf = onShelf {
-                    PTShelfMomentView(cover: shelf.cover, props: shelf.props, shelfHeight: metrics.isPhone ? 120 : 150,
-                                      delay: 0.35, bigCardWidth: metrics.isPhone ? 110 : 130)
-                }
                 if metrics.isPhone {
                     // The phone is too narrow for the two side by side: the primary on top, in a thumb's reach.
                     VStack(spacing: Theme.Space.s) {
