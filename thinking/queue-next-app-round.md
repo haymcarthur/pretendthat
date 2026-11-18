@@ -418,3 +418,9 @@ Game arc becomes: Print → **story opener** → **setup scene** → 3 play scen
 - Scope: iPhone play scenes (setup, scenes, clean-up rows). Ask before extending to the prop hunt / kit / The End screens.
 - **Art is ready:** design/nutmeg/peek/nutmeg-peek-parts.svg (1536×1024, from Haylee's Figma frame 22:2509, extracted read-only, no edits): groups `tail`, `body` (vest, shoulders, star), `head` (ears, face, headset), `paw-left`, `paw-right`. Body is cut flat at the bottom (sits behind the card edge); paws go in front of the edge. Use `body`+`tail`+paws with the rig head (focus face) on top, aligned to where `head` sits.
 - After: retake the App Store play-scene screenshot (05).
+
+## Replay Pick: no number tiles, ever (queued 2026-11-17, Haylee)
+- Haylee: "Even if they don't have internet they can just type in their answer right? So we shouldn't have that screen." Remove the 1–6 tiles from the replay Pick (ReplayScreens.swift, shown today when `model.noVoiceSession`).
+- Without a voice session (offline, voice down, no keys), the kid still answers by **typing** (keyboard button) or **speaking** (on-device speech recognition works offline): parse the count **on the device** ("3", "three", "we have four", "me and my sister" = 2 is a nice-to-have; NumberWords exists in GrownUps.swift) and call `replayPick(n)`. Nutmeg's question is her recorded clip, so nothing needs the internet. Out-of-range (0 or >6): her recorded "1 to 6" nudge if one exists, else a gentle text prompt.
+- Make sure the chat/keyboard and the mic both work in that state on replays, and that it can't dead-end. Tests for the parser and the no-voice replay path.
+- Same round as the iPhone peek-over-the-card change.
