@@ -49,7 +49,7 @@ public struct NutmegAudioSession: Equatable, Sendable {
     #endif
 }
 
-// MARK: - Flags (default OFF)
+// MARK: - Flags (round 44: default ON)
 
 /// Round 35 prep: the cost cuts are built but OFF until Haylee approves (the mini voice by ear, A/B v2 in
 /// design/voice-ab-v2/). Each is a UserDefaults bool; a launch argument sets it for one run in any build:
@@ -64,14 +64,20 @@ public enum CostFlags {
     public static var miniLines: Bool { isOn(miniLinesKey) }
     public static var sonnetGuide: Bool { isOn(sonnetGuideKey) }
 
-    /// `-<key>` alone or with any value but NO/0/false/off → on; else the UserDefaults bool (off when unset).
+    /// Round 44 (Haylee approved both: decisions/2026-11-17-mini-voice-approved.md, 2026-11-17-yearly-intro-sonnet.md):
+    /// both cost cuts are ON by default. `-PTMiniLines NO` / `-PTSonnetGuide NO` (or the UserDefaults bool set to
+    /// false) still turn one off for testing.
+    public static let onByDefault = true
+
+    /// `-<key>` alone or with any value but NO/0/false/off → on; `-<key> NO` → off; else the UserDefaults bool when
+    /// one is set; else the default (on).
     public static func isOn(_ key: String, args: [String] = ProcessInfo.processInfo.arguments,
                             defaults: UserDefaults = .standard) -> Bool {
         if let i = args.firstIndex(of: "-" + key) {
             guard i + 1 < args.count, !args[i + 1].hasPrefix("-") else { return true }
             return !["no", "0", "false", "off"].contains(args[i + 1].lowercased())
         }
-        return defaults.bool(forKey: key)
+        return (defaults.object(forKey: key) as? Bool) ?? onByDefault
     }
 
     /// The value after `-<key>` when it names a model (`-PTMiniLines gpt-realtime-…`), for experiments.

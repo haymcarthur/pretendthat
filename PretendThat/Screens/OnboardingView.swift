@@ -216,7 +216,7 @@ struct PlansContent: View {
                     if let then = price.introThen {
                         Text(then).font(OBType.small).foregroundStyle(Theme.ink).fixedSize(horizontal: false, vertical: true)
                     }
-                    Text(OnboardingCopy.cardShows(tier == .seasonPass ? PlanCatalog.seasonPass : PlanCatalog.showPass))
+                    Text(OnboardingCopy.planGames(tier))
                         .font(OBType.small).foregroundStyle(Theme.ink)
                     Text(OnboardingCopy.replaysLine).font(OBType.small).foregroundStyle(Theme.inkMuted)
                         .fixedSize(horizontal: false, vertical: true)
@@ -229,7 +229,7 @@ struct PlansContent: View {
             }
             .buttonStyle(.plain)
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("\(tier.name), \(price.full), \(tier.allowance) new shows a month\(isCurrent ? ", your current plan" : "")")
+            .accessibilityLabel("\(tier.name), \(price.full), \(tier.allowance) new games a month\(isCurrent ? ", your current plan" : "")")
             .accessibilityAddTraits(on ? .isSelected : [])
         }
     }

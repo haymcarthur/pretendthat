@@ -22,7 +22,7 @@
       "id" : "21580001",
       "localizations" : [
         {
-          "description" : "New pretend-play shows with Nutmeg every month",
+          "description" : "New pretend-play games with Nutmeg every month",
           "displayName" : "PretendThat Passes",
           "locale" : "en_US"
         }
@@ -49,7 +49,7 @@
           },
           "localizations" : [
             {
-              "description" : "Up to 30 new shows a month, unlimited replays",
+              "description" : "30 new games a month. Saved games are free to play again.",
               "displayName" : "Season Pass",
               "locale" : "en_US"
             }
@@ -74,9 +74,16 @@
           "familyShareable" : false,
           "groupNumber" : 1,
           "internalID" : "6740000004",
+          "introductoryOffer" : {
+            "displayPrice" : "199.99",
+            "internalID" : "6740000014",
+            "numberOfPeriods" : 1,
+            "paymentMode" : "payUpFront",
+            "subscriptionPeriod" : "P1Y"
+          },
           "localizations" : [
             {
-              "description" : "Up to 30 new shows a month, unlimited replays",
+              "description" : "30 new games a month. Saved games are free to play again.",
               "displayName" : "Season Pass (Yearly)",
               "locale" : "en_US"
             }
@@ -110,7 +117,7 @@
           },
           "localizations" : [
             {
-              "description" : "10 new shows a month, unlimited replays",
+              "description" : "10 new games a month. Saved games are free to play again.",
               "displayName" : "Show Pass",
               "locale" : "en_US"
             }
@@ -135,9 +142,16 @@
           "familyShareable" : false,
           "groupNumber" : 2,
           "internalID" : "6740000002",
+          "introductoryOffer" : {
+            "displayPrice" : "99.99",
+            "internalID" : "6740000012",
+            "numberOfPeriods" : 1,
+            "paymentMode" : "payUpFront",
+            "subscriptionPeriod" : "P1Y"
+          },
           "localizations" : [
             {
-              "description" : "10 new shows a month, unlimited replays",
+              "description" : "10 new games a month. Saved games are free to play again.",
               "displayName" : "Show Pass (Yearly)",
               "locale" : "en_US"
             }

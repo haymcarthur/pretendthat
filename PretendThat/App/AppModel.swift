@@ -95,8 +95,6 @@ final class AppModel {
     @ObservationIgnored var gameStats = AnalyticsGameTracker()
     /// When the first-launch onboarding opened (for its coarse duration bucket only).
     @ObservationIgnored var onboardingStartedAt: Date?
-    /// Mirrors the grown-up's "Share anonymous usage counts" switch so the toggles update.
-    var analyticsSharing = Analytics.sharing
     /// The current plan (StoreKit entitlements; none until products exist).
     var planStatus: PlanStatus = .none
     /// Nutmeg's two onboarding lines (bundled clips through her one speaker; round 35 prep).
@@ -1706,17 +1704,6 @@ final class AppModel {
         soundsLike = nil
     }
 
-    // MARK: The game's card (the leave dialog's little shelf)
-
-    /// The card's picture right now: the generated cover, else the sign page, else nil (the props).
-    func currentCoverPicture() -> UIImage? {
-        if store.isReplay, let g = replayGame { return cover(for: g) }
-        if let c = coverArt.image { return c }
-        let signID = store.kit?.items.first { $0.recipe == .sign }?.id
-        return CoverArt.pick(cover: nil, colorSign: signID.flatMap { colorArt.images[$0] }, outlineSign: signID.flatMap { outlineArt.images[$0] })
-    }
-    var currentCoverProps: [String] { Array((store.props?.props ?? []).compactMap(\.libraryID).prefix(3)) }
-
     // MARK: "Sounds like a game you have" (round 39, Haylee)
 
     /// The saved game the kids might want instead (the card is on screen), or nil.
@@ -2176,11 +2163,5 @@ extension AppModel {
             Analytics.send(e)
         }
         if store.usingFallback, store.phase != .hello, let e = gameStats.error(.aiUnavailable) { Analytics.send(e) }
-    }
-
-    /// The grown-up's switch (onboarding's privacy page, Grown-ups → About what we save).
-    func setAnalyticsSharing(_ on: Bool) {
-        Analytics.setSharing(on)
-        analyticsSharing = Analytics.sharing
     }
 }

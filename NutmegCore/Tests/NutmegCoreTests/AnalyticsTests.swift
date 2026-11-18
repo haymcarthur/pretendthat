@@ -108,19 +108,40 @@ import Testing
         #expect(t.printed(.colorIn, players: 1) == .kitPrinted(.colorIn, .one))
     }
 
-    // MARK: The switch, the install id and the app ID
+    // MARK: Always on (round 44: no switch), the install id and the app ID
 
-    @Test func sharingIsOffUntilAGrownUpTurnsItOn() {
+    @Test func countsAreAlwaysOnWithARandomInstallID() {
         let d = FakeDefaults()
         let s = AnalyticsSettings(defaults: d)
-        #expect(s.share == false)   // default OFF
-        s.share = true
+        #expect(s.share)   // no switch: always on
         let id = s.installID
-        #expect(UUID(uuidString: id) != nil && s.installID == id)   // random, stable while on
-        s.share = false
-        #expect(d.values[AnalyticsKeys.installID] == nil)   // off removes the id
-        s.share = true
-        #expect(s.installID != id)   // back on = a new, unrelated install
+        #expect(UUID(uuidString: id) != nil && s.installID == id)   // random, stable
+        #expect(d.values.values.allSatisfy { $0 is String })   // only the random id is stored
+    }
+
+    @Test func existingInstallsMoveToOn() {
+        // An install where a grown-up left the old switch OFF (no id), and one where it was ON (an id).
+        let off = FakeDefaults(); off.values[AnalyticsKeys.legacyShare] = false
+        let s = AnalyticsSettings(defaults: off)
+        s.migrateToAlwaysOn()
+        #expect(off.values[AnalyticsKeys.legacyShare] == nil && s.share)
+        #expect(UUID(uuidString: s.installID) != nil)   // a fresh id, like a new install
+        let on = FakeDefaults(); on.values[AnalyticsKeys.legacyShare] = true
+        on.values[AnalyticsKeys.installID] = "6F1C2A7E-0000-4000-8000-000000000001"
+        let t = AnalyticsSettings(defaults: on)
+        t.migrateToAlwaysOn()
+        #expect(on.values[AnalyticsKeys.legacyShare] == nil)
+        #expect(t.installID == "6F1C2A7E-0000-4000-8000-000000000001")   // kept: same install
+        t.migrateToAlwaysOn()   // idempotent
+        #expect(on.values.count == 1)
+    }
+
+    @Test func aboutSaysItInOneLineAndThereIsNoSwitchCopy() {
+        let line = GrownUpsCopy.analyticsLine
+        #expect(GrownUpsCopy.about.contains { $0.body == line })
+        #expect(line.contains("anonymous counts") && line.contains("never anything about your child"))
+        #expect(line.split(separator: ".").count <= 1)   // one sentence
+        #expect(!GrownUpsCopy.creditsFooter.contains("turn them on"))
     }
 
     @Test func anEmptyAppIDMeansNoAnalytics() {

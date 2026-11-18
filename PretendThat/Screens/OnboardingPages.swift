@@ -1,45 +1,40 @@
 import SwiftUI
 import NutmegCore
 
-/// Onboarding v2 (Haylee, 2026-11-16; design/mockups/onboarding-v2 pages 1–7). Full-screen pages, no grown-up gate:
-/// a stage "art card" on the left (sky, valance, curtains, floor and Nutmeg's real layered art) and a calm text column
-/// on the right (back arrow, progress dots, a big title, one short line, one big coral button). Page 2 is the one
-/// full-width page (four step cards). Every size is the mockup's (1194 × 834 pt, the 11" iPad) times one scale, so the
-/// 13" iPad gets the same page a little bigger; the art card stretches to the screen's height.
+/// Onboarding v3 (round 44; Haylee approved design/mockups/onboarding-v3, decisions/2026-11-17-onboarding-v3-feedback.md).
+/// Six calm pages in ONE layout: a light lavender-white page, a thin 6-part progress bar with a small round back button,
+/// one simple visual that takes the free space, a short Poppins title, one gray line and one full-width purple pill.
+/// Nothing scrolls on any iPhone (the iPhone 17e, 375 × 812, is the smallest) or iPad at the default text sizes; the
+/// iPad shows the same single column, 460 pt wide and centered. At very large text sizes the page falls back to a
+/// scroll view instead of clipping.
 ///
-/// Nutmeg's voice: only page 1 has a clip (her bundled recording, through her one speaker), played only while she's on
-/// screen there, never on a replay, never TTS. Her mouth follows the clip.
+/// Nutmeg's voice: only page 1 has a clip (her bundled recording through her one speaker), played only while she's on
+/// screen there (the start screen's toy chest), never on a replay, never TTS. Her mouth follows the clip.
 struct OnboardingView: View {
     let model: AppModel
     @State private var webPage: GUWebPage?
     @State private var micWorking = false
     @State private var restoring = false
     @State private var restoreResult: RestoreOutcome?
-    /// Round 38: page 6's purchases (no gate inside first-launch onboarding, Haylee) and the billing period.
+    /// Round 38: page 5's purchases (no gate inside first-launch onboarding, Haylee). Monthly only here (no switch).
     @State private var purchaseOutcome: PurchaseOutcome?
-    @State private var planPeriod: BillingPeriod = PlanCatalog.defaultPeriod
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.openURL) private var openURL
-    /// iPhone version: the same pages stacked (the art card over the text), at a phone scale.
     @Environment(\.layoutMetrics) private var metrics
-    @Environment(\.ptSafeInsets) private var safeInsets
 
     private var flow: OnboardingFlow { model.onboarding ?? OnboardingFlow() }
+    private var pad: Bool { !metrics.isPhone }
+    /// The page id (the mic-denied state is its own page for the fade).
+    private var pageID: String { "\(flow.screen.rawValue)\(flow.showsMicDenied ? "-denied" : "")" }
 
     var body: some View {
-        GeometryReader { geo in
-            let s = metrics.isPhone ? min(0.82, geo.size.width / 480) : min(geo.size.width / 1194, geo.size.height / 834)
-            ZStack {
-                (flow.screen == .howItWorks ? OB.warm : OB.paper).ignoresSafeArea()
-                page(s: s, size: geo.size)
-                    .id(flow.screen)
-                    .transition(.opacity)
-            }
+        ZStack {
+            OB.page.ignoresSafeArea()
+            page.id(pageID).transition(.opacity)
         }
-        .ignoresSafeArea()
-        .statusBarHidden()
         .guSafari($webPage)
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: flow.screen)
+        .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.22), value: pageID)
         .task(id: flow.screen) {
             // Her clip plays only while she's visible on this page (page 1), never on a replay.
             guard let line = flow.screen.clip, !flow.isReplay else { return }
@@ -51,475 +46,264 @@ struct OnboardingView: View {
         .onDisappear { model.onboardingVoice.stop() }
     }
 
-    @ViewBuilder private func page(s: CGFloat, size: CGSize) -> some View {
+    @ViewBuilder private var page: some View {
         switch flow.screen {
-        case .hello: hello(s)
-        case .howItWorks: howItWorks(s)
-        case .needs: needs(s)
-        case .privacy: privacy(s)
-        case .aiDeclined: declined(s)
-        case .microphone: microphone(s)
-        case .plans: plans(s)
-        case .handOff: handOff(s)
+        case .hello: hello
+        case .howItWorks: howItWorks
+        case .needs: needs
+        case .privacy: if flow.showsMicDenied { micDenied } else { privacy }
+        case .plans: plans
+        case .handOff: handOff
         }
     }
 
-    // MARK: 1 · Hi, grown-up!
+    // MARK: 1 · Welcome to PretendThat
 
-    private func hello(_ s: CGFloat) -> some View {
-        OBSplit(s: s, art: {
-            OBArt(s: s, sky: OB.sky, valance: true, curtains: true, floor: true) {
-                nutmeg(s, pose: .wave, state: .idle, height: 540, bottom: 96, x: 10, speaks: true)
-                OBDeco(s: s, "stage-sparkle", width: 44, top: 120, left: 96)
-                OBDeco(s: s, "stage-star", width: 44, top: 420, right: 28)
-            }
-        }, column: {
-            OBColumn(s: s, back: nil, dot: flow.screen.dot) {
-                OBEyebrow(s: s, text: OnboardingCopy.helloEyebrow)
-                OBTitle(s: s, text: OnboardingCopy.helloTitle)
-                OBLead(s: s, text: OnboardingCopy.helloBody)
-            } actions: {
-                OBButton(s: s, label: OnboardingCopy.helloButton) { go { $0.next() } }
-            }
-        })
+    private var hello: some View {
+        OBPage(dot: 0, back: nil) {
+            OBStartArt(model: model, maxWidth: pad ? 330 : 300).frame(maxHeight: 340)
+        } copy: {
+            OBCopy(title: OnboardingCopy.helloTitle) { Text(OnboardingCopy.helloBody) }
+        } actions: {
+            OBPill(label: OnboardingCopy.helloButton) { go { $0.next() } }
+        }
     }
 
-    // MARK: 2 · How it works (the one full-width page)
+    // MARK: 2 · How it works (the title on top: the list is the visual)
 
-    @ViewBuilder private func howItWorks(_ s: CGFloat) -> some View {
-        if metrics.isPhone {
-            // iPhone: the four steps in one scrolling column (each card a little shorter), Next at the bottom.
-            let safe = safeInsets
-            VStack(spacing: 0) {
-                OBTopBar(s: s, back: backAction, dot: flow.screen.dot)
-                    .padding(.horizontal, 20).padding(.top, safe.top + 4)
-                ScrollView {
-                    VStack(spacing: 14) {
-                        OBTitle(s: s, text: OnboardingCopy.howTitle, size: 46).multilineTextAlignment(.center)
-                        Text(OnboardingCopy.tagline).font(OB.font(20 * s, .bold)).foregroundStyle(Theme.inkMuted)
-                            .multilineTextAlignment(.center)
-                        ForEach(Array(OnboardingCopy.steps.enumerated()), id: \.offset) { i, step in
-                            stepCard(s * 0.9, number: i + 1, title: step.title, body: step.body, picture: 130)
-                        }
-                    }
-                    .padding(.horizontal, 20).padding(.vertical, 12)
-                }
-                OBButton(s: s, label: OnboardingCopy.next) { go { $0.next() } }
-                    .padding(.horizontal, 20).padding(.top, 8).padding(.bottom, max(safe.bottom, 12) + 4)
-            }
-        } else {
-        VStack(spacing: 0) {
-            OBTopBar(s: s, back: backAction, dot: flow.screen.dot)
-            VStack(spacing: 12 * s) {
-                OBTitle(s: s, text: OnboardingCopy.howTitle, size: 52).multilineTextAlignment(.center)
-                Text(OnboardingCopy.tagline).font(OB.font(25 * s, .bold)).foregroundStyle(Theme.inkMuted)
-                    .multilineTextAlignment(.center)
-            }
-            .padding(.top, -28 * s)
-            HStack(alignment: .top, spacing: 22 * s) {
+    private var howItWorks: some View {
+        OBPage(dot: 1, back: backAction, titleOnTop: true) {
+            VStack(alignment: .leading, spacing: 20) {
                 ForEach(Array(OnboardingCopy.steps.enumerated()), id: \.offset) { i, step in
-                    stepCard(s, number: i + 1, title: step.title, body: step.body)
+                    OBStepRow(title: step.title, line: step.body) { stepIcon(i) }
                 }
             }
-            .frame(maxHeight: .infinity)
-            .padding(.top, 40 * s)
-            OBButton(s: s, label: OnboardingCopy.next) { go { $0.next() } }
-                .frame(width: 420 * s)
-                .padding(.top, 28 * s)
-        }
-        .padding(.horizontal, 48 * s)
-        .padding(.top, 40 * s)
-        .padding(.bottom, 40 * s)
+            .padding(.horizontal, 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        } copy: {
+            OBCopy(title: OnboardingCopy.howTitle)
+        } actions: {
+            OBPill(label: OnboardingCopy.next) { go { $0.next() } }
         }
     }
 
-    private func stepCard(_ s: CGFloat, number: Int, title: String, body: String, picture: CGFloat? = nil) -> some View {
-        VStack(spacing: 0) {
-            ZStack(alignment: .topLeading) {
-                RoundedRectangle(cornerRadius: 24 * s, style: .continuous).fill(OB.stepTint[number - 1])
-                stepPicture(s, number)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                Text("\(number)").font(OB.font(20 * s, .black)).foregroundStyle(Theme.purple)
-                    .frame(width: 40 * s, height: 40 * s).background(Circle().fill(Theme.white))
-                    .padding(12 * s)
-            }
-            .frame(height: picture ?? 230 * s)
-            .clipShape(RoundedRectangle(cornerRadius: 24 * s, style: .continuous))
-            .accessibilityHidden(true)
-            Text(title).font(OB.font(34 * s, .black)).foregroundStyle(Theme.ink).padding(.top, 18 * s)
-            Text(body).font(OB.font(21 * s, .bold)).foregroundStyle(Theme.inkMuted)
-                .multilineTextAlignment(.center).lineSpacing(4 * s)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, 6 * s)
-            Spacer(minLength: 0)
-        }
-        .padding(.top, 20 * s).padding(.horizontal, 18 * s).padding(.bottom, 24 * s)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(OBCardBackground(s: s, radius: 32, depth: 5))
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Step \(number), \(title). \(body)")
-    }
-
-    @ViewBuilder private func stepPicture(_ s: CGFloat, _ n: Int) -> some View {
-        switch n {
-        case 1:
-            ZStack(alignment: .topLeading) {
-                OBDeco(s: s, "toy-crown", width: 96, top: 54, left: 34, rotation: -10)
-                OBDeco(s: s, "prop-hat", width: 104, top: 70, right: 26, rotation: 8)
-            }
-        case 2:
-            ZStack {
-                OBDeco(s: s, "prop-cardboard-box", width: 120, left: 26, bottom: 26)
-                OBDeco(s: s, "prop-pot", width: 92, right: 28, bottom: 30)
-            }
-        case 3:
-            OBPrinter(s: s).frame(width: 170 * s, height: 150 * s)
-        default:
-            ZStack {
-                NutmegCharacter(state: .excited, forcedPose: .celebrate)
-                    .frame(height: 178 * s * OB.rigScale)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                    .offset(y: (12 + OB.rigFoot * 178) * s)
-                OBDeco(s: s, "stage-sparkle", width: 28, top: 28, right: 34)
-            }
+    @ViewBuilder private func stepIcon(_ i: Int) -> some View {
+        switch i {
+        case 0: Image("toy-crown").resizable().scaledToFit().frame(width: 38, height: 34)
+        case 1: Image("prop-cardboard-box").resizable().scaledToFit().frame(width: 38, height: 34)
+        case 2: OBPrinterIcon().frame(width: 34, height: 34 * 54 / 60)
+        default: OBPlayBadge().frame(width: 32, height: 32)
         }
     }
 
-    // MARK: 3 · What you'll need
+    // MARK: 3 · What you'll need (three tiles, no game length)
 
-    private func needs(_ s: CGFloat) -> some View {
-        OBSplit(s: s, art: {
-            OBArt(s: s, sky: OB.creamArt, valance: false, curtains: false, floor: false) {
-                OBDeco(s: s, "prop-rug", width: 420, left: 70, bottom: 40)
-                nutmeg(s, pose: .point, state: .talking, height: 500, bottom: 110, x: -40)
-                OBDeco(s: s, "prop-crayons", width: 120, right: 44, bottom: 80, rotation: -8)
-            }
-        }, column: {
-            OBColumn(s: s, back: backAction, dot: flow.screen.dot) {
-                OBTitle(s: s, text: OnboardingCopy.needTitle)
-                OBLead(s: s, text: OnboardingCopy.needLead)
-                LazyVGrid(columns: [GridItem(.flexible(), spacing: 16 * s), GridItem(.flexible(), spacing: 16 * s)], spacing: 16 * s) {
-                    ForEach(Array(OnboardingCopy.needs.enumerated()), id: \.offset) { i, need in
-                        needTile(s, i, need.title, need.detail)
-                    }
-                }
-                .padding(.top, 30 * s)
-            } actions: {
-                OBButton(s: s, label: OnboardingCopy.next) { go { $0.next() } }
-            }
-        })
-    }
-
-    private func needTile(_ s: CGFloat, _ i: Int, _ title: String, _ detail: String) -> some View {
-        HStack(spacing: 16 * s) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 20 * s, style: .continuous).fill(OB.needTint[i])
-                switch i {
-                case 0: OBPrinter(s: s * 0.36, compact: true).frame(width: 58 * s, height: 52 * s)
-                case 1: Image("prop-crayons").resizable().scaledToFit().frame(maxWidth: 48 * s, maxHeight: 44 * s)
-                case 2: Image("prop-rug").resizable().scaledToFit().frame(maxWidth: 48 * s, maxHeight: 44 * s)
-                default: OBClock(s: s)
+    private var needs: some View {
+        OBPage(dot: 2, back: backAction, titleOnTop: true) {
+            HStack(alignment: .top, spacing: 12) {
+                ForEach(Array(OnboardingCopy.needs.enumerated()), id: \.offset) { i, need in
+                    OBNeedTile(title: need.title, detail: need.detail) { needIcon(i) }
                 }
             }
-            .frame(width: 60 * s, height: 60 * s)
-            .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2 * s) {
-                Text(title).font(OB.font(21 * s, .black)).foregroundStyle(Theme.ink)
-                Text(detail).font(OB.font(17 * s, .bold)).foregroundStyle(Theme.inkMuted)
-            }
-            .lineLimit(1).minimumScaleFactor(0.7)
-            Spacer(minLength: 0)
+            .fixedSize(horizontal: false, vertical: true)
+        } copy: {
+            OBCopy(title: OnboardingCopy.needTitle) { Text(OnboardingCopy.needLead) }
+        } actions: {
+            OBPill(label: OnboardingCopy.next) { go { $0.next() } }
         }
-        .padding(.vertical, 16 * s).padding(.horizontal, 14 * s)
-        .background(OBCardBackground(s: s, radius: 26, depth: 4))
-        .accessibilityElement(children: .combine)
     }
 
-    // MARK: 4 · Private by design + REQUIRED AI consent
+    @ViewBuilder private func needIcon(_ i: Int) -> some View {
+        switch i {
+        case 0: OBPrinterIcon().frame(width: 48, height: 48 * 54 / 60)
+        case 1: Image("prop-crayons").resizable().scaledToFit().frame(width: 56, height: 48)
+        default: Image("prop-rug").resizable().scaledToFit().frame(width: 56, height: 48)
+        }
+    }
 
-    private var privacyArt: (CGFloat) -> AnyView {
-        { s in
-            AnyView(OBArt(s: s, sky: OB.sky, valance: true, curtains: false, floor: true) {
-                nutmeg(s, pose: .idle, state: .idle, height: 480, bottom: 96, x: -70)
-                OBShield(s: s).frame(width: 140 * s, height: 162 * s)
-                    .padding(.top, 96 * s).padding(.trailing, 44 * s)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+    // MARK: 4 · Private by design: REQUIRED AI consent + the microphone, one button
+
+    private var privacy: some View {
+        OBPage(dot: 3, back: backAction) {
+            OBGlowCluster(glow: 200, natural: CGSize(width: 220, height: 220)) {
+                OBShield().frame(width: 112, height: 112)
+            }
+        } copy: {
+            OBCopy(title: OnboardingCopy.privacyTitle) {
+                Text(privacyLine)
+            }
+            .environment(\.openURL, OpenURLAction { url in
+                if url == OB.privacyLinkURL { webPage = GUWebPage(url: GrownUpsLinks.privacy); return .handled }
+                return .systemAction
             })
+            .accessibilityHint("Includes a link to the privacy policy")
+        } actions: {
+            OBPill(label: OnboardingCopy.agree, busy: micWorking) {
+                guard !micWorking else { return }
+                micWorking = true
+                go { $0.agree() }
+                Task { await model.onboardingMicContinue(); micWorking = false }
+            }
+            .accessibilityHint("Agrees to send your child's words, with names removed, to OpenAI and Anthropic. Then your \(DeviceWord.noun) asks to use the microphone.")
+            OBNote(text: OnboardingCopy.micFine)
         }
     }
 
-    private func privacy(_ s: CGFloat) -> some View {
-        OBSplit(s: s, art: { privacyArt(s) }, column: {
-            OBColumn(s: s, back: backAction, dot: flow.screen.dot, leading: 56) {
-                OBTitle(s: s, text: OnboardingCopy.privacyTitle, size: 48)
-                VStack(alignment: .leading, spacing: 14 * s) {
-                    ForEach(OnboardingCopy.privacyLines, id: \.text) { line in
-                        HStack(alignment: .top, spacing: 14 * s) {
-                            Image(systemName: "checkmark").font(.system(size: 15 * s, weight: .black))
-                                .foregroundStyle(Theme.limeShade)
-                                .frame(width: 34 * s, height: 34 * s).background(Circle().fill(Theme.limeTint))
-                                .padding(.top, -2 * s)
-                                .accessibilityHidden(true)
-                            Text(line.text).font(OB.font(20 * s, .bold)).foregroundStyle(Theme.ink)
-                                .lineSpacing(3 * s).fixedSize(horizontal: false, vertical: true)
-                        }
-                        .accessibilityElement(children: .combine)
-                    }
-                }
-                .padding(.top, 24 * s)
-                Button { webPage = GUWebPage(url: GrownUpsLinks.privacy) } label: {
-                    Text(OnboardingCopy.privacyLink).font(OB.font(19 * s, .heavy)).foregroundStyle(Theme.purple)
-                        .underline().frame(minHeight: 44)
-                }
-                .buttonStyle(.plain)
-                .padding(.top, 6 * s)
-                .accessibilityHint("Opens the privacy policy in a browser view")
-                // Anonymous usage counts: one short line, OFF until the grown-up turns it on (2026-11-17-analytics-build.md).
-                Toggle(isOn: Binding(get: { model.analyticsSharing }, set: { model.setAnalyticsSharing($0) })) {
-                    Text(OnboardingCopy.analyticsLine).font(OB.font(17 * s, .bold)).foregroundStyle(Theme.inkMuted)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .tint(Theme.purple)
-                .padding(.top, 4 * s)
-                .accessibilityIdentifier("analyticsToggle")
-                .accessibilityHint("Off unless you turn it on. Sends simple counts, never anything about your child.")
-            } actions: {
-                OBButton(s: s, label: OnboardingCopy.agree) { go { $0.agree() } }
-                    .accessibilityHint("Agrees to send your child's words, with names removed, to OpenAI and Anthropic")
-                OBTextButton(s: s, label: OnboardingCopy.notNow) { go { $0.notNow() } }
-            }
-        })
+    /// The gray line with the inline "Privacy policy" link (opens in the in-app browser).
+    private var privacyLine: AttributedString {
+        var s = AttributedString(OnboardingCopy.privacyBody + " ")
+        var link = AttributedString(OnboardingCopy.privacyBodyLink)
+        link.link = OB.privacyLinkURL
+        link.foregroundColor = OB.purple
+        link.underlineStyle = .single
+        link.font = OB.font(15, .medium)
+        s.append(link)
+        return s
     }
 
-    // 4b · Not now (on the privacy dot)
-    private func declined(_ s: CGFloat) -> some View {
-        OBSplit(s: s, art: { privacyArt(s) }, column: {
-            OBColumn(s: s, back: backAction, dot: flow.screen.dot, leading: 56) {
-                OBTitle(s: s, text: OnboardingCopy.declinedTitle, size: 48)
-                OBLead(s: s, text: OnboardingCopy.declinedBody, size: 22)
-                Text(OnboardingCopy.declinedHow).font(OB.font(19 * s, .heavy)).foregroundStyle(Theme.purple)
-                    .padding(.top, 16 * s)
-            } actions: {
-                OBButton(s: s, label: OnboardingCopy.agree) { go { $0.agree() } }
-                OBTextButton(s: s, label: OnboardingCopy.declinedClose) { go { $0.closeWithoutConsent() } }
+    // 4b · the mic wasn't allowed (same progress step): Next goes on, Open Settings
+    private var micDenied: some View {
+        OBPage(dot: 3, back: backAction) {
+            OBGlowCluster(glow: 200, natural: CGSize(width: 220, height: 220)) {
+                Image(systemName: "mic.fill").font(.system(size: 46, weight: .bold)).foregroundStyle(OB.white)
+                    .frame(width: 104, height: 104).background(Circle().fill(OB.micGray))
             }
-        })
+        } copy: {
+            OBCopy(title: OnboardingCopy.micDeniedTitle) { Text(OnboardingCopy.micDeniedBody) }
+        } actions: {
+            OBPill(label: OnboardingCopy.next) { go { $0.next() } }
+            OBQuiet(label: OnboardingCopy.micDeniedSettings) {
+                if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+            }
+        }
     }
 
-    // MARK: 5 · Hold to talk (mic pre-permission: one Continue, no "Allow", no close)
+    // MARK: 5 · Start with 2 free games (plans; no Monthly/Yearly switch)
 
-    private func microphone(_ s: CGFloat) -> some View {
-        OBSplit(s: s, art: {
-            OBArt(s: s, sky: OB.sky, valance: true, curtains: true, floor: true) {
-                nutmeg(s, pose: .idle, state: .amazed, height: 500, bottom: 96, x: -60)
-                OBMicBadge(s: s).frame(width: 150 * s, height: 150 * s)
-                    .padding(.trailing, 62 * s).padding(.bottom, 120 * s)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-            }
-        }, column: {
-            OBColumn(s: s, back: backAction, dot: flow.screen.dot) {
-                OBTitle(s: s, text: OnboardingCopy.micTitle)
-                OBLead(s: s, text: OnboardingCopy.micBody)
-                if flow.micDenied {
-                    VStack(alignment: .leading, spacing: 6 * s) {
-                        Text(OnboardingCopy.micDeniedTitle).font(OB.font(21 * s, .black)).foregroundStyle(Theme.ink)
-                        Text(OnboardingCopy.micDeniedBody).font(OB.font(17 * s, .bold)).foregroundStyle(Theme.inkMuted)
-                            .fixedSize(horizontal: false, vertical: true)
-                        Button(OnboardingCopy.micDeniedSettings) {
-                            if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
-                        }
-                        .font(OB.font(19 * s, .heavy)).foregroundStyle(Theme.purple).frame(minHeight: 44)
-                    }
-                    .padding(16 * s)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(OBCardBackground(s: s, radius: 26, depth: 4))
-                    .padding(.top, 24 * s)
-                    .accessibilityElement(children: .contain)
-                }
-            } actions: {
-                if flow.micAsked {
-                    OBButton(s: s, label: OnboardingCopy.next) { go { $0.next() } }
-                } else {
-                    OBButton(s: s, label: OnboardingCopy.micContinue) {
-                        guard !micWorking else { return }
-                        micWorking = true
-                        Task { await model.onboardingMicContinue(); micWorking = false }
-                    }
-                    .accessibilityHint("Next, your \(DeviceWord.noun) asks to use the microphone and speech recognition")
-                    Text(OnboardingCopy.micFine).font(OB.font(16 * s, .bold)).foregroundStyle(Theme.inkMuted)
-                        .frame(maxWidth: .infinity).multilineTextAlignment(.center).padding(.top, 6 * s)
-                }
-            }
-        })
-    }
-
-    // MARK: 6 · Plans (Free Preview first; prices from PlanCatalog, the one config place)
-
-    private func plans(_ s: CGFloat) -> some View {
+    private var plans: some View {
         let continueOnly = (flow.isReplay && model.freePreview.exhausted) || model.purchases.entitlement != nil   // round 38: a plan is active
-        return OBSplit(s: s, artWidth: 470, art: {
-            OBArt(s: s, sky: OB.sky, valance: true, curtains: false, floor: false, glow: false, width: 470) {
-                // The mockup's perky sit (clipboard on her lap), a still picture of her real art on the same sky: the
-                // game rig only sits for the nap (clipboard down). She doesn't speak here.
-                Image("onboarding-nutmeg-sit-perky").resizable().scaledToFit().frame(width: 340 * s)
-                    .padding(.bottom, 176 * s)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                    .accessibilityHidden(true)
-                OBDeco(s: s, "stage-ticket", width: 120, top: 110, left: 40, rotation: -14)
-                OBDeco(s: s, "stage-sparkle", width: 40, top: 120, right: 60)
-                OBDeco(s: s, "stage-star", width: 48, top: 200, right: 90)
-                VStack(spacing: 8 * s) {
-                    Text(OnboardingCopy.freeHeroTitle).font(OB.font(30 * s, .black)).foregroundStyle(Theme.ink)
-                        .multilineTextAlignment(.center).lineSpacing(0)
-                    Text(OnboardingCopy.freeHeroBody).font(OB.font(18 * s, .bold)).foregroundStyle(Theme.inkMuted)
-                }
-                .padding(.top, 22 * s).padding(.horizontal, 16 * s).padding(.bottom, 20 * s)
-                .frame(maxWidth: .infinity)
-                .background(RoundedRectangle(cornerRadius: 28 * s, style: .continuous).fill(Theme.white))
-                .padding(24 * s)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                .accessibilityElement(children: .combine)
+        return OBPage(dot: 4, back: backAction, minVisual: 100) {
+            OBGlowCluster(glow: pad ? 170 : 120, natural: CGSize(width: 220, height: pad ? 190 : 150)) {
+                Image("stage-ticket").resizable().scaledToFit().frame(width: pad ? 150 : 118).rotationEffect(.degrees(-8))
+                Image("stage-sparkle").resizable().scaledToFit().frame(width: 22)
+                    .offset(x: pad ? 82 : 66, y: pad ? -62 : -48)
             }
-        }, column: {
-            OBColumn(s: s, back: backAction, dot: flow.screen.dot, leading: 48, trailing: 36, bottom: 18) {
-                OBTitle(s: s, text: OnboardingCopy.plansV2Title, size: 48)
-                OBLead(s: s, text: OnboardingCopy.plansV2Lead, size: 21, top: 10, maxWidth: 600)
-                Picker("Billing", selection: $planPeriod) {
-                    ForEach(BillingPeriod.allCases, id: \.self) { Text($0.label).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                .frame(maxWidth: 260 * s)
-                .padding(.top, 16 * s)
-                .accessibilityLabel("Billing period")
-                HStack(alignment: .top, spacing: 14 * s) {
-                    ForEach(PlanCatalog.offers) { planCard(s, $0) }
-                }
-                .padding(.top, 18 * s)
-                .task { if model.purchases.products.isEmpty { await model.purchases.loadProducts() } }
-            } actions: {
-                OBButton(s: s, label: continueOnly ? OnboardingCopy.continueButton : OnboardingCopy.freePreviewButton,
-                         symbol: continueOnly ? nil : "ticket") { go { $0.startFreePreview() } }
-                    .accessibilityHint("\(PlanCatalog.freePreviewShows) free new shows, no card")
-                HStack(spacing: 28 * s) {
-                    Button {
-                        restoring = true
-                        Task {
-                            restoreResult = await PTStore.restore()
-                            await model.purchases.refresh()
-                            model.planStatus = model.purchases.status
-                            restoring = false
-                        }
-                    } label: { Text(restoring ? GrownUpsCopy.restoring : OnboardingCopy.restore) }
-                        .disabled(restoring)
-                    Button(OnboardingCopy.terms) { webPage = GUWebPage(url: GrownUpsLinks.terms) }
-                    Button(OnboardingCopy.privacy) { webPage = GUWebPage(url: GrownUpsLinks.privacy) }
-                }
-                .buttonStyle(.plain)
-                .font(OB.font(15 * s, .heavy)).foregroundStyle(Theme.inkMuted)
-                .frame(maxWidth: .infinity, minHeight: 44)
-                if let o = purchaseOutcome, !o.succeeded {
-                    Text(o.message).font(OB.font(15 * s, .bold)).foregroundStyle(Theme.ink)
-                        .frame(maxWidth: .infinity).multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                if let r = restoreResult {
-                    Text(r.message).font(OB.font(15 * s, .bold)).foregroundStyle(Theme.ink)
-                        .frame(maxWidth: .infinity).multilineTextAlignment(.center)
-                }
+        } copy: {
+            OBCopy(title: OnboardingCopy.plansV3Title, lineWidth: 340) { Text(OnboardingCopy.plansV3Lead) }
+        } extra: {
+            VStack(spacing: 8) {
+                ForEach([PlanTier.showPass, .seasonPass], id: \.self) { planRow($0) }
             }
-        })
+            .padding(.top, 16)
+            .task { if model.purchases.products.isEmpty { await model.purchases.loadProducts() } }
+        } actions: {
+            OBPill(label: continueOnly ? OnboardingCopy.continueButton : OnboardingCopy.freeGamesButton) { go { $0.startFreePreview() } }
+                .accessibilityHint(continueOnly ? "" : "\(PlanCatalog.freePreviewShows) free new games, no card")
+            plansFine
+        }
     }
 
-    private func planCard(_ s: CGFloat, _ offer: PlanOffer) -> some View {
-        let season = offer.id == PlanCatalog.seasonPass.id
-        let tier: PlanTier = season ? .seasonPass : .showPass
+    private func planRow(_ tier: PlanTier) -> some View {
         // Round 38: StoreKit's localized price and intro offer (PlanCatalog's numbers until the App Store answers).
-        let price = PlanPrice(tier, planPeriod, purchases: model.purchases)
-        let isCurrent = model.purchases.entitlement?.productID == price.productID
-        let busy = model.purchases.buying != nil
-        return VStack(alignment: .leading, spacing: 0) {
-            Text(offer.name).font(OB.font(22 * s, .black)).foregroundStyle(Theme.ink)
-            (Text(price.billedAmount).font(OB.font(30 * s, .black))
-             + Text("/\(PriceText.unit(planPeriod))").font(OB.font(17 * s, .heavy)))
-                .foregroundStyle(Theme.ink).padding(.top, 8 * s)
-            if let then = price.introThen {
-                Text(then).font(OB.font(15 * s, .bold)).foregroundStyle(Theme.inkMuted)
-                    .fixedSize(horizontal: false, vertical: true).padding(.top, 2 * s)
+        let price = PlanPrice(tier, .monthly, purchases: model.purchases)
+        let row = price.row
+        let isCurrent = model.purchases.entitlement?.tier == tier
+        let buying = model.purchases.buying == price.productID
+        return HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(tier.name).font(OB.font(15, .semibold)).foregroundStyle(OB.ink)
+                Text(OnboardingCopy.planGames(tier)).font(OB.font(12, .regular)).foregroundStyle(OB.gray)
+                (Text(row.amount).font(OB.font(12.5, .semibold)).foregroundStyle(OB.ink)
+                 + Text(row.then.map { " " + $0 } ?? "").font(OB.font(11.5, .regular)).foregroundStyle(OB.gray))
+                    .lineLimit(1).minimumScaleFactor(0.8)
+                    .padding(.top, 2)
             }
-            VStack(alignment: .leading, spacing: 5 * s) {
-                bullet(s, OnboardingCopy.cardShows(offer))
-                bullet(s, OnboardingCopy.replaysBullet)
-            }
-            .padding(.top, 10 * s)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .combine)
             Button {
                 Task {
-                    purchaseOutcome = nil
+                    purchaseOutcome = nil; restoreResult = nil
                     let o = await model.purchases.purchase(price.productID)
                     purchaseOutcome = o
                     model.planStatus = model.purchases.status
-                    // Bought (or already theirs): on to the hand-off page.
+                    // Bought (or already theirs): on to the last page.
                     if o.succeeded { go { $0.startFreePreview() } }
                 }
             } label: {
-                Text(isCurrent ? "Your plan" : (model.purchases.buying == price.productID ? "One moment…" : "Get \(offer.name)"))
-                    .font(OB.font(17 * s, .black)).foregroundStyle(isCurrent ? Theme.inkMuted : Theme.purple)
-                    .frame(maxWidth: .infinity).frame(height: max(48 * s, 44))
-                    .background(Capsule().strokeBorder(isCurrent ? Theme.line : Theme.purple, lineWidth: 2.5 * s))
-                    .contentShape(Capsule())
+                Group {
+                    if buying { ProgressView().tint(OB.purple).controlSize(.small) }
+                    else { Text(isCurrent ? OnboardingCopy.currentPlan : OnboardingCopy.getPlan) }
+                }
+                .font(OB.font(13, .semibold)).foregroundStyle(isCurrent ? OB.gray : OB.purple)
+                .padding(.vertical, 8).padding(.horizontal, 13)
+                .background(Capsule().fill(OB.glow))
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
             }
-            .buttonStyle(.plain)
-            .disabled(busy || isCurrent || !price.loaded)
+            .buttonStyle(OBPressStyle())
+            .disabled(model.purchases.buying != nil || isCurrent || !price.loaded)
             .opacity(price.loaded ? 1 : 0.5)
-            .padding(.top, 12 * s)
-            .accessibilityLabel(isCurrent ? "\(offer.name) is your plan" : "Get \(offer.name), \(price.full)")
+            .accessibilityLabel(isCurrent ? "\(tier.name) is your plan" : "Get \(tier.name), \(price.full)")
         }
-        .padding(.top, 18 * s).padding(.horizontal, 18 * s).padding(.bottom, 16 * s)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(OBCardBackground(s: s, radius: 26, depth: 4))
-        .overlay(alignment: .topTrailing) {
-            if season {
-                Text(OnboardingCopy.seasonTag.uppercased()).font(OB.font(13 * s, .black)).kerning(0.5 * s)
-                    .foregroundStyle(Theme.ink)
-                    .padding(.vertical, 4 * s).padding(.horizontal, 10 * s)
-                    .background(Capsule().fill(Theme.yellow))
-                    .offset(x: -16 * s, y: -14 * s)
-            }
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("\(offer.name), \(price.full). \(OnboardingCopy.cardShows(offer)). \(OnboardingCopy.replaysBullet).")
+        .padding(.vertical, 10).padding(.leading, 14).padding(.trailing, 10)
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(OB.white))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(OB.line, lineWidth: 1))
     }
 
-    private func bullet(_ s: CGFloat, _ text: String) -> some View {
-        HStack(spacing: 8 * s) {
-            Circle().fill(Theme.lime).frame(width: 8 * s, height: 8 * s)
-            Text(text).font(OB.font(16 * s, .heavy)).foregroundStyle(Theme.ink)
-                .lineLimit(1).minimumScaleFactor(0.75)
+    /// "Billed by Apple. Renews until cancelled." + Restore · Terms · Privacy (a purchase or restore answer shows in
+    /// place of the first line for a moment).
+    private var plansFine: some View {
+        VStack(spacing: 1) {
+            if let o = purchaseOutcome, !o.succeeded {
+                Text(o.message).foregroundStyle(OB.ink)
+            } else if let r = restoreResult {
+                Text(r.message).foregroundStyle(OB.ink)
+            } else if model.purchases.pendingProductID != nil {
+                Text(PurchaseOutcome.pending.message).foregroundStyle(OB.ink)
+            } else {
+                Text(OnboardingCopy.billedByApple)
+            }
+            HStack(spacing: 0) {
+                OBFineLink(label: restoring ? GrownUpsCopy.restoring : OnboardingCopy.restoreShort) {
+                    guard !restoring else { return }
+                    restoring = true; purchaseOutcome = nil
+                    Task {
+                        restoreResult = await PTStore.restore()
+                        await model.purchases.refresh()
+                        model.planStatus = model.purchases.status
+                        restoring = false
+                    }
+                }
+                .accessibilityLabel(OnboardingCopy.restore)
+                Text("·").padding(.horizontal, 5)
+                OBFineLink(label: OnboardingCopy.termsShort) { webPage = GUWebPage(url: GrownUpsLinks.terms) }
+                    .accessibilityLabel(OnboardingCopy.terms)
+                Text("·").padding(.horizontal, 5)
+                OBFineLink(label: OnboardingCopy.privacyShort) { webPage = GUWebPage(url: GrownUpsLinks.privacy) }
+                    .accessibilityLabel(OnboardingCopy.privacy)
+            }
         }
+        .font(OB.font(11.5, .regular)).foregroundStyle(OB.gray)
+        .multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.8)
+        .padding(.top, 10)
     }
 
-    // MARK: 7 · Hand the iPad to your child
+    // MARK: 6 · You're all set (the logo)
 
-    private func handOff(_ s: CGFloat) -> some View {
-        OBSplit(s: s, art: {
-            OBArt(s: s, sky: OB.sky, valance: true, curtains: true, floor: true, warmGlow: true) {
-                nutmeg(s, pose: .celebrate, state: .excited, height: 550, bottom: 92, x: 0)
-                OBDeco(s: s, "stage-star", width: 56, top: 110, left: 92, rotation: -12)
-                OBDeco(s: s, "stage-sparkle", width: 42, top: 96, right: 110)
-                OBDeco(s: s, "stage-sparkle", width: 30, top: 360, left: 40)
-                OBDeco(s: s, "stage-star", width: 40, top: 340, right: 36, rotation: 14)
+    private var handOff: some View {
+        OBPage(dot: 5, back: backAction) {
+            OBGlowCluster(glow: pad ? 280 : 250, natural: CGSize(width: pad ? 340 : 300, height: pad ? 290 : 260)) {
+                Image("logo-nutmeg-top").resizable().scaledToFit().frame(width: pad ? 320 : 290)
+                    .accessibilityLabel("PretendThat")
             }
-        }, column: {
-            OBColumn(s: s, back: backAction, dot: flow.screen.dot) {
-                OBEyebrow(s: s, text: OnboardingCopy.handOffEyebrow, fill: Theme.limeTint, ink: OB.limeInk)
-                OBTitle(s: s, text: OnboardingCopy.handOffTitle)
-                OBLead(s: s, text: OnboardingCopy.handOffBody)
-            } actions: {
-                OBButton(s: s, label: OnboardingCopy.startFirstGame, symbol: "play.fill") { model.onboardingStartFirstGame() }
-                    .accessibilityHint("Opens a new game with Nutmeg")
-                OBQuietButton(s: s, label: OnboardingCopy.goHome) { go { $0.goHome() } }
-                    .accessibilityHint("Goes to the home page quietly")
-            }
-        })
+        } copy: {
+            OBCopy(title: OnboardingCopy.handOffTitle) { Text(OnboardingCopy.handOffBody) }
+        } actions: {
+            OBPill(label: OnboardingCopy.startFirstGame, symbol: "play.fill") { model.onboardingStartFirstGame() }
+                .accessibilityHint("Opens a new game with Nutmeg")
+            OBQuiet(label: OnboardingCopy.goHome) { go { $0.goHome() } }
+                .accessibilityHint("Goes to the home page quietly")
+        }
     }
 
     // MARK: Pieces
@@ -527,353 +311,196 @@ struct OnboardingView: View {
     private var backAction: () -> Void { { go { $0.back() } } }
 
     private func go(_ change: (inout OnboardingFlow) -> Void) { model.onboardingUpdate(change) }
-
-    /// Nutmeg's real layered art (the game's rig), placed like the mockup's picture of her: `height` is the mockup's
-    /// image height, `bottom` its distance from the card's bottom, `x` its nudge from the center.
-    private func nutmeg(_ s: CGFloat, pose: NutmegPose, state: NutmegState, height: CGFloat, bottom: CGFloat, x: CGFloat,
-                        speaks: Bool = false) -> some View {
-        NutmegCharacter(state: state,
-                        mouthLevel: speaks ? model.onboardingVoice.level : 0,
-                        isSpeaking: speaks && model.onboardingVoice.speaking,
-                        forcedPose: pose)
-            .frame(height: height * s * OB.rigScale)
-            .offset(x: x * s, y: OB.rigFoot * height * s)
-            .padding(.bottom, bottom * s)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-            .accessibilityHidden(true)
-    }
 }
 
-// MARK: - Tokens
+// MARK: - Tokens (the mockup's :root, from BrandPalette + the site)
 
-/// The mockup's tokens (design/mockups/onboarding-v2/index.html :root) and the rounded face.
 enum OB {
-    static let paper = Color(hex: 0xFFFBF5)
-    static let warm = Color(hex: 0xFFF7EC)
-    static let sky = Color(hex: 0xCDEBF5)
-    static let creamArt = Color(hex: 0xFFF1DE)
-    static let limeInk = Color(hex: 0x3F6B16)
-    static let dotDone = Color(hex: 0xB9A6D3)
-    static let dotTodo = Color(hex: 0xDAD2E6)
-    static let stepTint: [Color] = [sky, Color(hex: 0xFFE6C2), Theme.lavender, Theme.limeTint]
-    static let needTint: [Color] = [Theme.lavender, Color(hex: 0xFFE6C2), sky, Theme.limeTint]
-    /// The rig's 1178 × 1335 canvas vs the mockup's tight crop of her (tuned against the mockup in the simulator):
-    /// the rig is drawn this much taller, and moved down by this share of the mockup height (blank canvas under her feet).
-    static let rigScale: CGFloat = 1.0
-    static let rigFoot: CGFloat = 0
+    static let page = Color(hex: 0xFAF8FC)      // white with a breath of lavender
+    static let glow = Color(hex: 0xF1EAF8)      // the soft circle behind each visual (and the Get pills)
+    static let purple = Theme.purple            // #5B2A86, the buttons
+    static let ink = Theme.ink                  // #2A1846
+    static let head = Theme.purpleShade         // #3F1A60, the back chevron
+    static let gray = Color(hex: 0x6B6578)
+    static let line = Theme.line                // #E8E2F0
+    static let white = Theme.white
+    static let micGray = Color(hex: 0xC9C0D6)
+    static let sky = Theme.startSky
+    /// The inline privacy link's target (handled in the page: it opens the policy in the in-app browser).
+    static let privacyLinkURL = URL(string: "pretendthat-onboarding://privacy")!
 
-    /// Round 39: Poppins (the grown-up font), relative to a text style so Dynamic Type scales it.
+    /// Poppins (the grown-up font) at a mockup size, relative to a text style so Dynamic Type scales it.
     static func font(_ size: CGFloat, _ weight: Font.Weight) -> Font {
         GrownUpFont.font(GrownUpFont.weight(for: weight), size: size, relativeTo: GrownUpFont.style(for: size))
     }
 }
 
-// MARK: - Layout
+// MARK: - The one page layout
 
-/// The split frame: the art card on the left, the text column on the right, 24 pt from every edge.
-struct OBSplit<Art: View, Column: View>: View {
-    let s: CGFloat
-    var artWidth: CGFloat = 560
-    @ViewBuilder var art: () -> Art
-    @ViewBuilder var column: () -> Column
-    @Environment(\.layoutMetrics) private var metrics
-    @Environment(\.ptSafeInsets) private var safeInsets
-    var body: some View {
-        if metrics.isPhone {
-            // iPhone (Haylee: stack art over text): the art card on top (laid out at its iPad proportions, then
-            // scaled to ~38% of the screen and widened to the screen), the text column scrolling below it.
-            GeometryReader { geo in
-                let safe = safeInsets
-                let cardW = geo.size.width - 24
-                let cardH = min(geo.size.height * (geo.size.height < 860 ? 0.33 : 0.37), 360)
-                let natural = 786 * s
-                let f = cardH / natural
-                VStack(spacing: 0) {
-                    art()
-                        .frame(width: cardW / f, height: natural)
-                        .scaleEffect(f)
-                        .frame(width: cardW, height: cardH)
-                        .padding(.top, safe.top + 4)
-                    ScrollView {
-                        column()
-                            .frame(minHeight: max(0, geo.size.height - cardH - safe.top - 4))
-                    }
-                    .scrollBounceBehavior(.basedOnSize)
-                }
-                .frame(width: geo.size.width)
-            }
-        } else {
-        HStack(spacing: 0) {
-            art().frame(width: artWidth * s).frame(maxHeight: .infinity)
-            column().frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-        .padding(24 * s)
-        }
-    }
-}
-
-/// The right column: top bar, the body centered in the free space, the actions at the bottom.
-struct OBColumn<Content: View, Actions: View>: View {
-    let s: CGFloat
-    let back: (() -> Void)?
+/// Top bar, then the visual in the free space (or the title first when the list is the visual), the copy, an optional
+/// extra block, and the actions above the home indicator. Never scrolls at the default text sizes.
+struct OBPage<Visual: View, Copy: View, Extra: View, Actions: View>: View {
     let dot: Int
-    var leading: CGFloat = 64
-    var trailing: CGFloat = 40
-    var bottom: CGFloat = 20
-    @ViewBuilder var content: () -> Content
+    let back: (() -> Void)?
+    var titleOnTop = false
+    var minVisual: CGFloat = 150
+    @ViewBuilder var visual: () -> Visual
+    @ViewBuilder var copy: () -> Copy
+    @ViewBuilder var extra: () -> Extra
     @ViewBuilder var actions: () -> Actions
     @Environment(\.layoutMetrics) private var metrics
-    @Environment(\.ptSafeInsets) private var safeInsets
+
     var body: some View {
-        if metrics.isPhone {
-            // iPhone: under the art card, phone margins, the actions above the home indicator.
-            VStack(alignment: .leading, spacing: 0) {
-                OBTopBar(s: s, back: back, dot: dot)
-                VStack(alignment: .leading, spacing: 0) { content() }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.top, 4)
-                Spacer(minLength: 16)
-                VStack(spacing: 8 * s) { actions() }
-            }
-            .padding(.top, 8).padding(.horizontal, 20).padding(.bottom, max(safeInsets.bottom, 12) + 4)
-        } else {
-        VStack(alignment: .leading, spacing: 0) {
-            OBTopBar(s: s, back: back, dot: dot)
-            Spacer(minLength: 12 * s)
-            VStack(alignment: .leading, spacing: 0) { content() }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            Spacer(minLength: 12 * s)
-            VStack(spacing: 8 * s) { actions() }
+        let pad = !metrics.isPhone
+        ViewThatFits(in: .vertical) {
+            column(minVisual: minVisual)
+            // Very large text: the same page in a scroll view (never clipped).
+            ScrollView { column(minVisual: minVisual).padding(.bottom, 8) }
         }
-        .padding(.top, 28 * s).padding(.leading, leading * s).padding(.trailing, trailing * s).padding(.bottom, bottom * s)
+        .padding(.horizontal, pad ? 0 : 24)
+        .frame(maxWidth: pad ? 460 : .infinity)
+        .frame(maxWidth: .infinity)
+    }
+
+    private func column(minVisual: CGFloat) -> some View {
+        VStack(spacing: 0) {
+            OBTopBar(dot: dot, back: back)
+            if titleOnTop { copy().padding(.top, 28) }
+            visual()
+                .frame(maxWidth: .infinity, minHeight: minVisual, maxHeight: .infinity)
+            if !titleOnTop { copy().padding(.top, 6) }
+            extra()
+            VStack(spacing: 0) { actions() }
+                .padding(.top, 16).padding(.bottom, 8)
         }
     }
 }
 
+extension OBPage where Extra == EmptyView {
+    init(dot: Int, back: (() -> Void)?, titleOnTop: Bool = false, minVisual: CGFloat = 150,
+         @ViewBuilder visual: @escaping () -> Visual, @ViewBuilder copy: @escaping () -> Copy,
+         @ViewBuilder actions: @escaping () -> Actions) {
+        self.init(dot: dot, back: back, titleOnTop: titleOnTop, minVisual: minVisual, visual: visual, copy: copy,
+                  extra: { EmptyView() }, actions: actions)
+    }
+}
+
+/// The small round back button, the thin 6-part progress bar, and a matching spacer (the bar stays centered).
 struct OBTopBar: View {
-    let s: CGFloat
-    let back: (() -> Void)?
     let dot: Int
+    let back: (() -> Void)?
     var body: some View {
-        HStack {
-            if let back {
-                Button(action: back) {
-                    Image(systemName: "chevron.left").font(.system(size: 24 * s, weight: .bold)).foregroundStyle(Theme.purple)
-                        .frame(width: 64 * s, height: 64 * s)
-                        .background(Circle().fill(Theme.white))
-                        .overlay(Circle().strokeBorder(Theme.line, lineWidth: 3 * s))
-                        .frame(minWidth: 64, minHeight: 64)
-                        .contentShape(Circle())
-                }
-                .buttonStyle(OBPressStyle())
-                .accessibilityLabel("Back")
-                .accessibilityHint("Goes to the previous page")
-            } else {
-                Color.clear.frame(width: 64 * s, height: 64 * s).accessibilityHidden(true)
+        HStack(spacing: 14) {
+            Button { back?() } label: {
+                Image(systemName: "chevron.left").font(.system(size: 14, weight: .bold)).foregroundStyle(OB.head)
+                    .frame(width: 36, height: 36)
+                    .background(Circle().fill(OB.white))
+                    .overlay(Circle().strokeBorder(OB.line, lineWidth: 1))
+                    .shadow(color: Color(hex: 0x2A1846).opacity(0.06), radius: 3, y: 2)
+                    .frame(width: 44, height: 44).contentShape(Rectangle())
             }
-            Spacer()
-            HStack(spacing: 10 * s) {
+            .buttonStyle(OBPressStyle())
+            .frame(width: 36)
+            .opacity(back == nil ? 0 : 1)
+            .disabled(back == nil)
+            .accessibilityHidden(back == nil)
+            .accessibilityLabel("Back")
+            .accessibilityHint("Goes to the previous page")
+            HStack(spacing: 6) {
                 ForEach(0..<OnboardingScreen.dotCount, id: \.self) { i in
-                    Capsule().fill(i == dot ? Theme.purple : (i < dot ? OB.dotDone : OB.dotTodo))
-                        .frame(width: (i == dot ? 36 : 12) * s, height: 12 * s)
+                    Capsule().fill(i <= dot ? OB.purple : OB.line).frame(height: 4)
                 }
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Page \(dot + 1) of \(OnboardingScreen.dotCount)")
+            Color.clear.frame(width: 36, height: 1).accessibilityHidden(true)
         }
-        .frame(height: 64 * s)
+        .frame(height: 44)
+        .padding(.top, 4)
     }
 }
 
-/// The stage art card: sky, an optional valance and curtains, a soft glow, an optional floor disc, then the content.
-struct OBArt<Content: View>: View {
-    let s: CGFloat
-    let sky: Color
-    let valance: Bool
-    let curtains: Bool
-    let floor: Bool
-    var glow = true
-    var warmGlow = false
-    var width: CGFloat = 560
-    @ViewBuilder var content: () -> Content
-    /// iPhone version: the card is wider than the iPad's (it spans the screen), so the valance spans it too.
+/// The centered title (Poppins SemiBold 26, 30 on the iPad) and one gray line (15).
+struct OBCopy<Line: View>: View {
+    let title: String
+    /// The gray line's width (the mockup's 300; page 5's longer line uses the full column so it doesn't end on an
+    /// orphan word).
+    var lineWidth: CGFloat = 300
+    @ViewBuilder var line: () -> Line
     @Environment(\.layoutMetrics) private var metrics
-    private var phoneWide: Bool { metrics.isPhone }
     var body: some View {
-        ZStack {
-            sky
-            // The glow: centered, 420 pt, 110 pt from the top.
-            if glow {
-            RadialGradient(colors: [(warmGlow ? Color(hex: 0xFFECAA).opacity(0.95) : Color.white.opacity(0.75)), .clear],
-                           center: .center, startRadius: 0, endRadius: 202 * s)
-                .frame(width: 420 * s, height: 420 * s)
-                .padding(.top, 110 * s)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            }
-            if curtains {
-                Image("stage-curtain-left").resizable().frame(width: 150 * s, height: 282 * s)
-                    .padding(.top, 30 * s).offset(x: -46 * s)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                Image("stage-curtain-right").resizable().frame(width: 150 * s, height: 282 * s)
-                    .padding(.top, 30 * s).offset(x: 46 * s)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-            }
-            if floor {
-                ZStack {
-                    Ellipse().fill(Theme.stageFloorEdge).offset(y: 12 * s)
-                    Ellipse().fill(Theme.stageFloor)
-                }
-                .frame(width: 440 * s, height: 104 * s)
-                .padding(.bottom, 58 * s)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-            }
-            content()
-            if valance {
-                Image("stage-valance").resizable().frame(width: phoneWide ? nil : width * s, height: width * s * 104 / 550)
-                    .frame(maxWidth: phoneWide ? .infinity : nil)
-                    .offset(y: -14 * s)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            }
+        let pad = !metrics.isPhone
+        let size: CGFloat = pad ? 30 : 26
+        VStack(spacing: 8) {
+            Text(title).font(OB.font(size, .semibold)).kerning(-0.025 * size).foregroundStyle(OB.ink)
+                .frame(maxWidth: pad ? 420 : 300)
+                .accessibilityAddTraits(.isHeader)
+            line().font(OB.font(15, .regular)).foregroundStyle(OB.gray).lineSpacing(1)
+                .frame(maxWidth: lineWidth)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 40 * s, style: .continuous))
-        .accessibilityHidden(true)
+        .multilineTextAlignment(.center)
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity)
     }
 }
 
-/// A picture from the asset catalog, pinned like the mockup's absolutely positioned images.
-struct OBDeco: View {
-    let s: CGFloat
-    let name: String
-    let width: CGFloat
-    var top: CGFloat? = nil, left: CGFloat? = nil, right: CGFloat? = nil, bottom: CGFloat? = nil
-    var rotation: Double = 0
-    init(s: CGFloat, _ name: String, width: CGFloat, top: CGFloat? = nil, left: CGFloat? = nil, right: CGFloat? = nil,
-         bottom: CGFloat? = nil, rotation: Double = 0) {
-        self.s = s; self.name = name; self.width = width
-        self.top = top; self.left = left; self.right = right; self.bottom = bottom; self.rotation = rotation
-    }
-    var body: some View {
-        Image(name).resizable().scaledToFit().frame(width: width * s)
-            .rotationEffect(.degrees(rotation))
-            .padding(.top, (top ?? 0) * s).padding(.leading, (left ?? 0) * s)
-            .padding(.trailing, (right ?? 0) * s).padding(.bottom, (bottom ?? 0) * s)
-            .frame(maxWidth: .infinity, maxHeight: .infinity,
-                   alignment: Alignment(horizontal: right != nil ? .trailing : (left != nil ? .leading : .center),
-                                        vertical: bottom != nil ? .bottom : (top != nil ? .top : .center)))
-            .accessibilityHidden(true)
-    }
+extension OBCopy where Line == EmptyView {
+    init(title: String) { self.init(title: title, line: { EmptyView() }) }
 }
 
-// MARK: - Type and buttons
-
-struct OBTitle: View {
-    let s: CGFloat
-    let text: String
-    var size: CGFloat = 58
-    var body: some View {
-        Text(text).font(OB.font(size * s, .black)).kerning(GrownUpFont.headingKerning(size * s)).foregroundStyle(Theme.ink)
-            .lineSpacing(-4 * s).minimumScaleFactor(0.6)
-            .fixedSize(horizontal: false, vertical: true)
-            .accessibilityAddTraits(.isHeader)
-    }
-}
-
-struct OBLead: View {
-    let s: CGFloat
-    let text: String
-    var size: CGFloat = 25
-    var top: CGFloat = 18
-    var maxWidth: CGFloat = 500
-    var body: some View {
-        Text(text).font(OB.font(size * s, .bold)).foregroundStyle(Theme.inkMuted)
-            .lineSpacing(size * 0.3 * s)
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: maxWidth * s, alignment: .leading)
-            .padding(.top, top * s)
-    }
-}
-
-struct OBEyebrow: View {
-    let s: CGFloat
-    let text: String
-    var fill: Color = Theme.lavender
-    var ink: Color = Theme.purple
-    var body: some View {
-        Text(text.uppercased()).font(OB.font(16 * s, .black)).kerning(1 * s).foregroundStyle(ink)
-            .padding(.vertical, 9 * s).padding(.horizontal, 16 * s)
-            .background(Capsule().fill(fill))
-            .padding(.bottom, 22 * s)
-    }
-}
-
-/// The big coral primary button (88 pt, 24 pt corners, a 6 pt shade that it sinks into when pressed).
-struct OBButton: View {
-    let s: CGFloat
+/// The one full-width purple pill (56 pt).
+struct OBPill: View {
     let label: String
     var symbol: String? = nil
+    var busy = false
     let action: () -> Void
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 12 * s) {
-                if let symbol { Image(systemName: symbol).font(.system(size: 26 * s, weight: .bold)).accessibilityHidden(true) }
+            HStack(spacing: 8) {
+                if busy { ProgressView().tint(OB.white) }
+                else if let symbol { Image(systemName: symbol).font(.system(size: 13, weight: .bold)).accessibilityHidden(true) }
                 Text(label).lineLimit(1).minimumScaleFactor(0.7)
             }
-            .font(OB.font(27 * s, .black)).foregroundStyle(Theme.white)
-            .frame(maxWidth: .infinity).frame(height: max(88 * s, 60))
+            .font(OB.font(17, .semibold)).foregroundStyle(OB.white)
+            .frame(maxWidth: .infinity).frame(height: 56)
+            .background(Capsule().fill(OB.purple))
+            .shadow(color: OB.purple.opacity(0.22), radius: 12, y: 10)
+            .contentShape(Capsule())
         }
-        .buttonStyle(Style(s: s))
-        .padding(.bottom, 6 * s)
-    }
-    struct Style: ButtonStyle {
-        let s: CGFloat
-        func makeBody(configuration: Configuration) -> some View {
-            let shape = RoundedRectangle(cornerRadius: 24 * s, style: .continuous)
-            configuration.label
-                .background(shape.fill(Theme.coralStrong))
-                .offset(y: configuration.isPressed ? 5 * s : 0)
-                .background(shape.fill(Theme.coralShade).offset(y: 6 * s))
-                .contentShape(shape)
-                .animation(Theme.press, value: configuration.isPressed)
-        }
+        .buttonStyle(OBPressStyle())
     }
 }
 
-/// The white secondary button (page 7's "Go to the home page").
-struct OBQuietButton: View {
-    let s: CGFloat
+/// The quiet text button under the pill ("Go to the home page", "Open Settings").
+struct OBQuiet: View {
     let label: String
     let action: () -> Void
     var body: some View {
         Button(action: action) {
-            Text(label).font(OB.font(22 * s, .heavy)).foregroundStyle(Theme.purple)
-                .frame(maxWidth: .infinity).frame(height: max(76 * s, 56))
+            Text(label).font(OB.font(15, .medium)).foregroundStyle(OB.purple)
+                .frame(maxWidth: .infinity).frame(height: 44).contentShape(Rectangle())
         }
-        .buttonStyle(QuietStyle(s: s))
-    }
-    struct QuietStyle: ButtonStyle {
-        let s: CGFloat
-        func makeBody(configuration: Configuration) -> some View {
-            let shape = RoundedRectangle(cornerRadius: 22 * s, style: .continuous)
-            configuration.label
-                .background(shape.fill(Theme.white))
-                .overlay(shape.strokeBorder(Theme.line, lineWidth: 3 * s))
-                .offset(y: configuration.isPressed ? 3 * s : 0)
-                .background(shape.fill(Theme.line).offset(y: 4 * s))
-                .contentShape(shape)
-                .animation(Theme.press, value: configuration.isPressed)
-        }
+        .buttonStyle(OBPressStyle())
+        .padding(.top, 2)
     }
 }
 
-/// A plain purple text button ("Not now", "Close for now"): 64 pt tall.
-struct OBTextButton: View {
-    let s: CGFloat
+/// The small gray line under a pill.
+struct OBNote: View {
+    let text: String
+    var body: some View {
+        Text(text).font(OB.font(12.5, .regular)).foregroundStyle(OB.gray)
+            .multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(.top, 10)
+    }
+}
+
+/// An underlined link in the fine print (Restore · Terms · Privacy).
+struct OBFineLink: View {
     let label: String
     let action: () -> Void
     var body: some View {
         Button(action: action) {
-            Text(label).font(OB.font(22 * s, .heavy)).foregroundStyle(Theme.purple)
-                .frame(maxWidth: .infinity).frame(height: max(64 * s, 44)).contentShape(Rectangle())
+            Text(label).underline().padding(.vertical, 6).contentShape(Rectangle())
         }
         .buttonStyle(OBPressStyle())
     }
@@ -881,125 +508,189 @@ struct OBTextButton: View {
 
 struct OBPressStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label.opacity(configuration.isPressed ? 0.6 : 1).animation(Theme.press, value: configuration.isPressed)
+        configuration.label.opacity(configuration.isPressed ? 0.7 : 1).scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .animation(Theme.press, value: configuration.isPressed)
     }
 }
 
-/// White card with the 3 pt line border and a flat shade under it.
-struct OBCardBackground: View {
-    let s: CGFloat
-    let radius: CGFloat
-    let depth: CGFloat
+/// A visual on a soft lavender circle, scaled down as one piece when the free space is shorter than its natural size.
+struct OBGlowCluster<Content: View>: View {
+    let glow: CGFloat
+    let natural: CGSize
+    @ViewBuilder var content: () -> Content
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: radius * s, style: .continuous)
-        ZStack {
-            shape.fill(Theme.line).offset(y: depth * s)
-            shape.fill(Theme.white)
-            shape.strokeBorder(Theme.line, lineWidth: 3 * s)
+        GeometryReader { geo in
+            let k = min(1, geo.size.height / natural.height, geo.size.width / natural.width)
+            ZStack {
+                Circle().fill(OB.glow).frame(width: glow, height: glow)
+                content()
+            }
+            .frame(width: natural.width, height: natural.height)
+            .scaleEffect(k)
+            .position(x: geo.size.width / 2, y: geo.size.height / 2)
         }
+        .accessibilityElement(children: .contain)
     }
 }
 
-// MARK: - Drawn pictures (the mockup's inline SVGs)
+// MARK: - Page 1's art: the start screen's toy chest
 
-/// The purple printer (the mockup's 170 × 150 drawing).
-struct OBPrinter: View {
-    let s: CGFloat
-    var compact = false
+/// The start screen (`PTToyChestScene`, phone layout) composed from the app's own pieces, with no curtains: the sky as a
+/// soft circle, the wood floor oval, the open chest, Nutmeg (her real layered art, the start screen's idle pose) cut
+/// off at the chest's front edge, a block and a spinning top at the chest's front corners, two sparkles. Her mouth
+/// follows the page-1 clip.
+struct OBStartArt: View {
+    let model: AppModel
+    let maxWidth: CGFloat
+
+    var body: some View {
+        GeometryReader { geo in
+            let W = min(maxWidth, geo.size.width, geo.size.height / 0.98)
+            art(W)
+                .frame(width: W, height: W * 0.98)
+                .position(x: geo.size.width / 2, y: geo.size.height / 2)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Nutmeg the mouse in her toy chest")
+    }
+
+    private func art(_ W: CGFloat) -> some View {
+        let H = W * 0.98
+        let cw = W * 0.62, ch = cw * 620 / 650, cx = W / 2
+        let floorY = H * 0.82
+        let chestBottom = floorY + H * 0.02
+        let chestTop = chestBottom - ch * 616 / 620
+        let frontY = chestTop + ch * 378 / 620
+        // The start screen's numbers: her body fills ~60% of the chest; her waist (canvas y ≈ 1030) on the front edge.
+        let s = 0.6 * cw * 0.945 / 730
+        let nW = 1178 * s, nH = 1335 * s
+        let nX = cx + 19 * s, nTop = frontY - 1030 * s
+        let toy = cw * 0.3, sky = W * 0.86
+        let floorW = W * 0.92, floorH = W * 0.2
+        return ZStack(alignment: .topLeading) {
+            Circle().fill(OB.sky).frame(width: sky, height: sky).offset(x: (W - sky) / 2, y: H * 0.13)
+            Ellipse().fill(Theme.stageFloorEdge).frame(width: floorW, height: floorH).offset(x: W * 0.04, y: floorY - floorH / 2 + 5)
+            Ellipse().fill(Theme.stageFloor).frame(width: floorW, height: floorH).offset(x: W * 0.04, y: floorY - floorH / 2)
+            Image("chest-lid-open").resizable().frame(width: cw, height: ch).offset(x: cx - cw / 2, y: chestTop)
+            Image("chest-body").resizable().frame(width: cw, height: ch).offset(x: cx - cw / 2, y: chestTop)
+            NutmegCharacter(state: .idle, mouthLevel: model.onboardingVoice.level,
+                            isSpeaking: model.onboardingVoice.speaking, showsTail: false)
+                .frame(width: nW, height: nH)
+                .offset(x: nX - nW / 2, y: nTop)
+                .mask(alignment: .topLeading) {
+                    Rectangle().frame(width: W, height: frontY + 400).offset(y: -400)
+                }
+            Image("toy-block").resizable().scaledToFit().frame(width: toy, height: toy).rotationEffect(.degrees(-8))
+                .offset(x: cx - cw * 0.5 - toy / 2, y: chestBottom + cw * 0.1 - toy)
+            Image("toy-top").resizable().scaledToFit().frame(width: toy, height: toy).rotationEffect(.degrees(6))
+                .offset(x: cx + cw * 0.5 - toy / 2, y: chestBottom + cw * 0.1 - toy)
+            Image("stage-sparkle").resizable().scaledToFit().frame(width: W * 0.06).offset(x: W * 0.12, y: H * 0.30)
+            Image("stage-sparkle").resizable().scaledToFit().frame(width: W * 0.07).offset(x: W * 0.82, y: H * 0.22)
+        }
+        .frame(width: W, height: H, alignment: .topLeading)
+    }
+}
+
+// MARK: - Rows, tiles and drawn icons
+
+/// Page 2's row: an icon on a soft tile, one word, one line.
+struct OBStepRow<Icon: View>: View {
+    let title: String
+    let line: String
+    @ViewBuilder var icon: () -> Icon
+    var body: some View {
+        HStack(spacing: 16) {
+            icon()
+                .frame(width: 56, height: 56)
+                .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(OB.glow))
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(title).font(OB.font(17, .semibold)).kerning(-0.17).foregroundStyle(OB.ink)
+                Text(line).font(OB.font(14, .regular)).foregroundStyle(OB.gray)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// Page 3's tile: an icon, a title and a detail on a white card.
+struct OBNeedTile<Icon: View>: View {
+    let title: String
+    let detail: String
+    @ViewBuilder var icon: () -> Icon
+    var body: some View {
+        VStack(spacing: 0) {
+            icon().frame(height: 52).padding(.bottom, 8).accessibilityHidden(true)
+            Text(title).font(OB.font(14.5, .semibold)).foregroundStyle(OB.ink)
+                .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+            Text(detail).font(OB.font(12.5, .regular)).foregroundStyle(OB.gray)
+                .multilineTextAlignment(.center).padding(.top, 2)
+        }
+        .padding(.top, 16).padding(.horizontal, 8).padding(.bottom, 14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(OB.white))
+        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).strokeBorder(OB.line, lineWidth: 1))
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// The purple printer icon (the mockup's 60 × 54 drawing).
+struct OBPrinterIcon: View {
     var body: some View {
         Canvas { ctx, size in
-            if compact {
-                // 60 × 54 icon version.
-                let k = min(size.width / 60, size.height / 54)
-                func r(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat) -> CGRect { CGRect(x: x * k, y: y * k, width: w * k, height: h * k) }
-                ctx.fill(Path(roundedRect: r(14, 2, 32, 16), cornerRadius: 3 * k), with: .color(Color(hex: 0xFCEBD5)))
-                ctx.fill(Path(roundedRect: r(2, 14, 56, 26), cornerRadius: 8 * k), with: .color(Theme.purple))
-                ctx.fill(Path(ellipseIn: r(45, 21, 6, 6)), with: .color(Theme.lime))
-                ctx.fill(Path(roundedRect: r(12, 34, 36, 18), cornerRadius: 2 * k), with: .color(Color(hex: 0xFCEBD5)))
-                return
-            }
-            let k = min(size.width / 170, size.height / 150)
+            let k = min(size.width / 60, size.height / 54)
             func r(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat) -> CGRect { CGRect(x: x * k, y: y * k, width: w * k, height: h * k) }
             let paper = Color(hex: 0xFCEBD5)
-            ctx.fill(Path(roundedRect: r(38, 8, 94, 44), cornerRadius: 6 * k), with: .color(paper))
-            ctx.fill(Path(roundedRect: r(10, 40, 150, 70), cornerRadius: 20 * k), with: .color(Theme.purple))
-            ctx.fill(Path(roundedRect: r(10, 88, 150, 22), cornerRadius: 11 * k), with: .color(Theme.purpleShade))
-            ctx.fill(Path(ellipseIn: r(129, 55, 14, 14)), with: .color(Theme.lime))
-            ctx.fill(Path(roundedRect: r(34, 96, 102, 50), cornerRadius: 4 * k), with: .color(paper))
+            ctx.fill(Path(roundedRect: r(14, 2, 32, 16), cornerRadius: 3 * k), with: .color(paper))
+            ctx.fill(Path(roundedRect: r(2, 14, 56, 26), cornerRadius: 8 * k), with: .color(Theme.purple))
+            ctx.fill(Path(ellipseIn: r(45, 21, 6, 6)), with: .color(Theme.lime))
+            ctx.fill(Path(roundedRect: r(12, 34, 36, 18), cornerRadius: 2 * k), with: .color(paper))
             var squiggle = Path()
-            squiggle.move(to: CGPoint(x: 60 * k, y: 108 * k))
-            squiggle.addLine(to: CGPoint(x: 70 * k, y: 118 * k))
-            squiggle.addLine(to: CGPoint(x: 76 * k, y: 112 * k))
-            squiggle.addLine(to: CGPoint(x: 84 * k, y: 120 * k))
-            squiggle.move(to: CGPoint(x: 74 * k, y: 132 * k))
-            squiggle.addLine(to: CGPoint(x: 96 * k, y: 132 * k))
-            ctx.stroke(squiggle, with: .color(Color(hex: 0xC77841)), style: StrokeStyle(lineWidth: 4 * k, lineCap: .round, lineJoin: .round))
-            ctx.fill(Path(ellipseIn: r(102, 108, 12, 12)), with: .color(Theme.yellow))
+            squiggle.move(to: CGPoint(x: 20 * k, y: 41 * k))
+            squiggle.addLine(to: CGPoint(x: 24 * k, y: 45 * k))
+            squiggle.addLine(to: CGPoint(x: 27 * k, y: 42 * k))
+            squiggle.addLine(to: CGPoint(x: 31 * k, y: 46 * k))
+            ctx.stroke(squiggle, with: .color(Color(hex: 0xC77841)), style: StrokeStyle(lineWidth: 2 * k, lineCap: .round, lineJoin: .round))
         }
         .accessibilityHidden(true)
     }
 }
 
-/// The time tile's clock.
-struct OBClock: View {
-    let s: CGFloat
-    var body: some View {
-        ZStack {
-            Circle().fill(Theme.white)
-            Circle().strokeBorder(Theme.limeShade, lineWidth: 5 * s * 52 / 54)
-            Path { p in
-                p.move(to: CGPoint(x: 26, y: 13)); p.addLine(to: CGPoint(x: 26, y: 27)); p.addLine(to: CGPoint(x: 35, y: 33))
-            }
-            .stroke(Theme.ink, style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
-            .frame(width: 52, height: 52)
-            .scaleEffect(s)
-        }
-        .frame(width: 48 * s, height: 48 * s)
-        .accessibilityHidden(true)
-    }
-}
-
-/// The lime shield with a purple check (page 4).
-struct OBShield: View {
-    let s: CGFloat
+/// The purple play badge (page 2's Play row).
+struct OBPlayBadge: View {
     var body: some View {
         Canvas { ctx, size in
-            let k = min(size.width / 170, size.height / 196)
-            func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x * k, y: y * k) }
-            var outer = Path()
-            outer.move(to: pt(85, 6)); outer.addLine(to: pt(158, 32)); outer.addLine(to: pt(158, 90))
-            outer.addCurve(to: pt(85, 190), control1: pt(158, 140), control2: pt(126, 174))
-            outer.addCurve(to: pt(12, 90), control1: pt(44, 174), control2: pt(12, 140))
-            outer.addLine(to: pt(12, 32)); outer.closeSubpath()
-            ctx.fill(outer, with: .color(Theme.lime))
-            var half = Path()
-            half.move(to: pt(85, 6)); half.addLine(to: pt(158, 32)); half.addLine(to: pt(158, 90))
-            half.addCurve(to: pt(85, 190), control1: pt(158, 140), control2: pt(126, 174)); half.closeSubpath()
-            ctx.fill(half, with: .color(Theme.limeShade))
-            var inner = Path()
-            inner.move(to: pt(85, 28)); inner.addLine(to: pt(138, 46)); inner.addLine(to: pt(138, 90))
-            inner.addCurve(to: pt(85, 166), control1: pt(138, 126), control2: pt(116, 152))
-            inner.addCurve(to: pt(32, 90), control1: pt(54, 152), control2: pt(32, 126))
-            inner.addLine(to: pt(32, 46)); inner.closeSubpath()
-            ctx.fill(inner, with: .color(Theme.white))
-            var check = Path()
-            check.move(to: pt(58, 96)); check.addLine(to: pt(76, 114)); check.addLine(to: pt(112, 76))
-            ctx.stroke(check, with: .color(Theme.purple), style: StrokeStyle(lineWidth: 12 * k, lineCap: .round, lineJoin: .round))
+            let k = min(size.width, size.height) / 48
+            ctx.fill(Path(ellipseIn: CGRect(x: 2 * k, y: 2 * k, width: 44 * k, height: 44 * k)), with: .color(Theme.purple))
+            var tri = Path()
+            tri.move(to: CGPoint(x: 19 * k, y: 14.5 * k)); tri.addLine(to: CGPoint(x: 19 * k, y: 33.5 * k))
+            tri.addLine(to: CGPoint(x: 34 * k, y: 24 * k)); tri.closeSubpath()
+            ctx.fill(tri, with: .color(Theme.white))
         }
         .accessibilityHidden(true)
     }
 }
 
-/// The red push-to-talk button with its listening rings (page 5).
-struct OBMicBadge: View {
-    let s: CGFloat
+/// The green shield with a white check (page 4; the mockup's 64 × 64 drawing).
+struct OBShield: View {
     var body: some View {
-        ZStack {
-            Circle().strokeBorder(Theme.micRed.opacity(0.18), lineWidth: 6 * s).padding(-26 * s)
-            Circle().strokeBorder(Theme.micRed.opacity(0.3), lineWidth: 6 * s).padding(-12 * s)
-            Circle().fill(Color(hex: 0xA3231B)).offset(y: 8 * s)
-            Circle().fill(Theme.micRed)
-            Image(systemName: "mic.fill").font(.system(size: 64 * s, weight: .bold)).foregroundStyle(Theme.white)
+        Canvas { ctx, size in
+            let k = min(size.width, size.height) / 64
+            func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x * k, y: y * k) }
+            var outer = Path()
+            outer.move(to: p(32, 5)); outer.addLine(to: p(54, 13)); outer.addLine(to: p(54, 29))
+            outer.addCurve(to: p(32, 59), control1: p(54, 44), control2: p(44.5, 54.5))
+            outer.addCurve(to: p(10, 29), control1: p(19.5, 54.5), control2: p(10, 44))
+            outer.addLine(to: p(10, 13)); outer.closeSubpath()
+            ctx.fill(outer, with: .color(Theme.lime))
+            var half = Path()
+            half.move(to: p(32, 5)); half.addLine(to: p(54, 13)); half.addLine(to: p(54, 29))
+            half.addCurve(to: p(32, 59), control1: p(54, 44), control2: p(44.5, 54.5)); half.closeSubpath()
+            ctx.fill(half, with: .color(Theme.limeShade.opacity(0.35)))
+            var check = Path()
+            check.move(to: p(21, 32)); check.addLine(to: p(29, 40)); check.addLine(to: p(44, 24))
+            ctx.stroke(check, with: .color(Theme.white), style: StrokeStyle(lineWidth: 5.5 * k, lineCap: .round, lineJoin: .round))
         }
         .accessibilityHidden(true)
     }

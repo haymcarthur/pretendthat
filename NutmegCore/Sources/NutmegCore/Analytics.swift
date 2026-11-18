@@ -12,12 +12,12 @@ import Foundation
 public protocol AnalyticsValue: RawRepresentable, CaseIterable, Sendable where RawValue == String {}
 
 public enum OnboardingPageValue: String, AnalyticsValue {
-    case hello, howItWorks, needs, privacy, aiDeclined, microphone, plans, handOff
+    case hello, howItWorks, needs, privacy, plans, handOff
     public init(_ screen: OnboardingScreen) { self = OnboardingPageValue(rawValue: screen.rawValue) ?? .hello }
 }
 
 public enum OnboardingExitValue: String, AnalyticsValue {
-    case firstGame, home, closedWithoutConsent
+    case firstGame, home
     public init(_ exit: OnboardingExit) { self = OnboardingExitValue(rawValue: exit.rawValue) ?? .home }
 }
 
@@ -262,33 +262,35 @@ public enum AnalyticsEvent: Equatable, Sendable {
     }
 }
 
-// MARK: - The grown-up's switch and the anonymous install id
+// MARK: - The anonymous install id (round 44: no switch; counts are always on)
 
 public enum AnalyticsKeys {
-    /// A boolean only: a grown-up turned on "Share anonymous usage counts". Missing = OFF.
-    public static let share = "pt.analytics.share"
-    /// A random UUID made on this iPad when sharing is turned on, removed when it's turned off. Not the device's
-    /// identifierForVendor (TelemetryDeck would otherwise use it); TelemetryDeck hashes it again before sending.
+    /// Before round 44: a boolean for the grown-up's "Share anonymous usage counts" switch. The switch is gone
+    /// (Haylee, decisions/2026-11-17-onboarding-v3-feedback.md, follow-up 2); the migration removes the stored answer.
+    public static let legacyShare = "pt.analytics.share"
+    /// A random UUID made on this iPad the first time counts are sent. Not the device's identifierForVendor
+    /// (TelemetryDeck would otherwise use it); TelemetryDeck hashes it again before sending.
     public static let installID = "pt.analytics.installID"
     /// Info.plist key with the TelemetryDeck app ID (from the TELEMETRYDECK_APP_ID build setting; empty = no analytics).
     public static let appIDInfoKey = "TelemetryDeckAppID"
 }
 
-/// The share switch (default OFF until a grown-up turns it on) and the random install id that goes with it.
+/// The random install id. Round 44: anonymous counts are always on whenever the build has a TelemetryDeck app ID
+/// (no switch in onboarding or Grown-ups; disclosed in the privacy policy and in About what we save).
 public final class AnalyticsSettings {
     let defaults: OnboardingDefaults
     public init(defaults: OnboardingDefaults) { self.defaults = defaults }
 
-    public var share: Bool {
-        get { defaults.bool(forKey: AnalyticsKeys.share) }
-        set {
-            defaults.set(newValue, forKey: AnalyticsKeys.share)
-            // Off: the random id goes too, so turning it on again later starts as a new, unrelated install.
-            if !newValue { defaults.removeObject(forKey: AnalyticsKeys.installID) }
-        }
+    /// Counts are always on (there's no switch). Kept so callers read one place.
+    public var share: Bool { true }
+
+    /// Existing installs move to ON: the old switch's stored answer (on or off) is removed. An install that had it
+    /// off has no install id, so it gets a fresh random one on first use, like a new install.
+    public func migrateToAlwaysOn() {
+        defaults.removeObject(forKey: AnalyticsKeys.legacyShare)
     }
 
-    /// The random install id (made on first use). Only used while sharing is on.
+    /// The random install id (made on first use).
     public var installID: String {
         if let id = defaults.string(forKey: AnalyticsKeys.installID), UUID(uuidString: id) != nil { return id }
         let id = UUID().uuidString

@@ -100,7 +100,7 @@ public enum Realtime {
     say so playfully and ask again.
     - Never scary, violent, romantic, mean, or about brands, screens, or buying things. If a kid asks for something \
     scary or unsafe, cheerfully steer to a gentle idea without repeating the unsafe words.
-    - Only talk about the pretend game. If they wander off, kindly bring them back to the show.
+    - Only talk about the pretend game. If they wander off, kindly bring them back to the game.
 
     THE STEPS (always in this order; your wording changes every time, the goal of each step never does):
     1. GAME: ask what they want to play today, suggesting ONLY TODAY'S GAME IDEAS (in a note at the start of the conversation). When they \
@@ -480,8 +480,8 @@ public enum Realtime {
                       // cached prefix; the line goes in as the only input item.
                       "input": [(systemNote(sayExactlyInstructions(line))["item"] as? [String: Any]) ?? [:]] as [Any]] as [String: Any]]
     }
-    /// Round 35 prep: the model of the scripted-lines session, nil = off (the default). On with `CostFlags.miniLines`
-    /// (`-PTMiniLines YES` or the `PTMiniLines` UserDefaults bool), in any build; `-PTMiniLines <model>` tries another.
+    /// Round 35 prep: the model of the scripted-lines session, nil = off. Round 44: ON by default (`CostFlags.miniLines`;
+    /// `-PTMiniLines NO` turns it off for testing), in any build; `-PTMiniLines <model>` tries another.
     /// The session itself is configured exactly like the conversation (`VoiceSessionPlan`).
     public static var lineModel: String? {
         guard CostFlags.miniLines else { return nil }

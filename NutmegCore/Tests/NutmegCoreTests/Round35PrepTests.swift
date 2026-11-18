@@ -107,24 +107,25 @@ private func json(_ o: Any) -> String {
     #expect(!rt.text.contains("lineSessionUpdate"))
 }
 
-// MARK: Flags (default OFF)
+// MARK: Flags (round 44: default ON; the old flags still turn them off)
 
-@Test func costFlagsAreOffByDefault() {
+@Test func costFlagsAreOnByDefaultAndTheFlagsStillTurnThemOff() {
     let d = UserDefaults(suiteName: "round35-\(UUID().uuidString)")!
-    #expect(!CostFlags.isOn(CostFlags.miniLinesKey, args: [], defaults: d))
-    #expect(!CostFlags.isOn(CostFlags.sonnetGuideKey, args: [], defaults: d))
+    #expect(CostFlags.isOn(CostFlags.miniLinesKey, args: [], defaults: d))
+    #expect(CostFlags.isOn(CostFlags.sonnetGuideKey, args: [], defaults: d))
     #expect(CostFlags.isOn(CostFlags.miniLinesKey, args: ["app", "-PTMiniLines"], defaults: d))
     #expect(CostFlags.isOn(CostFlags.miniLinesKey, args: ["app", "-PTMiniLines", "YES"], defaults: d))
     #expect(CostFlags.isOn(CostFlags.miniLinesKey, args: ["app", "-PTMiniLines", "-PTConsent"], defaults: d))
     #expect(!CostFlags.isOn(CostFlags.miniLinesKey, args: ["app", "-PTMiniLines", "NO"], defaults: d))
-    d.set(true, forKey: CostFlags.sonnetGuideKey)
-    #expect(CostFlags.isOn(CostFlags.sonnetGuideKey, args: [], defaults: d))
     #expect(!CostFlags.isOn(CostFlags.sonnetGuideKey, args: ["-PTSonnetGuide", "0"], defaults: d))
+    d.set(false, forKey: CostFlags.sonnetGuideKey)   // a stored OFF still wins over the default
+    #expect(!CostFlags.isOn(CostFlags.sonnetGuideKey, args: [], defaults: d))
+    #expect(CostFlags.isOn(CostFlags.sonnetGuideKey, args: ["-PTSonnetGuide", "YES"], defaults: d))
     #expect(CostFlags.modelArgument("PTMiniLines", args: ["-PTMiniLines", "gpt-realtime-x"]) == "gpt-realtime-x")
     #expect(CostFlags.modelArgument("PTMiniLines", args: ["-PTMiniLines", "YES"]) == nil)
-    // This test process passes neither flag: both off, no line session.
-    #expect(Realtime.lineModel == nil)
-    #expect(VoiceSessionPlan.lines() == nil)
+    // This test process passes neither flag: both on, the scripted lines use the mini model.
+    #expect(Realtime.lineModel == Realtime.miniModel)
+    #expect(VoiceSessionPlan.lines()?.model == Realtime.miniModel)
 }
 
 @Test func sonnetTakesOnlyTheGuideAndTheWeave() {
@@ -137,8 +138,11 @@ private func json(_ o: Any) -> String {
     #expect(ClaudeRouting.flagged(nil, base: opus, sonnetOn: true) == opus)
     #expect(ClaudeRouting.flagged(.kit, base: opus, sonnetOn: true) == opus)
     #expect(ClaudeRouting.flagged(.pages, base: opus, sonnetOn: true) == opus)
-    // Off by default: an untagged call (and a guide call) keeps Opus.
-    #expect(ClaudeRouting.$call.withValue(.guide) { ClaudeRouting.model(default: opus) } == opus)
+    // Round 44: ON by default: a guide call goes to Sonnet, an untagged call and the kit keep Opus.
+    #expect(ClaudeRouting.$call.withValue(.guide) { ClaudeRouting.model(default: opus) } == "claude-sonnet-5-5")
+    #expect(ClaudeRouting.$call.withValue(.weave) { ClaudeRouting.model(default: opus) } == "claude-sonnet-5-5")
+    #expect(ClaudeRouting.$call.withValue(.kit) { ClaudeRouting.model(default: opus) } == opus)
+    #expect(ClaudeRouting.model(default: opus) == opus)
 }
 
 @Test func secretRequestNamesTheSessionsModel() throws {
@@ -159,11 +163,11 @@ private func json(_ o: Any) -> String {
             return (Data(body.utf8), HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: nil)!)
         }
     }
-    // Only reachable with the flag on; with it off (this process) one call goes straight to Opus.
+    // Round 44: the flag is on by default (this process): Sonnet is refused once, then the same call goes to Opus.
     let t = Seq()
     let c = ClaudeClient(config: .init(mode: .direct(apiKey: "k")), transport: t)
     _ = try await ClaudeRouting.$call.withValue(.guide) {
         try await c.structured(NutmegTurn.self, system: "s", user: "u", schema: JSONSchema(Schemas.turn()), effort: .low)
     }
-    #expect(t.models == ["claude-opus-5-5"])
+    #expect(t.models == ["claude-sonnet-5-5", "claude-opus-5-5"])
 }

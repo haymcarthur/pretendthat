@@ -38,7 +38,7 @@ public enum ClaudeRouting {
         }
         return out
     }
-    /// The model for the current call: a DEBUG override, else round 35's Sonnet flag (guide + weave, default off),
+    /// The model for the current call: a DEBUG override, else round 35's Sonnet flag (guide + weave, default ON since round 44),
     /// else the configured model (Opus 5.5).
     public static func model(default base: String) -> String {
         #if DEBUG

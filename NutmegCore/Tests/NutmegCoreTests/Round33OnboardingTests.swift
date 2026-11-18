@@ -18,25 +18,23 @@ final class FakeDefaults: OnboardingDefaults {
 /// Onboarding v2 (2026-11-16): seven full-screen pages, no gate, two ways out of the last page.
 @Suite struct Round33OnboardingTests {
 
-    // MARK: The flow (v2)
+    // MARK: The flow (v3, round 44: six pages, privacy + mic in one step, no "Not now")
 
-    @Test func happyPathWalksAllSevenPagesWithNoGate() {
+    @Test func happyPathWalksAllSixPagesWithNoGate() {
         var f = OnboardingFlow()
         #expect(f.screen == .hello && !f.canGoBack)
-        f.next()   // "Let's get started": no gate
+        f.next()   // "Get started": no gate
         #expect(f.screen == .howItWorks && f.canGoBack)
         f.next()
         #expect(f.screen == .needs && f.canGoBack)
         f.next()
         #expect(f.screen == .privacy && f.canGoBack)
         f.next()   // consent is REQUIRED: Next doesn't skip it
-        #expect(f.screen == .privacy)
-        f.agree()
-        #expect(f.consent == true && f.screen == .microphone)
-        f.next()   // the mic page's only way on is Continue (the system prompts)
-        #expect(f.screen == .microphone)
+        #expect(f.screen == .privacy && f.consent == nil)
+        f.agree()   // "I agree, turn on the mic": consent, then the system prompts
+        #expect(f.consent == true && f.screen == .privacy && !f.micAsked)
         f.micAnswered(granted: true)
-        #expect(f.screen == .plans && !f.micDenied)
+        #expect(f.screen == .plans && !f.micDenied && !f.showsMicDenied)
         f.startFreePreview()
         #expect(f.screen == .handOff)
         f.startFirstGame()
@@ -52,27 +50,24 @@ final class FakeDefaults: OnboardingDefaults {
         #expect(f.finished && f.exit == .home)
     }
 
-    @Test func notNowShowsTheCalmScreenAndCanCloseOrGoBack() {
+    @Test func micAnswersNeedTheConsentFirst() {
         var f = OnboardingFlow()
         f.next(); f.next(); f.next()
-        f.notNow()
-        #expect(f.screen == .aiDeclined && f.consent == false && f.screen.dot == OnboardingScreen.privacy.dot)
-        f.back()
-        #expect(f.screen == .privacy)
-        f.notNow(); f.closeWithoutConsent()
-        #expect(f.finished && f.consent == false && f.exit == .closedWithoutConsent)
-        // Or agree after reading it.
-        var g = OnboardingFlow(); g.next(); g.next(); g.next(); g.notNow(); g.agree()
-        #expect(g.consent == true && g.screen == .microphone)
+        f.micAnswered(granted: true)   // no consent yet: nothing happens
+        #expect(f.screen == .privacy && !f.micAsked)
+        #expect(OnboardingExit(rawValue: "closedWithoutConsent") == nil)   // v3: no way out without consent
     }
 
-    @Test func deniedMicStaysWithTheNoteThenNextGoesOn() {
+    @Test func deniedMicShowsKidsCanTypeThenNextGoesOn() {
         var f = OnboardingFlow()
         f.next(); f.next(); f.next(); f.agree()
         f.micAnswered(granted: false)
-        #expect(f.screen == .microphone && f.micDenied && f.micAsked)
+        #expect(f.screen == .privacy && f.micDenied && f.micAsked && f.showsMicDenied)
+        #expect(f.screen.dot == OnboardingScreen.privacy.dot)
         f.next()
-        #expect(f.screen == .plans)
+        #expect(f.screen == .plans && !f.showsMicDenied)
+        f.back()
+        #expect(f.screen == .privacy && f.showsMicDenied)
     }
 
     @Test func backWorksOnEveryPageOneAtATime() {
@@ -80,7 +75,6 @@ final class FakeDefaults: OnboardingDefaults {
         f.next(); f.next(); f.next(); f.agree(); f.micAnswered(granted: true); f.startFreePreview()
         #expect(f.screen == .handOff)
         f.back(); #expect(f.screen == .plans)
-        f.back(); #expect(f.screen == .microphone)
         f.back(); #expect(f.screen == .privacy)
         f.back(); #expect(f.screen == .needs)
         f.back(); #expect(f.screen == .howItWorks)
@@ -94,11 +88,11 @@ final class FakeDefaults: OnboardingDefaults {
         #expect(f.isReplay && f.screen == .hello)
     }
 
-    @Test func onlyPageOneHasAClipAndEveryPageHasADot() {
+    @Test func onlyPageOneHasAClipAndEveryPageHasASegment() {
         #expect(OnboardingScreen.allCases.filter(\.nutmegSpeaks) == [.hello])
         #expect(OnboardingScreen.hello.clip == OnboardingCopy.getAGrownUp)
-        #expect(Set(OnboardingScreen.allCases.map(\.dot)).count == OnboardingScreen.dotCount)
-        #expect(OnboardingScreen.dotCount == 7)
+        #expect(OnboardingScreen.allCases.map(\.dot) == Array(0..<OnboardingScreen.dotCount))
+        #expect(OnboardingScreen.dotCount == 6)
     }
 
     @Test func settingsStoreOnlyDeviceFlagsAndFinishOnce() {
@@ -111,10 +105,6 @@ final class FakeDefaults: OnboardingDefaults {
         s.finish(f)
         #expect(s.onboardingDone && s.aiConsent)
         #expect(d.values.values.allSatisfy { $0 is Bool })   // booleans only, nothing about kids
-        // A replay that declines turns consent off.
-        var r = OnboardingFlow(replay: true); r.next(); r.next(); r.next(); r.notNow(); r.closeWithoutConsent()
-        s.finish(r)
-        #expect(s.onboardingDone && !s.aiConsent)
         s.reset()
         #expect(!s.onboardingDone && !s.aiConsent)
     }
@@ -127,12 +117,28 @@ final class FakeDefaults: OnboardingDefaults {
         // Only a page name and booleans (nothing about kids).
         #expect(d.values.values.allSatisfy { $0 is Bool || $0 is String })
         let back = s.resumeFlow()
-        #expect(back.screen == .microphone && back.consent == true && back.micAsked && back.micDenied)
+        #expect(back.screen == .privacy && back.consent == true && back.micAsked && back.micDenied && back.showsMicDenied)
         // A replay isn't remembered; finishing clears it.
         f.next(); f.startFreePreview(); f.startFirstGame(); s.finish(f)
         #expect(s.resumeFlow() == OnboardingFlow())
         s.saveProgress(OnboardingFlow(replay: true))
         #expect(d.values[OnboardingKeys.page] == nil)
+    }
+
+    @Test func aV2FlowLeftOnAnOldPageResumesOnThePrivacyPage() {
+        let d = FakeDefaults(), s = ParentSettings(defaults: d)
+        for old in ["microphone", "aiDeclined"] {
+            d.values[OnboardingKeys.page] = old
+            d.values[OnboardingKeys.micAsked] = false
+            #expect(s.resumeFlow().screen == .privacy)
+        }
+        d.values[OnboardingKeys.page] = "microphone"
+        d.values[OnboardingKeys.micAsked] = true
+        d.values[OnboardingKeys.micDenied] = true
+        let f = s.resumeFlow()
+        #expect(f.screen == .privacy && f.showsMicDenied && f.consent == true)
+        d.values[OnboardingKeys.page] = "nonsense"
+        #expect(s.resumeFlow() == OnboardingFlow())
     }
 
     // MARK: Consent gating of New game
@@ -182,18 +188,18 @@ final class FakeDefaults: OnboardingDefaults {
         #expect(PlanCatalog.freePreviewShows == 2)
         #expect(PlanCatalog.defaultPeriod == .monthly)
         #expect(PlanCatalog.showPass.newShowsPerMonth == 10 && PlanCatalog.seasonPass.newShowsPerMonth == 30)
-        // Haylee's pricing (2026-11-16): an intro price for 12 months, then the regular price; yearly at the regular rate.
+        // Haylee's pricing (2026-11-16): an intro price for 12 months, then the regular price. Round 44: yearly has a first-year intro.
         #expect(PlanCatalog.showPass.billedText(.monthly) == "$9.99/month")
         #expect(PlanCatalog.showPass.introOfferText == "$9.99/month for 12 months, then $14.99/month")
         #expect(PlanCatalog.showPass.detailText(.monthly) == "for your first 12 months, then $14.99/month")
-        #expect(PlanCatalog.showPass.billedText(.yearly) == "$149.99/year")
+        #expect(PlanCatalog.showPass.billedText(.yearly) == "$99.99/year")
         #expect(PlanCatalog.seasonPass.billedText(.monthly) == "$19.99/month")
         #expect(PlanCatalog.seasonPass.introOfferText == "$19.99/month for 12 months, then $29.99/month")
-        #expect(PlanCatalog.seasonPass.billedText(.yearly) == "$299.99/year")
-        #expect(PlanCatalog.showPass.detailText(.yearly) == "about $12.50 a month · save 17%")
-        #expect(PlanCatalog.seasonPass.detailText(.yearly) == "about $25.00 a month · save 17%")
+        #expect(PlanCatalog.seasonPass.billedText(.yearly) == "$199.99/year")
+        #expect(PlanCatalog.showPass.detailText(.yearly) == "about $8.33 a month the first year")
+        #expect(PlanCatalog.seasonPass.detailText(.yearly) == "about $16.67 a month the first year")
         // Config values: the cards read the caps.
-        #expect(PlanCatalog.seasonPass.showsText == "\(PlanCatalog.seasonPassShows) new shows a month")
+        #expect(PlanCatalog.seasonPass.showsText == "\(PlanCatalog.seasonPassShows) new games a month")
         // Never "Unlimited" as a plan name; never "trial".
         for o in PlanCatalog.offers { #expect(!o.name.lowercased().contains("unlimited")) }
         for l in [OnboardingCopy.plansTitle, OnboardingCopy.plansBody, OnboardingCopy.freePreviewButton] {
@@ -201,34 +207,46 @@ final class FakeDefaults: OnboardingDefaults {
         }
     }
 
-    // MARK: Words
+    // MARK: Words (onboarding v3, the approved mockup)
 
-    @Test func privacyCopyMatchesRound31() {
-        let all = OnboardingCopy.privacyLines.map(\.text).joined(separator: " ")
-        #expect(all.contains("into words right on this iPad"))
-        #expect(all.contains("never sent"))
-        #expect(all.contains("OpenAI") && all.contains("Anthropic"))
-        #expect(all.contains("names removed"))
-        #expect(all.contains("No accounts"))
-        // The mic pre-permission never says "Allow"; one Continue button.
-        #expect(!OnboardingCopy.micContinue.contains("Allow") && !OnboardingCopy.micBody.contains("Allow"))
-        #expect(OnboardingCopy.tagline == "Turn your living room into a pretend-play adventure.")
+    @Test func v3CopyIsTheApprovedMockupsWords() {
+        #expect(OnboardingCopy.helloTitle == "Welcome to PretendThat")
+        #expect(OnboardingCopy.helloBody == "Turn your living room into a pretend-play adventure.")
+        #expect(OnboardingCopy.helloButton == "Get started")
         #expect(OnboardingCopy.steps.map(\.title) == JourneyStep.allCases.map(\.label))
+        #expect(OnboardingCopy.steps.map(\.body) == ["Pick a game by talking with Nutmeg", "Find props around the house",
+                                                     "Print your custom kit", "Play scene by scene, off the screen"])
+        #expect(OnboardingCopy.needs.map(\.title) == ["A printer", "Crayons & scissors", "Space to play"])
+        // No game length anywhere (Haylee, follow-up 2).
+        let all = ([OnboardingCopy.needLead] + OnboardingCopy.needs.flatMap { [$0.title, $0.detail] }).joined(separator: " ")
+        #expect(!all.contains("min") && !all.contains("15"))
+        #expect(OnboardingCopy.privacyTitle == "Private by design")
+        #expect(OnboardingCopy.privacyBody.contains("OpenAI and Anthropic") && OnboardingCopy.privacyBody.contains("names removed"))
+        #expect(OnboardingCopy.agree == "I agree, turn on the mic")
+        #expect(OnboardingCopy.micFine.contains("microphone next") && !OnboardingCopy.micFine.contains("Allow"))
+        #expect(OnboardingCopy.micDeniedTitle == "No mic? Kids can type.")
+        #expect(OnboardingCopy.handOffTitle == "You're all set")
+        #expect(OnboardingCopy.handOffBody.hasPrefix("Hand your \(DeviceWord.noun) to your child."))
         // Her two lines are bundled clips (recorded from her real voice).
         #expect(CommonLines.all.contains(OnboardingCopy.getAGrownUp) && CommonLines.all.contains(OnboardingCopy.greetKid))
     }
 
-    @Test func v2PlansPageReadsTheOnePricingConfig() {
-        #expect(PlanCatalog.showPass.introThenText == "for 12 months, then $14.99/month")
-        #expect(PlanCatalog.seasonPass.introThenText == "for 12 months, then $29.99/month")
-        #expect(OnboardingCopy.cardShows(PlanCatalog.showPass) == "10 new shows a month")
-        #expect(OnboardingCopy.cardShows(PlanCatalog.seasonPass) == "Up to 30 new shows a month")
-        #expect(OnboardingCopy.freeHeroTitle.hasPrefix("\(PlanCatalog.freePreviewShows) free shows"))
-        for l in [OnboardingCopy.plansV2Title, OnboardingCopy.plansV2Lead, OnboardingCopy.freeHeroTitle, OnboardingCopy.freeHeroBody] {
-            #expect(!l.lowercased().contains("trial"))
+    @Test func v3PlansPageSaysGamesAndTheRenewalPricePlainly() {
+        #expect(OnboardingCopy.plansV3Title == "Start with 2 free games")
+        #expect(OnboardingCopy.freeGamesButton == "Start with 2 free games")
+        // Haylee's follow-up 3 line, word for word ("saves itself" + "play it again ... free").
+        #expect(OnboardingCopy.plansV3Lead == "Each new game is a fresh story and printable kit made just for your kids. Every game saves itself, so they can play it again as many times as they like, free.")
+        #expect(OnboardingCopy.planGames(.showPass) == "10 new games a month")
+        #expect(OnboardingCopy.planGames(.seasonPass) == "30 new games a month")   // no "Up to" (Haylee)
+        #expect(OnboardingCopy.billedByApple == "Billed by Apple. Renews until cancelled.")
+        let row = PriceText.rowParts(regular: "$14.99", intro: "$9.99", introPeriods: 12, eligible: true, period: .monthly)
+        #expect(row.amount == "$9.99/mo" && row.then == "for 12 months, then $14.99/mo")
+        let used = PriceText.rowParts(regular: "$14.99", intro: "$9.99", introPeriods: 12, eligible: false, period: .monthly)
+        #expect(used.amount == "$14.99/mo" && used.then == nil)
+        for l in [OnboardingCopy.plansV3Title, OnboardingCopy.plansV3Lead, OnboardingCopy.freeGamesButton] {
+            let w = l.lowercased()
+            #expect(!w.contains("trial") && !w.contains("show") && !w.contains("replay"))
         }
-        #expect(!OnboardingCopy.micFine.contains("Allow"))
-        #expect(OnboardingCopy.needs.count == 4 && OnboardingCopy.steps.count == 4)
     }
 
     // MARK: The New game greeting (round 33 addition)

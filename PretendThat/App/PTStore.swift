@@ -183,8 +183,9 @@ struct PlanPrice {
         } else {
             loaded = false
             regular = PlanCatalog.dollarsText(period == .monthly ? offer.monthly : offer.yearly)
-            intro = period == .monthly ? PlanCatalog.dollarsText(offer.monthlyIntro) : nil
-            introPeriods = period == .monthly ? offer.introMonths : 0
+            // Round 44: yearly has an intro too (the first year, paid up front).
+            intro = PlanCatalog.dollarsText(period == .monthly ? offer.monthlyIntro : offer.yearlyIntro)
+            introPeriods = period == .monthly ? offer.introMonths : 1
         }
         eligible = purchases.introEligible
     }
@@ -194,6 +195,10 @@ struct PlanPrice {
     var billedAmount: String { eligible ? (intro ?? regular) : regular }
     var introThen: String? { PriceText.introThen(regular: regular, intro: intro, introPeriods: introPeriods, eligible: eligible, period: period) }
     var full: String { PriceText.full(regular: regular, intro: intro, introPeriods: introPeriods, eligible: eligible, period: period) }
+    /// Onboarding v3's plan row: ("$9.99/mo", "for 12 months, then $14.99/mo").
+    var row: (amount: String, then: String?) {
+        PriceText.rowParts(regular: regular, intro: intro, introPeriods: introPeriods, eligible: eligible, period: period)
+    }
 }
 
 /// Round 32: Restore and Manage (static; used by the Grown-ups screens and the plans).

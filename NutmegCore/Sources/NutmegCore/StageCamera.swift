@@ -386,7 +386,9 @@ public enum PTStageDirector {
             switch conversationShot {
             case .closeUp: return .talk
             case .medium: return card
-            case .wide: return cards > 0 ? .presentedCards : .hop
+            // Round 44 (Haylee: chat open = no card on the stage): the cards live in the panel's tab, so she keeps the
+            // talking close-up instead of the wide shot that made room for them.
+            case .wide: return cards > 0 ? (chatOpen ? .propCardChat : .presentedCards) : .hop
             }
         }
         switch phase {

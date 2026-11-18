@@ -1,40 +1,45 @@
 import Foundation
 
 // Round 33: the first-launch parent onboarding (research 2026-11-16-onboarding-research.md, Haylee's decisions in
-// decisions/2026-11-15-paid-app-direction.md). Six screens, shown once, replayable from Grown-ups:
-//   1 Hi, grown-up! (Nutmeg's recorded clip + the D2 gate) · 2 How it works · 3 Private by design + REQUIRED AI consent
-//   (Not now → a calm "needs this" screen) · 4 Microphone pre-permission · 5 Plans (Free Preview first) · 6 Hand-off.
-// Nothing about kids is stored: three device flags (onboarding done, AI consent yes/no, a count of new games started).
+// decisions/2026-11-15-paid-app-direction.md). Shown once, replayable from Grown-ups. Nothing about kids is stored:
+// device flags only (onboarding done, AI consent yes/no, a count of new games started).
+//
+// Onboarding v3 (round 44, Haylee approved design/mockups/onboarding-v3; decisions/2026-11-17-onboarding-v3-feedback.md):
+// six calm pages, no gate:
+//   1 Welcome to PretendThat · 2 How it works · 3 What you'll need · 4 Private by design (REQUIRED AI consent and the
+//   microphone in one step: "I agree, turn on the mic", the only button; a denied mic shows "No mic? Kids can type.")
+//   · 5 Start with 2 free games (plans) · 6 You're all set: "Start our first game" or "Go to the home page".
+// AI is required, so there's no "Not now" and no decline page (consent can still be turned off in Grown-ups).
 
 // MARK: - Screens and the flow
 
-// Onboarding v2 (Haylee, 2026-11-16, design/mockups/onboarding-v2 pages 1–7): full-screen pages, NO grown-up gate.
-//   1 Hi, grown-up! · 2 How it works (4 cards) · 3 What you'll need · 4 Private by design + REQUIRED AI consent
-//   (Not now → the calm "needs this" page) · 5 Hold to talk (mic pre-permission) · 6 Plans · 7 Hand the iPad to your
-//   child: "Start our first game" (straight onto the stage, Nutmeg talking) or "Go to the home page" (silent).
-
 public enum OnboardingScreen: String, CaseIterable, Sendable {
-    case hello, howItWorks, needs, privacy, aiDeclined, microphone, plans, handOff
+    case hello, howItWorks, needs, privacy, plans, handOff
 
-    /// The dots row (aiDeclined sits on the privacy dot).
+    /// The progress bar's segment (0-based; segments up to and including it are filled).
     public var dot: Int {
         switch self {
         case .hello: 0
         case .howItWorks: 1
         case .needs: 2
-        case .privacy, .aiDeclined: 3
-        case .microphone: 4
-        case .plans: 5
-        case .handOff: 6
+        case .privacy: 3
+        case .plans: 4
+        case .handOff: 5
         }
     }
-    public static let dotCount = 7
-    /// Nutmeg's bundled clip on this page (her real recorded voice, never TTS), played only while she's visible on it.
-    /// v2: only page 1 keeps a clip. The round 33 hand-off line played on the start screen after the cover closed; now
-    /// "Start our first game" opens the game, whose own greeting is the first thing she says, and "Go to the home
-    /// page" is silent (Haylee: never a voice without Nutmeg on screen, never TTS).
+    public static let dotCount = 6
+    /// Nutmeg's bundled clip on this page (her real recorded voice, never TTS), played only while she's visible on it:
+    /// page 1 only (her start-screen art). "Start our first game" opens the game, whose own greeting is the first thing
+    /// she says; "Go to the home page" is silent.
     public var clip: String? { self == .hello ? OnboardingCopy.getAGrownUp : nil }
     public var nutmegSpeaks: Bool { clip != nil }
+
+    /// A saved page name, including the v2 pages a first-launch flow may have been left on before v3 (the old consent
+    /// and microphone pages fold into the privacy page).
+    public static func restored(_ raw: String) -> OnboardingScreen? {
+        if let s = OnboardingScreen(rawValue: raw) { return s }
+        return raw == "aiDeclined" || raw == "microphone" ? .privacy : nil
+    }
 }
 
 /// How the flow ended.
@@ -43,19 +48,17 @@ public enum OnboardingExit: String, Equatable, Sendable {
     case firstGame
     /// "Go to the home page": the start screen, with no voice at all.
     case home
-    /// "Close for now" on the AI-declined page (no consent): the start screen, silent.
-    case closedWithoutConsent
 }
 
-/// The onboarding state machine (v2: no gate). Back moves one page at a time on every page but the first.
+/// The onboarding state machine (no gate). Back moves one page at a time on every page but the first.
 /// A replay from Grown-ups walks the same pages (page 1's clip stays quiet: the grown-up asked for it).
 public struct OnboardingFlow: Equatable, Sendable {
     public private(set) var screen: OnboardingScreen
-    /// The grown-up's AI answer in this run (nil = not answered yet).
+    /// The grown-up's AI answer in this run (nil = not answered yet). v3: only ever true (AI is required).
     public private(set) var consent: Bool?
-    /// The system mic / speech prompts came back denied (the mic page then shows the Settings note and Next).
+    /// The system mic / speech prompts came back denied (the privacy page then shows "No mic? Kids can type." + Next).
     public private(set) var micDenied = false
-    /// The mic page's Continue ran (the system prompts were asked or already answered).
+    /// "I agree, turn on the mic" ran the system prompts (or they were already answered).
     public private(set) var micAsked = false
     /// How the flow ended (nil = still running).
     public private(set) var exit: OnboardingExit?
@@ -71,50 +74,42 @@ public struct OnboardingFlow: Equatable, Sendable {
     public init(restoring screen: OnboardingScreen, consent: Bool?, micAsked: Bool, micDenied: Bool, replay: Bool = false) {
         isReplay = replay
         self.screen = screen
-        switch screen {
-        case .microphone, .plans, .handOff: self.consent = true
-        case .aiDeclined: self.consent = false
-        default: self.consent = consent
-        }
-        let pastMic = screen == .microphone || screen == .plans || screen == .handOff
-        self.micAsked = micAsked && pastMic
+        let past = screen == .plans || screen == .handOff
+        self.micAsked = micAsked && (past || screen == .privacy)
+        self.consent = past || self.micAsked ? true : consent
         self.micDenied = micDenied && self.micAsked
     }
 
-    /// The page's main forward button (Hi → How it works → What you'll need → Privacy; Mic after a denial → Plans).
+    /// The page's main forward button (Get started → How it works → What you'll need → Privacy; the privacy page's
+    /// Next after a denied mic → the plans).
     public mutating func next() {
         switch screen {
         case .hello: screen = .howItWorks
         case .howItWorks: screen = .needs
         case .needs: screen = .privacy
-        case .microphone where micAsked: screen = .plans
+        case .privacy where micAsked && consent == true: screen = .plans
         default: break
         }
     }
 
-    /// "I agree, let's play": consent on, then the microphone.
+    /// "I agree, turn on the mic": consent on; the app then asks for the microphone (`micAnswered`).
     public mutating func agree() {
-        guard screen == .privacy || screen == .aiDeclined else { return }
-        consent = true
-        screen = .microphone
-    }
-
-    /// "Not now": consent off, the calm page.
-    public mutating func notNow() {
         guard screen == .privacy else { return }
-        consent = false
-        screen = .aiDeclined
+        consent = true
     }
 
-    /// The system prompts answered. Granted: on to the plans. Denied: stay with the note (Next goes on).
+    /// The system prompts answered. Granted: on to the plans. Denied: stay with "No mic? Kids can type." (Next goes on).
     public mutating func micAnswered(granted: Bool) {
-        guard screen == .microphone else { return }
+        guard screen == .privacy, consent == true else { return }
         micAsked = true
         micDenied = !granted
         if granted { screen = .plans }
     }
 
-    /// "Start my Free Preview" (or Continue on a replay with the preview used up): the hand-off page.
+    /// The privacy page shows the denied state ("No mic? Kids can type.", Next, Open Settings).
+    public var showsMicDenied: Bool { screen == .privacy && micAsked && micDenied }
+
+    /// "Start with 2 free games" (or Continue on a replay with the games used up / a plan active): the last page.
     public mutating func startFreePreview() {
         guard screen == .plans else { return }
         screen = .handOff
@@ -132,12 +127,6 @@ public struct OnboardingFlow: Equatable, Sendable {
         exit = .home
     }
 
-    /// "Close for now" on the AI-declined page: the flow ends without consent (turn it on later in Grown-ups).
-    public mutating func closeWithoutConsent() {
-        guard screen == .aiDeclined, !finished else { return }
-        exit = .closedWithoutConsent
-    }
-
     /// Back works on every page except the first (nothing before it).
     public var canGoBack: Bool { screen != .hello && !finished }
 
@@ -147,9 +136,7 @@ public struct OnboardingFlow: Equatable, Sendable {
         case .howItWorks: screen = .hello
         case .needs: screen = .howItWorks
         case .privacy: screen = .needs
-        case .aiDeclined: screen = .privacy
-        case .microphone: screen = .privacy
-        case .plans: screen = .microphone
+        case .plans: screen = .privacy
         case .handOff: screen = .plans
         case .hello: break
         }
@@ -217,7 +204,7 @@ public final class ParentSettings {
 
     /// The first-launch flow to show: where it was left, or page 1.
     public func resumeFlow() -> OnboardingFlow {
-        guard let raw = defaults.string(forKey: OnboardingKeys.page), let screen = OnboardingScreen(rawValue: raw) else {
+        guard let raw = defaults.string(forKey: OnboardingKeys.page), let screen = OnboardingScreen.restored(raw) else {
             return OnboardingFlow()
         }
         return OnboardingFlow(restoring: screen, consent: nil, micAsked: defaults.bool(forKey: OnboardingKeys.micAsked),
@@ -273,7 +260,7 @@ public enum NewGameGate: Equatable, Sendable {
     /// The Free Preview is used up and there's no plan: the plans screen (behind the gate), not a new game.
     case needsPlan
     /// Round 38: a paid plan's new shows for this month are used up: the plans screen (behind the gate) says when more
-    /// arrive. Kids see only "That's all the new shows for now! Ask a grown-up."
+    /// arrive. Kids see only "That's all the new games for now! Ask a grown-up."
     case outOfShows
 
     /// New game. Consent first (no AI calls without it), then the Free Preview count unless a plan is active.
@@ -304,9 +291,17 @@ public struct PlanOffer: Equatable, Sendable, Identifiable {
     public let introMonths: Int
     public let monthly: Decimal
     public let yearly: Decimal
+    /// Round 44 (Haylee, decisions/2026-11-17-yearly-intro-sonnet.md): the yearly plan's first year, paid up front
+    /// (App Store Connect: an introductory offer, "Pay up front, 1 year", new subscribers), then `yearly`.
+    public let yearlyIntro: Decimal
 
-    /// What's billed first: the intro price for monthly, the yearly price for yearly.
-    public func price(_ period: BillingPeriod) -> Decimal { period == .monthly ? monthlyIntro : yearly }
+    /// What's billed first: the intro price (12 months monthly, or the first year).
+    public func price(_ period: BillingPeriod) -> Decimal { period == .monthly ? monthlyIntro : yearlyIntro }
+
+    /// The first year's wording: "$99.99 for the first year, then $149.99/year".
+    public var yearlyIntroText: String {
+        "\(PlanCatalog.dollars(yearlyIntro)) for the first year, then \(PlanCatalog.dollars(yearly))/year"
+    }
 
     /// The billed price, the most prominent number (3.1.2): "$9.99/month", "$149.99/year".
     public func billedText(_ period: BillingPeriod) -> String {
@@ -324,20 +319,19 @@ public struct PlanOffer: Equatable, Sendable, Identifiable {
     }
 
     /// The line under the big price: monthly → "for your first 12 months, then $14.99/month" (the renewal price, in
-    /// body text); yearly → "about $12.50 a month · save 17%" (smaller, subordinate to the billed price).
+    /// body text); yearly → "about $8.33 a month the first year" (the intro year, subordinate to the billed price).
     public func detailText(_ period: BillingPeriod) -> String {
         switch period {
         case .monthly:
             return "for your first \(introMonths) months, then \(PlanCatalog.dollars(monthly))/month"
         case .yearly:
-            let perMonth = NSDecimalNumber(decimal: yearly).doubleValue / 12
-            let save = 1 - NSDecimalNumber(decimal: yearly).doubleValue / (NSDecimalNumber(decimal: monthly).doubleValue * 12)
-            return String(format: "about $%.2f a month · save %d%%", perMonth, Int((save * 100).rounded()))
+            let perMonth = NSDecimalNumber(decimal: yearlyIntro).doubleValue / 12
+            return String(format: "about $%.2f a month the first year", perMonth)
         }
     }
 
-    /// "10 new shows a month (planned)": the cap is a config value until the cost decision.
-    public var showsText: String { "\(newShowsPerMonth) new shows a month" }
+    /// "10 new games a month" (round 44: "game", never "show", in everything a grown-up reads).
+    public var showsText: String { "\(newShowsPerMonth) new games a month" }
 }
 
 public enum PlanCatalog {
@@ -352,11 +346,13 @@ public enum PlanCatalog {
     public static let introMonths = 12
     public static var showPass: PlanOffer {
         PlanOffer(id: "showpass", name: "Show Pass", newShowsPerMonth: showPassShows, monthlyIntro: Decimal(string: "9.99")!,
-                  introMonths: introMonths, monthly: Decimal(string: "14.99")!, yearly: Decimal(string: "149.99")!)
+                  introMonths: introMonths, monthly: Decimal(string: "14.99")!, yearly: Decimal(string: "149.99")!,
+                  yearlyIntro: Decimal(string: "99.99")!)
     }
     public static var seasonPass: PlanOffer {
         PlanOffer(id: "seasonpass", name: "Season Pass", newShowsPerMonth: seasonPassShows, monthlyIntro: Decimal(string: "19.99")!,
-                  introMonths: introMonths, monthly: Decimal(string: "29.99")!, yearly: Decimal(string: "299.99")!)
+                  introMonths: introMonths, monthly: Decimal(string: "29.99")!, yearly: Decimal(string: "299.99")!,
+                  yearlyIntro: Decimal(string: "199.99")!)
     }
     public static var offers: [PlanOffer] { [showPass, seasonPass] }
 
@@ -378,95 +374,85 @@ public enum OnboardingCopy {
     public static let tagline = "Turn your living room into a pretend-play adventure."
     public static let nutmegIntro = "Meet Nutmeg, your pretend-play stage manager."
 
-    // 1 (v2)
-    public static let helloEyebrow = "For grown-ups · 1 minute"
-    public static let helloTitle = "Hi, grown-up!"
-    public static let helloBody = "This part is for grown-ups. A quick look at how PretendThat works and how we keep it private."
-    public static let helloButton = "Let's get started"
 
-    // 2 (v2: one page, four cards)
+    // Onboarding v3 (design/mockups/onboarding-v3; one title, one gray line, one purple button per page).
+
+    // 1 · Welcome
+    public static let helloTitle = "Welcome to PretendThat"
+    public static let helloBody = tagline
+    public static let helloButton = "Get started"
+
+    // 2 · How it works (four rows: an icon, one word, one short line)
     public static let howTitle = "How it works"
     public static let steps: [(step: JourneyStep, title: String, body: String)] = [
-        (.game, "Pick", "Your child picks a story and a role with Nutmeg."),
-        (.getReady, "Props", "Nutmeg finds things you already have at home."),
-        (.print, "Print", "Print a kit: masks, signs, tickets to color."),
-        (.play, "Play", "Nutmeg guides each scene, then steps back."),
+        (.game, "Pick", "Pick a game by talking with Nutmeg"),
+        (.getReady, "Props", "Find props around the house"),
+        (.print, "Print", "Print your custom kit"),
+        (.play, "Play", "Play scene by scene, off the screen"),
     ]
 
-    // 3 (v2: its own page)
+    // 3 · What you'll need (three tiles; no game length anywhere)
     public static let needTitle = "What you'll need"
-    public static let needLead = "Nothing fancy. Most of it is already in your home."
+    public static let needLead = "Most of it is already in your home."
     public static let needs: [(title: String, detail: String)] = [
         ("A printer", "For the kit"),
-        ("Crayons", "To color it in"),
-        ("Space", "Room to move"),
-        ("15–25 min", "Per show"),
+        ("Crayons & scissors", "To color and cut"),
+        ("Space to play", "Room to move"),
     ]
 
-    // 4
+    // 4 · Private by design: the REQUIRED AI consent and the microphone, one button (no "Not now")
     public static let privacyTitle = "Private by design"
-    public static let privacyLines: [(symbol: String, text: String)] = [
-        ("checkmark", "No accounts, no sign-up."),
-        ("checkmark", "Nothing about your kids is saved."),
-        ("checkmark", "Your child's voice turns into words right on this \(DeviceWord.noun). Audio is never sent."),
-        ("checkmark", "Only the words, with names removed, go to our AI partners, OpenAI and Anthropic."),
-    ]
+    public static let privacyBody = "Nutmeg uses AI. Words, with names removed, go to OpenAI and Anthropic."
+    /// The inline link after `privacyBody` (opens the policy in the in-app browser).
+    public static let privacyBodyLink = "Privacy policy"
+    /// Grown-ups → AI partners' link to the policy.
     public static let privacyLink = "Read our privacy policy"
-    /// The one short line on the privacy page (a switch, OFF until the grown-up turns it on).
-    public static let analyticsLine = "Share anonymous usage counts (never anything about your child)"
-    public static let consentAsk = "PretendThat uses AI to talk with your child and make each game. Is that OK?"
-    public static let agree = "I agree, let's play"
-    public static let notNow = "Not now"
-
-    // Not now (and New game without consent)
-    public static let declinedTitle = "PretendThat needs this to work"
-    public static let declinedBody = "Nutmeg uses our AI partners to listen, talk and make each game, so PretendThat can't play without them. That's OK. You can turn it on any time in Grown-ups."
-    public static let declinedHow = "Grown-ups (top corner) → AI partners"
-    public static let declinedBack = "Go back"
-    public static let declinedClose = "Close for now"
-
-    // 5 (v2)
-    public static let micTitle = "Hold to talk"
-    public static let micBody = "Nutmeg listens while your child holds the mic button. Let go, and she stops listening."
-    public static let micFine = "Next, your \(DeviceWord.noun) will ask to use the microphone."
-    public static let micContinue = "Continue"
-    public static let micDeniedTitle = "No problem. Kids can type instead."
-    public static let micDeniedBody = "To turn the mic on later, open Settings → Apps → PretendThat and switch on Microphone and Speech Recognition."
+    public static let agree = "I agree, turn on the mic"
+    /// Under the button: the system prompt comes next, so it's never a surprise.
+    public static let micFine = "Your \(DeviceWord.noun) will ask to use the microphone next."
+    // 4b · the mic was not allowed (same progress step)
+    public static let micDeniedTitle = "No mic? Kids can type."
+    public static let micDeniedBody = "Turn on the microphone in Settings anytime."
     public static let micDeniedSettings = "Open Settings"
     public static let next = "Next"
 
-    // 6 (v2 page)
-    public static let plansV2Title = "Start free, upgrade anytime"
-    public static let plansV2Lead = "Want more new shows later? Pick a pass whenever you like."
-    public static var freeHeroTitle: String { "\(PlanCatalog.freePreviewShows) free shows,\non the house!" }
-    public static let freeHeroBody = "No card. Nothing to cancel."
-    public static let seasonTag = "About one a day"
-    public static let replaysBullet = "Unlimited replays"
-    /// The card's shows line: the Season Pass is a cap ("Up to 30 …").
-    public static func cardShows(_ offer: PlanOffer) -> String {
-        offer.id == PlanCatalog.seasonPass.id ? "Up to \(offer.showsText)" : offer.showsText
-    }
+    // New game without consent (Grown-ups → AI partners turned off): the kid card's grown-up note
+    public static let declinedTitle = "PretendThat needs this to work"
+    public static let declinedBody = "Nutmeg uses our AI partners to listen, talk and make each game, so PretendThat can't play without them. That's OK. You can turn it on any time in Grown-ups."
+
+    // 5 · Start with 2 free games (no Monthly/Yearly switch: yearly lives in Grown-ups → Plans)
+    public static var plansV3Title: String { "Start with \(PlanCatalog.freePreviewShows) free games" }
+    /// Haylee's follow-up 3 wording (decisions/2026-11-17-onboarding-v3-feedback.md).
+    public static let plansV3Lead = "Each new game is a fresh story and printable kit made just for your kids. Every game saves itself, so they can play it again as many times as they like, free."
+    /// The plan row's line: "10 new games a month" / "30 new games a month" (no "Up to", Haylee).
+    public static func planGames(_ tier: PlanTier) -> String { "\(tier.allowance) new games a month" }
+    public static let getPlan = "Get"
+    public static var freeGamesButton: String { "Start with \(PlanCatalog.freePreviewShows) free games" }
+    public static let billedByApple = "Billed by Apple. Renews until cancelled."
+    public static let restoreShort = "Restore"
+    public static let termsShort = "Terms"
+    public static let privacyShort = "Privacy"
 
     // Plans behind the gate (the Free Preview used up)
     public static let plansTitle = "Start with your Free Preview"
-    public static let plansBody = "Your first 2 brand-new shows are free. No card, nothing to cancel. Replays of saved games are always free."
+    public static let plansBody = "Your first 2 brand-new games are free. No card, nothing to cancel. Playing a saved game again is always free."
     public static let freePreviewButton = "Start my Free Preview"
     public static let continueButton = "Continue"
     public static let plansFooter = "Show Pass and Season Pass are subscriptions billed by Apple. They renew automatically until cancelled in Settings, at least 24 hours before renewal."
     public static let plannedNote = "planned"
     public static let comingSoon = "Coming soon"
     public static let comingSoonNote = "Plans can't be bought yet. They're coming soon."
-    public static let replaysLine = "Replay saved games as often as you like"
+    public static let replaysLine = "Play saved games again as often as you like"
     public static let restore = "Restore purchases"
     public static let terms = "Terms of Use"
     public static let privacy = "Privacy Policy"
     // Round 38: real purchases.
     public static let plansGrownUpsTitle = "Plans"
-    public static let plansGrownUpsBody = "Every plan includes unlimited replays of saved games. Plans are billed by Apple to your Apple ID."
-    public static func planOutTitle(_ tier: PlanTier) -> String { "This month's new shows are used up" }
+    public static let plansGrownUpsBody = "With every plan, playing a saved game again is always free. Plans are billed by Apple to your Apple ID."
+    public static func planOutTitle(_ tier: PlanTier) -> String { "This month's new games are used up" }
     public static func planOutBody(_ tier: PlanTier, refill: String?) -> String {
-        "\(tier.name) includes \(tier.allowance) new shows a month. \(refill ?? "More arrive when your plan renews.") Saved games are still free to replay."
-            + (tier == .showPass ? " Want more? Season Pass has up to \(PlanTier.seasonPass.allowance) a month." : "")
+        "\(tier.name) includes \(tier.allowance) new games a month. \(refill ?? "More arrive when your plan renews.") Playing a saved game again is still free."
+            + (tier == .showPass ? " Want more? Season Pass has \(PlanTier.seasonPass.allowance) new games a month." : "")
     }
     public static let buying = "Talking to the App Store…"
     public static let loadingPrices = "Loading prices from the App Store…"
@@ -477,18 +463,17 @@ public enum OnboardingCopy {
     public static let yearlyLink = "Yearly plans"
     public static let monthlyLink = "Monthly plans"
     public static let outOfShowsTitle = "Your Free Preview is used up"
-    public static let outOfShowsBody = "Your 2 free new shows are done. Pick a plan for more new shows. Saved games are still free to replay."
+    public static let outOfShowsBody = "Your 2 free new games are done. Pick a plan for more new games. Playing a saved game again is still free."
 
-    // 7 (v2)
-    public static let handOffEyebrow = "All set"
-    public static let handOffTitle = "Hand the \(DeviceWord.noun) to your child"
-    public static let handOffBody = "Nutmeg will take it from here."
+    // 6 · You're all set (the logo; "your device" is the device word)
+    public static let handOffTitle = "You're all set"
+    public static let handOffBody = "Hand your \(DeviceWord.noun) to your child. Nutmeg will take it from here."
     public static let startFirstGame = "Start our first game"
     public static let goHome = "Go to the home page"
 
     // Kid-facing cards on the start screen (no prices; the grown-up opens the gate)
     public static let kidNeedsGrownUp = "Ask a grown-up to finish setting up."
-    public static let kidOutOfShows = "That's all the new shows for now! Ask a grown-up."
+    public static let kidOutOfShows = "That's all the new games for now! Ask a grown-up."
     public static let kidGrownUpsButton = "Grown-ups"
 
     // The Grown-ups row
