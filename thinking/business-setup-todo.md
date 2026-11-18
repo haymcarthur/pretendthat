@@ -10,6 +10,7 @@ Last updated 2026-11-17. Drafts are in ~/Documents/Crimson Foundry/ (kept out of
 - Email sent to the Washington City business license office (update or re-apply as a Home Occupation license?).
 
 ## Waiting on
+- **Apple Small Business Program:** enrollment submitted 2026-11-18 (team 66898X3HH3, no associated accounts, under $1M). Apple emails the result; then commission is 15% from day one.
 - **Washington City:** their reply; then update the license or apply for a new Home Occupation license for Crimson Foundry LLC.
 - **D&B:** profile update submitted (principal = Haylee, Managing Member; Christie removed). Legal name change via the ⓘ next to Legal Business Name, with the Utah amendment as proof. Allow 1–2+ weeks to reach Apple/Google. **2026-11-17:** the Overview is locked while the principal change is pending ("most updates under 7 days"). When it clears, submit the legal name change with the Utah **Stamped File Copy** of the amendment (Utah Business Registration → Dashboard → Correspondence).
 
