@@ -452,3 +452,4 @@ Game arc becomes: Print → **story opener** → **setup scene** → 3 play scen
   - ✓ means "we found them"; ✗ still swaps the prop. Nice-to-have: "we only have 2" counts as found — kids pretend the rest (Nutmeg: "No problem, we'll pretend the rest!").
   - Setup / scene rows and the play guide can refer to "the cups" (plural) correctly.
   - Keep all prop rules: household only, no printed things, no weapons, no-repeat, prop fit.
+- **Update (Haylee, 2026-11-18):** say "**up to** N" for multiples so families without enough never feel they can't play. Card: "Up to 4 cups — tea cups for everyone"; Nutmeg: "Find up to 4 cups — one for each player if you have them!" ✓ = found some; no "we only have 2" step needed. (The no-"up to" rule is only for plan/marketing copy, not here.)
