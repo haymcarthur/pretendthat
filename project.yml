@@ -39,7 +39,7 @@ targets:
         # (README → "Build for a device with the personal team"); decisions/2026-11-17-appstore-bundle-team.md.
         DEVELOPMENT_TEAM: 66898X3HH3
         MARKETING_VERSION: "1.0"
-        CURRENT_PROJECT_VERSION: "2"
+        CURRENT_PROJECT_VERSION: "3"
         PRODUCT_NAME: PretendThat
         INFOPLIST_FILE: PretendThat/Resources/Info.plist
         TARGETED_DEVICE_FAMILY: "1,2"
