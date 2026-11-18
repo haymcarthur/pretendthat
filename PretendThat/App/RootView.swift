@@ -182,9 +182,10 @@ struct RootView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .ignoresSafeArea(.keyboard)   // round 11: the keyboard covers it (the chat panel has its own field)
             }
-            if store.phase == .end && chromeVisible && !(chatOpen && chromeVisible) {
-                EndButtons(model: model, size: metrics.isPhone ? 104 : 124)
-                    .padding(.bottom, metrics.isPhone ? 10 : metrics.pillBottom + 4)
+            // 2026-11-18 (Haylee): iPhone only. On the iPad they sit under "The End!" beside Nutmeg again (EndView).
+            if store.phase == .end && metrics.isPhone && chromeVisible && !(chatOpen && chromeVisible) {
+                EndButtons(model: model, size: 104)
+                    .padding(.bottom, 10)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .ignoresSafeArea(.keyboard)
@@ -741,7 +742,8 @@ struct RootView: View {
                                             onCelebrate: { celebrate() })
         // Round 36: the story is Nutmeg alone (the talking close-up), no card.
         case .scene(let i): if !(chatOpen && chromeVisible) && !store.inStory { SceneView(model: model, index: i, width: width, maxHeight: height, peek: phonePeek) }   // chat open: pinned in the panel
-        case .end: if !(chatOpen && chromeVisible) { EndView(model: model, showsButtons: false) }   // its buttons sit where the bar was
+        // iPhone: its buttons sit where the bar was. iPad (2026-11-18, Haylee): under the title, beside Nutmeg.
+        case .end: if !(chatOpen && chromeVisible) { EndView(model: model, showsButtons: !metrics.isPhone, buttonSize: 124) }
         }
     }
 
@@ -779,11 +781,11 @@ struct RootView: View {
     private var chromeVisible: Bool { store.phase != .hello || startExiting }
     /// 2026-11-17 (Haylee): Play (setup, scenes, clean-up; the story too) and The End have no control bar.
     private var playNoBar: Bool { switch store.phase { case .scene, .end: true; default: false } }
-    /// The iPad stage's bottom room: the bar's, a margin in Play, The End's bigger buttons there.
+    /// The iPad stage's bottom room: the bar's, a margin in Play, the old framing in The End.
     private var padBottomRoom: CGFloat {
         switch store.phase {
         case .scene: Theme.Space.m
-        case .end: 124 + Theme.depth + metrics.pillBottom + 4 + Theme.Space.s
+        case .end: PTStageCamera.chromeBottom   // 2026-11-18: the buttons are back under the title (the old framing)
         default: PTStageCamera.chromeBottom
         }
     }
