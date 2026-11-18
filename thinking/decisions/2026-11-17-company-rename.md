@@ -24,3 +24,18 @@
 - **Trademarks:** if the LLC owns any (e.g. "Tittl"), record the owner's name change with the USPTO.
 - **Vendors billed to the company:** OpenAI, Anthropic, Cloudflare, GitHub, Figma, TelemetryDeck, the domain registrar (WHOIS/contact), email, insurance, accounting software.
 - **Public text:** the PretendThat privacy policy + terms + site footer, Tittl's privacy policy/terms/site, the app store listings' copyright line, and social profiles.
+
+## The name: Crimson Foundry (Haylee, 2026-11-17)
+- **New legal name:** **Crimson Foundry LLC**.
+- **Why:** "Crimson" for southern Utah's red rock (Crimson Cliffs nearby). "Foundry" for a maker studio (like a type foundry), with a quiet nod to the McArthur family welding shop. It's neutral and grown-up, and it works over Tittl, PretendThat and future apps.
+- **Screening (research/2026-11-17-company-name.md, Round 2):** no live US mark for CRIMSON FOUNDRY, no company or app-store seller with the name. crimsonfoundry.com is registered with no site (maybe for sale); .co/.app/.dev/.studio were free on 2026-11-17.
+- **Caveats:**
+  - Plain CRIMSON is crowded (240 live marks; Crimson Education owns CRIMSON in 9/41/42 and publishes apps).
+  - Plain FOUNDRY is used by big software brands.
+  - So: a trademark attorney's pre-filing search before relying on it.
+- **Next steps (in order):**
+  1. Haylee checks "Crimson Foundry" in the Utah registry (businessregistration.utah.gov/EntitySearch/OnlineEntitySearch).
+  2. Optional attorney clearance.
+  3. Optionally grab a domain (crimsonfoundry.co/.app/.studio, or ask about the .com).
+  4. File the Utah LLC name amendment.
+  5. Then everything else in the update list above (city license, Utah tax, operating agreement, IRS, W-9s, bank, D-U-N-S, Apple, Google Play, vendors, public text).
