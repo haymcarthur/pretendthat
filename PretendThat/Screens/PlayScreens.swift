@@ -60,7 +60,7 @@ struct SceneView: View {
             let options = Self.peekShares.map { share -> (fw: CGFloat, above: CGFloat, overhang: CGFloat, l: (tier: Int, fits: Bool, paper: CGSize)) in
                 let fw = width * share
                 let above = NutmegPeek.heightAboveEdge(width: fw), overhang = NutmegPeek.pawOverhang(width: fw)
-                return (fw, above, overhang, layout(room: maxHeight - Self.earGap - (buttonHeight + Theme.Space.s + Theme.depth) - above, topExtra: overhang))
+                return (fw, above, overhang, layout(room: maxHeight - Self.earGap - (buttonHeight + Theme.Space.s + Theme.depth) - above, topExtra: 0))   // 2026-11-18: the paws rest on the edge, nothing to clear
             }
             let pick = options.first { $0.l.fits } ?? options[options.count - 1]
             let l = pick.l
@@ -73,7 +73,7 @@ struct SceneView: View {
                     }
                 }
                 .padding(pad)
-                .padding(.top, pick.overhang)   // the title clears her paws
+                // 2026-11-18: no top clearance: her paws rest on the card's edge (NutmegPeek.pawLift).
                 .frame(width: l.paper.width, height: l.paper.height, alignment: .top)
                 .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.white))
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))

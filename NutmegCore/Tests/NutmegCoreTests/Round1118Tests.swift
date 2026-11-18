@@ -113,6 +113,27 @@ import Testing
         let p = GuideWeave.prompt(scenes: [], props: [cups], taken: [], roles: [], players: 3)
         #expect(p.contains("several plastic cups (one for each player)") && p.contains("the plastic cups"))
     }
+
+    /// Coordinator follow-up: a demo hunt's fresh-prop swap turned "the tea cups" into a pot / basket. A cup you drink
+    /// from is only ever cup-like (cups, a measuring cup, a small bowl).
+    @Test func cupsAreOnlyCupLikeItems() {
+        for use in ["the tea cups", "the snack cups", "tea cup", "the mugs", "the goblet", "lemonade cups"] {
+            for id in ["pot", "basket", "bucket", "cardboard-box", "laundry-basket", "bag", "plastic-container", "colander"] {
+                #expect(!PropFit.fits(itemID: id, becomes: use), "\(id) as \(use)")
+            }
+            for id in ["cup", "plastic-cups", "measuring-cup", "bowl"] {
+                #expect(PropFit.fits(itemID: id, becomes: use), "\(id) as \(use)")
+            }
+        }
+        // The swap candidates for cups are cup-like only.
+        let c = PropFit.candidates(for: "the tea cups")
+        #expect(!c.isEmpty && Set(c).isSubset(of: ["cup", "plastic-cups", "measuring-cup", "bowl"]), "\(c)")
+        // The fresh-prop swap never picks a pot or basket for cups.
+        #expect(RecentProps.fresher(itemID: "cup", becomes: "the tea cups", alternates: ["pot", "basket", "plastic-cups"],
+                                    recent: ["cup"], used: []) == "plastic-cups")
+        // Other container uses still work (a pot is still a cauldron, a basket a treasure chest).
+        #expect(PropFit.fits(itemID: "pot", becomes: "the cauldron") && PropFit.fits(itemID: "basket", becomes: "the treasure chest"))
+    }
 }
 
 /// 2026-11-18 copy (decisions/2026-11-18-tagline-and-play-wording.md): the new tagline, and never "off the screen" or

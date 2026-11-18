@@ -359,6 +359,8 @@ struct NutmegPeek: View {
     static func heightAboveEdge(width: CGFloat) -> CGFloat { (edgeY - box.minY) * width / box.width }
     /// How far the paws reach below the card's edge (the card keeps its first row clear of them).
     static func pawOverhang(width: CGFloat) -> CGFloat { (box.maxY - edgeY) * width / box.width }
+    /// 2026-11-18: how far the paws are lifted (art px) so they rest on the card's edge instead of hanging over it.
+    static let pawLift: CGFloat = box.maxY - edgeY
 
     /// The rig head on the peek body (rig canvas 1178×1335 → peek art), fitted by overlaying the rig head stack on the
     /// art's `head` group (eyes, nose, ears, chin): 0.6 scale, turned −5° around the rig nose, the nose at (795, 314).
@@ -380,7 +382,11 @@ struct NutmegPeek: View {
                                    speaking: isSpeaking,
                                    level: mouthShape.map { $0 == .closed ? 0 : ($0 == .small ? 0.4 : 0.9) } ?? mouthLevel * 2)
                     ZStack(alignment: .topLeading) {
+                        // 2026-11-18 (Haylee: the paws hung over onto the white card): the paws (with their arms) are
+                        // lifted by their overhang so their bottoms REST ON the card's top edge; the shoulders tuck
+                        // further under her cheeks. An offset only, no shape edits.
                         art("nutmeg-peek-paws", u: u)
+                            .offset(y: -Self.pawLift * u)
                         head(motion: m, u: u)
                     }
                 }

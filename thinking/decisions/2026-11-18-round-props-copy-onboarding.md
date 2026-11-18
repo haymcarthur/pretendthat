@@ -32,3 +32,10 @@
 - Existing saved games keep their saved title; the shelf label shows the short cut (nothing rewritten).
 - iPhone shelf ~10% bigger (Nutmeg a bit smaller on top, smaller arrows beside the dots), labels bigger (one line). The shelf art's tall shape limits how much bigger it can get on the phone.
 - Claude's call to note: the "sounds like a game you have" match compares saved titles; a cut title that dropped the twist ("Airplane" from "Airplane to the Beach") matches less. The AI's short title normally keeps the twist ("Beach Airplane").
+
+## Follow-ups (same day, coordinator + Haylee)
+- **Cups only from cup-like things (Claude's call):** the demo's fresh-prop swap had turned "the tea cups" into a pot / basket, because the general "cup" rule accepted any round container. New `drinkware` tag (cup, plastic cups, measuring cup, small bowl) and a "drink cup" rule (cup, mug, goblet, teacup, glass, tumbler…): pots, buckets, baskets and boxes can no longer be cups (test `cupsAreOnlyCupLikeItems`). Pots/baskets keep their other uses (cauldron, treasure chest).
+- **Multiples demo:** `-PTDemo convHuntMany` now shows exactly "Up to 4 plastic cups" (4 players, ×4 badge) and her chat line, without the shortlist / fresh-prop checks swapping the demo pick (`debugShowProp`, demo only).
+- **Peek paws rest on the card (Haylee):** the paws layer (with its arms) is lifted by its overhang (`NutmegPeek.pawLift`, an offset, no shape edits) so the paw bottoms sit on the card's top edge; the card no longer pads its title for the paws. Checked on iPhone 18 Pro and iPhone 17e with 4, 5 and 6 rows. A tiny cream sliver at the right paw's edge is in the art itself.
+- **Saved page toggle verified** with a real two-set game (Pet Hotel): both word-only buttons fit on iPhone 18 Pro, iPhone 17e and iPad, Color and Black & white both shown (`PT_PAGE_STYLE=colorIn` demo env).
+- Screenshots: `/tmp/pt-round-1118/after2/`.

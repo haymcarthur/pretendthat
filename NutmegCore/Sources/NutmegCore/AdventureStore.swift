@@ -690,6 +690,17 @@ public final class AdventureStore {
         printMemory?.record(items)
     }
     @ObservationIgnored public private(set) var recentProps: Set<String> = []
+    /// Screenshots only (DemoDriver): forget the last games' props, so the fresh-prop swap doesn't change a demo pick.
+    public func debugForgetRecentProps() { recentProps = [] }
+    /// Screenshots only (DemoDriver): put this exact prop card up as the current hunt card, past the shortlist and
+    /// fresh-prop checks, so a demo shows exactly the prop it names (e.g. up to 4 plastic cups).
+    public func debugShowProp(_ prop: Prop) {
+        var p = props ?? Props(nutmegSays: "", props: [])
+        if props == nil { foundProps = [] }
+        p.props.append(prop)
+        props = p; currentPropID = prop.id
+        phase = .props; presenting = .props; planningStep = .props
+    }
     @ObservationIgnored private var recordedPropsFor: UUID?
     /// Remembers this game's props once, when the hunt ends (a first play only).
     private func recordProps() {

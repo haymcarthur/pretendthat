@@ -31,7 +31,7 @@ struct SavedGamePageView: View {
                     .frame(width: peekW, height: above + overhang)
                     .position(x: full.width / 2, y: sheetTop - above + (above + overhang) / 2)
                     .allowsHitTesting(false)
-                sheet(width: sheetW, bottomInset: geo.safeAreaInsets.bottom, topClear: overhang)
+                sheet(width: sheetW, bottomInset: geo.safeAreaInsets.bottom, topClear: 0)   // 2026-11-18: the paws rest on the edge
                     .frame(width: sheetW, height: full.height - sheetTop)
                     .background(UnevenRoundedRectangle(topLeadingRadius: 36, topTrailingRadius: 36, style: .continuous).fill(Theme.white))
                     .clipShape(UnevenRoundedRectangle(topLeadingRadius: 36, topTrailingRadius: 36, style: .continuous))

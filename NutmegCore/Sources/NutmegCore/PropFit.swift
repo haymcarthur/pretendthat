@@ -38,6 +38,9 @@ public enum PropTag: String, Sendable, CaseIterable {
     case floor
     /// Round 43: holds several things (a box, a basket, a bag): a chest, a cage, a sack. A cup or a measuring cup isn't.
     case roomy
+    /// 2026-11-18 (coordinator, a demo turned "the tea cups" into a pot / basket): something you drink from, small
+    /// enough to hold in one hand: a cup, plastic cups, a measuring cup, a small bowl. Only these can be cups or mugs.
+    case drinkware
 }
 
 extension PropLibrary {
@@ -53,8 +56,8 @@ extension PropLibrary {
         "rug": [.flat, .big, .floor],
         "cardboard-box": [.container, .roomy, .big, .boxy, .vehicle, .sittable, .surface, .rigid],
         "plate": [.round, .disc, .flat, .rigid],
-        "cup": [.round, .container],
-        "bowl": [.round, .container, .wearable, .head],
+        "cup": [.round, .container, .drinkware],
+        "bowl": [.round, .container, .wearable, .head, .drinkware],
         "tray": [.flat, .rigid],
         "spoon": [.long],
         "pot": [.round, .container, .roomy, .wearable, .head],
@@ -81,7 +84,7 @@ extension PropLibrary {
         "tape": [.round, .ring, .outline],
         "paper-plate": [.round, .disc, .flat, .paper],
         "plastic-container": [.container, .roomy, .boxy, .rigid],
-        "measuring-cup": [.container, .round],
+        "measuring-cup": [.container, .round, .drinkware],
         "colander": [.round, .container, .wearable, .head],
         "baking-sheet": [.flat, .surface, .grip, .rigid],
         "wooden-spoon": [.long],
@@ -101,7 +104,7 @@ extension PropLibrary {
         "jump-rope": [.outline],   // round 43 (Haylee): only ever a shape on the floor
         "hula-hoop": [.round, .ring, .big, .grip, .outline],
         "sidewalk-chalk": [.long, .outline],
-        "plastic-cups": [.round, .container, .rigid],
+        "plastic-cups": [.round, .container, .rigid, .drinkware],
         "sticky-notes": [.paper, .flat],
     ]
 
@@ -346,8 +349,12 @@ public enum PropFit {
                        "basket", "case"], [[.container, .roomy]], why: "it has to hold lots of things"),
         Need("luggage", ["suitcase", "luggage"], [[.container, .boxy, .roomy], [.container, .soft], [.back]],
              why: "it has to be a bag or a case you can carry"),
-        Need("cup", ["cup", "mug", "goblet", "bowl", "bowls", "pot", "bucket", "pail", "potion", "jar", "kettle", "teapot",
-                     "dish", "jug", "pitcher", "can", "vase", "bottle", "cone", "teacup", "pan", "skillet", "wok", "feeder",
+        // 2026-11-18: a cup or mug you drink from is only cup-like (cups, a measuring cup, a small bowl), never a pot,
+        // a bucket or a basket (a demo hunt turned "the tea cups" into a pot).
+        Need("drink cup", ["cup", "mug", "goblet", "teacup", "glass", "tumbler", "chalice", "beaker"], [[.drinkware]],
+             why: "it has to be something you could drink from, like a cup or a small bowl"),
+        Need("cup", ["bowl", "bowls", "pot", "bucket", "pail", "potion", "jar", "kettle", "teapot",
+                     "dish", "jug", "pitcher", "can", "vase", "bottle", "cone", "pan", "skillet", "wok", "feeder",
                      "cauldron", "oven", "sink", "bathtub", "tub", "tank"], [[.container, .round], [.container, .rigid]],
              why: "it has to be something like a cup or a dish"),
         // 2026-11-17: no "sword" or "lightsaber" here any more (no weapons, not even pretend): `check` rejects them.
@@ -556,14 +563,14 @@ public enum PropFit {
         }
         let order: [PropTag] = [.round, .flat, .surface, .sheet, .long, .container, .wearable, .sittable, .soft, .creature,
                                 .light, .paper, .grip, .outline, .disc, .ball, .ring, .tube, .fabric, .rigid, .floor, .big,
-                                .boxy, .vehicle, .head, .hand, .feet, .face, .back, .body, .keys, .roomy]
+                                .boxy, .vehicle, .head, .hand, .feet, .face, .back, .body, .keys, .roomy, .drinkware]
         let tag = order.first { shared.contains($0) }
         switch tag {
         case .round, .disc, .ball, .ring: return "\(subject) \(be) round like \(thing)!"
         case .flat, .surface, .floor: return "\(subject) \(be) flat like \(thing)!"
         case .sheet, .fabric: return "\(subject) \(be) big and floppy like \(thing)!"
         case .long, .tube: return "\(subject) \(be) long like \(thing)!"
-        case .container, .roomy: return "\(subject) \(can) hold things, just like \(thing)!"
+        case .container, .roomy, .drinkware: return "\(subject) \(can) hold things, just like \(thing)!"
         case .wearable, .head, .hand, .feet, .face, .back, .body: return "\(subject) \(can) go on you, just like \(thing)!"
         case .sittable: return "\(subject) \(be) just right for sitting, like \(thing)!"
         case .soft: return "\(subject) \(be) soft and cozy, like \(thing)!"
