@@ -47,6 +47,14 @@ targets:
         SWIFT_STRICT_CONCURRENCY: complete
         CODE_SIGN_STYLE: Automatic
         GENERATE_INFOPLIST_FILE: NO
+        # Round D4: iCloud sync of saved games (CloudKit private database, container iCloud.co.crimsonfoundry.pretendthat).
+        # Only the company team has the container, so the entitlements and the container name are looked up by team:
+        # a build with DEVELOPMENT_TEAM=TSM76TQF46 (the personal .dev device build) gets neither, signs without iCloud,
+        # and the app stays on-device only (CloudGameSync reads PTCloudKitContainer from Info.plist; empty = off).
+        PT_ENTITLEMENTS_66898X3HH3: PretendThat/Resources/PretendThat.entitlements
+        PT_CLOUDKIT_CONTAINER_66898X3HH3: iCloud.co.crimsonfoundry.pretendthat
+        CODE_SIGN_ENTITLEMENTS: $(PT_ENTITLEMENTS_$(DEVELOPMENT_TEAM))
+        PT_CLOUDKIT_CONTAINER: $(PT_CLOUDKIT_CONTAINER_$(DEVELOPMENT_TEAM))
     postBuildScripts:
       - name: Release key check
         script: '"${SRCROOT}/tools/check-release-keys.sh"'

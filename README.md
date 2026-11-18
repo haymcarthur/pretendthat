@@ -126,6 +126,9 @@ A fresh clone just works: no keys and no `Secrets.xcconfig` needed. The committe
   ```
   (In Xcode: pick the personal team and change the bundle ID in Signing & Capabilities; `xcodegen` resets both.)
   StoreKit purchases and relay show counts only work with the real bundle ID.
+  This build has no iCloud entitlement (project.yml picks the entitlements by team), so saved games stay on the device.
+- **iCloud sync (round D4):** CloudKit container `iCloud.co.crimsonfoundry.pretendthat` (company team only). Before a
+  TestFlight upload, deploy the CloudKit schema to Production (thinking/decisions/2026-11-17-icloud-sync-before-launch.md).
 
 ### Tests
 

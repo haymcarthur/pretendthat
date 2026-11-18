@@ -1,7 +1,8 @@
 import Foundation
 
 // Round D1 (saved games, design 2026-11-15 §D1–D3, Haylee): a game is saved at The End ("Save it to play again") and
-// can be replayed from My games. It lives ONLY on this iPad (Application Support/SavedGames; iCloud is round D4).
+// can be replayed from My games. It lives on this iPad (Application Support/SavedGames), the source of truth for
+// playing; round D4 mirrors it to the family's own private iCloud (`GameSync`, the same files, nothing more).
 // Only GAME CONTENT is stored, never anything about kids (CLAUDE.md rule 6): no names (the app never asks), no player
 // count from any play, no chat transcript (Nutmeg's side included), no kid audio or text, no moderation results, no
 // device ids, no timing. `SavedGamePrivacyTests` locks the exact key set and checks a live-like store's JSON.
@@ -154,7 +155,21 @@ public final class SavedGameStore: @unchecked Sendable {
 
     public init(root: URL) { self.root = root }
 
-    /// Application Support/SavedGames on this device (never iCloud in D1).
+    /// Round D4: told after every LOCAL change (save, update, replay touch, a new clip, delete), never for a game that
+    /// came from iCloud. The iCloud sync (`GameSync`) listens; nil = on this device only.
+    public var onLocalChange: (@Sendable (UUID, SavedGameChange) -> Void)? {
+        get { hookLock.withLock { hook } }
+        set { hookLock.withLock { hook = newValue } }
+    }
+    private var hook: (@Sendable (UUID, SavedGameChange) -> Void)?
+    private let hookLock = NSLock()
+    private func changed(_ id: UUID, _ change: SavedGameChange) { onLocalChange?(id, change) }
+
+    /// Round D4: the sync's reads and writes run under the same lock as the store's own.
+    func withStoreLock<T>(_ body: () throws -> T) rethrows -> T { try lock.withLock(body) }
+    func writeFile(_ data: Data, to url: URL) throws { try write(data, to: url) }
+
+    /// Application Support/SavedGames on this device (round D4's iCloud sync mirrors it; it never moves).
     public static func defaultRoot() -> URL {
         let base = (try? FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true))
             ?? FileManager.default.temporaryDirectory
@@ -184,6 +199,7 @@ public final class SavedGameStore: @unchecked Sendable {
             if fm.fileExists(atPath: dest.path) { try fm.removeItem(at: dest) }
             try fm.moveItem(at: tmp, to: dest)
         }
+        changed(game.id, .saved)
     }
 
     private func write(_ data: Data, to url: URL) throws {
@@ -228,12 +244,14 @@ public final class SavedGameStore: @unchecked Sendable {
 
     /// A replay started: only `lastPlayedAt` changes (the content is immutable after saving).
     public func touch(_ id: UUID, at date: Date = Date()) {
-        lock.withLock {   // read and write under the lock (round D3b: a clip may be added at the same moment)
+        let ok: Bool = lock.withLock {   // read and write under the lock (round D3b: a clip may be added at the same moment)
             let json = folder(id).appendingPathComponent("game.json")
-            guard let d = try? Data(contentsOf: json), var g = try? SavedGame.decode(d) else { return }
+            guard let d = try? Data(contentsOf: json), var g = try? SavedGame.decode(d) else { return false }
             g.lastPlayedAt = date
-            if let data = try? SavedGame.encoder().encode(g) { try? write(data, to: json) }
+            guard let data = try? SavedGame.encoder().encode(g), (try? write(data, to: json)) != nil else { return false }
+            return true
         }
+        if ok { changed(id, .saved) }
     }
 
     /// Round 39: the auto-save keeps the game up to date as play goes (the kit remade, new page art, the cover once it's
@@ -251,7 +269,7 @@ public final class SavedGameStore: @unchecked Sendable {
             let a = art.filter { keep.contains($0.key) }
             return (try? save(game, art: a, cover: cover)) != nil
         }
-        return lock.withLock {
+        let ok: Bool = lock.withLock {
             let dir = folder(game.id)
             let json = dir.appendingPathComponent("game.json")
             guard let d = try? Data(contentsOf: json), let old = try? SavedGame.decode(d) else { return false }
@@ -277,6 +295,8 @@ public final class SavedGameStore: @unchecked Sendable {
                 return true
             } catch { return false }
         }
+        if ok { changed(game.id, .saved) }
+        return ok
     }
 
     // MARK: Clips (round D3b)
@@ -285,7 +305,7 @@ public final class SavedGameStore: @unchecked Sendable {
     /// key wins (both are her real voice saying the same line). Returns false when the game is gone or the key exists.
     @discardableResult
     public func addClip(_ clip: SavedClip, data: Data, to id: UUID) -> Bool {
-        lock.withLock {
+        let ok: Bool = lock.withLock {
             let json = folder(id).appendingPathComponent("game.json")
             guard let d = try? Data(contentsOf: json), var g = try? SavedGame.decode(d) else { return false }
             guard !g.clips.contains(where: { $0.key == clip.key }) else { return false }
@@ -298,13 +318,22 @@ public final class SavedGameStore: @unchecked Sendable {
                 return true
             } catch { return false }
         }
+        if ok { changed(id, .saved) }
+        return ok
     }
 
     /// A stored clip's audio file.
     public func clipURL(_ clip: SavedClip, in id: UUID) -> URL { folder(id).appendingPathComponent(SavedGame.clipFile(clip.key)) }
 
     /// Removes a game (Grown-ups delete is round D2; used by tests now).
-    public func delete(_ id: UUID) { lock.withLock { try? fm.removeItem(at: folder(id)) } }
+    public func delete(_ id: UUID) {
+        let had: Bool = lock.withLock {
+            let had = fm.fileExists(atPath: folder(id).path)
+            try? fm.removeItem(at: folder(id))
+            return had
+        }
+        if had { changed(id, .deleted) }
+    }
 
     /// The game's folder size in bytes (Grown-ups shows it in D2; logged in D1).
     public func size(of id: UUID) -> Int {

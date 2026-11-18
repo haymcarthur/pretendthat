@@ -42,5 +42,10 @@
 	<key>RELAY_TOKEN</key><string>$(RELAY_TOKEN)</string>
 	<key>RELAY_SHOW_LIMITS</key><string>$(RELAY_SHOW_LIMITS)</string>
 	<key>TelemetryDeckAppID</key><string>$(TELEMETRYDECK_APP_ID)</string>
+	<key>PTCloudKitContainer</key><string>$(PT_CLOUDKIT_CONTAINER)</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 </dict>
 </plist>

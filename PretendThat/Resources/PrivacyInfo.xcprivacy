@@ -10,8 +10,9 @@
     Kids' audio never leaves the iPad (on-device speech, round 31). Purchases go through Apple (not declared).
   - Required-reason APIs: UserDefaults (CA92.1: the app's own settings and flags). System boot time (35F9.1): the mic
     and voice timing use CACurrentMediaTime / UITouch timestamps to measure time between events inside the app only.
-    No file timestamp, disk space or active keyboard APIs are used (re-check before each release; iCloud in D4 may add
-    file timestamps, C617.1).
+    No file timestamp, disk space or active keyboard APIs are used (re-check before each release). Round D4's iCloud
+    sync uses its own stamps inside the records, not file timestamps. Saved games in the user's own private iCloud
+    (CloudKit private database) are not developer-collected data, so the collected-data list doesn't change.
   - Analytics (2026-11-17, decisions/2026-11-17-analytics-build.md): TelemetryDeck anonymous event counts, OFF until a
     grown-up turns on "Share anonymous usage counts". Product Interaction (fixed event names + fixed-word parameters:
     steps, scene numbers, player-count buckets, plan names; never anything about kids) and Device ID (a RANDOM per-install

@@ -345,7 +345,8 @@ public enum GrownUpsCopy {
     public static func deleteConfirm(_ gameTitle: String) -> String { "\(deleteTitle(gameTitle)) \(deleteMessage)" }
     /// Round 39: every new game saves itself once its kit is made.
     public static let emptySavedGames = "No saved games yet. Every new game is saved here by itself once its printable kit is made."
-    public static let savedGamesFooter = "Saved on this \(DeviceWord.noun). Kids can't delete games; only you can, here."
+    /// Round D4: saved games sync through the family's own iCloud (when this device is signed in).
+    public static let savedGamesFooter = "Saved on this \(DeviceWord.noun) and synced through your family's iCloud when it's on. Kids can't delete games; only you can, here. Deleting a game removes it from your other devices too."
     public static let subscriptionIntro = "PretendThat plans are subscriptions through Apple. To change your plan, see when it renews, or cancel, use Apple's subscription settings. Cancel at least a day before it renews to avoid the next charge."
     public static let manageButton = "Open Apple's subscription settings"
     public static let manageFailed = "Couldn't open Apple's subscription settings here. You can also open Settings, tap your name, then Subscriptions."
@@ -365,13 +366,14 @@ public enum GrownUpsCopy {
         ("Voices stay on this \(DeviceWord.noun)", "Nutmeg listens only while the mic button is held. Your child's voice is turned into words right on this \(DeviceWord.noun). The sound of their voice is never sent anywhere and never saved."),
         ("Only words go to our AI partners", "Those words go to our AI partners (OpenAI and Anthropic) so Nutmeg can answer and write the game. Names are removed first, and the words are checked for kid safety."),
         ("Saved games are game content only", "A saved game keeps its title, roles, props, play guide, printable pages and Nutmeg's recorded lines. Nothing about your child: no names, voices or pictures."),
-        ("Saved on this \(DeviceWord.noun)", "Saved games stay on this \(DeviceWord.noun). We don't have servers that store your games."),
+        // Round D4: saved games sync through the family's own private iCloud (silent; no switch).
+        ("Synced through your family's iCloud", "Saved games are kept on this \(DeviceWord.noun). When it's signed in to iCloud, they also sync through your family's own private iCloud, so they show up on your other iPads and iPhones. Only you can see them there. We don't have servers that store your games."),
         // Round 37 (Anthropic's rule for products used by minors + App Store 1.2 / 5.1.2(i)): say plainly that Nutmeg is AI.
         ("Nutmeg is an AI helper", "Nutmeg is a computer character, not a person. Her words, the story and the printed pages are made by AI and checked for kid safety. The first time your child plays, she tells them she's a pretend helper made by a computer. AI can get things wrong: if something seems off, use Report a problem in Grown-ups."),
         ("No accounts, ads or tracking", "There's nothing to sign up for. PretendThat has no ads and doesn't track you or your child."),
         ("Anonymous counts", analyticsLine),
         // Round 39 (auto-save): every new game saves itself once its printable kit is made.
-        ("You're in charge", "Every new game saves itself once its printable kit is made, so it's on the bookshelf to play again. A game closed before that isn't kept. Delete any game in Saved games."),
+        ("You're in charge", "Every new game saves itself once its printable kit is made, so it's on the bookshelf to play again. A game closed before that isn't kept. Delete any game in Saved games; it's removed from your other devices too."),
     ]
 
     /// Voice pitch build (2026-11-17): open-source credits at the end of About (the MIT notice must ship with the app).
