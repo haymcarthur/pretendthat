@@ -442,3 +442,13 @@ Game arc becomes: Print → **story opener** → **setup scene** → 3 play scen
 
 ## App Store slides v3 to compare (queued 2026-11-18, Haylee) — after the current site/slides agent finishes
 - Haylee's reference: the "Rays" set (vitamin D app). Make design/appstore-screens/slides-v3/ alongside v2 (don't replace v2): enlarged real UI cards floating off the phone edges (wider than the phone), a small outlined label chip at the top of each slide, medium-weight headline, a soft colored shape behind the phone (stage arc / warm spotlight), a bottom caption line with one more detail, logo on some slides, full-bleed hero slide 1 with image 49 (Nutmeg on stage). Same screens/copy as v2 (new tagline "Plan it, print it, play it", sparkly talking screen, "Play it out, scene by scene"). iPhone + iPad + 6.3" sets, strips for comparison.
+
+## Prop hunt: props can come in multiples (queued 2026-11-18, Haylee)
+- Haylee: "when they are playing something like tea party or restaurant and there are more than one person playing, they may need multiples like a cup for every player or a plate for every player or a chair for every player or multiple stuffed animals to be guests or patients… I'd like the prop hunt to be able to suggest more than one item if it is appropriate for the game."
+- Claude's proposed design (confirm with Haylee before building if anything is unclear):
+  - Each prop gets a quantity rule: **one** (default), **one per player** (cups, plates, chairs, badges-holders), or **a fixed small number** (e.g. 3 stuffed animals as patients). The AI chooses it when it plans props; the app clamps it (max = player count for per-player; fixed max 6).
+  - Stored as the RULE (per player / fixed N), not a number, so replays with a different player count scale automatically.
+  - Prop card shows the count: a "×4" badge on the picture and the line "4 cups — tea cups for everyone". Nutmeg's line says it: "Find 4 cups, one for each player!" (scripted line path; numbers spelled out for her voice).
+  - ✓ means "we found them"; ✗ still swaps the prop. Nice-to-have: "we only have 2" counts as found — kids pretend the rest (Nutmeg: "No problem, we'll pretend the rest!").
+  - Setup / scene rows and the play guide can refer to "the cups" (plural) correctly.
+  - Keep all prop rules: household only, no printed things, no weapons, no-repeat, prop fit.
