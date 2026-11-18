@@ -5,3 +5,5 @@
 - Who decided: Haylee.
 
 - **Relay deployed overnight (Claude, with Haylee OK), 2026-11-18:** version b93de830: /v1/images/edits + pass sizes 5/20.
+
+- **Upload blocked (Claude, overnight):** archive 1.0 (1) built and signed OK (commit 4535754) and is in Xcode Organizer, but `xcodebuild -exportArchive` upload failed: "App Store Connect access for 66898X3HH3 is required. Ensure that your Apple Account usernames and passwords are correct in Accounts settings." Needs Haylee: Xcode → Settings → Accounts (re-sign in if it asks), then Window → Organizer → the archive → Distribute App → TestFlight & App Store → Upload. Beta review submission waits for that.
