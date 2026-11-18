@@ -275,14 +275,16 @@ struct PTScenePinnedCard: View {
 /// text: the green round arrow plays it again (the scenes from the top, same kids and props) and the house goes home
 /// (the round 19 hang-up rules). Nutmeg says the game is saved (round 41, never "bookshelf"). The same for a new game and a replay.
 /// 2026-11-17 (no control bar in Play / The End): on the stage the two buttons sit where the bar was, bigger
-/// (`EndButtons`, RootView); this view is then just the title.
+/// (`EndButtons`, RootView); this view is then just the title. 2026-11-18 (Haylee): iPhone only; on the iPad the
+/// buttons are back under the title, beside Nutmeg (at the bigger 124 pt).
 struct EndView: View {
     let model: AppModel
     var showsButtons = true
+    var buttonSize: CGFloat = 96
     var body: some View {
         VStack(spacing: Theme.Space.l) {
             PTText("The End!", .hero)
-            if showsButtons { EndButtons(model: model, size: 96) }
+            if showsButtons { EndButtons(model: model, size: buttonSize) }
         }
     }
 }

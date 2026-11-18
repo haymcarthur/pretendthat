@@ -11,3 +11,5 @@
 
 - **Update (Haylee, 2026-11-17):** the 2 Free Preview games get the SAME experience as other saved games: without a pass, only viewing and printing; "Play with Nutmeg" asks for a grown-up and shows the pass card. No exception and no footnote promising free games replay.
 - **Update (Haylee, 2026-11-17, during the build):** the 2 Free Preview games get the SAME experience as any saved game: without a pass, Play with Nutmeg asks a grown-up. Only viewing and printing are free. The grown-up card has no footnote. Also: Play with Nutmeg is the unmistakable main action (▶ + Nutmeg's face), and Nutmeg says a short line when the page opens. Built: decisions/2026-11-17-round-plans-printables-page.md.
+
+- **Update (Haylee, 2026-11-18):** on the iPad, The End's Play again and Home go back UNDER "The End!", beside Nutmeg (as before this round), at the bigger 124 pt; the stage keeps its old framing. The iPhone is unchanged (the buttons stay where the bar was).
