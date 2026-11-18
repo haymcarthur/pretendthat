@@ -11,7 +11,7 @@ Last updated 2026-11-17. Drafts are in ~/Documents/Crimson Foundry/ (kept out of
 
 ## Waiting on
 - **Washington City:** their reply; then update the license or apply for a new Home Occupation license for Crimson Foundry LLC.
-- **D&B:** profile update submitted (principal = Haylee, Managing Member; Christie removed). Legal name change via the ⓘ next to Legal Business Name, with the Utah amendment as proof. Allow 1–2+ weeks to reach Apple/Google.
+- **D&B:** profile update submitted (principal = Haylee, Managing Member; Christie removed). Legal name change via the ⓘ next to Legal Business Name, with the Utah amendment as proof. Allow 1–2+ weeks to reach Apple/Google. **2026-11-17:** the Overview is locked while the principal change is pending ("most updates under 7 days"). When it clears, submit the legal name change with the Utah **Stamped File Copy** of the amendment (Utah Business Registration → Dashboard → Correspondence).
 
 ## The Christie partnership (plan agreed 2026-11-17)
 - **Facts:** the LLC was set up and filed as a partnership (IRS CP 575 says Form 1065; the 2025 Form 1065 has 2 K-1s). There was no written operating agreement. In May 2026 there was a falling out, but **no withdrawal or dissolution was ever agreed, signed or noticed**. They're back on good terms (October 2026).
