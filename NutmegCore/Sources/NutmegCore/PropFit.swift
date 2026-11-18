@@ -106,7 +106,7 @@ extension PropLibrary {
         "sticky-notes": [.paper, .flat],
     ]
 
-    /// Everyday things that aren't on the card list but come up in talk ("a pool noodle works as a sword"): same tags.
+    /// Everyday things that aren't on the card list but come up in talk ("a pool noodle works as a magic wand"): same tags.
     /// (Round 30: pillowcase, paper and paper towel tube are library items now.)
     public static let aliasTags: [String: Set<PropTag>] = [
         "pool noodle": [.long, .soft], "newspaper": [.paper, .flat],
@@ -331,7 +331,7 @@ public enum PropFit {
                       "saucer", "lid", "cymbal", "waffle"], [[.disc]], why: "it needs something round and flat"),
         Need("sky", ["sun", "moon"], [[.disc], [.ball]], why: "it needs something round"),
         Need("ball", ["planet", "snowball", "apple", "egg", "ball", "orange", "meatball", "globe", "bubble", "marble",
-                      "cannonball", "rock", "stone", "pumpkin", "berry", "melon", "coconut"], [[.ball]],
+                      "rock", "stone", "pumpkin", "berry", "melon", "coconut"], [[.ball]],
              why: "it needs something round like a ball"),
         Need("ring", ["portal", "hoop", "ring", "porthole", "lifesaver", "donut", "doughnut", "bagel", "wreath"],
              [[.ring], [.disc]], why: "it needs a circle"),
@@ -353,9 +353,10 @@ public enum PropFit {
                      "dish", "jug", "pitcher", "can", "vase", "bottle", "cone", "teacup", "pan", "skillet", "wok", "feeder",
                      "cauldron", "oven", "sink", "bathtub", "tub", "tank"], [[.container, .round], [.container, .rigid]],
              why: "it has to be something like a cup or a dish"),
-        Need("long", ["sword", "wand", "oar", "paddle", "mast", "rod", "pole", "staff", "cane", "plank", "baton",
+        // 2026-11-17: no "sword" or "lightsaber" here any more (no weapons, not even pretend): `check` rejects them.
+        Need("long", ["wand", "oar", "paddle", "mast", "rod", "pole", "staff", "cane", "plank", "baton",
                       "stick", "microphone", "mic", "stirrer", "ladle", "scoop", "spatula", "whisk", "spoon", "brush", "broom",
-                      "hose", "torch", "bat", "flagpole", "lightsaber", "drumstick", "pointer", "ruler", "pen", "pencil",
+                      "hose", "torch", "bat", "flagpole", "drumstick", "pointer", "ruler", "pen", "pencil",
                       "marker", "crayon", "paintbrush", "chalk", "thermometer", "pin", "antenna", "lollipop", "fork",
                       "toothbrush", "comb", "net", "shovel", "rake", "mop", "handle", "lever", "joystick"],
              [[.long]], why: "it needs something long"),
@@ -471,6 +472,10 @@ public enum PropFit {
         guard let tags = PropLibrary.tagsFor(itemID) else { return Check(ok: false, rule: nil, why: "it isn't on the item list") }
         // Round 42: never a paper thing the kit prints (tickets, passes, money, menus, signs, badges, maps, cards...).
         if let c = PrintedProps.clash(becomes) { return Check(ok: false, rule: "printed", why: "it's a paper thing the kit prints (the \(c))") }
+        // 2026-11-17 (Haylee, 4+ age rating): never a weapon, not even a pretend or toy one, whatever the item.
+        if Sanitizer.namesWeapon(becomes) {
+            return Check(ok: false, rule: "weapon", why: "the game never has weapons, not even pretend ones: pick a shield, a spyglass or a map instead")
+        }
         let need = need(for: becomes)
         if let id = PropLibrary.canonicalID(itemID), let rule = identity[id] {
             let head = PropWords.head(becomes)

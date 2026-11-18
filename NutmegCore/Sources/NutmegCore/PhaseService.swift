@@ -26,7 +26,7 @@ public final class PhaseService: Sendable {
     public func checkKidText(_ text: String) async -> Sanitizer.SafetyVerdict? { await safety.check([text]) }
 
     static let saferNote = "\nYour last answer had something that isn't okay for kids ages 4 to 8. Answer again with only "
-        + "gentle, friendly, kid-safe words: no weapons, violence, scary or grown-up things."
+        + "gentle, friendly, kid-safe words: no weapons of any kind (no swords, not even toy ones), violence, scary or grown-up things."
 
     /// One structured call whose text must pass the kid-safety check: regenerated once, then it throws (the store falls
     /// back to the bundled game).
