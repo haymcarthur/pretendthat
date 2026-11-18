@@ -120,9 +120,11 @@ public enum Prompts {
         tick or give it ("look at it" is not a job). Leave out anything no role would use.
         The printables library (type: what it is; lines; pictures):
         \(library)
-        ART IS A PICTURE ONLY: each printable gets its own picture(s), listed in pictures as short things to draw \
-        ("a gold coin", "a treasure chest"), never words, letters or numbers. The app draws every card, border, title, \
-        line, number and blank "Name: ____" line itself, beside the picture. Never put names or name placeholders anywhere.
+        EACH PAGE IS DRAWN WHOLE by a picture model: its frame, layout, pictures and every word you write (the title and \
+        lines), copied exactly, so every word must be short, simple and spelled right, with no quotes, emoji or symbols. \
+        pictures lists the things to draw as short noun phrases ("a gold coin", "a treasure chest"), never words, letters \
+        or numbers. The app adds the per-copy numbers and the blank "Name: ____" lines itself. Never put names or name \
+        placeholders anywhere.
         WORDS: kids are 4 to 8 and can't read much: titles 1 to 4 words, lines very short (see each type), picture-first; \
         Nutmeg reads the words on clue cards, mission cards, logs and order slips out loud during the game.
         The cutouts item's lines are exactly \(KitDraft.themedCutouts) cut-out items (each is drawn as its own picture).

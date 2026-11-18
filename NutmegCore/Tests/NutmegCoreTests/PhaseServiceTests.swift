@@ -70,7 +70,9 @@ final class FakeLLM: LLM, @unchecked Sendable {
     #expect(GuideRepair.repair(a.kit.scenes, roles: a.plan.roles, props: a.props.props, title: "Airplane", items: a.kit.items) == a.kit.scenes)
     // Customers are roles too: R2 is the Passenger.
     #expect(a.plan.roles[1].roleName == "Passenger")
-    #expect(Sanitizer.clean(a.kit) == a.kit)   // already within limits
+    // Already within limits; round 46: cleaning marks the bundled library kit's pages as AI-drawn whole pages.
+    #expect(Sanitizer.clean(a.kit).items.map { var i = $0; i.wholePage = nil; return i } == a.kit.items)
+    #expect(Sanitizer.clean(a.kit).items.allSatisfy(\.aiPage) && !a.kit.items.contains(where: \.aiPage))
 }
 
 @Test func fallbackKeepsSixRolesForAnyCount() {

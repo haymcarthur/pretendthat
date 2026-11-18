@@ -66,8 +66,6 @@ struct Round23Tests {
         #expect(cleaned.bigNumber == "$1")
         #expect(cleaned.lines == ["Moon Bucks $1", "1 dollar"])
         #expect(cleaned.copies == 8)
-        let p = KitArtPrompt.prompt(for: cleaned, gameTitle: "Bakery")
-        #expect(p.contains("ONE-dollar bill") && p.contains("\"$1\""))
         #expect(KitRecipe.money.guide.contains("$1"))
         #expect(KitLayout.pages(for: Kit(nutmegSays: "", items: [cleaned], scenes: []), roles: cast(2), playerCount: 2).count == 1)
     }

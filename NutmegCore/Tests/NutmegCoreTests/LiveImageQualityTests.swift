@@ -14,7 +14,7 @@ func liveImageQualitySamples() async throws {
     let out = URL(fileURLWithPath: "/tmp/pt-round20/quality")
     try FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
     let client = ImageClient(mode: .direct(apiKey: env["OPENAI_API_KEY"]!))
-    var items = Fallback.airplane.kit.items
+    var items = Fallback.airplane(playerCount: 2).kit.items
     if let key = env["ANTHROPIC_API_KEY"], !key.isEmpty {
         let svc = PhaseService(llm: ClaudeClient(config: ClaudeConfig(mode: .direct(apiKey: key))))
         let roles = [Role(id: .R1, roleName: "Head Baker", emoji: "", symbol: "star", job: "bakes"),
@@ -28,7 +28,7 @@ func liveImageQualitySamples() async throws {
     var jobs: [(String, KitArtJob, String)] = []
     for style in PrintStyle.allCases {
         for q in ["medium", "low"] {
-            for j in KitArtPlan.jobs(items: items, title: title, style: style, settled: []) {
+            for j in KitArtPlan.jobs(items: items, ctx: KitArtContext(title: title, roles: RoleCast.rank([])), style: style, settled: []) {
                 jobs.append(("\(style.rawValue)-\(q)-\(j.key.replacingOccurrences(of: "#", with: "-"))", j, q))
             }
         }
@@ -40,7 +40,6 @@ func liveImageQualitySamples() async throws {
                 do {
                     let png = try await limiter.run { try await client.generate(prompt: job.prompt, size: job.size, quality: q) }
                     try png.write(to: out.appendingPathComponent("\(name).png"))
-                    if KitArtPlan.isSheet(job.key) { slice(png, count: job.count, name: name, out: out) }
                     return (name, Date().timeIntervalSince(t), true)
                 } catch { return (name, Date().timeIntervalSince(t), false) }
             }

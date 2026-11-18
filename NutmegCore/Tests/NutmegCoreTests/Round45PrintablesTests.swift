@@ -26,37 +26,12 @@ import Testing
 
     // MARK: 1. Picture-only art
 
-    @Test func artPromptsNeverAskForTextFramesOrBoxes() {
-        let banned = ["Spell", "BLANK", "blank white", "Title at the top", "big number", "Name:", "rounded letters", "$"]
-        for g in PrintShortlist.games {
-            let items = libraryKit(g.id)
-            for style in PrintStyle.sets {
-                let jobs = KitArtPlan.jobs(items: items, title: "Our Game", style: style, settled: [], roles: roles)
-                #expect(!jobs.isEmpty)
-                for j in jobs {
-                    for b in banned { #expect(!j.prompt.contains(b), "\(g.id) \(j.key): '\(b)'") }
-                    #expect(j.prompt.hasSuffix(ImageSafety.suffix))
-                    let cutout = j.key.hasPrefix("cutouts")
-                    if !cutout { #expect(j.prompt.contains(KitArtPrompt.pictureOnlyRule), "\(g.id) \(j.key)") }
-                    // Never the printable's own words (its title or a line to print).
-                    for it in items where !cutout && it.recipe != .menu && it.recipe != .orderSlips && it.recipe != .labels {
-                        if it.recipe == .badges { continue }
-                        #expect(!j.prompt.contains("\"\(it.title)\""), "\(g.id) \(j.key) quotes the title")
-                    }
-                }
-            }
-        }
-        // The character sheet draws characters only, never badge shapes.
-        let badges = libraryKit("restaurant")[0]
-        let sheet = KitArtPrompt.badgeSheetPrompt(badges, roles: roles, gameTitle: "Café", style: .fullColor)
-        #expect(sheet.contains("characters") && !sheet.contains("name badges") && !sheet.contains("clip hole"))
-    }
 
     @Test func olderKitsKeepTheirOldArtPath() {
         // A schema-3 item (no variant) is untouched: its prompt is the old one (a reprint never makes new images anyway).
         var old = a.kit.items[3]; old.variant = nil; old.pictures = nil; old.bigNumber = "1A"
         #expect(!old.pictureOnly)
-        #expect(KitArtPrompt.prompt(for: old, gameTitle: "Sky", style: .colorIn).contains("BLANK"))
+        #expect(!old.aiPage && KitArtPlan.jobs(items: [old], ctx: KitArtContext(title: "Sky"), style: .colorIn, settled: []).isEmpty)
         #expect(KitLayout.copyNumber(for: old, slot: KitSlot(index: 2)) == nil)
         #expect(KitLayout.grid(for: old) == KitLayout.grid(for: .ticket))
     }
@@ -82,7 +57,7 @@ import Testing
         func ink(_ x0: Int, _ y0: Int, _ x1: Int, _ y1: Int) { for y in y0..<y1 { for x in x0..<x1 { g[y * w + x] = 0 } } }
         for c in 0..<3 { for r in 0..<2 { ink(c * 100 + 30, r * 100 + 20, c * 100 + 70, r * 100 + 80) } }
         ink(196, 30, 202, 60)    // a sliver of cell 2's drawing past the 200 px edge, over in cell 3
-        let cells = BadgeSheet.cells(gray: g, width: w, height: h)
+        let cells = CutoutSheet.cells(gray: g, width: w, height: h, columns: 3, rows: 2, count: 6, trimToSquare: false)
         #expect(cells.count == 6)
         let third = cells[2]
         #expect(third.x >= 200 + 20, "the third badge's crop starts at its own drawing, not the sliver: \(third)")
@@ -179,7 +154,7 @@ import Testing
         #expect(!types.contains(.sign))
         #expect(types.filter { !picks.shortlist.contains($0) }.count <= PrintPicks.maxSwaps, "\(types)")
         #expect(items.allSatisfy { $0.pictureOnly && $0.id == $0.recipe?.rawValue })
-        #expect(KitArtPlan.imageCount(items, roles: roles) <= PrintLibrary.imageBudgetPerStyle)
+        #expect(KitArtPlan.imageCount(items, ctx: KitArtContext(title: "", roles: roles)) <= PrintLibrary.imageBudgetPerStyle)
         #expect(KitLayout.pages(for: Kit(nutmegSays: "", items: items, scenes: []), roles: roles, playerCount: 6).count <= KitLayout.maxPages)
         // Idempotent.
         let again = Sanitizer.clean(Kit(nutmegSays: "", items: items, scenes: []), picks: picks).items
@@ -210,7 +185,7 @@ import Testing
         let picks = PrintPicks.make(game: ["treasure hunt"])
         let p = Prompts.kitPages(ctx: AdventureContext(gameTitle: "Treasure Hunt", playerCount: 2), picks: picks)
         #expect(p.contains("THIS GAME'S SHORTLIST: badges, map, clueCards, money, log, cutouts"))
-        #expect(p.contains("NO sign") && p.contains("badges is ALWAYS first") && p.contains("ART IS A PICTURE ONLY"))
+        #expect(p.contains("NO sign") && p.contains("badges is ALWAYS first") && p.contains("EACH PAGE IS DRAWN WHOLE"))
         #expect(p.contains("reads the words on clue cards"))
         for t in KitRecipe.allCases { #expect(p.contains("- \(t.rawValue): ")) }
         // The schema asks for the pictures, not the shape fields the app fixes.
@@ -272,10 +247,13 @@ import Testing
         #expect(i.recipe == nil && i.variant == nil && i.title == "Mystery" && !i.pictureOnly)
         // A library kit round-trips in a schema-4 game.
         var k = a.kit; k.items = libraryKit("treasure-hunt")
-        let g = SavedGame(createdAt: Date(), title: "Treasure", roles: roles, props: [], kit: k, printStyle: .fullColor, art: [], voiceID: "v")
-        #expect(g.schemaVersion == 4)
+        // Round 46: a round 45 game (schema 4): library items with no whole-page flag (they stay app-drawn).
+        k.items = k.items.map { var i = $0; i.wholePage = nil; return i }
+        var g = SavedGame(createdAt: Date(), title: "Treasure", roles: roles, props: [], kit: k, printStyle: .fullColor, art: [], voiceID: "v")
+        g.schemaVersion = 4
+        #expect(!String(decoding: try SavedGame.encoder().encode(g), as: UTF8.self).contains("wholePage"))
         let back = try SavedGame.decode(SavedGame.encoder().encode(g))
-        #expect(back.kit.items == k.items && back.kit.items.allSatisfy(\.pictureOnly))
+        #expect(back.schemaVersion == 4 && back.kit.items == k.items && back.kit.items.allSatisfy { $0.pictureOnly && !$0.aiPage })
         // A newer app's type in a saved game: the game still opens.
         var data = try JSONSerialization.jsonObject(with: SavedGame.encoder().encode(g)) as! [String: Any]
         var kit = data["kit"] as! [String: Any]
@@ -314,12 +292,13 @@ import Testing
         var report: [String] = []
         for g in PrintShortlist.games {
             let items = libraryKit(g.id)
-            let perSet = KitArtPlan.imageCount(items, roles: roles)
+            let perSet = KitArtPlan.imageCount(items, ctx: KitArtContext(title: "", roles: roles))
             #expect(perSet <= PrintLibrary.imageBudgetPerStyle, "\(g.id) \(perSet)")
-            report.append("\(g.id) \(perSet * 2 + 1)")
+            report.append("\(g.id) \(perSet * 2 + 2)")
         }
-        let today = KitArtPlan.imageCount(a.kit.items, roles: roles) * 2 + 1
-        #expect(today == 13)
-        print("R45 images per game (both sets + cover): " + report.joined(separator: ", "))
+        // Round 46: both sets of whole pages + the cover + the character sheet (the bundled kit: 6 pages a set).
+        let today = KitArtPlan.imageCount(Fallback.airplane(playerCount: 4).kit.items, ctx: KitArtContext(title: "", roles: roles)) * 2 + 2
+        #expect(today == 14)
+        print("R46 images per game (both sets + cover + character sheet): " + report.joined(separator: ", "))
     }
 }

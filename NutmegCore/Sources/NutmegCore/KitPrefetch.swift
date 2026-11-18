@@ -67,101 +67,87 @@ public enum KitDraft {
             var i = item
             let room = PictureResolver.maxCutouts - skipped.count
             let fresh = skipped.filter { s in !i.lines.contains { $0.caseInsensitiveCompare(s) == .orderedSame } }
-            i.lines = Array(i.lines.prefix(room)) + fresh
+            let themed = Array(i.lines.prefix(room))
+            i.lines = themed + fresh
+            // Round 46: the themed page was drawn during the hunt; the skipped props' cut-outs are a second page.
+            if i.aiPage, !fresh.isEmpty { i.pageLines = themed.count }
             return i
         }
     }
 }
 
-/// One kit image request: a key (`<item id>` for a page, `<item id>#<n>` for one cut-out), its prompt and size.
+/// One kit image request: its art key (`KitArtPlan.pageKey`, or the character sheet's `characters#sheet`), its prompt
+/// and size. Round 46: a page's `words` are what the on-device check looks for; a sheet's grid is how it's sliced.
 public struct KitArtJob: Equatable, Sendable {
     public let key: String, prompt: String, size: String
-    /// A cut-out sheet's number of cut-outs (1 for any other image).
+    /// A sheet's number of pictures (1 for a page).
     public let count: Int
-    public init(key: String, prompt: String, size: String, count: Int = 1) { self.key = key; self.prompt = prompt; self.size = size; self.count = count }
+    /// The words this page must show (every occurrence), for `PageWordCheck`. Empty for the character sheet.
+    public let words: [String]
+    /// A sheet's grid (columns × rows); 0 for a page.
+    public let columns: Int, rows: Int
+    public init(key: String, prompt: String, size: String, count: Int = 1, words: [String] = [], columns: Int = 0, rows: Int = 0) {
+        self.key = key; self.prompt = prompt; self.size = size; self.count = count; self.words = words
+        self.columns = columns; self.rows = rows
+    }
+    public var isSheet: Bool { KitArtPlan.isSheet(key) }
 }
 
+/// Round 46: the image calls of a kit. Each AI page is ONE image per set (the decoder none), the cut-outs get a second
+/// page when skipped props were added, and the color set also draws the kit's one character sheet. A round 45 or older
+/// kit never draws anything (it is only ever replayed with its saved art).
 public enum KitArtPlan {
     public static func cutoutKey(_ itemID: String, _ n: Int) -> String { "\(itemID)#\(n)" }
-    /// The sheet of the first N cut-outs (round 20), and the marker that it failed (those cut-outs are then drawn one each).
     public static func sheetKey(_ itemID: String) -> String { "\(itemID)#sheet" }
-    public static func sheetFailedKey(_ itemID: String) -> String { "\(itemID)#sheet-failed" }
     public static func isSheet(_ key: String) -> Bool { key.hasSuffix("#sheet") }
+    /// The character sheet's job key (its slices are stored as `characters#k`).
+    public static let characterKey = sheetKey(CharacterSheet.id)
 
-    /// Every image these items need, minus `settled` (landed, in flight or given up). During the hunt the items are the
-    /// draft pages, so the skipped props' cut-outs simply aren't there yet; the final kit adds them.
-    /// `sheetCount`: how many leading cut-outs are drawn as ONE sheet (the hunt's themed ones; nil = all of them).
-    /// `roles`: the game's 6 ranked roles (round C1): the badges are one 6-up sheet, one badge picture per role.
-    /// Without 6 roles, or after the sheet failed, the badge is one shared role-neutral image (as before).
-    public static func jobs(items: [KitItem], title: String, style: PrintStyle, settled: Set<String>,
-                            sheetCount: Int? = nil, roles: [Role] = []) -> [KitArtJob] {
+    /// The art key of one page of an item: the item id; the badge page for N kids is `badges@N` (a different count is a
+    /// different page); the cut-outs' extra page for skipped props is `cutouts#more`.
+    public static func pageKey(_ item: KitItem, part: Int = 0, players: Int) -> String {
+        if item.recipe == .badges { return "\(item.id)@\(min(max(players, 1), RoleCast.count))" }
+        return part > 0 ? "\(item.id)#more" : item.id
+    }
+
+    /// The pages (parts) an AI item has: the cut-outs have 2 when skipped props were added; the decoder none.
+    public static func parts(_ item: KitItem) -> [Int] {
+        guard item.aiPage, item.recipe != .decoder else { return [] }
+        if item.recipe == .cutouts, let n = item.pageLines, n < item.lines.count { return [0, 1] }
+        return [0]
+    }
+
+    /// Every image these items need in one set, minus `settled` (landed, in flight or given up). `characters`: also the
+    /// kit's character sheet (the color set draws it).
+    public static func jobs(items: [KitItem], ctx: KitArtContext, style: PrintStyle, settled: Set<String>,
+                            characters: Bool = false) -> [KitArtJob] {
         var out: [KitArtJob] = []
         for item in items {
-            let labels = KitArtPrompt.cutoutLabels(item)
-            // Round 45: a library printable's ONE picture or ONE sheet of pictures (none for the decoder). A sheet that
-            // failed isn't drawn again (the page is app-drawn with its symbols).
-            if item.pictureOnly, item.recipe != .badges, item.recipe != .cutouts {
-                switch PrintLibrary.art(item, roles: roles) {
-                case .single(let size) where !settled.contains(item.id):
-                    out.append(KitArtJob(key: item.id, prompt: KitArtPrompt.picturePrompt(for: item, gameTitle: title, style: style), size: size))
-                case .sheet(let n) where !settled.contains(sheetKey(item.id)) && !settled.contains(sheetFailedKey(item.id))
-                        && !(0..<n).allSatisfy({ settled.contains(cutoutKey(item.id, $0)) }):
-                    out.append(KitArtJob(key: sheetKey(item.id), prompt: KitArtPrompt.pictureSheetPrompt(for: item, gameTitle: title, style: style),
-                                         size: CutoutSheet.size(n), count: n))
-                default: break
-                }
-                continue
+            for part in parts(item) {
+                let key = pageKey(item, part: part, players: ctx.players)
+                guard !settled.contains(key), let p = KitPagePrompt.prompt(for: item, ctx: ctx, style: style, part: part) else { continue }
+                out.append(KitArtJob(key: key, prompt: p.prompt, size: KitPagePrompt.size, words: p.words))
             }
-            if usesBadgeSheet(item, roles: roles, settled: settled) {
-                if !settled.contains(sheetKey(item.id)) && !(0..<BadgeSheet.count).allSatisfy({ settled.contains(cutoutKey(item.id, $0)) }) {
-                    out.append(KitArtJob(key: sheetKey(item.id), prompt: KitArtPrompt.badgeSheetPrompt(item, roles: roles, gameTitle: title, style: style),
-                                         size: BadgeSheet.size, count: BadgeSheet.count))
-                }
-            } else if item.recipe == .cutouts, !labels.isEmpty {
-                let k = CutoutSheet.enabled ? min(sheetCount ?? labels.count, labels.count) : 0
-                let sheetFailed = settled.contains(sheetFailedKey(item.id))
-                if k >= 2 && !sheetFailed && !settled.contains(sheetKey(item.id))
-                    && !(0..<k).allSatisfy({ settled.contains(cutoutKey(item.id, $0)) }) {
-                    out.append(KitArtJob(key: sheetKey(item.id), prompt: KitArtPrompt.cutoutSheetPrompt(Array(labels.prefix(k)), gameTitle: title, style: style),
-                                         size: CutoutSheet.size(k), count: k))
-                }
-                for (n, label) in labels.enumerated() where !settled.contains(cutoutKey(item.id, n)) && (n >= k || k < 2 || sheetFailed) {
-                    out.append(KitArtJob(key: cutoutKey(item.id, n), prompt: KitArtPrompt.cutoutPrompt(label, gameTitle: title, style: style),
-                                         size: "1024x1024"))
-                }
-            } else if !settled.contains(item.id) {
-                out.append(KitArtJob(key: item.id, prompt: KitArtPrompt.prompt(for: item, gameTitle: title, style: style),
-                                     size: KitArtPrompt.size(for: item)))
-            }
+        }
+        if characters, items.contains(where: \.aiPage), !ctx.roles.isEmpty, !settled.contains(characterKey) {
+            let things = CharacterSheet.things(items)
+            out.append(KitArtJob(key: characterKey, prompt: CharacterSheet.prompt(roles: ctx.roles, things: things, title: ctx.title),
+                                 size: CharacterSheet.size(things: things.count), count: CharacterSheet.count(things: things.count),
+                                 columns: CharacterSheet.columns, rows: CharacterSheet.rows(things: things.count)))
         }
         return out
     }
 
-    /// Round 45 (cost): how many image calls one style of these pages makes (the cut-out sheet counts once; skipped
-    /// props' cut-outs, added at the end of the hunt, are extra as before). The cover is one more per game.
-    public static func imageCount(_ items: [KitItem], roles: [Role] = RoleCast.rank([])) -> Int {
-        jobs(items: items, title: "", style: .fullColor, settled: [], sheetCount: nil, roles: roles).count
+    /// Round 45/46 (cost): how many page images one set of these items makes (the cut-outs' extra page counts when it's
+    /// there). The cover and the character sheet are one more each per game.
+    public static func imageCount(_ items: [KitItem], ctx: KitArtContext = KitArtContext(title: "", roles: RoleCast.rank([]))) -> Int {
+        jobs(items: items, ctx: ctx, style: .fullColor, settled: []).count
     }
 
-    /// The badges item is drawn as the 6-up sheet (6 ranked roles, the sheet hasn't failed).
-    public static func usesBadgeSheet(_ item: KitItem, roles: [Role], settled: Set<String>) -> Bool {
-        BadgeSheet.enabled && item.recipe == .badges && roles.count == BadgeSheet.count && !settled.contains(sheetFailedKey(item.id))
-    }
-
-    /// Every key the items need (a page is done when all of these have landed or definitively failed).
-    public static func keys(items: [KitItem], roles: [Role] = [], settled: Set<String> = []) -> Set<String> {
-        Set(items.flatMap { item -> [String] in
-            if item.pictureOnly, item.recipe != .badges, item.recipe != .cutouts {
-                switch PrintLibrary.art(item, roles: roles) {
-                case .single: return [item.id]
-                case .sheet: return settled.contains(sheetFailedKey(item.id)) ? [] : [sheetKey(item.id)]
-                default: return []
-                }
-            }
-            if usesBadgeSheet(item, roles: roles, settled: settled) { return [sheetKey(item.id)] }
-            let labels = KitArtPrompt.cutoutLabels(item)
-            return item.recipe == .cutouts && !labels.isEmpty ? labels.indices.map { cutoutKey(item.id, $0) } : [item.id]
-        })
+    /// Every page key these items need in one set (a set is final when all of these have landed or definitively
+    /// failed). The character sheet isn't one: the pages never wait for it.
+    public static func keys(items: [KitItem], ctx: KitArtContext) -> Set<String> {
+        Set(items.flatMap { item in parts(item).map { pageKey(item, part: $0, players: ctx.players) } })
     }
 }
 

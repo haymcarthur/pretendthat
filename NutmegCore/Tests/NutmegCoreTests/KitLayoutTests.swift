@@ -40,12 +40,6 @@ func kitItem(_ id: String, size: KitSize, perPlayer: Bool = false, copies: Int =
     }
 }
 
-@Test func moneyPromptHasNoNameField() {
-    var item = kitItem("money", size: .bill, copies: 8); item.recipe = .money
-    let p = KitArtPrompt.prompt(for: item, gameTitle: "Cafe").lowercased()
-    #expect(p.contains("no name field"))
-    #expect(!p.contains("blank white rounded banner"))
-}
 
 @Test func badgesSixPerPage() {
     let kit = Kit(nutmegSays: "", items: [kitItem("b", size: .badge, copies: 8)], scenes: [])
@@ -89,14 +83,6 @@ func kitItem(_ id: String, size: KitSize, perPlayer: Bool = false, copies: Int =
     #expect(KitLayout.pages(for: a.kit, roles: cast(4), playerCount: 4).count <= 6)
 }
 
-@Test func artPromptNeverCarriesTokensOrNames() {
-    var item = kitItem("pass", size: .ticket, perPlayer: true)
-    item.lines = ["Passenger: {P1}", "Flight: Ocean Express"]
-    let p = KitArtPrompt.prompt(for: item, gameTitle: "Airplane")
-    #expect(!p.contains("{P"))
-    #expect(p.contains("Ocean Express"))
-    #expect(p.lowercased().contains("blank"))
-}
 
 @Test func seatsDifferPerPlayer() {
     var item = kitItem("pass", size: .ticket, perPlayer: true)
@@ -131,10 +117,3 @@ func kitItem(_ id: String, size: KitSize, perPlayer: Bool = false, copies: Int =
     }
 }
 
-@Test func badgeArtIsRoleNeutral() {
-    var badge = kitItem("badge", size: .badge, perPlayer: true); badge.recipe = .badges
-    badge.lines = ["Crew", "Sky Crew"]
-    let p = KitArtPrompt.prompt(for: badge, gameTitle: "Airplane")
-    #expect(!p.contains("Sky Crew"))
-    #expect(p.contains("no words"))
-}

@@ -16,6 +16,11 @@ public struct KitPage: Equatable, Sendable, Identifiable {
     public var item: KitItem
     public var pageIndex: Int
     public var slots: [KitSlot]
+    /// Round 46: the art key of this page's whole-page image (`KitArtPlan.pageKey`: the badge page is drawn for exactly
+    /// its badges, the cut-outs' second page is the skipped props'). Older kits keep the item id.
+    public var artKey: String {
+        item.aiPage ? KitArtPlan.pageKey(item, part: pageIndex, players: slots.count) : item.id
+    }
 }
 
 /// Paginates kit items onto US Letter pages (spec §6): 8 tickets/bills/keycards, 6 badges, or 1 sheet per page.
@@ -60,6 +65,28 @@ public enum KitLayout {
         PrintLibrary.copyNumber(item, index: slot.index)
     }
 
+    /// Round 46: an AI kit prints ONE page per printable, as drawn (the badge page for exactly the playing roles; the
+    /// cut-outs a second page when skipped props were added). The slots are what the app-drawn fallback page prints if
+    /// the art never came (round 45's layout). At most 6 printables + the extra cut-outs page = 7 pages.
+    static func aiPages(_ kit: Kit, playing: [Role], kids: Int) -> [KitPage] {
+        Array(kit.items.flatMap { item -> [KitPage] in
+            let cap = grid(for: item).capacity
+            if item.recipe == .badges {
+                let slots = playing.isEmpty ? (0..<kids).map { KitSlot(index: $0) }
+                    : playing.enumerated().map { KitSlot(roleID: $0.element.id, index: $0.offset, role: $0.element.roleName) }
+                return [KitPage(item: item, pageIndex: 0, slots: slots)]
+            }
+            let n = item.recipe == .clueCards || item.recipe == .missionCards ? PrintLibrary.copies(item) : cap
+            let slots = (0..<max(1, min(n, cap))).map { KitSlot(index: $0) }
+            guard KitArtPlan.parts(item).count == 2, let split = item.pageLines else {
+                return [KitPage(item: item, pageIndex: 0, slots: slots)]
+            }
+            var first = item, more = item
+            first.lines = Array(item.lines.prefix(split)); more.lines = Array(item.lines.dropFirst(split))
+            return [KitPage(item: first, pageIndex: 0, slots: slots), KitPage(item: more, pageIndex: 1, slots: slots)]
+        }.prefix(maxPages))
+    }
+
     /// Small items tile the whole sheet (Haylee fix round 1: one ticket in a corner looked broken): round the slot
     /// count up to whole pages. Full-page sheets (capacity 1) are unchanged.
     static func filled(_ slots: [KitSlot], capacity: Int, extra: (Int) -> KitSlot) -> [KitSlot] {
@@ -74,6 +101,7 @@ public enum KitLayout {
     public static func pages(for kit: Kit, roles: [Role], playerCount: Int) -> [KitPage] {
         let kids = PlayCast.players(playerCount > 0 ? playerCount : roles.map(\.count).reduce(0, +))
         let playing = RoleCast.playing(roles, kids: kids)
+        if kit.items.contains(where: \.aiPage) { return aiPages(kit, playing: playing, kids: kids) }
         // 1. Slots per item.
         var perItem: [[KitSlot]] = kit.items.map { item in
             if item.perPlayer {
@@ -109,175 +137,6 @@ public enum KitLayout {
             return stride(from: 0, to: slots.count, by: cap).enumerated().map { n, start in
                 KitPage(item: kit.items[i], pageIndex: n, slots: Array(slots[start..<min(start + cap, slots.count)]))
             }
-        }
-    }
-}
-
-/// Builds the OpenAI image prompt for one kit item's artwork. There are no kids' names anywhere: the art has a
-/// blank banner where the app prints a "Name: ____" line for kids to write on, and badges a second one for the role.
-public enum KitArtPrompt {
-    /// Round 20: the art style for the kids' choice. "I'll color them": the thick-outline coloring page (unchanged).
-    /// Full color: a full-color kid-friendly illustration (no line-art or coloring-page wording).
-    public static func style(_ style: PrintStyle, cutout: Bool) -> String {
-        switch style {
-        case .colorIn:
-            return "Black and white only, thick clean outlines, no shading, no gray fills, plain white background, "
-                + "friendly and simple, easy for a 5-year-old to color\(cutout ? " and cut out" : "")."
-        case .fullColor:
-            return "Full-color, kid-friendly cartoon illustration: bright cheerful colors with flat fills, bold clean "
-                + "dark outlines, soft and friendly shapes, plain white background, simple and easy for a 5-year-old to "
-                + "read\(cutout ? " and cut out" : "")."
-        }
-    }
-
-    static func opener(_ style: PrintStyle, gameTitle: String) -> String {
-        (style == .fullColor ? "Printable full-color art" : "Coloring-page line art")
-            + " for a kids' pretend-play game called \"\(gameTitle)\"."
-    }
-
-    /// Round 45 (picture-only art): what every new kit image ends with. The art is a picture and nothing else: the app
-    /// draws the card, its border, every word, number and blank line in its own space beside the picture.
-    public static let pictureOnlyRule = " No words, no letters, no numbers, no writing of any kind anywhere. No frame, no "
-        + "border, no card, badge, ticket or sign shape, no banner, ribbon or label, no empty box or blank space for writing: "
-        + "just the picture on plain white paper. No real brands, no logos, nothing scary."
-
-    /// Round 45: the ONE picture of a library printable (a sign's place, a map, a bill's emblem, a ticket's picture…).
-    public static func picturePrompt(for item: KitItem, gameTitle: String, style printStyle: PrintStyle = .colorIn) -> String {
-        let subject = PrintLibrary.subjects(item).first ?? gameTitle
-        let what: String
-        switch item.recipe {
-        case .sign?: what = "ONE wide picture of the place: \(subject), a cheerful scene that fills the frame"
-        case .map?: what = "ONE simple picture-map seen from above: \(subject), with a winding path, a few big landmarks "
-            + "and open space, like a picture-book map (no compass, no X, no dotted numbers, no route labels)"
-        case .money?: what = "ONE round emblem picture for play money: \(subject), centered, simple and bold"
-        case .controlPanel?: what = "ONE wide picture of the view through a window or on a screen: \(subject), filling the frame"
-        case .badges?: what = "ONE cute character for the team: \(subject), centered"
-        default: what = "ONE simple picture: \(subject), centered, filling most of the square"
-        }
-        return opener(printStyle, gameTitle: gameTitle) + " Draw \(what). " + style(printStyle, cutout: false)
-            + pictureOnlyRule + ImageSafety.suffix
-    }
-
-    /// Round 45: the small pictures of a per-entry printable as ONE sheet (a menu's dishes, clue hints, medal pictures…),
-    /// in the cut-out sheet's grid; the app slices it into one picture per entry.
-    public static func pictureSheetPrompt(for item: KitItem, gameTitle: String, style printStyle: PrintStyle = .colorIn) -> String {
-        let subjects = Array(PrintLibrary.subjects(item).prefix(PrintLibrary.maxSheetPictures))
-        let (cols, rows) = CutoutSheet.grid(subjects.count)
-        let list = subjects.enumerated().map { "\($0.offset + 1). \($0.element)" }.joined(separator: ", ")
-        return opener(printStyle, gameTitle: gameTitle) + " Draw a sheet of exactly \(subjects.count) separate small pictures "
-            + "in a grid of \(cols) columns and \(rows) row\(rows == 1 ? "" : "s"), in this order, left to right and top to "
-            + "bottom: \(list). Each picture is ONE simple thing centered in its own equal grid cell, filling most of the "
-            + "cell. Leave wide plain white gaps between the cells; nothing touches or crosses into another cell, no grid "
-            + "lines. " + style(printStyle, cutout: false) + pictureOnlyRule + ImageSafety.suffix
-    }
-
-    /// Round 45: the badges' 6 role CHARACTERS as one sheet (characters only, no badge shapes): the app slices one per
-    /// role and draws the badge around it (lanyard tag, round pin or ID card), with the role title and a Name line.
-    public static func characterSheetPrompt(roles: [Role], gameTitle: String, style printStyle: PrintStyle = .colorIn) -> String {
-        let list = roles.prefix(BadgeSheet.count).enumerated().map { i, r in
-            let job = r.job.trimmingCharacters(in: .whitespacesAndNewlines)
-            return "\(i + 1): \(r.roleName)" + (job.isEmpty ? "" : " (\(job))")
-        }.joined(separator: "; ")
-        return opener(printStyle, gameTitle: gameTitle) + " Draw a sheet of exactly 6 separate cute cartoon characters in a "
-            + "grid of 3 columns and 2 rows, all the same size, each one character from the waist up dressed and holding "
-            + "things for that job, in this order, left to right and top to bottom: \(list). Each character is centered in "
-            + "its own equal cell. Leave wide plain white gaps between the characters; nothing touches or crosses into "
-            + "another cell, no grid lines. " + style(printStyle, cutout: false) + pictureOnlyRule + ImageSafety.suffix
-    }
-
-    public static func prompt(for item: KitItem, gameTitle: String, style printStyle: PrintStyle = .colorIn) -> String {
-        if item.pictureOnly { return picturePrompt(for: item, gameTitle: gameTitle, style: printStyle) }
-        let text = KitLayout.printedLines(for: item)
-        let shape: String
-        switch item.recipe {
-        case .sign?: shape = "a big sign to hang on the wall (portrait, US Letter) with a decorative theater-style border"
-        case .money?: shape = "a single play-money bill (landscape, about 2 by 1) with an ornate border and a big value in the corners"
-        case .menu?: shape = "a full-page menu or price list (portrait, US Letter) with a little picture next to each line"
-        case .cutouts?: shape = "a full page (portrait, US Letter) of 6 to 8 separate cut-out props, each a simple object with a thick cut-around outline and space between them"
-        case .badges?: shape = "a single name badge (portrait) with a clip hole at the top and one cute themed picture in the middle"
-        case .tickets?: shape = item.size == .keycard ? "a single key card (landscape, about 2 by 1)" : "a single ticket or pass (landscape, about 2 by 1)"
-        case .some: return picturePrompt(for: item, gameTitle: gameTitle, style: printStyle)   // round 45 types are picture-only
-        case nil:
-            switch item.size {
-            case .ticket: shape = "a single wide ticket card (landscape, about 2 by 1)"
-            case .bill: shape = "a single play-money bill (landscape, about 2 by 1)"
-            case .keycard: shape = "a single key card (landscape, about 2 by 1)"
-            case .badge: shape = "a single name badge (portrait)"
-            case .fullPage: shape = "a full printable page (portrait, US Letter)"
-            }
-        }
-        var p = opener(printStyle, gameTitle: gameTitle) + " Draw \(shape): \(item.title). " + style(printStyle, cutout: false)
-            + " Fill the whole image edge to edge with the card design and a thick rounded border."
-        if item.recipe == .money || (item.recipe == nil && item.size == .bill) {
-            p += " This is play money: no name field, no \"Name:\" label, no blank lines or banners to write on."
-            if item.recipe == .money { p += " It is a ONE-dollar bill: the only amount anywhere on it is \"\(Money.bill)\"." }
-        } else if item.size != .fullPage {
-            p += " Leave a BLANK white rounded banner across the top quarter of the card with no text in it (a blank name line is printed there later)."
-        }
-        let isBadge = item.recipe == .badges || (item.recipe == nil && item.size == .badge)
-        if isBadge {
-            // One shared, role-neutral badge: the app prints each ROLE title and a blank name line on it.
-            p += " Also leave a second BLANK white rounded banner across the bottom fifth (a role title is printed there later)."
-            p += " Write no words or letters anywhere on the badge."
-        } else if item.recipe == .cutouts, !text.isEmpty {
-            p += " Draw these items, one each, with no words: " + text.joined(separator: ", ") + "."
-            p += " Title at the top in big rounded letters: \"\(item.title)\"."
-        } else if !text.isEmpty { p += " Spell these words exactly, in big rounded letters: " + text.map { "\"\($0)\"" }.joined(separator: ", ") + "." }
-        if let n = item.bigNumber, !n.isEmpty, !isBadge { p += " Show the big number or code \"\(n)\"." }
-        p += " Do not add any other words. No real brands, no logos, nothing scary."
-        return p + ImageSafety.suffix   // round 19
-    }
-
-    /// Round C1: the 6 role badges as ONE portrait image, a 3 × 2 grid (one badge picture per role, rank order), which
-    /// the app slices into one badge per role and prints the role title and a blank name line on.
-    public static func badgeSheetPrompt(_ item: KitItem, roles: [Role], gameTitle: String, style printStyle: PrintStyle = .colorIn) -> String {
-        if item.pictureOnly { return characterSheetPrompt(roles: roles, gameTitle: gameTitle, style: printStyle) }
-        let list = roles.prefix(BadgeSheet.count).enumerated().map { i, r in
-            let job = r.job.trimmingCharacters(in: .whitespacesAndNewlines)
-            return "\(i + 1): \(r.roleName)" + (job.isEmpty ? "" : " (\(job))")
-        }.joined(separator: "; ")
-        return opener(printStyle, gameTitle: gameTitle) + " Draw a sheet of exactly 6 separate name badges (\(item.title)) in "
-            + "a grid of 3 columns and 2 rows, all the same size and shape: tall portrait badges, each with a thick rounded "
-            + "border and a clip hole at the top. In this order, left to right and top to bottom, each badge's middle has ONE "
-            + "cute themed picture for that job: \(list). Every badge has a BLANK white rounded banner across its top quarter "
-            + "and a second BLANK white rounded banner across its bottom fifth, with no text in them (a name line and the "
-            + "job title are printed there later). Leave wide plain white gaps between the badges; nothing touches or "
-            + "crosses into another badge, no grid lines. " + style(printStyle, cutout: false)
-            + " Write no words or letters anywhere. No real brands, no logos, nothing scary." + ImageSafety.suffix
-    }
-
-    /// One cut-out on its own (checklist-pictures.md): the cut-outs page is generated as one image per item so each
-    /// food/tool item can also be a checklist picture; the app tiles them onto the printed page.
-    public static func cutoutPrompt(_ label: String, gameTitle: String, style printStyle: PrintStyle = .colorIn) -> String {
-        opener(printStyle, gameTitle: gameTitle) + " Draw ONE cut-out prop: \(label). A single simple object, centered, "
-            + "filling most of the square, with a thick cut-around outline and white space around it. "
-            + style(printStyle, cutout: true)
-            + " No words, letters or numbers. No real brands, no logos, nothing scary." + ImageSafety.suffix   // round 19
-    }
-
-    /// Round 20 (cost): the themed cut-outs as ONE sheet, a grid the app slices back into one picture per cut-out.
-    public static func cutoutSheetPrompt(_ labels: [String], gameTitle: String, style printStyle: PrintStyle = .colorIn) -> String {
-        let (cols, rows) = CutoutSheet.grid(labels.count)
-        let list = labels.enumerated().map { "\($0.offset + 1). \($0.element)" }.joined(separator: ", ")
-        return opener(printStyle, gameTitle: gameTitle) + " Draw a sheet of exactly \(labels.count) separate cut-out props "
-            + "in a grid of \(cols) columns and \(rows) row\(rows == 1 ? "" : "s"), in this order, left to right and top to "
-            + "bottom: \(list). Each prop is ONE simple object centered in its own equal grid cell, filling most of the "
-            + "cell, with a thick cut-around outline. Leave wide plain white gaps between the cells; nothing touches or "
-            + "crosses into another cell, no grid lines, no borders, no frames. " + style(printStyle, cutout: true)
-            + " No words, letters or numbers. No real brands, no logos, nothing scary." + ImageSafety.suffix
-    }
-
-    /// The cut-out items of a kit (the cutouts item's lines, 6 to 8).
-    public static func cutoutLabels(_ item: KitItem) -> [String] {
-        item.recipe == .cutouts ? Array(item.lines.prefix(PictureResolver.maxCutouts)) : []
-    }
-
-    /// Image size to request per item shape.
-    public static func size(for item: KitItem) -> String {
-        if item.pictureOnly, item.recipe != nil, case .single(let s) = PrintLibrary.art(item) { return s }
-        return switch item.size {
-        case .badge, .fullPage: "1024x1536"
-        default: "1536x1024"
         }
     }
 }

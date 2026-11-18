@@ -269,6 +269,7 @@ struct RootView: View {
             if live { scheduleShot(arrival: true) } else { shotTask?.cancel(); cameraShot = .wide; lastShotChange = .distantPast }
         }
         .onChange(of: store.kit) { _, _ in model.kitChanged() }
+        .onChange(of: store.playerCount) { _, _ in model.playerCountChanged() }   // round 46: the badge page
         .onChange(of: store.guidePending) { _, pending in model.guidePendingChanged(pending) }
         .onChange(of: store.guideWrittenAt) { _, _ in model.guideTimingChanged() }
         .onChange(of: store.guideFinalAt) { _, _ in model.guideTimingChanged() }
@@ -547,7 +548,7 @@ struct RootView: View {
                 withTransaction(tx) { kitPreview = PTPreviewTarget(index: i) }
             }, onPrint: { model.tapPrint() }, onPlay: { model.tapLetsPlay() }) { i in
                 // Round 27: the chat-open pinned card shows the chosen set (the stage shows both).
-                KitPageView(page: pages[i], art: model.printArt.images[pages[i].item.id], cutouts: model.printArt.cutoutImages(pages[i].item), style: model.printArt.style)
+                KitPageView(page: pages[i], art: model.printArt.pageImage(pages[i]), cutouts: model.printArt.cutoutImages(pages[i].item), style: model.printArt.style)
                     .scaleEffect(PTKitPinnedCard<EmptyView>.thumb.width / KitPageView.size.width)
                     .frame(width: PTKitPinnedCard<EmptyView>.thumb.width, height: PTKitPinnedCard<EmptyView>.thumb.height)
             })

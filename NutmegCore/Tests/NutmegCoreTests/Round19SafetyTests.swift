@@ -124,9 +124,11 @@ struct Round19SafetyTests {
     }
 
     @Test func imagePromptsCarryTheSafetySuffixAndModeration() throws {
-        let item = Fallback.airplane.kit.items[0]
-        #expect(KitArtPrompt.prompt(for: item, gameTitle: "Airplane").hasSuffix(ImageSafety.suffix))
-        #expect(KitArtPrompt.cutoutPrompt("a suitcase", gameTitle: "Airplane").hasSuffix(ImageSafety.suffix))
+        // Round 46: every whole-page prompt and the character sheet carry the safety suffix (plus friendly pirates).
+        let a = Fallback.airplane(playerCount: 2)
+        let ctx = KitArtContext(title: "Airplane", roles: a.plan.roles, players: 2)
+        let jobs = KitArtPlan.jobs(items: a.kit.items, ctx: ctx, style: .fullColor, settled: [], characters: true)
+        #expect(!jobs.isEmpty && jobs.allSatisfy { $0.prompt.contains(ImageSafety.suffix) && $0.prompt.hasSuffix(KitPagePrompt.safe) })
         let req = try ImageClient(mode: .direct(apiKey: "k")).request(prompt: "x", size: "1024x1024", model: ImageClient.models[0])
         #expect(String(decoding: req.httpBody ?? Data(), as: UTF8.self).contains(#""moderation":"auto""#))
     }

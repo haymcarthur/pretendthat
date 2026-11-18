@@ -171,24 +171,6 @@ struct RoundC1Tests {
 
     // MARK: The 6-up badge sheet
 
-    @Test func badgeSheetIsOneJobSlicedIntoSixPortraitBadges() {
-        let items = kit.items
-        let jobs = KitArtPlan.jobs(items: items, title: "Airplane", style: .colorIn, settled: [], roles: roles)
-        let badge = items.first { $0.recipe == .badges }!
-        let sheet = jobs.filter { $0.key == KitArtPlan.sheetKey(badge.id) }
-        #expect(sheet.count == 1 && sheet[0].size == "1024x1536" && sheet[0].count == 6)
-        #expect(!jobs.contains { $0.key == badge.id })
-        for r in roles { #expect(sheet[0].prompt.contains(r.roleName)) }
-        #expect(sheet[0].prompt.contains("3 columns and 2 rows") && sheet[0].prompt.contains(ImageSafety.suffix))
-        #expect(KitArtPlan.keys(items: items, roles: roles).contains(KitArtPlan.sheetKey(badge.id)))
-        // The sheet failed (or didn't slice into 6): the one shared badge image instead.
-        let failed: Set<String> = [KitArtPlan.sheetFailedKey(badge.id)]
-        let fb = KitArtPlan.jobs(items: items, title: "Airplane", style: .colorIn, settled: failed, roles: roles)
-        #expect(fb.contains { $0.key == badge.id } && !fb.contains { $0.key == KitArtPlan.sheetKey(badge.id) })
-        #expect(KitArtPlan.keys(items: items, roles: roles, settled: failed).contains(badge.id))
-        // No roles known: the old shared badge.
-        #expect(KitArtPlan.jobs(items: items, title: "Airplane", style: .colorIn, settled: []).contains { $0.key == badge.id })
-    }
 
     @Test func badgeSheetSlicesKeepThePortraitShape() {
         // A 300×600 sheet with 6 ink badges (each 70×220) centered in a 3×2 grid.
@@ -198,7 +180,7 @@ struct RoundC1Tests {
             let cx = c * 100 + 50, cy = r * 300 + 150
             for y in (cy - 110)..<(cy + 110) { for x in (cx - 35)..<(cx + 35) { gray[y * w + x] = 0 } }
         } }
-        let cells = BadgeSheet.cells(gray: gray, width: w, height: h)
+        let cells = CutoutSheet.cells(gray: gray, width: w, height: h, columns: 3, rows: 2, count: 6, trimToSquare: false)
         #expect(cells.count == 6)
         for (k, cell) in cells.enumerated() {
             #expect(cell.height > cell.width * 2, "cell \(k) is portrait: \(cell)")

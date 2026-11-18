@@ -1,19 +1,13 @@
 import Foundation
 
-/// Round 20 (Haylee, cost): the themed cut-outs are drawn as ONE image (a grid sheet) instead of one image per cut-out,
-/// then sliced back into one picture per cut-out, so the printed page and the checklist pictures (cutout:N) work
-/// exactly as before. Pure pixel math here (grayscale buffer in, rectangles out), so it's unit-tested.
+/// Slices a sheet of separate pictures into one picture per cell. Round 20 used it for the cut-out sheet, round C1 for the
+/// badge sheet; round 46 for the kit's character sheet (the in-app pictures). Pure pixel math (grayscale buffer in,
+/// rectangles out), so it's unit-tested.
 public enum CutoutSheet {
-    /// Flip to false to go back to one image per cut-out.
-    public static let enabled = true
-
     /// The grid for `count` cut-outs: 2 rows, as many columns as needed (6 → 3×2).
     public static func grid(_ count: Int) -> (columns: Int, rows: Int) {
         count <= 3 ? (max(1, count), 1) : (Int((Double(count) / 2).rounded(.up)), 2)
     }
-
-    /// The image size for the sheet (landscape for 2 rows; the API sizes only).
-    public static func size(_ count: Int) -> String { grid(count).rows == 1 && count <= 1 ? "1024x1024" : "1536x1024" }
 
     public struct Rect: Equatable, Sendable {
         public var x: Int, y: Int, width: Int, height: Int
@@ -26,8 +20,15 @@ public enum CutoutSheet {
     /// Round C1: `trimToSquare: false` (the badge sheet) keeps each cell's portrait shape, trimmed to the drawing's outer
     /// edge plus a margin.
     public static func cells(gray: [UInt8], width: Int, height: Int, count: Int, inkBelow: UInt8 = 225, trimToSquare: Bool = true) -> [Rect] {
-        guard count > 0, width > 0, height > 0, gray.count >= width * height else { return [] }
         let (cols, rows) = grid(count)
+        return cells(gray: gray, width: width, height: height, columns: cols, rows: rows, count: count, inkBelow: inkBelow, trimToSquare: trimToSquare)
+    }
+
+    /// Round 46 (the character sheet): any grid of `columns` × `rows`, `count` cells in reading order (the last row may
+    /// be short: its cells share the row's width evenly).
+    public static func cells(gray: [UInt8], width: Int, height: Int, columns cols: Int, rows: Int, count: Int,
+                             inkBelow: UInt8 = 225, trimToSquare: Bool = true) -> [Rect] {
+        guard count > 0, cols > 0, rows > 0, width > 0, height > 0, gray.count >= width * height else { return [] }
         func ink(_ x: Int, _ y: Int) -> Bool { gray[y * width + x] < inkBelow }
         // The emptiest line near `expected` (within ±18% of a cell).
         func boundary(expected: Int, cell: Int, limit: Int, count: (Int) -> Int) -> Int {
@@ -124,19 +125,5 @@ public enum CutoutSheet {
         let x = min(max(cell.x, cx - side / 2), cell.x + cell.width - side)
         let y = min(max(cell.y, cy - side / 2), cell.y + cell.height - side)
         return Rect(x: x, y: y, width: side, height: side)
-    }
-}
-
-/// Round C1: the 6 role badges are ONE image, a 3 × 2 grid of portrait badges (the same 3 × 2 layout a badge page
-/// prints), sliced into one badge per role (rank order: left to right, then top to bottom).
-public enum BadgeSheet {
-    public static let enabled = true
-    public static let count = RoleCast.count
-    public static let size = "1024x1536"
-    /// The sheet's slices are kept like cut-outs: `<badge item id>#<k>` is role R(k+1)'s badge.
-    public static func key(_ itemID: String, _ k: Int) -> String { KitArtPlan.cutoutKey(itemID, k) }
-
-    public static func cells(gray: [UInt8], width: Int, height: Int) -> [CutoutSheet.Rect] {
-        CutoutSheet.cells(gray: gray, width: width, height: height, count: count, trimToSquare: false)
     }
 }
