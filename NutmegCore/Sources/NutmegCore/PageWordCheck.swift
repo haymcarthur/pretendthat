@@ -91,3 +91,24 @@ public enum PageWordCheck {
         return n
     }
 }
+
+/// Round 47 (Haylee's answer 1, option b): bubble letters read poorly, so a coloring (outline) page is checked ONLY when
+/// the same printable's color page missed its words on its first drawing. A color page is always checked.
+public enum OutlineWordCheck {
+    public enum Action: Equatable, Sendable {
+        /// Read the page and redraw once on a real miss.
+        case check
+        /// Keep the drawing without reading it.
+        case keep
+        /// The color page's first check isn't in yet: wait for it.
+        case wait
+    }
+
+    /// What to do with one page's first drawing. `colorMissed`: the color page's first check (true = it missed, nil =
+    /// not checked yet). `colorSettled`: the color page is done without a check (it failed, or has no words): keep.
+    public static func action(style: PrintStyle, colorMissed: Bool?, colorSettled: Bool) -> Action {
+        guard style == .colorIn else { return .check }
+        if let colorMissed { return colorMissed ? .check : .keep }
+        return colorSettled ? .keep : .wait
+    }
+}

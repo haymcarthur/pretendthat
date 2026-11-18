@@ -2,16 +2,17 @@ import SwiftUI
 import UIKit
 import NutmegCore
 
-/// Turns kit pages into one PDF and hands it to AirPrint. `art` is keyed by each page's art key (`KitPage.artKey`).
+/// Turns kit pages into one PDF and hands it to AirPrint. Each page is the set's own view of it (`KitArtService.pageView`:
+/// its whole-page art, or round 47's first N pieces of a per-player sheet).
 enum KitPrinter {
     @MainActor
-    static func pdf(pages: [KitPage], art: [String: UIImage], cutouts: [String: [UIImage?]] = [:], style: PrintStyle = .colorIn) -> Data {
+    static func pdf(pages: [KitPage], set: KitArtService) -> Data {
         let data = NSMutableData()
         var box = CGRect(origin: .zero, size: KitPageView.size)
         guard let consumer = CGDataConsumer(data: data as CFMutableData),
               let ctx = CGContext(consumer: consumer, mediaBox: &box, nil) else { return Data() }
         for page in pages {
-            let renderer = ImageRenderer(content: KitPageView(page: page, art: art[page.artKey], cutouts: cutouts[page.item.id] ?? [], style: style))
+            let renderer = ImageRenderer(content: set.pageView(page))
             renderer.render { _, draw in
                 ctx.beginPDFPage(nil)
                 draw(ctx)

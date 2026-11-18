@@ -94,7 +94,7 @@ import Testing
         let ctx = KitArtContext(title: "Sky", roles: a.plan.roles, players: 3)
         let hunt = KitArtPlan.jobs(items: draft, ctx: ctx, style: .fullColor, settled: [], characters: true)
         #expect(hunt.count == draft.count + 1)                                   // 6 pages + the character sheet
-        #expect(hunt.contains { $0.key == "badges@3" } && hunt.contains { $0.key == KitArtPlan.characterKey })
+        #expect(hunt.contains { $0.key == "badges@all" } && hunt.contains { $0.key == KitArtPlan.characterKey })   // round 47
         #expect(hunt.filter { !$0.isSheet }.allSatisfy { $0.size == KitPagePrompt.size && $0.prompt.hasPrefix(KitPagePrompt.page) })
         // Hunt over with one skip: only the cut-outs' extra page (the skipped prop) is new.
         let props = Props(nutmegSays: "", props: [Prop(id: "pot", householdItem: "Pot", becomes: "the big oven", forRole: .all, safetyOK: true, skipped: true),
@@ -103,9 +103,9 @@ import Testing
         let after = KitArtPlan.jobs(items: final, ctx: ctx, style: .fullColor, settled: Set(hunt.map(\.key)), characters: true)
         #expect(after.map(\.key) == ["cutouts#more"] && after[0].prompt.contains("big oven") && !after[0].prompt.contains("suitcase"))
         #expect(KitArtPlan.keys(items: final, ctx: ctx).count == draft.count + 1)   // the kit is final per page
-        // A new count only adds that count's badge page.
+        // Round 47: a new count draws nothing (the badge page was drawn for all 6; its first N pieces print).
         var four = ctx; four.players = 4
-        #expect(KitArtPlan.jobs(items: final, ctx: four, style: .fullColor, settled: Set(hunt.map(\.key) + after.map(\.key))).map(\.key) == ["badges@4"])
+        #expect(KitArtPlan.jobs(items: final, ctx: four, style: .fullColor, settled: Set(hunt.map(\.key) + after.map(\.key))).isEmpty)
         let draftItems = draft
         // Labels and limits.
         #expect(KitDraft.cutoutLabel(becomes: "The steering wheel.") == "steering wheel")

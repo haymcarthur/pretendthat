@@ -10,12 +10,17 @@ struct KitPageView: View {
     var cutouts: [UIImage?] = []
     /// Round 45: the set this page is printed in (the color set tints the app-drawn frames; the outline set doesn't).
     var style: PrintStyle = .colorIn
+    /// Round 47: a per-player page's first N pieces, cut from the sheet drawn for 6 (nil: the whole page prints).
+    var pieces: SheetPieces? = nil
 
     static let size = CGSize(width: 612, height: 792)
     private let margin: CGFloat = 24
 
     @ViewBuilder var body: some View {
-        if page.item.aiPage, let art {
+        if page.item.aiPage, let pieces, !pieces.images.isEmpty {
+            // Round 47: only the pieces for the kids playing, as the AI drew them, laid on the paper at the page's scale.
+            AIPiecesPageView(pieces: pieces)
+        } else if page.item.aiPage, let art {
             // Round 46: the image model drew this whole page (frame, layout and every word): the app draws nothing on it
             // and only fits it, whole, inside the paper's margins.
             AIPageView(art: art)
@@ -96,6 +101,30 @@ struct AIPageView: View {
                 .offset(x: r.minX, y: r.minY)
         }
         .frame(width: KitPageView.size.width, height: KitPageView.size.height)
+        .environment(\.colorScheme, .light)
+    }
+}
+
+/// Round 47: the first N pieces of a per-player sheet (badges, tickets) on the paper: in the drawn sheet's reading order
+/// and columns, each row centered from the top of the printable area, at the scale the whole page would print at (a
+/// badge is the same size whatever the count), never past the margins (`SheetCells.layout`). Nothing else is drawn.
+struct AIPiecesPageView: View {
+    let pieces: SheetPieces
+    var body: some View {
+        let size = KitPageView.size, m = PageFit.margin
+        let fit = PageFit.rect(image: pieces.sheetSize, page: size)
+        let box = CGRect(x: m, y: m, width: size.width - 2 * m, height: size.height - 2 * m)
+        let rects = SheetCells.layout(sizes: pieces.images.map(\.size), columns: pieces.columns,
+                                      scale: pieces.sheetSize.width > 0 ? fit.width / pieces.sheetSize.width : 1, box: box)
+        ZStack(alignment: .topLeading) {
+            Theme.printPaper
+            ForEach(Array(zip(rects, pieces.images).enumerated()), id: \.offset) { _, pair in
+                Image(uiImage: pair.1).resizable().interpolation(.high)
+                    .frame(width: pair.0.width, height: pair.0.height)
+                    .offset(x: pair.0.minX, y: pair.0.minY)
+            }
+        }
+        .frame(width: size.width, height: size.height)
         .environment(\.colorScheme, .light)
     }
 }

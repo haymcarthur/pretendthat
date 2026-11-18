@@ -97,8 +97,9 @@ import Testing
         let oldSafe = " Kid-friendly and gentle, for ages 4 to 8: no guns, no knives, no real weapons (a toy sword is fine), no blood, nothing scary, no real people, no brands, no logos."
         let pirate = KitArtContext(title: "Pirate Treasure Hunt", roles: pirates(6), players: 4)
         let cafe = KitArtContext(title: "Cozy Café", roles: roles, players: 3)
+        // Round 47: the badge page is no longer the approved recipe's 4-up page (it's drawn for all 6 as a strict grid,
+        // Round47Tests), so it isn't compared here.
         let cases: [(String, KitItem, KitArtContext)] = [
-            ("pirate-badges", page(.badges, .lanyard, title: "Crew"), pirate),
             ("pirate-coins", page(.money, .coins, title: "Island Gold", pictures: ["a palm tree"]), pirate),
             ("pirate-map", page(.map, title: "Treasure Map", lines: ["Big Rock", "Palm Tree", "Cave", "Treasure"], pictures: ["a sunny little island"]), pirate),
             ("pirate-clues", page(.clueCards, title: "Clues", lines: ["Look under a pillow", "Peek behind a chair", "Check inside a box", "Find the teddy bear"],
@@ -119,28 +120,29 @@ import Testing
         }
     }
 
-    @Test func theBadgePageIsDrawnForExactlyThePlayingRoles() {
+    /// Round 47 replaced round 46's per-count badge page: see Round47Tests.badgesAreDrawnOnceForAllSixRoles.
+    @Test func theBadgePageShowsEveryRankedRoleAndPrintsThePlayingOnes() {
         let six = pirates(6)
         for n in 1...6 {
             let ctx = KitArtContext(title: "Treasure", roles: six, players: n)
             let p = KitPagePrompt.prompt(for: page(.badges, .pin, title: "Crew"), ctx: ctx, style: .fullColor)!
-            #expect(p.prompt.contains("exactly \(n) round name badges"))
-            #expect(p.words == six.prefix(n).map(\.roleName) + Array(repeating: "Name:", count: n))
-            for r in six.dropFirst(n) { #expect(!p.prompt.contains("\"\(r.roleName)\""), "\(n) players: \(r.roleName)") }
-            // Its art key is per count, so a new count draws its own page; the printed page has exactly those badges.
-            #expect(KitArtPlan.pageKey(page(.badges, title: "Crew"), players: n) == "badges@\(n)")
+            #expect(p.prompt.contains("exactly 6 round name badges"))
+            #expect(p.words == six.map(\.roleName) + Array(repeating: "Name:", count: 6))
+            #expect(KitArtPlan.pageKey(page(.badges, title: "Crew"), players: n) == "badges@all")
             let pages = KitLayout.pages(for: Kit(nutmegSays: "", items: [page(.badges, title: "Crew")], scenes: []), roles: six, playerCount: n)
-            #expect(pages.count == 1 && pages[0].slots.count == n && pages[0].artKey == "badges@\(n)")
+            #expect(pages.count == 1 && pages[0].slots.count == n && pages[0].artKey == "badges@all" && pages[0].pieces == n)
+            #expect(pages[0].legacyArtKey == "badges@\(n)")   // a round 46 game's own page
         }
     }
 
     @Test func ticketsCarryADifferentNumberOnEveryCopyInThePrompt() {
         let ctx = KitArtContext(title: "Sky", roles: roles, players: 2)
         let expected: [String: [String]] = [
-            "Boarding Pass": ["1A", "1B", "1C", "1D", "2A", "2B", "2C", "2D"],
-            "Big Top Show": (1...8).map { String(format: "%03d", $0) },
-            "Room Key": (101...108).map(String.init),
-            "Appointment Card": (1...8).map(String.init),
+            // Round 47: one pass per player for the most players (6), cut apart so the first N print.
+            "Boarding Pass": ["1A", "1B", "1C", "1D", "2A", "2B"],
+            "Big Top Show": (1...6).map { String(format: "%03d", $0) },
+            "Room Key": (101...106).map(String.init),
+            "Appointment Card": (1...6).map(String.init),
         ]
         for item in everyPage where item.recipe == .tickets {
             let numbers = KitPagePrompt.ticketNumbers(item)
@@ -148,7 +150,7 @@ import Testing
             let p = KitPagePrompt.prompt(for: item, ctx: ctx, style: .fullColor)!
             #expect(p.prompt.contains("in this order left to right, top to bottom: " + numbers.map { "\"\($0)\"" }.joined(separator: ", ")))
             for n in numbers { #expect(p.words.filter { $0 == n }.count == 1) }
-            #expect(p.words.filter { $0 == item.title }.count == 8)
+            #expect(p.words.filter { $0 == item.title }.count == 6)
         }
         #expect(KitPagePrompt.prompt(for: everyPage.first { $0.title == "Appointment Card" }!, ctx: ctx, style: .fullColor)!.words.contains("Time:"))
     }
