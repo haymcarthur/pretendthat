@@ -219,6 +219,75 @@ import Testing
         #expect(KitLayout.pages(for: Kit(nutmegSays: "", items: final, scenes: []), roles: roles, playerCount: 6).count <= KitLayout.maxPages)
     }
 
+    // MARK: Step 2: the character sheet
+
+    @Test func oneCharacterSheetPerKitPictureOnly() {
+        let items = Sanitizer.clean(Kit(nutmegSays: "", items: a.kit.items, scenes: []), picks: PrintPicks.make(game: ["airplane"])).items
+        let ctx = KitArtContext(title: "Sky Trip", roles: roles, players: 2)
+        let color = KitArtPlan.jobs(items: items, ctx: ctx, style: .fullColor, settled: [], characters: true)
+        let outline = KitArtPlan.jobs(items: items, ctx: ctx, style: .colorIn, settled: [])
+        let sheets = color.filter(\.isSheet)
+        #expect(sheets.count == 1 && sheets[0].key == KitArtPlan.characterKey && !outline.contains { $0.isSheet })
+        let things = CharacterSheet.things(items)
+        #expect(things == items.first { $0.recipe == .cutouts }!.lines)
+        let job = sheets[0]
+        #expect(job.count == 12 && job.columns == 3 && job.rows == 4 && job.size == "1024x1536" && job.words.isEmpty)
+        // Every role in rank order (all 6, whatever the count), then the things in order.
+        var at = job.prompt.startIndex
+        for r in roles {
+            guard let hit = job.prompt.range(of: "the \(r.roleName.lowercased())", range: at..<job.prompt.endIndex) else {
+                Issue.record("\(r.roleName) missing or out of order"); continue
+            }
+            at = hit.upperBound
+        }
+        for (k, t) in things.enumerated() { #expect(job.prompt.contains("\(7 + k). \(t.lowercased())")) }
+        // Picture only: no words, frames or badges asked for; the kit's color style line and the safety block.
+        #expect(job.prompt.contains("no words, no letters, no numbers, no frames, no borders, no badges"))
+        #expect(job.prompt.contains(KitPagePrompt.style(.fullColor)) && job.prompt.hasSuffix(KitPagePrompt.safe))
+        #expect(!job.prompt.contains("\"Name:\"") && !job.prompt.contains("The ONLY words"))
+        // Drawn once: settled means no second job; a kit with no cut-outs gets a characters-only 3 × 2 sheet.
+        #expect(!KitArtPlan.jobs(items: items, ctx: ctx, style: .fullColor, settled: [job.key], characters: true).contains { $0.isSheet })
+        let noCuts = items.filter { $0.recipe != .cutouts }
+        let small = KitArtPlan.jobs(items: noCuts, ctx: ctx, style: .fullColor, settled: [], characters: true).first(where: \.isSheet)!
+        #expect(small.count == 6 && small.rows == 2 && small.size == "1536x1024")
+        // An older kit never draws one.
+        var r45 = items; r45 = r45.map { var i = $0; i.wholePage = nil; return i }
+        #expect(KitArtPlan.jobs(items: r45, ctx: ctx, style: .fullColor, settled: [], characters: true).isEmpty)
+    }
+
+    @Test func theCharacterSheetSlicesIntoOnePicturePerCellInReadingOrder() {
+        // A 300 × 400 sheet, 3 × 4 grid with the last row short (10 pictures), each a blob of its own size.
+        let w = 300, h = 400
+        var g = [UInt8](repeating: 255, count: w * h)
+        func ink(_ cx: Int, _ cy: Int, _ r: Int) { for y in (cy - r)..<(cy + r) { for x in (cx - r)..<(cx + r) { g[y * w + x] = 0 } } }
+        var centers: [(Int, Int)] = []
+        for k in 0..<10 {
+            let row = k / 3, col = k % 3
+            let cx = row == 3 ? 150 : col * 100 + 50, cy = row * 100 + 50
+            ink(cx, cy, 20 + k % 3 * 5); centers.append((cx, cy))
+        }
+        let cells = CutoutSheet.cells(gray: g, width: w, height: h, columns: 3, rows: 4, count: 10)
+        #expect(cells.count == 10)
+        for (k, c) in cells.enumerated() {
+            let (cx, cy) = centers[k]
+            #expect(c.x <= cx - 20 && c.x + c.width >= cx + 20 && c.y <= cy - 20 && c.y + c.height >= cy + 20, "cell \(k): \(c)")
+            #expect(c.width == c.height)   // squared for the round scene-row pictures
+        }
+        // The rows and the count for each number of cut-out things.
+        #expect(CharacterSheet.rows(things: 0) == 2 && CharacterSheet.rows(things: 3) == 3 && CharacterSheet.rows(things: 4) == 4
+                && CharacterSheet.rows(things: 9) == 4 && CharacterSheet.count(things: 9) == 12)
+    }
+
+    @Test func inAppPicturesStillResolveForAnAIKit() {
+        let items = Sanitizer.clean(Kit(nutmegSays: "", items: a.kit.items, scenes: []), picks: PrintPicks.make(game: ["airplane"])).items
+        let kit = Kit(nutmegSays: "", items: items, scenes: [])
+        // A badge picture names its role (the app shows that role's character); a cut-out its index (its thing).
+        #expect(PictureResolver.resolve(.kit("badge:R2"), kit: kit, roles: roles) == .kitItem(itemID: "badges", recipe: .badges, role: roles[1]))
+        if case .cutout(let id, let n, _) = PictureResolver.resolve(.kit("cutout:3"), kit: kit, roles: roles) { #expect(id == "cutouts" && n == 3) }
+        else { Issue.record("cut-out picture didn't resolve") }
+        #expect(CharacterSheet.id == "characters" && CharacterSheet.roleCount == 6)
+    }
+
     // MARK: Step 4: schema compatibility
 
     @Test func newGamesAreSchemaFiveAndOlderGamesReplayUnchanged() throws {
