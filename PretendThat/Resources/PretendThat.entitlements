@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Round D4 (decisions/2026-11-17-icloud-sync-before-launch.md): saved games sync through the family's own private
+  iCloud (CloudKit, CKSyncEngine). aps-environment = CKSyncEngine's silent pushes (Xcode sets production when the
+  archive is exported for App Store Connect / TestFlight). Used only with the company team (project.yml:
+  CODE_SIGN_ENTITLEMENTS = $(PT_ENTITLEMENTS_$(DEVELOPMENT_TEAM))): the personal-team .dev build signs without it.
+-->
+<plist version="1.0">
+<dict>
+	<key>aps-environment</key>
+	<string>development</string>
+	<key>com.apple.developer.icloud-container-identifiers</key>
+	<array>
+		<string>iCloud.co.crimsonfoundry.pretendthat</string>
+	</array>
+	<key>com.apple.developer.icloud-services</key>
+	<array>
+		<string>CloudKit</string>
+	</array>
+</dict>
+</plist>

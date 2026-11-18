@@ -5,7 +5,8 @@ import AVFoundation
 import Speech
 
 /// Wires the state machine to Nutmeg's voice, ears and kit art. One per app run. Round D1: only games the kids choose
-/// to save are kept, on this iPad (`SavedGameStore`), and only their game content; nothing about kids.
+/// to save are kept, on this iPad (`SavedGameStore`), and only their game content; nothing about kids. Round D4: they
+/// sync through the family's own private iCloud when there is an account (`CloudGameSync`), silently.
 @Observable @MainActor
 final class AppModel {
     let store: AdventureStore
@@ -56,8 +57,11 @@ final class AppModel {
     @ObservationIgnored let realtimeAuth: RealtimeAuth?
     /// Only the IDs of last session's suggested games/themes (UserDefaults), so the next session differs. Nothing about kids.
     @ObservationIgnored private let suggestionMemory = SuggestionMemory()
-    /// Round D1: saved games, on this iPad only (Application Support/SavedGames; iCloud is round D4).
+    /// Round D1: saved games on this iPad (Application Support/SavedGames), the source of truth for playing.
     @ObservationIgnored let savedGames = SavedGameStore(root: SavedGameStore.defaultRoot())
+    /// Round D4: mirrors the saved games to the family's own private iCloud (nil: no container in this build, or a
+    /// debug demo run). Without an iCloud account it stays idle and the app works on this device only.
+    @ObservationIgnored private(set) var cloudSync: CloudGameSync?
     /// The My games shelf (newest first). The start screen shows "My games" once it isn't empty.
     var shelfGames: [SavedGame] = []
     /// The My games bookshelf screen is open (on the start screen; the phase stays Hello).
@@ -240,6 +244,9 @@ final class AppModel {
         #if DEBUG
         applyDebugLaunchFlags()   // round 33: before any driver runs
         #endif
+        cloudSync = CloudGameSync.make(store: savedGames, info: info)
+        cloudSync?.onRemoteChange = { [weak self] in self?.savedGamesChangedElsewhere() }
+        cloudSync?.start()
         aiConsent = parentSettings.aiConsent
         realtime.onCall = { [weak self] name, args in
             guard let self else { return ("ok", true) }
@@ -1470,6 +1477,7 @@ final class AppModel {
             if realtime.suspended { Task { await resumeSession() } }
             retryKitIfNeeded()
             if writingOnScreen { scribble.setPlaying(true, ducked: isSpeaking) }
+            cloudSync?.appBecameActive()   // round D4: games saved or deleted on another device
         default: break
         }
     }
@@ -1580,6 +1588,21 @@ final class AppModel {
         if let img { coverCache[g.id] = img }
         return img
     }
+
+    /// Round D4: a game came down from iCloud or was deleted on another device. The shelf re-reads (coalesced: a fetch
+    /// can bring several games at once); the bookshelf screen closes if its last game went.
+    func savedGamesChangedElsewhere() {
+        guard !shelfRefreshQueued else { return }
+        shelfRefreshQueued = true
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(300))
+            shelfRefreshQueued = false
+            refreshShelf()
+            if shelfGames.isEmpty { showingShelf = false }
+            rtLog("icloud: shelf updated (\(shelfGames.count) saved)")
+        }
+    }
+    @ObservationIgnored private var shelfRefreshQueued = false
 
     func openShelf() {
         refreshShelf()

@@ -57,7 +57,7 @@
 - **Round 44: the "Hooray, a new show! What should we play?" greeting** (a bundled clip kids hear) still says "show".
   Re-record it as "a new game" (one clip), or drop it from the four greetings? (decisions/2026-11-17-round44.md)
 - **Round 44: the live check of the mini voice on by default** is still to do (the one live run used a stale build).
-- **Privacy policy facts:** legal business name + mailing address; how long support emails/reports are kept; keep or drop "iCloud syncing later"; a legal (COPPA) look before launch.
+- **Privacy policy facts:** legal business name + mailing address; how long support emails/reports are kept; iCloud syncing is built (round D4): make the policy line present tense; a legal (COPPA) look before launch.
 - **App Store Connect setup:** agreements/bank/tax, 4 subscriptions + intro offers, App Privacy label, age rating, review notes, sandbox tester (decisions/2026-11-17-storekit-subscriptions.md, 2026-11-17-setup-rows-and-compliance.md).
 - **Plan sizes:** re-measure the cost per game after rounds 43–45 (mini voice + Sonnet + printables), then confirm 10 / 30 a month. At ~$1.10 a game, 30 a month loses money; after the cuts it may not.
 
