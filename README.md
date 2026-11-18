@@ -102,6 +102,31 @@ A fresh clone just works: no keys and no `Secrets.xcconfig` needed. The committe
    ```
    Or open `PretendThat.xcodeproj` in Xcode and run the `PretendThat` scheme on an iPad or iPad simulator. Voice works best on a real iPad.
 
+### Signing, device builds and App Store archives
+
+- **Bundle ID:** `co.crimsonfoundry.pretendthat` (UI tests: `co.crimsonfoundry.pretendthat.uitests`). The subscription
+  product IDs stay `app.pretendthat.showpass.monthly` and so on.
+- **Team:** `project.yml` sets `DEVELOPMENT_TEAM = 66898X3HH3` (Crimson Foundry LLC) for every configuration, with
+  automatic signing. Simulator builds don't need the team's account in Xcode.
+- **Version:** `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION` in `project.yml` (1.0 (1) for the first TestFlight
+  upload). Raise `CURRENT_PROJECT_VERSION` for every upload.
+- **Archive for TestFlight** (needs an Apple ID on the company team in Xcode → Settings → Accounts):
+  ```sh
+  xcodegen
+  xcodebuild -project PretendThat.xcodeproj -scheme PretendThat -configuration Release \
+    -destination 'generic/platform=iOS' -archivePath build/PretendThat.xcarchive -allowProvisioningUpdates archive
+  ```
+  Then Xcode → Window → Organizer → the archive → Distribute App → App Store Connect.
+- **Device build with the free personal team** (TSM76TQF46): the company owns the bundle ID, so the personal team
+  needs its own ID. Pass both on the command line (project files stay unchanged):
+  ```sh
+  xcodebuild -project PretendThat.xcodeproj -scheme PretendThat -configuration Debug \
+    -destination 'generic/platform=iOS' -derivedDataPath build/DeviceData -allowProvisioningUpdates \
+    DEVELOPMENT_TEAM=TSM76TQF46 PRODUCT_BUNDLE_IDENTIFIER=co.crimsonfoundry.pretendthat.dev build
+  ```
+  (In Xcode: pick the personal team and change the bundle ID in Signing & Capabilities; `xcodegen` resets both.)
+  StoreKit purchases and relay show counts only work with the real bundle ID.
+
 ### Tests
 
 ```sh

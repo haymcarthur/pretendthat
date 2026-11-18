@@ -29,7 +29,7 @@ async function sign(payload: Record<string, unknown>, chain = [LEAF, INTER, ROOT
 }
 
 const sub = (o: Record<string, unknown> = {}) => ({
-  bundleId: "app.pretendthat.ios", productId: "app.pretendthat.showpass.monthly", originalTransactionId: "2000000123456789",
+  bundleId: "co.crimsonfoundry.pretendthat", productId: "app.pretendthat.showpass.monthly", originalTransactionId: "2000000123456789",
   purchaseDate: Date.UTC(2026, 10, 3), expiresDate: Date.UTC(2026, 11, 3), environment: "Sandbox",
   type: "Auto-Renewable Subscription", ...o,
 });
@@ -112,6 +112,10 @@ describe("what gets counted", () => {
     expect((await countedFrom("subscription", sub({ productId: "app.pretendthat.seasonpass.yearly", expiresDate: Date.UTC(2027, 10, 3) }), SECRET, NOW)).allowance).toBe(30);
   });
 
+  it("accepts the pre-App Store bundle ID during the transition", async () => {
+    expect((await countedFrom("subscription", sub({ bundleId: "app.pretendthat.ios" }), SECRET, NOW)).allowance).toBe(10);
+  });
+
   it("refuses other apps, unknown products, revoked or expired plans and Xcode data", async () => {
     await expect(countedFrom("subscription", sub({ bundleId: "com.other" }), SECRET, NOW)).rejects.toThrow();
     await expect(countedFrom("subscription", sub({ productId: "x" }), SECRET, NOW)).rejects.toThrow();
@@ -121,11 +125,11 @@ describe("what gets counted", () => {
   });
 
   it("the Free Preview: the app transaction id, 2 in total", async () => {
-    const c = await countedFrom("preview", { bundleId: "app.pretendthat.ios", appTransactionId: "705", environment: "Production" }, SECRET, NOW);
+    const c = await countedFrom("preview", { bundleId: "co.crimsonfoundry.pretendthat", appTransactionId: "705", environment: "Production" }, SECRET, NOW);
     expect(c.allowance).toBe(FREE_PREVIEW_SHOWS);
     expect(c.windowStart).toBe(0);
     expect(c.windowEnd).toBeNull();
-    const old = await countedFrom("preview", { bundleId: "app.pretendthat.ios", originalPurchaseDate: 1700000000000 }, SECRET, NOW);
+    const old = await countedFrom("preview", { bundleId: "co.crimsonfoundry.pretendthat", originalPurchaseDate: 1700000000000 }, SECRET, NOW);
     expect(old.key).not.toBe(c.key);
   });
 
@@ -188,7 +192,7 @@ describe("POST /v1/shows/start and the ticket on paid calls", () => {
 
   it("the Free Preview gets 2", async () => {
     const e = env();
-    const jws = await sign({ bundleId: "app.pretendthat.ios", appTransactionId: "42", environment: "Production" });
+    const jws = await sign({ bundleId: "co.crimsonfoundry.pretendthat", appTransactionId: "42", environment: "Production" });
     expect((await worker.fetch(post("/v1/shows/start", { kind: "preview", jws }), e)).status).toBe(200);
     expect((await worker.fetch(post("/v1/shows/start", { kind: "preview", jws }), e)).status).toBe(200);
     expect((await worker.fetch(post("/v1/shows/start", { kind: "preview", jws }), e)).status).toBe(402);
@@ -196,7 +200,7 @@ describe("POST /v1/shows/start and the ticket on paid calls", () => {
 
   it("count mode counts but never blocks", async () => {
     const e = env({ SHOW_LIMITS: "count" });
-    const jws = await sign({ bundleId: "app.pretendthat.ios", appTransactionId: "43" });
+    const jws = await sign({ bundleId: "co.crimsonfoundry.pretendthat", appTransactionId: "43" });
     for (let i = 0; i < 4; i++) expect((await worker.fetch(post("/v1/shows/start", { kind: "preview", jws }), e)).status).toBe(200);
     // ...and doesn't require tickets on paid calls.
     expect((await worker.fetch(post("/v1/messages", { model: "claude-opus-5-5" }), e)).status).toBe(200);
