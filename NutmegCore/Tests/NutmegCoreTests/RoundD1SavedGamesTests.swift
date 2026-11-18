@@ -104,8 +104,8 @@ struct RoundD1SavedGamesTests {
         }
         #expect(!json.contains("Zelda") && !json.contains("Maple"))
         #expect(!json.contains(store.nutmegLine))   // her chat line is never kept
-        // What IS kept: the game content.
-        #expect(game.title == "Airplane to the Beach" && game.roles.count == 6 && game.props.map(\.id) == ["plate"])
+        // What IS kept: the game content. 2026-11-18: the SHORT title ("Airplane to the Beach" had no short_title, so the shelf cut).
+        #expect(game.title == "Airplane" && game.roles.count == 6 && game.props.map(\.id) == ["plate"])
         #expect(game.props[0].reason == "A plate is round like a wheel!" && game.props[0].alternates == ["paper-plate"])
         #expect(game.kit == store.fullKit && game.printStyle == .fullColor && game.clips.isEmpty)
     }

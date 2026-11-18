@@ -481,6 +481,10 @@ enum DemoDriver {
                 rtLog("SAVED PAGE demo: no saved games on this device"); return
             }
             model.openSavedPage(g)
+            // 2026-11-18: env PT_PAGE_STYLE=colorIn shows the Black & white set (the toggle's other state).
+            if ProcessInfo.processInfo.environment["PT_PAGE_STYLE"] == "colorIn" {
+                try? await Task.sleep(for: .seconds(0.6)); model.savedPageStyle = .colorIn
+            }
             if target == "savedPageAsk" || target == "savedPageCard" { try? await Task.sleep(for: .seconds(1.2)); model.tapPlaySavedPage() }
             if target == "savedPageCard" { try? await Task.sleep(for: .seconds(1)); model.savedPageGrownUps() }
             return
@@ -603,7 +607,7 @@ enum DemoDriver {
         if target == "convIdeas" { return }
         _ = await store.apply(.setGame("Airplane"))
         _ = await store.apply(.setTheme("Airplane to the Beach"))
-        _ = await store.apply(.setPlayerCount(3))
+        _ = await store.apply(.setPlayerCount(target == "convHuntMany" ? 4 : 3))   // 2026-11-18: 4 players for the multiples shot
         if target == "convConfirm" {   // round 19: the recap (round 26: voice only, no buttons)
             model.realtime.debugSeedTranscript([store.recapLine])
             return
@@ -615,6 +619,20 @@ enum DemoDriver {
         if target == "convRoles" { return }
         if target == "convHuntLong" {   // round 6: the longest real description must show in full (never truncated)
             _ = await store.apply(.showNextProp(.init(itemID: "tray", becomes: "a serving tray for delivering orders across the restaurant", forRole: "all")))
+            return
+        }
+        if target == "convHuntMany" {   // 2026-11-18: a multiple (up to one plastic cup per player, 4 players), after one found prop
+            store.debugForgetRecentProps()   // the shot shows the AI's pick as is (no fresh-prop swap from earlier demo games)
+            store.debugShowProp(Prop(id: "plate", householdItem: PropLibrary.name("plate") ?? "Plastic plate", becomes: "the steering wheel", forRole: .all, safetyOK: true, libraryID: "plate", alternates: [], skipped: false))
+            _ = await store.apply(.markFound("plate"))
+            // Exactly this card (the AI-path checks can swap a demo pick for a shortlist item): up to 4 plastic cups.
+            store.debugShowProp(Prop(id: "cup", householdItem: PropLibrary.name("cup") ?? "Plastic cup", becomes: "the tea cups",
+                                     forRole: .all, safetyOK: true, libraryID: "cup", alternates: ["plastic-cups"], skipped: false,
+                                     reason: "A cup can hold pretend tea, just like a tea cup!", quantity: .perPlayer))
+            // Her line for it in the chat (the app-said prop line, "up to four …").
+            if let line = PropLines.line(for: store.props?.props ?? [], index: max(0, (store.props?.props.count ?? 1) - 1), players: store.playerCount) {
+                model.realtime.debugSeedTranscript(Array(demoTranscript.prefix(7)) + ["Found it!", line], replace: true)
+            }
             return
         }
         if target.hasPrefix("convHunt") {   // the one-at-a-time prop hunt: convHunt1, convHunt3 (2 done), convHuntLast

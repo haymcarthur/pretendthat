@@ -72,8 +72,9 @@ struct PTPropPinnedCard: View {
                     if let image = item.image { Image(uiImage: image).resizable().scaledToFit() } else { PTShimmer(tint: item.tint) }
                 }
                 .frame(width: 76, height: 76)
+                .overlay(alignment: .bottomTrailing) { PTPropCountBadge(count: item.count, side: 30).offset(x: 4, y: 4) }
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(item.title).font(Theme.displayFont(21)).foregroundStyle(Theme.ink).lineLimit(1).minimumScaleFactor(0.6)
+                    Text(item.title).font(Theme.displayFont(21)).foregroundStyle(Theme.ink).lineLimit(2).minimumScaleFactor(0.6)
                     if let sub = item.subtitle {
                         Text(sub).font(Theme.uiFont(15, .medium)).foregroundStyle(Theme.inkMuted)   // never truncated
                             .fixedSize(horizontal: false, vertical: true)
@@ -110,6 +111,22 @@ struct PTPropDoneThumb: View {
     }
 }
 
+/// 2026-11-18: "×4" on a multiple prop's picture (nothing for a single prop).
+struct PTPropCountBadge: View {
+    let count: Int
+    var side: CGFloat = 40
+    var body: some View {
+        if count > 1 {
+            Text("×\(count)").font(Theme.headlineFont(side * 0.46)).foregroundStyle(Theme.ink)
+                .padding(.horizontal, side * 0.22)
+                .frame(minWidth: side, minHeight: side)
+                .background(Capsule().fill(Theme.yellow))
+                .overlay(Capsule().strokeBorder(Theme.white, lineWidth: 2.5))
+                .accessibilityLabel("up to \(count)")
+        }
+    }
+}
+
 /// The found check / swap arrows / pretend sparkle badge.
 struct PTPropBadge: View {
     let item: PTStageItem
@@ -136,8 +153,9 @@ struct PTPropActiveCard: View {
                 if let image = item.image { Image(uiImage: image).resizable().scaledToFit() } else { PTShimmer(tint: item.tint) }
             }
             .frame(width: width * 0.62, height: width * 0.62)
+            .overlay(alignment: .bottomTrailing) { PTPropCountBadge(count: item.count, side: 46) }
             Text(item.title).font(Theme.displayFont(28)).foregroundStyle(Theme.ink)
-                .lineLimit(1).minimumScaleFactor(0.6)
+                .multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.6)
             if let sub = item.subtitle {
                 Text(sub).font(Theme.uiFont(19, .medium)).foregroundStyle(Theme.inkMuted)
                     .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)   // never truncated: the card grows
@@ -224,6 +242,7 @@ struct PTPropListPanel: View {
                 .saturation(item.isPretend ? 0 : 1).opacity(item.isPretend ? 0.5 : 1)
                 .overlay(alignment: .bottomTrailing) {
                     if item.isDone || item.chip == .swapped { PTPropBadge(item: item, side: 26).offset(x: 4, y: 4) }
+                    else { PTPropCountBadge(count: item.count, side: 30).offset(x: 4, y: 4) }
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(item.title).font(Theme.displayFont(current ? 22 : 19)).foregroundStyle(Theme.ink)

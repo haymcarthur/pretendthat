@@ -17,19 +17,23 @@ public struct SavedProp: Codable, Equatable, Sendable, Identifiable {
     public var alternates: [String]
     /// The kids didn't have it on the first play (the saved play guide says "pretend …" for it).
     public var pretendOnFirstPlay: Bool
+    /// 2026-11-18: the quantity RULE ("perPlayer" or a fixed number; nil = one), never a count from a play, so a
+    /// replay with a different number of kids scales by itself. Game content, nothing about kids.
+    public var quantity: PropQuantity?
     public init(id: String, libraryID: String?, householdItem: String, becomes: String, reason: String?, alternates: [String],
-                pretendOnFirstPlay: Bool) {
+                pretendOnFirstPlay: Bool, quantity: PropQuantity? = nil) {
         self.id = id; self.libraryID = libraryID; self.householdItem = householdItem; self.becomes = becomes
         self.reason = reason; self.alternates = alternates; self.pretendOnFirstPlay = pretendOnFirstPlay
+        self.quantity = quantity == .one ? nil : quantity
     }
     public init(_ p: Prop) {
         self.init(id: p.id, libraryID: p.libraryID, householdItem: p.householdItem, becomes: p.becomes, reason: p.reason,
-                  alternates: p.alternates ?? [], pretendOnFirstPlay: p.isSkipped)
+                  alternates: p.alternates ?? [], pretendOnFirstPlay: p.isSkipped, quantity: p.quantity)
     }
     /// The prop as the replay starts it: every card starts as "Got it" (Haylee), the first play's pretend undone.
     public var replayProp: Prop {
         Prop(id: id, householdItem: householdItem, becomes: becomes, forRole: .all, safetyOK: true,
-             libraryID: libraryID, alternates: alternates, skipped: false, reason: reason)
+             libraryID: libraryID, alternates: alternates, skipped: false, reason: reason, quantity: quantity)
     }
 }
 
@@ -133,7 +137,8 @@ extension AdventureStore {
     public func savedGame(id: UUID = UUID(), now: Date = Date(), art: [String], cover: String?,
                           voiceID: String = VoiceConfig.nutmeg.voiceID) -> SavedGame? {
         guard let full = fullKit, let roles = plan?.roles, !roles.isEmpty, !full.scenes.isEmpty else { return nil }
-        return SavedGame(id: id, createdAt: now, title: currentTitle, roles: roles,
+        // 2026-11-18 (Haylee): a short title (1–3 words, ≤ 18 characters) so the shelf label can be big.
+        return SavedGame(id: id, createdAt: now, title: GameTitles.saved(full: currentTitle, short: shortTitle), roles: roles,
                          props: (props?.props ?? []).map(SavedProp.init), kit: full,
                          printStyle: .fullColor, art: art, cover: cover, voiceID: voiceID)   // round 27: the plain art keys are the color set
     }

@@ -315,7 +315,11 @@ extension PTStageCamera {
             origin = CGPoint(x: r.midX - bodyFocus.x * k, y: r.maxY - writeBottom * k)
         } else {
             k = max(0.05, min(r.width / span, r.height / (feet.y - headTop)))
-            origin = CGPoint(x: r.midX - bodyFocus.x * k, y: r.maxY - feet.y * k)
+            // 2026-11-18 (Haylee: alone on the stage she sat too low, lots of sky above, once Play lost its control
+            // bar): when her width limits her (a tall box), she is centered vertically in it instead of standing on its
+            // bottom edge. The floor follows her camera, so her feet stay on the floor's arc.
+            let spare = max(0, r.height - (feet.y - headTop) * k)
+            origin = CGPoint(x: r.midX - bodyFocus.x * k, y: r.maxY - feet.y * k - spare / 2)
         }
         return Layout(k: k, origin: origin, canvas: CGSize(width: art.width * k, height: art.height * k), cardWidth: 0, cards: [])
     }

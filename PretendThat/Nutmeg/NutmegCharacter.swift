@@ -359,6 +359,8 @@ struct NutmegPeek: View {
     static func heightAboveEdge(width: CGFloat) -> CGFloat { (edgeY - box.minY) * width / box.width }
     /// How far the paws reach below the card's edge (the card keeps its first row clear of them).
     static func pawOverhang(width: CGFloat) -> CGFloat { (box.maxY - edgeY) * width / box.width }
+    /// 2026-11-18: how far the paws are lifted (art px) so they rest on the card's edge instead of hanging over it.
+    static let pawLift: CGFloat = box.maxY - edgeY
 
     /// The rig head on the peek body (rig canvas 1178×1335 → peek art), fitted by overlaying the rig head stack on the
     /// art's `head` group (eyes, nose, ears, chin): 0.6 scale, turned −5° around the rig nose, the nose at (795, 314).
@@ -372,17 +374,24 @@ struct NutmegPeek: View {
             let u = geo.size.width / Self.box.width
             switch part {
             case .front:
-                art("nutmeg-peek-paws", u: u)
-            case .back:
+                // 2026-11-18 (Haylee: her arms/shoulders drew OVER her face): the head is drawn in the FRONT layer,
+                // after the paws, so the shoulders tuck under her cheeks and the head is always in front. The head sits
+                // wholly above the card's edge, so it never covers the card.
                 TimelineView(.animation(minimumInterval: 1.0 / 30, paused: false)) { context in
                     let m = Motion(state: state, t: context.date.timeIntervalSinceReferenceDate, reduced: reduceMotion,
                                    speaking: isSpeaking,
                                    level: mouthShape.map { $0 == .closed ? 0 : ($0 == .small ? 0.4 : 0.9) } ?? mouthLevel * 2)
                     ZStack(alignment: .topLeading) {
-                        art("nutmeg-peek-back", u: u)
+                        // 2026-11-18 (Haylee: the paws hung over onto the white card): the paws (with their arms) are
+                        // lifted by their overhang so their bottoms REST ON the card's top edge; the shoulders tuck
+                        // further under her cheeks. An offset only, no shape edits.
+                        art("nutmeg-peek-paws", u: u)
+                            .offset(y: -Self.pawLift * u)
                         head(motion: m, u: u)
                     }
                 }
+            case .back:
+                art("nutmeg-peek-back", u: u)
             }
         }
         .aspectRatio(Self.box.width / Self.box.height, contentMode: .fit)

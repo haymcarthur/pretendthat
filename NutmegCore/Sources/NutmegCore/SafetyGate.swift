@@ -83,7 +83,8 @@ public enum SpeculativeTools {
     /// The free text in a call (checked by the filter and moderation).
     public static func texts(_ call: PlanningCall) -> [String] {
         switch call {
-        case .setGame(let t), .setTheme(let t): return [t]
+        case .setGame(let t): return [t]
+        case .setTheme(let t, let short): return [t, short].filter { !$0.isEmpty }
         case .setRoles(let roles): return roles.flatMap { [$0.roleName, $0.job] }
         case .showNextProp(let d): return [d.becomes, d.reason].filter { !$0.isEmpty }
         case .showProps(let ds): return ds.map(\.becomes)

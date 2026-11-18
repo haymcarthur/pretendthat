@@ -94,7 +94,8 @@ final class RealtimeSession {
     var transcript: [RealtimeTranscript.Line] { chat.lines }
     #if DEBUG
     /// Demo screenshots: a realistic transcript (Nutmeg / kid turns alternate).
-    func debugSeedTranscript(_ turns: [String]) {
+    func debugSeedTranscript(_ turns: [String], replace: Bool = false) {
+        if replace { chat.clear() }
         for (i, t) in turns.enumerated() { _ = chat.apply(i % 2 == 0 ? .transcriptDone(t) : .kidTranscript(t)) }
     }
     #endif
