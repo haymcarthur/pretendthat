@@ -357,7 +357,7 @@ Game arc becomes: Print → **story opener** → **setup scene** → 3 play scen
 - After the printables overhaul ships, replace the site's Step 3 print fan with pages from the new kit, rendered from a real saved game with the agent's KitPageView harness (scratchpad/ptcopy, -PTNoAI).
 - Swap in the four-game bookshelf shots once the two extra cover-only games are ready.
 
-## Printables overhaul (queued 2026-11-17, Haylee approved): its own round, after the small-fixes round
+## Printables overhaul (queued 2026-11-17, Haylee approved): DONE in round 45 (decisions/2026-11-17-round45.md)
 - Spec: decisions/2026-11-17-printables-library.md + research/2026-11-17-printables-library.md + design/printables-library/index.html.
 - Big enough to be a round on its own. Build the picture-only art rule and app-drawn text first (it fixes the double frames on its own), then the library, the per-game shortlists and the variants. Test with no keys via fixtures; at most one live game (rule 7) for a real kit.
 

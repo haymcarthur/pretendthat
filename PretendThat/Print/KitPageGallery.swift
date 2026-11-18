@@ -96,6 +96,89 @@ enum KitPageGallery {
         NSLog("[RT] KIT PAGES rendered to %@", dir.path)
     }
 
+    /// `-PTLiveKit "<game>"`: ONE live kit with real AI (keyed Debug build only): the roles, the kit pages from the
+    /// library, the play guide (with its setup / clean-up jobs), both art sets and the cover; renders every page of
+    /// both sets to tmp/live/<game>/ and logs the kit, the coverage and the cost (numbers only, never keys). No voice.
+    static var liveKitGame: String? {
+        let a = ProcessInfo.processInfo.arguments
+        guard let i = a.firstIndex(of: "-PTLiveKit"), i + 1 < a.count else { return nil }
+        return a[i + 1]
+    }
+
+    @MainActor static func liveKit(_ game: String, info: [String: Any] = Bundle.main.infoDictionary ?? [:]) async {
+        guard let config = ClaudeConfig.from(info: info), let images = ImageClient.from(info: info) else { NSLog("[RT] LIVEKIT no keys"); return }
+        let svc = PhaseService(llm: ClaudeClient(config: config))
+        ClaudeUsageMeter.shared.reset(); ImageUsageLog.reset()
+        let started = Date()
+        var ctx = AdventureContext(gameTitle: game, playerCount: 3)
+        do {
+            let plan = try await svc.plan(game: game, ctx: ctx)
+            ctx.plan = plan
+            let memory = RecentPrintMemory()
+            let picks = PrintPicks.make(game: [game], recent: memory.games)
+            NSLog("[RT] LIVEKIT %@: game=%@ shortlist=%@ recent=%@", game, picks.game?.id ?? "made-up",
+                  picks.shortlist.map(\.rawValue).joined(separator: ","), memory.games.map { $0.joined(separator: "+") }.joined(separator: " | "))
+            let items = try await svc.kitPages(ctx: ctx, picks: picks)
+            for i in items {
+                NSLog("[RT] LIVEKIT item %@ (%@): \"%@\" lines=%@ pictures=%@ purpose=%@", i.recipe?.rawValue ?? "?", i.variant?.name ?? "-", i.title,
+                      i.lines.joined(separator: " | "), (i.pictures ?? []).joined(separator: " | "), i.purpose ?? "")
+            }
+            memory.record(items)
+            // The art (both sets) starts now, like the hunt; the guide is written meanwhile.
+            let limiter = AsyncLimiter(limit: KitArtService.concurrency)
+            let color = KitArtService(client: images, style: .fullColor, limiter: limiter)
+            let outline = KitArtService(client: images, style: .colorIn, limiter: limiter)
+            let cover = CoverArtService(client: images, limiter: limiter)
+            color.prepare(items: items, gameTitle: game, roles: plan.roles)
+            outline.prepare(items: items, gameTitle: game, roles: plan.roles)
+            cover.start(title: game, setting: plan.setting)
+            var kit = try await svc.earlyGuide(ctx: ctx, items: items)
+            kit = Bookends.repair(kit, props: [], roles: plan.roles, title: game).kit
+            let scenes = PlayCast.kit(kit, roles: plan.roles, players: 3, props: []).scenes
+            let cover3 = Bookends.coverItems(items: kit.items, props: [])
+            for line in SetupCoverage.log(scenes, items: cover3, roles: plan.roles) { NSLog("[RT] LIVEKIT COVERAGE %@", line) }
+            NSLog("[RT] LIVEKIT setup missing=%@ cleanup missing=%@", SetupCoverage.setupMissing(scenes, items: cover3).joined(separator: ","),
+                  SetupCoverage.cleanupMissing(scenes, items: cover3).joined(separator: ","))
+            for it in cover3 {
+                let play = kit.playScenes.flatMap(\.steps).filter { Bookends.mentions($0.text, it) }.count
+                NSLog("[RT] LIVEKIT play tasks naming %@: %d", it.id, play)
+            }
+            for s in kit.playScenes { for st in s.steps where st.role == .R1 || st.role == .R2 { NSLog("[RT] LIVEKIT task %@ %@: %@", s.title, st.role.rawValue, st.text) } }
+            async let a: Void = color.generate(kit: kit, gameTitle: game, roles: plan.roles)
+            async let b: Void = outline.generate(kit: kit, gameTitle: game, roles: plan.roles)
+            _ = await (a, b)
+            for _ in 0..<600 where cover.settledAt == nil { try? await Task.sleep(for: .milliseconds(100)) }
+            // Render both sets.
+            let slug = game.lowercased().replacingOccurrences(of: " ", with: "-")
+            let dir = FileManager.default.temporaryDirectory.appendingPathComponent("live/\(slug)", isDirectory: true)
+            try? FileManager.default.removeItem(at: dir)
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            let pages = KitLayout.pages(for: kit, roles: plan.roles, playerCount: 3)
+            var thumbs: [(String, UIImage)] = []
+            for set in [color, outline] {
+                for (n, page) in pages.enumerated() {
+                    let r = ImageRenderer(content: KitPageView(page: page, art: set.images[page.item.id], cutouts: set.cutoutImages(page.item), style: set.style))
+                    r.scale = 1.5
+                    guard let img = r.uiImage else { continue }
+                    try? img.pngData()?.write(to: dir.appendingPathComponent("\(set.style.toolValue)-\(n + 1)-\(page.item.id).png"))
+                    thumbs.append(("\(set.style.toolValue) · \(page.item.recipe?.spokenName ?? "") · \(page.item.variant?.name ?? "")", img))
+                }
+                for (key, img) in set.artByKey { try? img.pngData()?.write(to: dir.appendingPathComponent("art-\(ArtKey.fileName(key)).png")) }
+            }
+            if let c = cover.image { try? c.pngData()?.write(to: dir.appendingPathComponent("cover.png")) }
+            if let sheet = contactSheet(thumbs, title: "Live: \(game)") { try? sheet.pngData()?.write(to: dir.appendingPathComponent("contact-sheet.png")) }
+            let calls = ClaudeUsageMeter.shared.calls
+            let cents = calls.map { ClaudeUsageMeter.cents(input: $0.input, output: $0.output) }.reduce(0, +)
+            let u = ImageUsageLog.snapshot()
+            NSLog("[RT] LIVEKIT COST %@: claude %d calls %.2f cents; images %d requests (%d per set + cover) %d in + %d out tokens = $%.3f; %.0f s",
+                  game, calls.count, cents, u.requests, KitArtPlan.imageCount(items, roles: plan.roles), u.inputTokens, u.outputTokens, u.dollars,
+                  Date().timeIntervalSince(started))
+        } catch {
+            NSLog("[RT] LIVEKIT %@ failed: %@", game, String(describing: error))
+        }
+        NSLog("[RT] LIVEKIT-END")
+    }
+
     /// Thumbnails in a grid with a label under each.
     static func contactSheet(_ thumbs: [(String, UIImage)], title: String) -> UIImage? {
         guard !thumbs.isEmpty else { return nil }

@@ -10,6 +10,7 @@ struct PretendThatApp: App {
         #if DEBUG
         // Round 45: render every printable type and layout with fixture art (no AI), then quit.
         if KitPageGallery.requested { DispatchQueue.main.async { KitPageGallery.renderAll(); exit(0) } }
+        if let game = KitPageGallery.liveKitGame { Task { @MainActor in await KitPageGallery.liveKit(game); exit(0) } }
         #endif
     }
 
