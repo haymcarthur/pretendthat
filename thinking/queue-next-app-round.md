@@ -382,7 +382,7 @@ Game arc becomes: Print → **story opener** → **setup scene** → 3 play scen
 ## From Haylee's answers on rounds 41/42 (2026-11-17)
 - **Chat open = no card on the stage.** While the chat panel/shelf is open, the current card (hunt card, print fans, scene rows) lives only in the chat's own tab (Props / Setup / ...), never on the stage too, and Nutmeg keeps the talking close-up. Verify iPad and iPhone; fix anything that still draws the card on stage while the chat is open.
 - **Leave dialog:** remove the little card-going-onto-the-shelf picture (after the kit, and on replays). Just the question and the two buttons.
-- **Prop sense:** add the "only soft or flat things can be cloths" rule, as part of the prop audit (research/2026-11-17-prop-audit.md, in progress).
+- **Prop sense:** DONE in round 43 (decisions/2026-11-17-round43.md).
 
 ## Round 44 (queued 2026-11-17, Haylee approved onboarding v3): build after round 43
 1. Onboarding v3 exactly as the mockup design/mockups/onboarding-v3/ (6 pages; spec in ideas/2026-11-17-onboarding-v3.md + decisions/2026-11-17-onboarding-v3-feedback.md), Poppins, purple buttons, no scrolling on the iPhone 17e. Season Pass "30 new games a month".
