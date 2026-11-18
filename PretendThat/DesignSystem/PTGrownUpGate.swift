@@ -140,23 +140,16 @@ struct PTGrownUpGate: View {
     }
 }
 
-/// Round D2: the small, quiet "Grown-ups" pill (lock + label) for the start screen's top-right corner (mockup state 1/2).
-struct PTGrownUpsPill: View {
+/// The Grown-ups corner button (round D2's "Grown-ups" pill; home stage polish, Haylee 2026-11-17: a gear icon only,
+/// tucked into the top corner). The app's icon-button look (white circle, ink symbol, soft shadow, like the bookshelf's
+/// Back), so it reads over the curtain and the valance. VoiceOver still says "Grown-ups"; the same gate is behind it.
+struct PTGrownUpsGear: View {
+    var size: CGFloat = 48
     let action: () -> Void
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                Image(systemName: "lock").font(.system(size: 15, weight: .semibold))
-                Text("Grown-ups").font(Theme.uiFont(17))
-            }
-            .foregroundStyle(Theme.purple.opacity(0.75))
-            .padding(.horizontal, 16)
-            .frame(minHeight: 44)
-            .background(Capsule().fill(Theme.white.opacity(0.7)))
-            .overlay(Capsule().strokeBorder(Theme.white, lineWidth: 1.5))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Grown-ups")
-        .accessibilityHint("For grown-ups: manage saved games")
+        PTIconButton(symbol: "gearshape.fill", label: "Grown-ups", fill: Theme.white, size: size, action: action)
+            .shadow(color: Theme.panelShadow, radius: 8, y: 2)
+            .accessibilityHint("For grown-ups: manage saved games")
+            .accessibilityIdentifier("home.grownUps")
     }
 }

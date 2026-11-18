@@ -399,7 +399,7 @@ Game arc becomes: Print → **story opener** → **setup scene** → 3 play scen
 - Yearly intro prices $99.99 (Show Pass) / $199.99 (Season Pass) for the first year: StoreKit config + StoreProducts + Plans/paywall copy (decisions/2026-11-17-yearly-intro-sonnet.md).
 - Make the Sonnet 5.5 play guide + weave the default (`-PTSonnetGuide`).
 
-## Next round (queued 2026-11-17, Haylee): home stage polish, after the iCloud round merges
+## Next round (queued 2026-11-17, Haylee): home stage polish, after the iCloud round merges: DONE 2026-11-17 (decisions/2026-11-17-home-stage-polish.md)
 1. **Logo in front of the curtains** on the home stage, iPhone and iPad. Today the white logo card sits behind the curtain panels (the curtains cover its left and right edges). The logo (and its card, if kept) layers above the curtains.
 2. **Grown-ups button → a gear icon only**, tucked into the top corner (iPhone and iPad). No "Grown-ups" text; keep VoiceOver label "Grown-ups" and the same grown-ups check behind it. Clear of the Dynamic Island / status bar and the curtain valance.
 3. **Bookshelf (iPhone): Nutmeg sits with her legs dangling**, as in the iPhone mockup screen 7 (design/mockups/iphone/img/nutmeg-sit-perky-focus.svg; the same perky-sit art is already in the app as `onboarding-nutmeg-sit-perky`). Today ShelfView uses the rig's `.sit` pose (knees hugged, the nap sit), which looks glitched perched on the shelf top. Legs hang over the shelf's front edge, clipboard on her lap, looking down at the games. (Encryption key: already done in round 37, ITSAppUsesNonExemptEncryption NO.)

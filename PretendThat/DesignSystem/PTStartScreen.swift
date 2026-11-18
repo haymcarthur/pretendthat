@@ -549,17 +549,21 @@ struct PTToyChestScene<Nutmeg: View>: View {
         let myGames: CGRect?
         /// Both buttons together (toys keep clear of them).
         var buttons: CGRect { myGames.map { button.union($0) } ?? button }
-        /// iPhone version (screens 1 and 1b of the phone mockups): one tall stage, the Grown-ups pill over the logo
+        /// iPhone version (screens 1 and 1b of the phone mockups): one tall stage, the Grown-ups gear over the logo
         /// card, a bigger chest, two toys, and New game (+ Saved games under it) at the bottom where a thumb rests.
         let phone: Bool
-        /// Phone: the Grown-ups pill's top (it sits above the card instead of beside it).
-        let pillTop: CGFloat
+        /// Home stage polish (Haylee, 2026-11-17): the Grown-ups gear, tucked into the top-trailing corner just under
+        /// the safe area (clear of the Dynamic Island and the rounded screen corner), in front of the curtain.
+        let gear: CGRect
 
         init(_ s: CGSize, pair: Bool = false, safeTop: CGFloat = 0, safeBottom: CGFloat = 0) {
             size = s
             curtain = PTCurtain.metrics(s)
             floor = PTStage.floor(s)
             phone = PTStage.isPortrait(s)
+            let gearSide: CGFloat = phone ? 48 : 56, gearInset: CGFloat = phone ? 14 : 22
+            let gearTop = phone ? max(safeTop, 12) + 4 : max(safeTop + 8, gearInset)
+            gear = CGRect(x: s.width - gearInset - gearSide, y: gearTop, width: gearSide, height: gearSide)
             if phone {
                 chestW = min(s.width * 0.62, s.height * 0.3)
                 chestH = chestW * 620 / 650
@@ -581,14 +585,13 @@ struct PTToyChestScene<Nutmeg: View>: View {
                     button = CGRect(x: cx - bw / 2, y: bottom - 80, width: bw, height: 80)
                     myGames = nil
                 }
-                pillTop = max(curtain.valance, safeTop) + Theme.Space.s
-                cardTop = pillTop + 44 + Theme.Space.s
+                // The card sits under the gear's row (the phone is too narrow for both side by side).
+                cardTop = max(gear.maxY, curtain.valance) + Theme.Space.s
                 let pad = 2 * Theme.Space.m
                 let maxCardH = max(earsTop - Theme.Space.m - 8 - cardTop, 80) / 1.05
                 logoW = max(min(s.width * 0.6, 300, (maxCardH - pad) * PTLogo.size.width / PTLogo.size.height), 120)
                 return
             }
-            pillTop = 0
             chestW = min(s.width * 0.36, s.height * 0.38)
             chestH = chestW * 620 / 650
             cx = s.width / 2
@@ -678,11 +681,13 @@ struct PTToyChestScene<Nutmeg: View>: View {
                 }
             }
             exitStars(e: e, origin: origin)
-            titleCard(t: t, e: e, L)
             startButton(t: t, e: e, L)
             myGamesButton(t: t, e: e, L)
             PTCurtain(progress: PTEase.progress(t, T.curtains))
-            grownUpsPill(t: t, e: e, L)
+            // Home stage polish (Haylee, 2026-11-17): the logo card is in front of the curtain panels (it pops in after
+            // they have opened, so it's in front for the whole choreography), and so is the Grown-ups gear.
+            titleCard(t: t, e: e, L)
+            grownUpsGear(t: t, e: e, L)
         }
         .frame(width: size.width, height: size.height)
     }
@@ -893,19 +898,16 @@ struct PTToyChestScene<Nutmeg: View>: View {
         }
     }
 
-    /// Round D2: the quiet Grown-ups pill, top right just inside the curtain, level with the title card (mockup
-    /// states 1–2). It fades in with the buttons and away on the exit.
-    @ViewBuilder private func grownUpsPill(t: Double, e: Double, _ L: Layout) -> some View {
+    /// Round D2: the quiet Grown-ups corner; home stage polish (Haylee, 2026-11-17): a gear icon only, tucked into the
+    /// top-trailing corner. It fades in with the buttons and away on the exit.
+    @ViewBuilder private func grownUpsGear(t: Double, e: Double, _ L: Layout) -> some View {
         if let onGrownUps {
             let k = T.pop(t, peak: Self.uiPeak)
             let away = PTEase.progress(e, X.popAway)
-            PTGrownUpsPill(action: onGrownUps)
-                .fixedSize()
+            PTGrownUpsGear(size: L.gear.width, action: onGrownUps)
                 .opacity(min(k * 3, 1) * (1 - away))
                 .allowsHitTesting(t >= T.pop.upperBound && e < 0)
-                .frame(width: L.size.width - L.curtain.visible * (L.phone ? 0.75 : 1.15), alignment: .trailing)
-                .padding(.top, L.phone ? L.pillTop : L.cardTop + Theme.Space.xs)
-                .frame(width: L.size.width, height: L.size.height, alignment: .topLeading)
+                .position(x: L.gear.midX, y: L.gear.midY)
         }
     }
 

@@ -49,9 +49,12 @@ struct ShelfView: View {
                 .frame(width: L.shelf.width, height: L.shelf.height)
                 .position(x: L.shelf.midX, y: L.shelf.midY)
                 if metrics.isPhone {
-                    // Phone (mockup screen 7): she sits on top of the bookshelf, legs dangling, looking down at the games.
-                    NutmegCharacter(state: .idle, forcedPose: .sit)
+                    // Phone (mockup screen 7): she sits on top of the bookshelf, legs dangling over its front edge,
+                    // clipboard on her lap, looking down at the games. Home stage polish (Haylee, 2026-11-17): the
+                    // mockup's perky-sit still (her real art, focus face), not the rig's knees-hugged nap sit.
+                    Image("shelf-nutmeg-sit-perky").resizable().interpolation(.high)
                         .frame(width: L.nutmeg.width, height: L.nutmeg.height)
+                        .accessibilityHidden(true)
                         .position(x: L.nutmeg.midX, y: L.nutmeg.midY)
                         .allowsHitTesting(false)
                 }
@@ -92,16 +95,20 @@ struct PTShelfLayout {
         self.back = CGRect(x: max(16, curtain.visible * 0.25), y: top, width: back, height: back)
         // Room: her sitting picture above the shelf, the dots + arrow row below it.
         let nutH: CGFloat = min(190, s.height * 0.2)
+        // The perky sit's seat (the shelf's top edge) is 82.4% down her 1178 × 1335 canvas (mockup screen 7: canvas top
+        // 88.5, shelf top 226, canvas 166.9 tall); her ear tips are ~2% down, so the shelf top sits 80% of her height
+        // under the top row. Below the seat her legs hang in front of the shelf's crown.
+        let seat: CGFloat = 0.824
         let bottomRoom = max(safe.bottom, 12) + 78
-        let maxH = s.height - top - nutH * 0.62 - bottomRoom
+        let maxH = s.height - top - nutH * (seat - 0.024) - bottomRoom
         var w = min(s.width * 0.84, 360)
         var h = w * art.height / art.width
         if h > maxH { h = maxH; w = h * art.width / art.height }
-        let shelfTop = top + nutH * 0.62
+        let shelfTop = top + nutH * (seat - 0.024)
         shelf = CGRect(x: (s.width - w) / 2, y: shelfTop, width: w, height: h)
-        // The sit pose's seat is ~83% down her canvas: she sits on the arch's crest.
+        // Centered on the shelf (as in the mockup), her seat on its top edge.
         let nw = nutH * 1178 / 1335
-        nutmeg = CGRect(x: s.width / 2 - nw / 2 + nutH * 0.04, y: shelfTop + h * 0.035 - nutH * 0.83, width: nw, height: nutH)
+        nutmeg = CGRect(x: s.width / 2 - nw / 2, y: shelfTop - nutH * seat, width: nw, height: nutH)
         dotsY = shelf.maxY + 26
         nextArrow = CGPoint(x: min(shelf.maxX + 8, s.width - 44), y: shelf.maxY + 34)
         prevArrow = CGPoint(x: max(shelf.minX - 8, 44), y: shelf.maxY + 34)
