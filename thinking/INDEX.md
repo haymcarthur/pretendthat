@@ -164,6 +164,8 @@ The map. Read this first, then open only what you need.
 
 - [Libraries and services list](team-profile-libraries.md): what the app uses (Code Camp is finished; no team-profile task)
 
+- [Crimson Foundry business setup to-do](business-setup-todo.md): what's done, waiting, the Christie partnership plan, and remaining steps
+
 ## Research
 - [Cost per game (2026-11-15)](research/2026-11-15-cost-per-game.md): about $1.60/game, OpenAI voice is the biggest share; levers ranked
 - [Cost per game v2, measured (2026-11-16)](research/2026-11-16-cost-per-game-v2.md): about $1.20 per new game (voice $0.60–0.78, images $0.28–0.33, Claude $0.15), replay $0.14 first then $0.03; mini model $0.65 but skipped steps; margin table and plan limits
