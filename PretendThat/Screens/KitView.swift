@@ -69,7 +69,7 @@ struct KitView: View {
                         // One tap opens the iOS print screen with the CHOSEN set (round 27); it waits while that set draws.
                         PTBigIconButton(kind: .print, size: Self.buttonRow, label: "Print") { model.tapPrint() }
                             .opacity(model.printReady ? 1 : 0.45)
-                            .overlay { if !model.printReady { ProgressView().tint(Theme.white).controlSize(.large) } }
+                            .overlay { if !model.printReady && !model.printBlockedByNotReady { ProgressView().tint(Theme.white).controlSize(.large) } }
                             .allowsHitTesting(model.printReady)
                         PTBigIconButton(kind: .play, size: Self.buttonRow, label: "Let's play") { model.tapLetsPlay() }
                     }
@@ -127,7 +127,7 @@ struct KitView: View {
             HStack(spacing: Theme.Space.xl) {
                 PTBigIconButton(kind: .print, size: button, label: "Print") { model.tapPrint() }
                     .opacity(model.printReady ? 1 : 0.45)
-                    .overlay { if !model.printReady { ProgressView().tint(Theme.white).controlSize(.large) } }
+                    .overlay { if !model.printReady && !model.printBlockedByNotReady { ProgressView().tint(Theme.white).controlSize(.large) } }
                     .allowsHitTesting(model.printReady)
                 PTBigIconButton(kind: .play, size: button, label: "Let's play") { model.tapLetsPlay() }
             }
@@ -166,7 +166,10 @@ struct KitView: View {
                 page(i, style)
                     .scaleEffect(g.paper.width / KitPageView.size.width)
                     .frame(width: g.paper.width, height: g.paper.height)
-                    .overlay { if model.pageDrawing(pages[i], in: art) { PTPageDrawing() } }
+                    .overlay {
+                        if model.pageDrawing(pages[i], in: art) { PTPageDrawing() }
+                        else if model.pageNotReady(pages[i], in: art) { PTPageNotReady { model.retryPage(pages[i]) } }
+                    }
             }
             .frame(width: fanBox.width, height: fanBox.height)
             .offset(y: -(Self.chip + 10) / 2)
@@ -192,6 +195,38 @@ struct PTPageDrawing: View {
             ProgressView().tint(Theme.purple)
         }
         .accessibilityLabel("Still drawing")
+    }
+}
+
+/// 2026-11-18 (Haylee: no fallback art in a live game, show an error): a page whose picture failed after its retries.
+/// A soft veil over the blank page, a sleepy paintbrush and a Try again button that asks for just that picture again
+/// (both sets). The page isn't printed until it comes.
+struct PTPageNotReady: View {
+    var compact = false
+    let onRetry: () -> Void
+    var body: some View {
+        ZStack {
+            Theme.white.opacity(0.85)
+            VStack(spacing: compact ? 4 : 10) {
+                Image(systemName: "paintbrush.pointed.fill")
+                    .font(.system(size: compact ? 18 : 40, weight: .bold))
+                    .foregroundStyle(Theme.purple.opacity(0.55))
+                Button(action: onRetry) {
+                    Label("Try again", systemImage: "arrow.clockwise")
+                        .font(.system(size: compact ? 11 : 26, weight: .bold, design: .rounded))
+                        .labelStyle(.titleAndIcon)
+                        .padding(.horizontal, compact ? 8 : 18).padding(.vertical, compact ? 4 : 10)
+                        .foregroundStyle(Theme.white)
+                        .background(Capsule().fill(Theme.purple))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("This picture isn't ready")
+        .accessibilityHint("Try again")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { onRetry() }
     }
 }
 
@@ -254,7 +289,7 @@ struct PrintTabView: View {
             HStack(spacing: Theme.Space.l) {
                 PTBigIconButton(kind: .print, size: 76, label: "Print") { model.tapPrint() }
                     .opacity(model.printReady ? 1 : 0.45)
-                    .overlay { if !model.printReady { ProgressView().tint(Theme.white).controlSize(.large) } }
+                    .overlay { if !model.printReady && !model.printBlockedByNotReady { ProgressView().tint(Theme.white).controlSize(.large) } }
                     .allowsHitTesting(model.printReady)
                 PTBigIconButton(kind: .play, size: 76, label: "Let's play") { model.tapLetsPlay() }
             }
@@ -281,7 +316,12 @@ struct PrintTabView: View {
                             .background(Theme.white)
                             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                             .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Theme.line, lineWidth: 1))
-                            .overlay { if model.pageDrawing(pages[i], in: art) { PTPageDrawing().clipShape(RoundedRectangle(cornerRadius: 8)) } }
+                            .overlay {
+                                if model.pageDrawing(pages[i], in: art) { PTPageDrawing().clipShape(RoundedRectangle(cornerRadius: 8)) }
+                                else if model.pageNotReady(pages[i], in: art) {
+                                    PTPageNotReady(compact: true) { model.retryPage(pages[i]) }.clipShape(RoundedRectangle(cornerRadius: 8))
+                                }
+                            }
                             .rotationEffect(.degrees(i % 2 == 0 ? -2 : 2))
                             .padding(.vertical, 6)
                             .contentShape(Rectangle())

@@ -11,7 +11,9 @@ enum KitPrinter {
         var box = CGRect(origin: .zero, size: KitPageView.size)
         guard let consumer = CGDataConsumer(data: data as CFMutableData),
               let ctx = CGContext(consumer: consumer, mediaBox: &box, nil) else { return Data() }
-        for page in pages {
+        // 2026-11-18 (Haylee: no fallback art): a live page without its AI picture is never printed (the printer
+        // waits for it, `AppModel.printReady`; this is the backstop).
+        for page in pages where PrintablePairs.printable([set.pictureState(page)]) {
             let renderer = ImageRenderer(content: set.pageView(page))
             renderer.render { _, draw in
                 ctx.beginPDFPage(nil)

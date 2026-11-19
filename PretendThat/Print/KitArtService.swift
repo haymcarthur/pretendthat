@@ -18,6 +18,11 @@ import NutmegCore
 /// (`ColorInFlow`), so both sets match except for color (and the per-player sheets cut the same way). The outline page
 /// keeps the round 46 word check; the color page gets the word check + the letter contrast check, and one re-edit.
 /// The two sets meet on the `OutlineBoard` (the kept outline PNG per page key).
+/// Printables after a lock (2026-11-18, decisions/2026-11-18-printables-after-lock.md): every image call goes through
+/// `AwayRetry` (a call cut off while the phone was locked is retried once the app is back, not counted as a failure);
+/// the color page always waits for its outline and never draws a picture of its own; the board's `PrintablePairs`
+/// keeps both sets of a page matching. Haylee: no fallback art in a live game: a page that really fails is "not
+/// ready" in both sets (blank, with Try again: `redraw`) and isn't printed. Demo mode and replays keep the old pages.
 @Observable @MainActor
 final class KitArtService {
     /// Page images by art key (`KitPage.artKey`: the item id, `badges@all`, `tickets@all`, `cutouts#more`; a round 46
@@ -56,7 +61,7 @@ final class KitArtService {
     func reset() {
         generation += 1; images = [:]; cutouts = [:]; pieces = [:]; isGenerating = false; progress = 0; finished = false
         if style == .colorIn { board.reset() }
-        drawnFor = nil; inFlight = []; failed = []; retriedAfterAway = []; finalItems = nil; landedAt = [:]
+        drawnFor = nil; inFlight = []; failed = []; finalItems = nil; lastItems = []; landedAt = [:]; isLive = false
         context = nil; finishedAt = nil; wordChecks = [:]
         #if DEBUG
         firstDrawings = [:]
@@ -84,7 +89,8 @@ final class KitArtService {
     /// Round D1: every page image and slice (the character sheet's included) by its stored art key, for Save.
     var artByKey: [String: UIImage] {
         var out: [String: UIImage] = [:]
-        for (id, img) in images { out[ArtKey.image(id, style: style)] = img }   // round 27: the outline set is o-prefixed
+        // round 27: the outline set is o-prefixed. 2026-11-18: a page one set gave up on isn't saved in either.
+        for (id, img) in images where !(isLive && board.pairs.gaveUp(id)) { out[ArtKey.image(id, style: style)] = img }
         for (id, m) in cutouts { for (n, img) in m { out[ArtKey.cutout(id, n, style: style)] = img } }
         return out
     }
@@ -144,21 +150,36 @@ final class KitArtService {
         return (0..<max(item.lines.count, (m.keys.max() ?? -1) + 1)).map { m[$0] }
     }
 
+    /// 2026-11-18: this set draws AI pictures this game (an image service, not a replay or demo mode): a page shows
+    /// its AI picture or nothing (never the app-drawn fallback).
+    private(set) var isLive = false
+
+    /// 2026-11-18: what this page shows in this set (`PrintablePairs`: both sets of a page always match).
+    func pictureState(_ page: KitPage) -> PictureState {
+        guard isLive, page.item.aiPage, page.item.recipe != .decoder else { return .builtIn }
+        return board.pairs.state(page.artKey, style: style, live: true)
+    }
+
     /// Round 46: this page's whole-page image (nil while it's drawing, or when it never came: app-drawn instead).
     /// Round 47: a per-player page's 6-piece sheet, else a round 46 replay's own page (`badges@N`, `tickets`).
+    /// 2026-11-18: in a live game, only once both sets of the page are fine (a page the other set gave up on is blank).
     func pageImage(_ page: KitPage) -> UIImage? {
+        let state = pictureState(page)
+        if state == .notReady || state == .drawing { return nil }
         if let img = images[page.artKey] { return img }
         return page.legacyArtKey.flatMap { images[$0] }
     }
     /// Round 47: the pieces this page prints (the first N of its sheet), or nil to print the whole page: not a per-player
     /// page, a round 46 page, the sheet not cut apart (yet), or every piece is wanted anyway.
     func pagePieces(_ page: KitPage) -> SheetPieces? {
-        guard let n = page.pieces, images[page.artKey] != nil, let p = pieces[page.artKey], n < p.images.count else { return nil }
+        guard let n = page.pieces, pageImage(page) != nil, let p = pieces[page.artKey], n < p.images.count else { return nil }
         return p.prefix(n)
     }
     /// The view of one printed page of this set.
     func pageView(_ page: KitPage) -> KitPageView {
-        KitPageView(page: page, art: pageImage(page), cutouts: cutoutImages(page.item), style: style, pieces: pagePieces(page))
+        let state = pictureState(page)
+        return KitPageView(page: page, art: pageImage(page), cutouts: cutoutImages(page.item), style: style, pieces: pagePieces(page),
+                           blank: state == .drawing || state == .notReady)
     }
 
     /// This item's art hasn't landed yet (a page with nothing to draw, like the decoder, never waits).
@@ -170,6 +191,7 @@ final class KitArtService {
     /// Round 46: one page's art hasn't landed yet.
     func isMissing(_ page: KitPage) -> Bool {
         guard page.item.aiPage, page.item.recipe != .decoder else { return false }
+        if isLive { return pictureState(page) == .drawing }
         return pageImage(page) == nil && !failed.contains(page.artKey)
     }
     /// Round 28: role `k`'s own slice of an older game's badge sheet (nil while it isn't drawn).
@@ -188,7 +210,8 @@ final class KitArtService {
     /// Jobs running or settled this generation (landed, or given up after one retry: the page is app-drawn).
     @ObservationIgnored private var inFlight: Set<String> = []
     @ObservationIgnored private var failed: Set<String> = []
-    @ObservationIgnored private var retriedAfterAway: Set<String> = []
+    /// The latest items asked for (the hunt's pages, then the final kit's), for Try again on one page.
+    @ObservationIgnored private var lastItems: [KitItem] = []
     /// The final kit's items (nil during the hunt): `finished` is about these.
     @ObservationIgnored private var finalItems: [KitItem]?
     /// Round 20: at most 3 image calls at once (the relay's 40 images/min limit; no 429 bursts). Round 27: the limiter
@@ -205,7 +228,7 @@ final class KitArtService {
         #endif
         guard let client else { return }
         startOver(ifNot: Self.drawKey(ctx, style))
-        context = ctx
+        context = ctx; isLive = true; lastItems = items
         NSLog("[RT] kit art (%@): hunt prefetch, %d item(s)", style.toolValue, items.count)
         launch(KitArtPlan.jobs(items: items, ctx: ctx, style: style, settled: settled, characters: drawsCharacters), client: client)
     }
@@ -225,7 +248,7 @@ final class KitArtService {
         #endif
         guard let client else { finished = true; progress = 1; return }   // app-drawn pages: final right away
         startOver(ifNot: Self.drawKey(ctx, style))
-        context = ctx
+        context = ctx; isLive = true; lastItems = kit.items
         finished = false
         finalItems = kit.items
         let gen = generation
@@ -283,17 +306,25 @@ final class KitArtService {
     /// rule for the outline page, the color page's own check is inside `ColorInFlow`).
     private func shouldCheck(_ job: KitArtJob) -> Bool { PageCheckRule.readsWords(style: style, words: job.words) }
 
-    /// Printables draw-once: the color set waits for this page's kept outline (nil: the outline failed, or it took more
-    /// than 6 minutes: the color page is then drawn on its own, the round 46 way).
+    /// Printables draw-once: the color set waits for this page's kept outline (nil: the outline failed, or the
+    /// service was reset). 2026-11-18: no wall-clock limit any more (a 6-minute limit ran out while the phone was
+    /// locked and the color page was drawn as a different picture): the outline always settles, landed or failed, and
+    /// the color page never draws its own.
     private func waitForOutline(_ job: KitArtJob, gen: Int) async -> Data? {
-        let start = Date()
         while gen == generation {
-            if let d = board.outlines[job.key] { return d }
-            if board.failed.contains(job.key) { return nil }
-            if Date().timeIntervalSince(start) > 360 { return nil }
+            switch board.pairs.colorStart(job.key) {
+            case .colorIn: if let d = board.outlines[job.key] { return d }
+            case .notReady: return nil
+            case .wait: break
+            }
             try? await Task.sleep(for: .milliseconds(250))
         }
         return nil
+    }
+
+    /// 2026-11-18: how every image call of this set is retried (`AwayRetry`); an unusable account stops at once.
+    private func awayPolicy(_ client: ImageClient) -> AwayPolicy {
+        AwayPolicy(giveUp: { _ in client.unavailableReason != nil })
     }
 
     /// Printables draw-once: the color page = the outline colored in (edit), inspected on the device (word check +
@@ -302,7 +333,8 @@ final class KitArtService {
     private func colorIn(_ job: KitArtJob, outline: Data, client: ImageClient) async -> Data? {
         let limiter = self.limiter, words = job.words, size = job.size
         let imaging = LimitedImaging(client: client, limiter: limiter)
-        let outcome = await ColorInFlow.color(outline: outline, size: size, quality: ImageQuality.kit, client: imaging) { data in
+        let outcome = await ColorInFlow.color(outline: outline, size: size, quality: ImageQuality.kit, client: imaging,
+                                              away: awayPolicy(client)) { data in
             await Task.detached(priority: .utility) { () -> PageInspection in
                 guard let img = UIImage(data: data) else { return PageInspection(words: nil, lightBoxes: 0) }
                 let page = PaperWhite.normalize(img, style: .fullColor)
@@ -330,7 +362,16 @@ final class KitArtService {
             Task { @MainActor in
                 let limiter = self.limiter
                 // Printables draw-once: a color page is the kept outline page colored in (the character sheet is drawn).
-                if style == .fullColor, !job.isSheet, let outline = await self.waitForOutline(job, gen: gen) {
+                if style == .fullColor, !job.isSheet {
+                    // 2026-11-18: the color page is ALWAYS the outline colored in (never a picture of its own).
+                    guard let outline = await self.waitForOutline(job, gen: gen) else {
+                        guard gen == self.generation else { return }
+                        NSLog("[RT] kit art: %@ outline not ready: the color page is not ready too", job.key)
+                        self.inFlight.remove(job.key); self.failed.insert(job.key)
+                        self.board.pairs.set(job.key, .fullColor, .failed)
+                        self.updateFinished()
+                        return
+                    }
                     guard gen == self.generation else { return }
                     let data = await self.colorIn(job, outline: outline, client: client)
                     guard gen == self.generation else { return }
@@ -345,17 +386,21 @@ final class KitArtService {
                             NSLog("[RT] kit art (%@): %@ %@", style.toolValue, job.key, cut == nil ? "not cut apart: the whole page prints" : "cut into \(job.pieces) pieces")
                         }
                         self.landedAt[job.key] = Date()
+                        self.board.pairs.set(job.key, .fullColor, .landed)
                     } else {
-                        NSLog("[RT] kit art: %@ color-in failed (%@): app-drawn", job.key, client.unavailableReason ?? "edit error")
+                        NSLog("[RT] kit art: %@ color-in failed after its retries (%@): not ready in both sets", job.key, client.unavailableReason ?? "edit error")
                         self.failed.insert(job.key)
+                        self.board.pairs.set(job.key, .fullColor, .failed)
                     }
                     self.updateFinished()
                     return
                 }
                 guard gen == self.generation else { return }
+                let policy = self.awayPolicy(client)
                 func draw(_ prompt: String) async -> Result<Data, Error> {
-                    // Retry once, then the existing fallback (that page is app-drawn).
-                    do { return .success(try await RetryOnce.run { try await limiter.run { try await client.generate(prompt: prompt, size: job.size, quality: ImageQuality.kit) } }) }
+                    // 2026-11-18: a call cut off while the app was away is retried once it's back (`AwayRetry`); a
+                    // real failure after its retries leaves the page not ready (live games show no fallback art).
+                    do { return .success(try await AwayRetry.run(policy) { try await limiter.run { try await client.generate(prompt: prompt, size: job.size, quality: ImageQuality.kit) } }) }
                     catch { return .failure(error) }
                 }
                 // Round 21: decode + paper-white + slicing (+ round 46's word check) run OFF the main actor.
@@ -410,7 +455,10 @@ final class KitArtService {
                 }
                 self.inFlight.remove(job.key)
                 // Printables draw-once: the kept outline page goes to the color set (a page that never came: it draws its own).
-                if style == .colorIn, !job.isSheet, let keptData, !decoded.isEmpty { self.board.outlines[job.key] = keptData }
+                if style == .colorIn, !job.isSheet, let keptData, !decoded.isEmpty {
+                    self.board.outlines[job.key] = keptData
+                    self.board.pairs.set(job.key, .colorIn, .landed)
+                }
                 switch result {
                 case .success:
                     if job.isSheet {
@@ -430,17 +478,8 @@ final class KitArtService {
                         self.landedAt[job.key] = Date()
                     } else { self.failed.insert(job.key); self.outlineFailed(job) }
                 case .failure(let e):
-                    // Round 9: a network failure (locked or backgrounded mid-kit) gets one more try once the app is back.
-                    let transient = e is URLError || (e as? ClaudeError) == .transport
-                    if transient, client.unavailableReason == nil, !self.retriedAfterAway.contains(job.key) {
-                        self.retriedAfterAway.insert(job.key)
-                        while UIApplication.shared.applicationState != .active { try? await Task.sleep(for: .milliseconds(500)) }
-                        guard gen == self.generation else { return }
-                        NSLog("[RT] kit art: retrying %@ after a network failure", job.key)
-                        self.launch([job], client: client)
-                        return
-                    }
-                    NSLog("[RT] kit art: %@ failed twice (%@): app-drawn", job.key, client.unavailableReason ?? String(describing: e))
+                    // Round 9's wait-for-the-app retry is now inside `AwayRetry` (for every call, the color edits too).
+                    NSLog("[RT] kit art: %@ failed after its retries (%@): not ready", job.key, client.unavailableReason ?? String(describing: e))
                     self.failed.insert(job.key); self.outlineFailed(job)
                 }
                 self.updateFinished()
@@ -450,7 +489,19 @@ final class KitArtService {
 
     /// Printables draw-once: an outline page that definitively failed: its color page is drawn on its own instead.
     private func outlineFailed(_ job: KitArtJob) {
-        if style == .colorIn, !job.isSheet { board.failed.insert(job.key) }
+        if style == .colorIn, !job.isSheet { board.pairs.set(job.key, .colorIn, .failed) }
+    }
+
+    /// 2026-11-18 Try again on one page (AppModel.retryPage decides which sets redraw, `PrintablePairs.retry`): this
+    /// set's picture of that page is asked for again (the outline set draws it; the color set colors the outline in).
+    func redraw(key: String) {
+        guard isLive, let client, let ctx = context, !inFlight.contains(key) else { return }
+        failed.remove(key)
+        if style == .colorIn { board.outlines[key] = nil }
+        images[key] = nil; pieces[key] = nil
+        let jobs = KitArtPlan.jobs(items: lastItems, ctx: ctx, style: style, settled: settled.subtracting([key])).filter { $0.key == key }
+        NSLog("[RT] kit art (%@): try again on %@ (%d job)", style.toolValue, key, jobs.count)
+        launch(jobs, client: client)
     }
 
     private func updateFinished() {
@@ -550,10 +601,11 @@ enum SheetCutter {
 /// Printables draw-once: where the two sets meet. The outline set posts each page's KEPT drawing (PNG, after its word
 /// check); the color set colors that exact image in. A page whose outline definitively failed is listed so the color
 /// set draws its own instead of waiting. Page keys and the kit's own page images only (nothing about kids).
-@MainActor final class OutlineBoard {
-    var outlines: [String: Data] = [:]
-    var failed: Set<String> = []
-    func reset() { outlines = [:]; failed = [] }
+/// 2026-11-18: also both sets' state of every page (`PrintablePairs`), observed by the Print screen.
+@Observable @MainActor final class OutlineBoard {
+    @ObservationIgnored var outlines: [String: Data] = [:]
+    var pairs = PrintablePairs()
+    func reset() { outlines = [:]; pairs = PrintablePairs() }
 }
 
 /// The app's image calls on the shared limiter (at most 3 image calls at once), behind `PageImaging` for `ColorInFlow`.

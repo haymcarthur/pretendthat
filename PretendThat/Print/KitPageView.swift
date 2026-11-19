@@ -12,12 +12,17 @@ struct KitPageView: View {
     var style: PrintStyle = .colorIn
     /// Round 47: a per-player page's first N pieces, cut from the sheet drawn for 6 (nil: the whole page prints).
     var pieces: SheetPieces? = nil
+    /// 2026-11-18 (Haylee: no fallback art in live games): the AI picture isn't here (drawing, or not ready): a blank
+    /// sheet, never the app-drawn page. The tile's overlay shows the spinner or Try again.
+    var blank = false
 
     static let size = CGSize(width: 612, height: 792)
     private let margin: CGFloat = 24
 
     @ViewBuilder var body: some View {
-        if page.item.aiPage, let pieces, !pieces.images.isEmpty {
+        if blank {
+            Theme.printPaper.frame(width: Self.size.width, height: Self.size.height)
+        } else if page.item.aiPage, let pieces, !pieces.images.isEmpty {
             // Round 47: only the pieces for the kids playing, as the AI drew them, laid on the paper at the page's scale.
             AIPiecesPageView(pieces: pieces)
         } else if page.item.aiPage, let art {
