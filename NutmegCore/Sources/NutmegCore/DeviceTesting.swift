@@ -58,8 +58,8 @@ public struct SocketHealth: Equatable, Sendable {
 }
 
 /// "Sounds like a game you have" (2026-11-18): she asks out loud "play that one, or make a new game?" and the kid
-/// answers by voice. On-device word match (no AI call): the saved game, a new game, or unclear (she asks once more,
-/// pointing at the picture and the sparkles).
+/// answers by voice. On-device word match (no AI call): the saved game, a new game, or unclear (she asks once more in
+/// words: "Do you want to play <title> again, or make a new game?").
 public enum SavedOrNew: Equatable, Sendable {
     case saved, new, unclear
 

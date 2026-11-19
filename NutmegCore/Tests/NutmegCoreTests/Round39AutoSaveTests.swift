@@ -131,7 +131,7 @@ struct Round39AutoSaveTests {
         #expect(ShelfLines.soundsLike(title: "Pet Vet") == "We already have Pet Vet saved! Do you want to play that one, or make a new game?")
         #expect(CommonLines.all.contains(HandOffLines.end()))
         #expect(ShelfLines.newGameNote(playerCount: 3).contains("don't call confirm_plan"))
-        for l in [ShelfLines.soundsLike(title: "Pet Vet"), ShelfLines.soundsLikeAgain, HandOffLines.end()] {
+        for l in [ShelfLines.soundsLike(title: "Pet Vet"), ShelfLines.soundsLikeAgain(title: "Pet Vet"), HandOffLines.end()] {
             #expect(Sanitizer.kidSafety(l) == nil, "\(l)")
         }
     }

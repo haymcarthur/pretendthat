@@ -1851,7 +1851,7 @@ final class AppModel {
     }
     #endif
 
-    /// The kids tapped the saved game's card: that game's replay starts (nothing was made or counted). Only offered
+    /// The kids chose the saved game (said so, or tapped its picture, a quiet shortcut): that game's replay starts (nothing was made or counted). Only offered
     /// with an active pass (saved game page round: replays need a pass).
     func chooseSavedInstead() {
         guard let g = soundsLike else { return }
@@ -1861,7 +1861,7 @@ final class AppModel {
         playSavedGame(g)
     }
 
-    /// The kids tapped "make a new one" (or said it): their yes to the recap stands, the roles come next.
+    /// The kids said (or typed) "make a new one": their yes to the recap stands, the roles come next.
     func chooseNewGame(kidLine: String = "Let's make a new one!") {
         guard soundsLike != nil else { return }
         soundsLike = nil
@@ -1875,7 +1875,8 @@ final class AppModel {
     }
 
     /// 2026-11-18 (Haylee's device testing): the kids answered her question out loud (or typed). Read on the device
-    /// (`SavedOrNew`, no AI call): the saved game, a new game, or unclear (her one fixed "tap the picture…" line).
+    /// (`SavedOrNew`, no AI call): the saved game, a new game, or unclear (her one fixed "play <title> again, or make a
+    /// new game?" line).
     private func answerSoundsLike(_ text: String) {
         guard let g = soundsLike else { return }
         let answer = SavedOrNew.decide(text, savedTitle: g.title)
@@ -1889,8 +1890,9 @@ final class AppModel {
             chooseNewGame(kidLine: text)
         case .unclear:
             realtime.showKidLine(text)
-            speaker.remember(ShelfLines.soundsLikeAgain)
-            speaker.say(ShelfLines.soundsLikeAgain, record: false)
+            let again = ShelfLines.soundsLikeAgain(title: g.title)
+            speaker.remember(again)
+            speaker.say(again, record: false)   // names a saved game: never kept with this game
         }
     }
 

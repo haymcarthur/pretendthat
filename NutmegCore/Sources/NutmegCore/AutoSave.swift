@@ -9,12 +9,16 @@ import Foundation
 /// game is saved.
 public enum ShelfLines {
     /// "Sounds like a game you have" at the Pick confirm (said live: it names the saved game). 2026-11-18 (Haylee's
-    /// device testing): she asks both choices out loud; the kids answer by voice or by tapping.
+    /// device testing): she asks both choices out loud; the kids answer by voice or typing (the screen shows only the
+    /// saved game's picture, no buttons).
     public static func soundsLike(title: String) -> String {
         "We already have \(title) saved! Do you want to play that one, or make a new game?"
     }
-    /// Her one follow-up when the kids' spoken answer was unclear (a fixed line, no AI call).
-    public static let soundsLikeAgain = "Tap the picture to play that one, or tap the sparkles to make a new game!"
+    /// Her one follow-up when the kids' spoken answer was unclear (a fixed line, no AI call). 2026-11-18 (picture only,
+    /// no buttons): she asks again in words, never "tap the sparkles".
+    public static func soundsLikeAgain(title: String) -> String {
+        "Do you want to play \(title) again, or make a new game?"
+    }
     /// The model's tool output while the kids choose. The app hears their answer itself (voice or a tap) and says
     /// what's next, so the model says nothing now.
     public static let soundsLikeOutput = "(Silent coaching, don't mention it.) The app is showing the kids a game they "

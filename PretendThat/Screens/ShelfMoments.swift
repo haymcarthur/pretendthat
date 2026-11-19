@@ -90,61 +90,50 @@ struct PTShelfMomentView: View {
     }
 }
 
-/// "We already have <title> saved! Do you want to play that one, or make a new game?" (2026-11-18, Haylee's device
-/// testing; was a card in the middle of the stage). Picture first, just above the control bar (never over the mic,
-/// Repeat or chat buttons): the saved game's cover with a green ▶ (play that one) and the yellow sparkles (make a new
-/// game), each with a short word under it. Nutmeg asks out loud; the kids answer by voice (`SavedOrNew`) or a tap.
+/// "We already have <title> saved! Do you want to play that one, or make a new game?" (2026-11-18, Haylee: "All I
+/// wanted is the picture. No buttons."). Only the saved game's cover picture, just above the control bar (never over
+/// the mic, Repeat or chat buttons): no card behind it, no ▶, no title, no "New game" button, no words. Nutmeg asks out
+/// loud; the kids answer by voice or typing (`SavedOrNew`). Claude's call: tapping the picture itself still plays the
+/// saved game, a quiet shortcut with nothing that looks like a button.
 struct PTSoundsLikeOffer: View {
     let game: SavedGame
     let cover: UIImage?
     let onReplay: () -> Void
-    let onNew: () -> Void
     @Environment(\.layoutMetrics) private var metrics
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var shown = false
 
     var body: some View {
-        let phone = metrics.isPhone
-        let cardW: CGFloat = phone ? 150 : 210
-        let card = CGSize(width: cardW, height: cardW * 2 / 3)
-        let newSize: CGFloat = phone ? 78 : 104
-        HStack(alignment: .top, spacing: phone ? Theme.Space.l : Theme.Space.xl) {
-            VStack(spacing: Theme.Space.xs) {
-                Button(action: onReplay) {
-                    ZStack(alignment: .bottomTrailing) {
-                        PTCoverPicture(cover: cover, props: game.coverProps, size: card)
-                        Image(systemName: "play.fill")
-                            .font(.system(size: card.height * 0.2, weight: .heavy, design: .rounded))
-                            .foregroundStyle(Theme.ink)
-                            .offset(x: card.height * 0.012)
-                            .frame(width: card.height * 0.42, height: card.height * 0.42)
-                            .background(Circle().fill(Theme.lime))
-                            .background(Circle().fill(Theme.limeShade).offset(y: Theme.depth))
-                            .offset(x: card.height * 0.1, y: card.height * 0.1)
+        let w: CGFloat = metrics.isPhone ? 240 : 340
+        let size = CGSize(width: w, height: w * 2 / 3)
+        let shape = RoundedRectangle(cornerRadius: size.height * 0.1, style: .continuous)
+        Button(action: onReplay) {
+            ZStack {
+                shape.fill(Theme.cream)
+                if let cover {
+                    Image(uiImage: cover).resizable().scaledToFill()
+                        .frame(width: size.width, height: size.height)
+                } else {
+                    // No cover drawn for that game: its props, like its spot on the bookshelf.
+                    HStack(spacing: size.width * 0.03) {
+                        ForEach(game.coverProps, id: \.self) { id in
+                            if let img = UIImage(named: PropLibrary.asset(id)) {
+                                Image(uiImage: img).resizable().scaledToFit()
+                                    .frame(maxWidth: size.width * 0.3, maxHeight: size.height * 0.62)
+                            }
+                        }
                     }
                 }
-                .buttonStyle(TileButtonStyle())
-                .accessibilityLabel("Play \(game.title)")
-                .accessibilityIdentifier("soundsLike.replay")
-                PTText(GameTitles.shelf(game.title), .caption)
-                    .lineLimit(1).minimumScaleFactor(0.8)
-                    .frame(width: card.width)
-                    .padding(.top, card.height * 0.08)
-                    .accessibilityHidden(true)
             }
-            VStack(spacing: Theme.Space.xs) {
-                PTBigIconButton(kind: .fresh, size: newSize, label: "Make a new game", action: onNew)
-                    .accessibilityIdentifier("soundsLike.new")
-                    .frame(height: card.height)
-                PTText("New game", .caption)
-                    .lineLimit(1)
-                    .padding(.top, card.height * 0.08)
-                    .accessibilityHidden(true)
-            }
+            .frame(width: size.width, height: size.height)
+            .clipShape(shape)
+            .contentShape(shape)
+            .shadow(color: .black.opacity(0.10), radius: 3, y: 1)
+            .shadow(color: .black.opacity(0.16), radius: 14, y: 6)
         }
-        .padding(.horizontal, phone ? Theme.Space.l : Theme.Space.xl)
-        .padding(.top, Theme.Space.m).padding(.bottom, Theme.Space.s)
-        .ptPanel(radius: 28)
+        .buttonStyle(TileButtonStyle())
+        .accessibilityLabel("Play \(game.title)")
+        .accessibilityIdentifier("soundsLike.replay")
         .scaleEffect(shown ? 1 : 0.9, anchor: .bottom)
         .opacity(shown ? 1 : 0)
         .onAppear { withAnimation(reduceMotion ? .easeOut(duration: 0.2) : .spring(response: 0.35, dampingFraction: 0.75)) { shown = true } }

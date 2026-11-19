@@ -82,7 +82,10 @@ struct DeviceTestingTests {
     @Test func soundsLikeLinesAskBothChoices() {
         let l = ShelfLines.soundsLike(title: "Pet Vet")
         #expect(l.contains("play that one") && l.contains("new game"))
-        #expect(ShelfLines.soundsLikeAgain.contains("picture") && ShelfLines.soundsLikeAgain.contains("new game"))
+        // 2026-11-18 (picture only, no buttons): the unclear-answer line asks in words, never points at a button.
+        let again = ShelfLines.soundsLikeAgain(title: "Pet Vet")
+        #expect(again == "Do you want to play Pet Vet again, or make a new game?")
+        #expect(!again.lowercased().contains("tap") && !again.contains("sparkles"))
         #expect(ShelfLines.soundsLikeOutput.contains("Say NOTHING"))
         #expect(!ShelfLines.soundsLikeOutput.contains("Tap the one you want"))
     }
