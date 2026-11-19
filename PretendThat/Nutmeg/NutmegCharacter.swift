@@ -336,8 +336,9 @@ private struct Motion {
 /// iPhone play scenes (Haylee, 2026-11-17): Nutmeg peeks over the top edge of the scene card, paws over the edge,
 /// looking DOWN at the rows.
 ///
-/// Art v3 (2026-11-18): Haylee's own headless body, `design/nutmeg/peek/regen/peek-body-v3.svg` (514×173): tail curling
-/// out to the left, vest with the cream V-neck and star, shoulders, and both paws. `tools/peek_v3_imagesets.py` splits
+/// Art v4 (2026-11-18): Haylee's own headless body, `design/nutmeg/peek/regen/peek-body-v4.svg` (514×173; v3 with the
+/// paws redrawn, every other path identical, so the fit below is unchanged): tail curling out to the left, vest with the
+/// cream V-neck and star, shoulders, and both paws. `tools/peek_v3_imagesets.py` finds the paws by geometry and splits
 /// its paths verbatim (no shape edits) into:
 /// - `nutmeg-peek-back`: everything but the paws. BEHIND the card.
 /// - `nutmeg-peek-paws`: the two paws (paw, dark top arc, finger lines). IN FRONT of the card's top edge.
@@ -360,8 +361,8 @@ struct NutmegPeek: View {
 
     /// The v3 export canvas (both layers).
     static let exportCanvas = CGSize(width: 514, height: 173)
-    /// BODY SCALE (v3 export px → v1 art px): v1's shoulders-and-paws width (outer edges, x 574…957 = 383) over v3's
-    /// (x 129…512 = 383). v3 is drawn at v1's scale.
+    /// BODY SCALE (v3/v4 export px → v1 art px): v1's shoulders-and-paws width (outer edges, x 574…957 = 383) over v3's
+    /// (x 129…512 = 383). v3 is drawn at v1's scale. v4's shoulders (x 129…469), vest and V-neck are the same paths.
     static let bodyScale: CGFloat = 383.0 / 383.0
     /// BODY OFFSET (v1 art px): where the v3 export's origin goes, so v3's V-neck tip (327.1, 125.05) lands on v1's
     /// (771.9, 498.4). The tail then starts at v1's tail corner (444, 373), and the vest's bottom (v3 y ~148) sits at

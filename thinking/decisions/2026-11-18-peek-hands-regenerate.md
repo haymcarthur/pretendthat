@@ -43,3 +43,19 @@ Build 4 waits on this art.
 - **Onion skin:** v3 at 50% over v1 is a near-exact overlap (`/tmp/pt-peek-v3/onion-v3-over-v1.png`).
 - **Screenshots:** `/tmp/pt-peek-v3/` (iPhone 18 Pro and 17e, 4 and 6 rows, looking down and up, `zoom-*` close-ups of the paws). Demo mode, no keys, $0.
 - The Follow-up above (v2: landmarks, tail behind the ear, paws narrower than the forearms) is history now.
+
+## Follow-up 3 (2026-11-18): body v4 (better hands)
+- **Art:** `design/nutmeg/peek/regen/peek-body-v4.svg` (514×173, 15 paths; Haylee: v3's paws had "a little blurb"). Compared with v3, only the two paw shapes were redrawn. The other 13 paths (vest, neck shading, cream V, shoulders, arcs, finger lines, star, tail) are byte-identical, just in a new order. The right paw now ends at x 504 (v3: 512), so the little nub on its right is gone.
+- **Split script:** `tools/peek_v3_imagesets.py` now finds the paws by GEOMETRY, not position.
+  - Paw shape: a #AF6131 path reaching the canvas bottom that isn't the tail.
+  - Paw marks: the #843912 paths centred over a paw (its arc and two finger lines).
+  - It checks for 2 paws with 3 marks each, and refuses a split that would change what's on top of what.
+  - v4: paws = paths 5, 7, 10–15; back = 1–4, 6, 8, 9. Stacking order is verbatim.
+  - Run on v3, it rebuilds byte-identical image sets to the v3 commit.
+- **Fit unchanged:** the shoulders (x 129…469), vest and V-neck tip are the same paths. So `bodyScale` stays 1.0 and `bodyOffset` stays (444.8, 373.35). The onion skin over v1 still overlaps (`/tmp/pt-peek-v4/onion-v4-over-v1.png`).
+- **In the art, for Haylee (reported, not fixed):**
+  1. **The right paw has no dark top rim.** Its arc (path 5) is unchanged, but the redrawn right paw is taller and covers it completely. The left paw's arc still shows, so the paws don't match. See `/tmp/pt-peek-v4/zoom-iphone18pro-paws-3x.png` and `art-crop-right-paw-8x.png`.
+  2. **Finger-line ends poke out of the bottom outline** between the knuckle bumps: tiny dark nicks on both paws. Visible at 8× (`art-crop-*-paw-8x.png`), not at phone size.
+  3. **The left paw's outer side** is a short straight edge that makes a tiny step where it meets the card (3× crop). Very small.
+  4. **Purple vest slivers** under the bottom-left of each paw are below the card edge, so they're hidden in the app.
+- **Screenshots:** `/tmp/pt-peek-v4/` (iPhone 18 Pro and 17e, 4 and 6 rows, looking down and up, all fit with no scrolling, plus `zoom-*`). Demo mode, no keys, $0. 740 tests pass.
