@@ -490,7 +490,7 @@ final class AppModel {
         }
     }
     func tapPlayAgain() { userAction(.playAgain); store.playAgain() }
-    func tapPrint() { guard printArt.finished else { return }; userAction(.print); printKit() }   // round 27: the chosen set
+    func tapPrint() { guard printReady else { return }; userAction(.print); printKit() }   // round 27: the chosen set
     func tapStepRail(_ step: JourneyStep) {
         userAction(.stepRail)
         let queued = store.playQueued
@@ -914,9 +914,28 @@ final class AppModel {
     /// progress on the Print screen and its printer waits for it.
     var kitFinal: Bool { store.phase == .kitReady && store.kit != nil && (colorArt.finished || outlineArt.finished) }
     /// Round 27: the chosen set is final, so the printer can print it.
-    var printReady: Bool { kitFinal && printArt.finished }
+    /// 2026-11-18 (Haylee: no fallback art): and every page of it is its AI picture (a page not ready, or drawing again
+    /// after Try again, holds the printer).
+    var printReady: Bool { kitFinal && printArt.finished && PrintablePairs.printable(kitPages.map { printArt.pictureState($0) }) }
+    /// 2026-11-18: the printer waits only for a page that's not ready (Try again on it): no spinner on the printer.
+    var printBlockedByNotReady: Bool { kitPages.contains { printArt.pictureState($0) == .notReady } }
+    /// 2026-11-18: a page whose picture failed for real in a live game: its tile shows Try again, never fallback art.
+    func pageNotReady(_ page: KitPage, in set: KitArtService) -> Bool { set.pictureState(page) == .notReady }
+    /// 2026-11-18 Try again on one page: only that picture is asked for again, in both sets (the outline drawn again
+    /// when it failed, else the kept outline colored in again), so both sets show the same AI picture.
+    func retryPage(_ page: KitPage) {
+        userAction(.print)
+        let redraw = colorArt.board.pairs.retry(page.artKey)
+        rtLog("print: try again on \(page.artKey): \(redraw)")
+        switch redraw {
+        case .both: outlineArt.redraw(key: page.artKey); colorArt.redraw(key: page.artKey)
+        case .colorOnly: colorArt.redraw(key: page.artKey)
+        case .none: break
+        }
+    }
     /// Round 27: a page of `set` whose art hasn't landed while the set is still drawing (shown in progress).
     func pageDrawing(_ page: KitPage, in set: KitArtService) -> Bool {
+        if set.isLive { return set.pictureState(page) == .drawing }   // 2026-11-18: also a page drawing again after Try again
         guard !set.finished else { return false }
         return set.isMissing(page)   // round 46: this page's own whole-page image
     }
@@ -1491,14 +1510,18 @@ final class AppModel {
         switch phase {
         case .background:
             rtLog("scene: background (phase \(store.phase), step \(store.planningStep))")
+            AppPresence.shared.setForeground(false)   // 2026-11-18: image calls cut off from here are retried on return
             realtime.suspend()
             onboardingVoice.stop()   // v2: her onboarding clip never plays with the page off screen
             scribble.setPlaying(false, ducked: false)
             if listener.isListening { Task { _ = await listener.stopListening() } }   // round 31: words dropped, not sent
             // In-flight kit requests (Claude kit, page art) get time to finish; failures are retried on return.
-            if store.phase == .makingKit || (store.phase == .kitReady && (!kitFinal || store.guidePending)) { beginKitBackgroundTask() }
+            // 2026-11-18: also while page art is drawing during the hunt (the kit is made during the prop hunt).
+            if store.phase == .makingKit || (store.phase == .kitReady && (!kitFinal || store.guidePending))
+                || colorArt.isGenerating || outlineArt.isGenerating { beginKitBackgroundTask() }
         case .active:
             rtLog("scene: active (phase \(store.phase), step \(store.planningStep))")
+            AppPresence.shared.setForeground(true)
             updateIdleTimer()
             endKitBackgroundTask()
             if realtime.suspended { Task { await resumeSession() } }

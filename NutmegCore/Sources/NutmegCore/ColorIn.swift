@@ -183,12 +183,16 @@ public enum ColorInFlow {
     /// then inspected on the device (`inspect`: the word check + the contrast check). Only a word miss gets ONE redraw
     /// (another edit of the SAME outline, with the missed words); pale letters are logged, never redrawn (2026-11-18).
     /// The strictly better of the two is kept, else the first.
-    public static func color(outline: Data, size: String, quality: String, client: PageImaging,
+    /// `away` (2026-11-18, printables after a lock): an edit cut off while the app was away is retried once it's back
+    /// (`AwayRetry`); nil keeps the round 20 rule (retried once on an error).
+    public static func color(outline: Data, size: String, quality: String, client: PageImaging, away: AwayPolicy? = nil,
                              inspect: @Sendable (Data) async -> PageInspection) async -> Outcome {
         var calls = 0
         func edit(_ prompt: String) async -> Data? {
+            let op: @Sendable () async throws -> Data = { try await client.edit(image: outline, prompt: prompt, size: size, quality: quality) }
+            if let away { return try? await AwayRetry.run(away, op) }
             // Each edit is retried once on an error (the round 20 rule for every image call).
-            do { return try await RetryOnce.run { try await client.edit(image: outline, prompt: prompt, size: size, quality: quality) } }
+            do { return try await RetryOnce.run(op) }
             catch { return nil }
         }
         calls += 1
