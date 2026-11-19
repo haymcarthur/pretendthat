@@ -16,8 +16,8 @@ Start here in a new session, after CLAUDE.md. The decision files have the detail
 - **Printables after lock:** lock the phone during the prop hunt (ideally switch Wi-Fi → cellular), come back, and check that the color and coloring pages match and none show built-in art.
 - **Try again tile:** never seen on screen yet. Demo mode can't show it because it has no AI images.
 
-## In flight when the session ended
-- An agent was retaking the saved-offer screenshots, because the earlier demo games had no cover and fell back to the sign art. Haylee thought the offer used the wrong art; real games use the same picture as the bookshelf (`AppModel.cover(for:)`). Its work is on local branch `worktree-agent-a765924ad3ed69f6e` (demo-only change to DemoDriver so seeded games get covers; screenshots in /tmp/pt-saved-offer-v2/). **Not merged.** Check it, merge if good, show Haylee the shots.
+## Next small task
+- **Retake the saved-offer screenshots from current main.** Demo games now seed "Moon Crumbs Bakery" with its real cover, so the offer shows the same picture as its bookshelf book ([demo-seed-real-cover](decisions/2026-11-18-demo-seed-real-cover.md), merged). The agent's shots in /tmp/pt-saved-offer-v2/ were built from an old base and show the OLD card with buttons. Ignore them. Retake 4 shots (iPhone/iPad, chat closed/open: `-PTDemo soundsLike`, `-PTChat`, plus `-PTNoAI -PTAnalyticsOff -PTSkipAuth`) and show Haylee. **Real-game behavior was never wrong:** the offer and the shelf both use `AppModel.cover(for:)`.
 
 ## Open / later
 - **Peek right paw rim:** the right paw's dark top rim (path 5) is hidden under the taller redrawn right paw, so the two paws don't quite match. This is Haylee's call: either fix the art in Figma (move the arc above the paw, re-export) and rerun `tools/peek_v3_imagesets.py`, or leave it. Tiny finger-line nicks only show at 8×.

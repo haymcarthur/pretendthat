@@ -459,12 +459,13 @@ enum DemoDriver {
         if target.hasPrefix("conv") { await conversation(store, model: model, to: target); return }
         if target == "seed2" { await seedGames(store, model: model); return }
         // Round 39: `-PTDemo soundsLike`: a few saved games (the bundled airplane game auto-saves on its way), then the
-        // Pick confirm with the "sounds like a game you have" card up.
+        // Pick confirm with the "sounds like a game you have" card up. 2026-11-18: the card offers Moon Crumbs Bakery,
+        // seeded with its real cover (`demoCover`), so the card shows what a real game's shelf book shows.
         if target == "soundsLike" {
             await seedGames(store, model: model, count: 3)
             try? await Task.sleep(for: .seconds(1))
             await conversation(store, model: model, to: "convConfirm")
-            model.debugSoundsLike()
+            model.debugSoundsLike(prefer: demoCoverTitle)
             return
         }
         // Shelf fix (round 27 follow-up): `-PTDemo shelf` seeds 5 games (env PT_SEED_COUNT for more) (cover from env PT_SEED_COVER on every other
@@ -573,17 +574,30 @@ enum DemoDriver {
             await drive(store, model: model, to: "end")
             let titles = ["Moon Crumbs Bakery", "Pirate Ship on the Moon", "Bug Theater", "Sky Airlines", "Pet Vet",
                           "Cozy Café", "Dino Dig", "Royal Ball", "Space Station", "Ice Cream Truck", "Treasure Island"]
-            let coverData = ProcessInfo.processInfo.environment["PT_SEED_COVER"].flatMap { try? Data(contentsOf: URL(fileURLWithPath: $0)) }
+            // env PT_SEED_COVER: that JPEG on every other game. Without it (2026-11-18): Moon Crumbs Bakery gets its
+            // real cover (`demoCover`, read from the repo, never in the app bundle) and the rest show the fallback.
+            let envCover = ProcessInfo.processInfo.environment["PT_SEED_COVER"].flatMap { try? Data(contentsOf: URL(fileURLWithPath: $0)) }
+            let defaultCover = envCover == nil ? demoCover : nil
             for (i, title) in titles.prefix(count - model.savedGames.count).enumerated() {
                 guard var g = store.savedGame(now: Date().addingTimeInterval(Double(i - 2) * 86_400), art: [],
                                               cover: nil) else { break }
                 g.title = title
-                try? model.savedGames.save(g, art: [:], cover: i.isMultiple(of: 2) ? coverData : nil)
+                let cover = envCover != nil ? (i.isMultiple(of: 2) ? envCover : nil) : (title == demoCoverTitle ? defaultCover : nil)
+                try? model.savedGames.save(g, art: [:], cover: cover)
             }
             model.leave()
         }
         model.refreshShelf()
         rtLog("SEED: shelf=\(model.shelfGames.count)")
+    }
+
+    /// The seeded game that has a real cover by default, and that cover: a real generated cover (600 x 400 JPEG, the
+    /// same kind `CoverArtService` saves) kept in the repo at design/demo/ and read from the Mac's disk by path (the
+    /// simulator can see it). DEBUG only and not in the app bundle, so it never ships.
+    static let demoCoverTitle = "Moon Crumbs Bakery"
+    static var demoCover: Data? {
+        let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        return try? Data(contentsOf: repo.appendingPathComponent("design/demo/cover-moon-crumbs-bakery.jpg"))
     }
 
     static let demoTranscript = [
