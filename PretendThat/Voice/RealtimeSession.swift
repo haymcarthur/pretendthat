@@ -98,6 +98,8 @@ final class RealtimeSession {
         if replace { chat.clear() }
         for (i, t) in turns.enumerated() { _ = chat.apply(i % 2 == 0 ? .transcriptDone(t) : .kidTranscript(t)) }
     }
+    /// Her line as its own bubble (demo mode: no voice, so nothing streams in).
+    func debugAppendNutmeg(_ text: String) { chat.breakTurn(); _ = chat.apply(.transcriptDone(text)) }
     #endif
 
     /// Function call handler: returns the output for the model and whether Nutmeg should answer afterwards.

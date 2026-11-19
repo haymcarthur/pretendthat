@@ -1837,7 +1837,7 @@ final class AppModel {
     private func resetAutoSave() {
         artSaveWatch?.cancel(); artSaveWatch = nil
         savedArtKeys = []; savedAnyCover = false; savedGeneratedCover = false
-        soundsLike = nil
+        endSoundsLike()
     }
 
     // MARK: "Sounds like a game you have" (round 39, Haylee)
@@ -1845,6 +1845,46 @@ final class AppModel {
     /// The saved game the kids might want instead (the card is on screen), or nil.
     private(set) var soundsLike: SavedGame?
     @ObservationIgnored private var soundsLikeAskedFor: UUID?
+
+    /// 2026-11-18 follow-up (Haylee): with the chat panel open, the saved game's picture is an item in the chat right
+    /// after her "play it again?" line (`ChatPicturePlacement`). Live while the offer stands (tapping it plays the
+    /// saved game); once the offer ends it stays in the history as a plain picture at the spot it had (`anchor`
+    /// frozen) and a tap does nothing. In memory only, like the transcript.
+    struct ChatPicture: Equatable {
+        let id = UUID()
+        let game: SavedGame
+        /// How many chat lines there were when the offer started.
+        let from: Int
+        /// Frozen when the offer ends: the line it follows (nil while live: placed fresh each time).
+        var anchor: UUID?
+        var live: Bool
+    }
+    private(set) var chatPicture: ChatPicture?
+
+    /// The chat line the picture follows right now, or nil for "at the end". A stale picture whose line is gone from
+    /// the chat (the chat was cleared) isn't shown: `show` is false.
+    func chatPicturePlacement() -> (show: Bool, after: UUID?) {
+        guard let p = chatPicture else { return (false, nil) }
+        let lines = realtime.transcript
+        if p.live { return (true, ChatPicturePlacement.anchor(in: lines, from: p.from, title: p.game.title)) }
+        guard let a = p.anchor, lines.contains(where: { $0.id == a }) else { return (false, nil) }
+        return (true, a)
+    }
+
+    /// Starts the offer: the picture (above the bar / beside her / in the chat) for `game`.
+    private func startSoundsLike(_ game: SavedGame) {
+        soundsLike = game
+        chatPicture = ChatPicture(game: game, from: realtime.transcript.count, anchor: nil, live: true)
+    }
+
+    /// Ends the offer (answered, tapped, or the game reset): the chat's picture freezes where it is, inert.
+    private func endSoundsLike() {
+        soundsLike = nil
+        guard var p = chatPicture, p.live else { return }
+        p.anchor = ChatPicturePlacement.anchor(in: realtime.transcript, from: p.from, title: p.game.title)
+        p.live = false
+        chatPicture = p
+    }
 
     /// At the Pick confirm's yes (before anything is made or counted): a close saved game (on-device word match, no AI
     /// call) shows its card and she asks. Returns the tool output, or nil to confirm as usual.
@@ -1854,7 +1894,7 @@ final class AppModel {
         soundsLikeAskedFor = store.gameID
         guard let match = GameMatch.closest(gameType: store.gameType, title: store.currentTitle, in: savedGames.list()) else { return nil }
         rtLog("SOUNDS LIKE: \"\(store.currentTitle)\" is close to a saved game (\(match.title)): asking")
-        soundsLike = match
+        startSoundsLike(match)
         let line = ShelfLines.soundsLike(title: match.title)
         speaker.remember(line)
         Task { @MainActor in
@@ -1869,8 +1909,13 @@ final class AppModel {
     /// `-PTDemo soundsLike`: the card for the closest saved game (else the first on the shelf), no voice.
     func debugSoundsLike() {
         refreshShelf()
-        soundsLike = GameMatch.closest(gameType: store.gameType, title: store.currentTitle, in: shelfGames) ?? shelfGames.first
-        rtLog("SOUNDS LIKE (demo): \(soundsLike?.title ?? "no saved game")")
+        guard let g = GameMatch.closest(gameType: store.gameType, title: store.currentTitle, in: shelfGames) ?? shelfGames.first else {
+            rtLog("SOUNDS LIKE (demo): no saved game"); return
+        }
+        startSoundsLike(g)
+        // Her line in the chat (no voice in demo mode), so the picture has its spot after it.
+        realtime.debugAppendNutmeg(ShelfLines.soundsLike(title: g.title))
+        rtLog("SOUNDS LIKE (demo): \(g.title)")
     }
     #endif
 
@@ -1878,7 +1923,7 @@ final class AppModel {
     /// with an active pass (saved game page round: replays need a pass).
     func chooseSavedInstead() {
         guard let g = soundsLike else { return }
-        soundsLike = nil
+        endSoundsLike()
         rtLog("SOUNDS LIKE: the kids picked their saved game")
         clipStore.reset()
         playSavedGame(g)
@@ -1887,7 +1932,7 @@ final class AppModel {
     /// The kids said (or typed) "make a new one": their yes to the recap stands, the roles come next.
     func chooseNewGame(kidLine: String = "Let's make a new one!") {
         guard soundsLike != nil else { return }
-        soundsLike = nil
+        endSoundsLike()
         userAction(.confirmYes)
         rtLog("SOUNDS LIKE: the kids want a new game")
         Task { @MainActor in

@@ -102,7 +102,9 @@ struct PTSoundsLikeOffer: View {
     let cover: UIImage?
     /// The most room the picture may take; it is aspect-fitted inside.
     let box: CGSize
-    let onReplay: () -> Void
+    /// Tapping plays the saved game. nil (2026-11-18 follow-up): a stale picture left in the chat's history after
+    /// the offer ended: just a picture, a tap does nothing.
+    let onReplay: (() -> Void)?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var shown = false
 
@@ -117,7 +119,26 @@ struct PTSoundsLikeOffer: View {
         let aspect = cover.map { $0.size.width / max($0.size.height, 1) } ?? 1.5
         let size = Self.fitted(aspect, in: box)
         let shape = RoundedRectangle(cornerRadius: min(size.width, size.height) * 0.1, style: .continuous)
-        Button(action: onReplay) {
+        Group {
+            if let onReplay {
+                Button(action: onReplay) { picture(size: size, shape: shape) }
+                    .buttonStyle(TileButtonStyle())
+                    .accessibilityLabel("Play \(game.title)")
+                    .accessibilityIdentifier("soundsLike.replay")
+            } else {
+                picture(size: size, shape: shape)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(game.title)
+                    .accessibilityAddTraits(.isImage)
+                    .accessibilityIdentifier("soundsLike.picture")
+            }
+        }
+        .scaleEffect(shown ? 1 : 0.9)
+        .opacity(shown ? 1 : 0)
+        .onAppear { withAnimation(reduceMotion ? .easeOut(duration: 0.2) : .spring(response: 0.35, dampingFraction: 0.75)) { shown = true } }
+    }
+
+    private func picture(size: CGSize, shape: RoundedRectangle) -> some View {
             ZStack {
                 if let cover {
                     Image(uiImage: cover).resizable().scaledToFit()
@@ -139,13 +160,6 @@ struct PTSoundsLikeOffer: View {
             .contentShape(shape)
             .shadow(color: .black.opacity(0.10), radius: 3, y: 1)
             .shadow(color: .black.opacity(0.16), radius: 14, y: 6)
-        }
-        .buttonStyle(TileButtonStyle())
-        .accessibilityLabel("Play \(game.title)")
-        .accessibilityIdentifier("soundsLike.replay")
-        .scaleEffect(shown ? 1 : 0.9)
-        .opacity(shown ? 1 : 0)
-        .onAppear { withAnimation(reduceMotion ? .easeOut(duration: 0.2) : .spring(response: 0.35, dampingFraction: 0.75)) { shown = true } }
     }
 }
 
