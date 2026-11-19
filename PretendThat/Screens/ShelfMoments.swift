@@ -91,30 +91,39 @@ struct PTShelfMomentView: View {
 }
 
 /// "We already have <title> saved! Do you want to play that one, or make a new game?" (2026-11-18, Haylee: "All I
-/// wanted is the picture. No buttons."). Only the saved game's cover picture, just above the control bar (never over
-/// the mic, Repeat or chat buttons): no card behind it, no ▶, no title, no "New game" button, no words. Nutmeg asks out
-/// loud; the kids answer by voice or typing (`SavedOrNew`). Claude's call: tapping the picture itself still plays the
-/// saved game, a quiet shortcut with nothing that looks like a button.
+/// wanted is the picture. No buttons."). Only the saved game's cover picture: no card behind it, no ▶, no title, no
+/// "New game" button, no words. Nutmeg asks out loud; the kids answer by voice or typing (`SavedOrNew`). Claude's call:
+/// tapping the picture itself still plays the saved game, a quiet shortcut with nothing that looks like a button.
+/// Round 2 (Haylee): the WHOLE cover shows (its own aspect ratio, fitted into `box`, never cropped); a game with no
+/// drawn cover shows its props on cream (3:2), also uncropped. Where it sits is the caller's: just above the control
+/// bar on the iPhone, beside Nutmeg on the iPad.
 struct PTSoundsLikeOffer: View {
     let game: SavedGame
     let cover: UIImage?
+    /// The most room the picture may take; it is aspect-fitted inside.
+    let box: CGSize
     let onReplay: () -> Void
-    @Environment(\.layoutMetrics) private var metrics
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var shown = false
 
+    /// The picture's size: the cover's own aspect ratio (3:2 for the props fallback) fitted inside `box`.
+    static func fitted(_ aspect: CGFloat, in box: CGSize) -> CGSize {
+        let a = aspect > 0 && aspect.isFinite ? aspect : 1.5
+        let w = min(box.width, box.height * a)
+        return CGSize(width: max(w, 1), height: max(w / a, 1))
+    }
+
     var body: some View {
-        let w: CGFloat = metrics.isPhone ? 240 : 340
-        let size = CGSize(width: w, height: w * 2 / 3)
-        let shape = RoundedRectangle(cornerRadius: size.height * 0.1, style: .continuous)
+        let aspect = cover.map { $0.size.width / max($0.size.height, 1) } ?? 1.5
+        let size = Self.fitted(aspect, in: box)
+        let shape = RoundedRectangle(cornerRadius: min(size.width, size.height) * 0.1, style: .continuous)
         Button(action: onReplay) {
             ZStack {
-                shape.fill(Theme.cream)
                 if let cover {
-                    Image(uiImage: cover).resizable().scaledToFill()
-                        .frame(width: size.width, height: size.height)
+                    Image(uiImage: cover).resizable().scaledToFit()
                 } else {
-                    // No cover drawn for that game: its props, like its spot on the bookshelf.
+                    // No cover drawn for that game: its props on cream, like its spot on the bookshelf.
+                    shape.fill(Theme.cream)
                     HStack(spacing: size.width * 0.03) {
                         ForEach(game.coverProps, id: \.self) { id in
                             if let img = UIImage(named: PropLibrary.asset(id)) {
@@ -134,7 +143,7 @@ struct PTSoundsLikeOffer: View {
         .buttonStyle(TileButtonStyle())
         .accessibilityLabel("Play \(game.title)")
         .accessibilityIdentifier("soundsLike.replay")
-        .scaleEffect(shown ? 1 : 0.9, anchor: .bottom)
+        .scaleEffect(shown ? 1 : 0.9)
         .opacity(shown ? 1 : 0)
         .onAppear { withAnimation(reduceMotion ? .easeOut(duration: 0.2) : .spring(response: 0.35, dampingFraction: 0.75)) { shown = true } }
     }

@@ -209,10 +209,13 @@ struct RootView: View {
                     .zIndex(19)
             }
             // Round 39: "sounds like a game you have" (Pick confirm). 2026-11-18 (Haylee's device testing): only the saved
-            // game's picture, just above the control bar, never over it (the mic stays free for a spoken answer). Hidden while the iPhone's chat
-            // shelf takes the bottom (her question stands; closing the chat brings it back).
-            if let g = model.soundsLike, !(metrics.isPhone && chatOpen) {
-                PTSoundsLikeOffer(game: g, cover: model.cover(for: g), onReplay: { model.chooseSavedInstead() })
+            // game's picture. iPhone: just above the control bar, never over it (the mic stays free for a spoken answer);
+            // hidden while the chat shelf takes the bottom (her question stands; closing the chat brings it back). iPad:
+            // beside Nutmeg on the stage (`padSoundsLike`); this bottom spot only while the iPad's chat panel is open.
+            if let g = model.soundsLike, metrics.isPhone ? !chatOpen : (chatOpen && chromeVisible) {
+                PTSoundsLikeOffer(game: g, cover: model.cover(for: g),
+                                  box: metrics.isPhone ? CGSize(width: 240, height: 240) : CGSize(width: 220, height: 200),
+                                  onReplay: { model.chooseSavedInstead() })
                     .padding(.bottom, metrics.pillBottom + metrics.pillHeight + (metrics.isPhone ? Theme.Space.s : Theme.Space.m))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                     .ignoresSafeArea(.keyboard)
@@ -459,6 +462,23 @@ struct RootView: View {
 
     // MARK: The shared stage (every phase)
 
+    /// 2026-11-18 round 2 (Haylee): on the iPad the saved game's picture sits BESIDE Nutmeg, in the empty stage right
+    /// of her face (below her right ear, left of the curtain), never over her face or the control bar. The whole
+    /// cover, aspect-fitted into that zone.
+    @ViewBuilder
+    private func padSoundsLike(_ saved: SavedGame, _ g: PTStageGeometry, _ L: PTStageCamera.Layout) -> some View {
+        // Her right cheek and the bottom of her right ear, canvas px (measured on the close-up: cheek ~x 950, ear ~y 480).
+        let x0 = L.origin.x + 960 * L.k + Theme.Space.m
+        let x1 = g.size.width - curtainInset(g) - Theme.Space.m
+        let y0 = max(g.free.minY, L.origin.y + 490 * L.k)
+        let y1 = g.size.height - g.bottomInset - Theme.Space.m
+        let box = CGSize(width: max(140, x1 - x0), height: max(140, min(y1 - y0, 340)))
+        PTSoundsLikeOffer(game: saved, cover: model.cover(for: saved), box: box, onReplay: { model.chooseSavedInstead() })
+            .frame(width: box.width, height: box.height, alignment: .top)
+            .position(x: x0 + box.width / 2, y: y0 + box.height / 2)
+            .transition(.opacity)
+    }
+
     private var sharedStage: some View {
         PTStageView(referenceSize: rootSize == .zero ? nil : rootSize,
                     screenSize: screenSize == .zero ? nil : screenSize,
@@ -479,6 +499,9 @@ struct RootView: View {
             if metrics.isPhone {
                 phoneOverlay(g, L)
             } else if model.inConversation {
+                if let saved = model.soundsLike, !(chatOpen && chromeVisible) {
+                    padSoundsLike(saved, g, L)
+                }
                 if huntOnStage {
                     // Hidden while she writes in the close shot (the cards are laid out for the hunt's medium shot).
                     PTPropHuntStage(items: stageItems, geometry: g, nutmeg: L, curtainInset: curtainInset(g), namespace: huntSpace,
