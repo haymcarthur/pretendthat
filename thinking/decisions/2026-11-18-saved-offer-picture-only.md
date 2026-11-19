@@ -30,3 +30,12 @@ Haylee wanted the picture alone. The buttons and words made it look like a dialo
   - The iPad shots are landscape because the app is landscape-only on the iPad. The simulator saved them sideways, so they were turned upright afterwards.
   - The shots use `-PTSkipAuth`, so the mic shows the gray "no permission" look. That is the screenshot setup, not this change.
 - Round 1 shots (3:2 crop, iPad over her chin): `/tmp/pt-soundslike-v2/`.
+
+## Follow-up: chat panel open → picture shows in the chat panel (Haylee, 2026-11-18)
+- **Haylee:** when the chat panel is open, the picture is an item in the conversation, right after Nutmeg's "play it again?" line, instead of above the control bar. The rule is the same on every device: **chat open → in the chat; chat closed → iPad beside Nutmeg, iPhone above the bar.** It never shows in two places.
+- Same picture rules: no buttons, the whole cover (aspect-fit, rounded corners, soft shadow), tap plays the saved game. It sits on Nutmeg's side of the chat, fitted in 260 × 260 pt.
+- This replaces "iPad with the chat panel open: back above the control bar" and "iPhone: hidden while the chat shelf is open" above.
+- **Claude's calls:**
+  - Where exactly: after the newest Nutmeg line (from the offer on) that names the saved game (`ChatPicturePlacement`, NutmegCore). Her line streams in, so until it shows up the picture sits at the end. After an unclear answer her "Do you want to play <title> again…?" line is newer, so the one picture moves after it.
+  - **When the offer ends** (they pick the saved game, say "new game", or the game resets), the picture stays in the chat history where it was, as a plain picture. Tapping it does nothing (no button any more; VoiceOver reads only the title). If the chat is cleared, it goes too. In memory only, like the transcript.
+- Verified: `swift test` 741 tests pass; app builds. Demo-mode shots (no API keys, $0) on throwaway simulators (iPhone 17 Pro, iPad Pro 11" M5), deleted afterwards: `/tmp/pt-saved-offer/` (1 iPhone chat closed, 2 iPad chat closed, 3 iPad chat open, 4 iPhone chat open). `-PTDemo soundsLike` (+ `-PTChat` for the chat-open shots) now also puts her offer line in the chat.

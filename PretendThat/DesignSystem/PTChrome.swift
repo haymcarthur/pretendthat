@@ -440,6 +440,12 @@ struct PTChatPanel: View {
     /// she stays on screen while she talks (`header`), and its bottom keeps clear of the control pill.
     var header: AnyView? = nil
     var bottomClearance: CGFloat = 0
+    /// 2026-11-18 follow-up (Haylee): a picture in the conversation (the saved game's cover while she asks "play it
+    /// again?"), on her side, right after line `after` (nil: after the last line). `key` changes scroll it into view.
+    struct Picture { let after: UUID?; let key: String; let view: AnyView }
+    var picture: Picture? = nil
+    /// The most room a chat picture may take (it is aspect-fitted inside): her bubble's width.
+    static let pictureBox = CGSize(width: 260, height: 260)
     @Environment(\.layoutMetrics) private var metrics
     @State private var draft = ""
     @FocusState private var focused: Bool
@@ -450,7 +456,7 @@ struct PTChatPanel: View {
     /// The panel's width (round 21: the stage layer keeps an empty slot this wide while the panel is open).
     static let width: CGFloat = 360
     /// Changes when a line is added or the last line's text grows (streaming).
-    private var followKey: String { "\(lines.count)-\(lines.last?.text.count ?? 0)-\(typing)" }
+    private var followKey: String { "\(lines.count)-\(lines.last?.text.count ?? 0)-\(typing)-\(picture?.key ?? "")" }
 
     var body: some View {
         VStack(spacing: Theme.Space.s) {
@@ -523,7 +529,13 @@ struct PTChatPanel: View {
                             .font(Theme.uiFont(15, .medium)).foregroundStyle(Theme.inkMuted)
                             .frame(maxWidth: .infinity).padding(.top, Theme.Space.l)
                     }
-                    ForEach(lines) { line in bubble(line).id(line.id) }
+                    ForEach(lines) { line in
+                        bubble(line).id(line.id)
+                        if let picture, picture.after == line.id { pictureRow(picture) }
+                    }
+                    if let picture, picture.after == nil || !lines.contains(where: { $0.id == picture.after }) {
+                        pictureRow(picture)
+                    }
                     if typing {
                         HStack { PTTypingBubble(); Spacer(minLength: 40) }
                             .transition(.opacity)
@@ -579,6 +591,15 @@ struct PTChatPanel: View {
                 }
             }
         }
+    }
+
+    /// The picture on her side of the chat (left), like one of her bubbles.
+    private func pictureRow(_ picture: Picture) -> some View {
+        // A little inset so its soft shadow isn't cut off by the scroll view's edge.
+        HStack { picture.view.padding(.leading, Theme.Space.s); Spacer(minLength: 40) }
+            .padding(.vertical, Theme.Space.s)
+            .id("picture-\(picture.key)")
+            .transition(.opacity)
     }
 
     private func bubble(_ line: Line) -> some View {

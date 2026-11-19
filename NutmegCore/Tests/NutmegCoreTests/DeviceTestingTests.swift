@@ -90,6 +90,29 @@ struct DeviceTestingTests {
         #expect(!ShelfLines.soundsLikeOutput.contains("Tap the one you want"))
     }
 
+    // MARK: Saved-game picture in the chat (2026-11-18 follow-up)
+
+    @Test func chatPictureFollowsHerPlayAgainLine() {
+        typealias L = RealtimeTranscript.Line
+        let before = [L(fromNutmeg: true, text: "So it's Pet Vet in space?"), L(fromNutmeg: false, text: "Yes!")]
+        // Her line hasn't streamed in yet: the picture sits at the end.
+        #expect(ChatPicturePlacement.anchor(in: before, from: 2, title: "Pet Vet") == before[1].id)
+        #expect(ChatPicturePlacement.anchor(in: [], from: 0, title: "Pet Vet") == nil)
+        // Her offer line lands: the picture follows it, and the kid's answer comes after the picture.
+        let ask = L(fromNutmeg: true, text: ShelfLines.soundsLike(title: "Pet Vet"))
+        let kid = L(fromNutmeg: false, text: "Hmm")
+        #expect(ChatPicturePlacement.anchor(in: before + [ask, kid], from: 2, title: "Pet Vet") == ask.id)
+        // Unclear answer: her "play again?" line is newer, so the picture moves after it (one picture, never two).
+        let again = L(fromNutmeg: true, text: ShelfLines.soundsLikeAgain(title: "Pet Vet"))
+        #expect(ChatPicturePlacement.anchor(in: before + [ask, kid, again], from: 2, title: "Pet Vet") == again.id)
+        // A line from before the offer that names the game doesn't count (only her bubble just before it may).
+        let old = [L(fromNutmeg: true, text: "Pet Vet is fun"), L(fromNutmeg: false, text: "ok"), L(fromNutmeg: false, text: "go")]
+        #expect(ChatPicturePlacement.anchor(in: old, from: 3, title: "Pet Vet") == old[2].id)
+        // Her offer joined her last bubble (no new line): that bubble counts. Case doesn't matter.
+        let merged = [L(fromNutmeg: false, text: "yes"), L(fromNutmeg: true, text: "Great! We already have pet vet saved!")]
+        #expect(ChatPicturePlacement.anchor(in: merged, from: 2, title: "Pet Vet") == merged[1].id)
+    }
+
     // MARK: Play: she looks up while she talks
 
     @Test func sheLooksUpWhileSpeakingAndDownAfter() {

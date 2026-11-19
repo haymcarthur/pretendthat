@@ -31,6 +31,24 @@ public enum ShelfLines {
     }
 }
 
+/// 2026-11-18 follow-up (Haylee): with the chat panel open, the saved game's picture is an item IN the chat, right
+/// after Nutmeg's "play it again?" line. Her line streams in after the offer starts (and may join her bubble), so the
+/// picture follows the newest of her lines (from the offer on) that names the saved game; until that line shows up, it
+/// sits at the end. When the offer ends, the app freezes this anchor so the picture stays put in the history.
+public enum ChatPicturePlacement {
+    /// The id of the line the picture follows, or nil for "at the end" (no line yet). `from` is how many lines the
+    /// chat had when the offer started; the line just before it counts too (her words may join her last bubble).
+    public static func anchor(in lines: [RealtimeTranscript.Line], from: Int, title: String) -> UUID? {
+        guard !lines.isEmpty else { return nil }
+        let start = min(max(0, from - 1), lines.count)
+        let t = title.lowercased()
+        if !t.isEmpty, let i = lines[start...].lastIndex(where: { $0.fromNutmeg && $0.text.lowercased().contains(t) }) {
+            return lines[i].id
+        }
+        return lines.last?.id
+    }
+}
+
 /// "Sounds like a game you have" (Haylee): an on-device match of the new game's type + theme against the saved games'
 /// titles. No AI call. A saved game only has its title (game + twist in one), so the rule is word based:
 /// - the game type's words (set_game, e.g. "Pizza Restaurant") must all be in the saved title, and

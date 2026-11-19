@@ -128,7 +128,7 @@ struct RootView: View {
                                 onClose: { chatOpen = false },
                                 pinnedKey: pinnedKey, pinned: pinnedCard, typing: model.realtime.thinkingGap,
                                 tab: tabbed ? Binding(get: { chatTabs.tab }, set: { chatTabs.select($0) }) : nil,
-                                stepTab: stepTab ?? .scene)
+                                stepTab: stepTab ?? .scene, picture: chatPicture)
                         .padding([.vertical, .trailing], Theme.Space.m)
                         .transition(.move(edge: .trailing).combined(with: .opacity))
                 }
@@ -211,10 +211,10 @@ struct RootView: View {
             // Round 39: "sounds like a game you have" (Pick confirm). 2026-11-18 (Haylee's device testing): only the saved
             // game's picture. iPhone: just above the control bar, never over it (the mic stays free for a spoken answer);
             // hidden while the chat shelf takes the bottom (her question stands; closing the chat brings it back). iPad:
-            // beside Nutmeg on the stage (`padSoundsLike`); this bottom spot only while the iPad's chat panel is open.
-            if let g = model.soundsLike, metrics.isPhone ? !chatOpen : (chatOpen && chromeVisible) {
-                PTSoundsLikeOffer(game: g, cover: model.cover(for: g),
-                                  box: metrics.isPhone ? CGSize(width: 240, height: 240) : CGSize(width: 220, height: 200),
+            // beside Nutmeg on the stage (`padSoundsLike`). 2026-11-18 follow-up (Haylee): on either device, while the
+            // chat panel is open the picture is in the chat instead (`chatPicture`), never in two places.
+            if let g = model.soundsLike, metrics.isPhone, !(chatOpen && chromeVisible) {
+                PTSoundsLikeOffer(game: g, cover: model.cover(for: g), box: CGSize(width: 240, height: 240),
                                   onReplay: { model.chooseSavedInstead() })
                     .padding(.bottom, metrics.pillBottom + metrics.pillHeight + (metrics.isPhone ? Theme.Space.s : Theme.Space.m))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
@@ -363,6 +363,19 @@ struct RootView: View {
         .background { Color.clear.onGeometryChange(for: EdgeInsets.self) { $0.safeAreaInsets } action: { if $0 != safeInsets { safeInsets = $0 } } }
     }
 
+    /// 2026-11-18 follow-up (Haylee): the saved game's picture as an item in the chat, right after her "play it
+    /// again?" line. Live (tap plays it) while the offer stands; afterwards it stays in the history, inert.
+    private var chatPicture: PTChatPanel.Picture? {
+        guard let p = model.chatPicture else { return nil }
+        let place = model.chatPicturePlacement()
+        guard place.show else { return nil }
+        let live = p.live && model.soundsLike?.id == p.game.id
+        return PTChatPanel.Picture(
+            after: place.after, key: "\(p.id)-\(place.after?.uuidString ?? "end")",
+            view: AnyView(PTSoundsLikeOffer(game: p.game, cover: model.cover(for: p.game), box: PTChatPanel.pictureBox,
+                                            onReplay: live ? { model.chooseSavedInstead() } : nil)))
+    }
+
     // MARK: iPhone (portrait)
 
     /// The phone's chat shelf (round 40, Haylee): edge to edge, attached to the bottom of the screen (rounded top
@@ -377,7 +390,8 @@ struct RootView: View {
                            tab: tabbed ? Binding(get: { chatTabs.tab }, set: { chatTabs.select($0) }) : nil,
                            stepTab: stepTab ?? .scene,
                            header: AnyView(PTNutmegAvatar(model: model)),
-                           bottomClearance: keyboardUp ? 0 : safeBottom)
+                           bottomClearance: keyboardUp ? 0 : safeBottom,
+                           picture: chatPicture)
             .padding(.top, LayoutMetrics.phoneTopInset(screen: screenSize == .zero ? rootSize : screenSize, safeTop: rootTop)
                      + LayoutMetrics.phoneTopBar + Theme.Space.xs)
             .ignoresSafeArea(.container, edges: .bottom)
