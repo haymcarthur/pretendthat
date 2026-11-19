@@ -69,3 +69,7 @@
 **Ideas parked:** mini voice for the whole conversation; voice-light replays for families without a plan; iCloud sync; Season Pass extras.
 
 - (2026-11-17, round plans/printables/page) The End's bundled clip still says "This game is saved, so you can play it again later." Without a pass, playing it again needs a grown-up. Re-record with new words (suggestion: "This game is saved, so you can print it again later.")? Needs one live recording run.
+
+- (2026-11-18) **Peek right paw rim:** in the v4 art the right paw's dark top rim is hidden under the taller redrawn right paw. Fix in Figma and re-export, or leave it? (decisions/2026-11-18-peek-hands-regenerate.md)
+- (2026-11-18) **Not-ready printable:** should Nutmeg say something when a page shows "Try again"? (needs a recorded clip; decisions/2026-11-18-printables-after-lock.md)
+- (2026-11-18) **Build 4 device checks** (Haylee): idle/lock mic + taps; printables after a lock match with no built-in art.

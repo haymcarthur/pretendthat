@@ -1,0 +1,93 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nutmeg pitch test</title>
+<style>
+:root{--bg:#fffaf3;--fg:#2a1846;--mute:#6b5a85;--line:#e8dccb;--acc:#5b2a91;--tag:#fff1c9;--tagfg:#6a4a00;--tag2:#e7f3e3;--tag2fg:#24561b;--card:#fff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1b1424;--fg:#f3ecff;--mute:#b9a9d4;--line:#3a2d4d;--acc:#c9a6ff;--tag:#3d3216;--tagfg:#ffd97a;--tag2:#1e3a1b;--tag2fg:#a9e59c;--card:#241b30}}
+:root[data-theme="dark"]{--bg:#1b1424;--fg:#f3ecff;--mute:#b9a9d4;--line:#3a2d4d;--acc:#c9a6ff;--tag:#3d3216;--tagfg:#ffd97a;--tag2:#1e3a1b;--tag2fg:#a9e59c;--card:#241b30}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.45 -apple-system,system-ui,sans-serif;margin:0 auto;padding:24px 16px 48px;max-width:860px}
+h1{margin:0 0 6px;font-size:28px} h2{margin:32px 0 4px;font-size:20px} p{color:var(--mute);margin:6px 0 12px}
+.line{font-style:italic;color:var(--fg)}
+.rows{border-top:1px solid var(--line)}
+.row{display:flex;align-items:center;gap:12px;padding:10px 4px;border-bottom:1px solid var(--line)}
+.lab{flex:0 0 230px} .num{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
+.sub{font-size:13px;color:var(--mute)}
+.tag{display:inline-block;font-size:12px;font-weight:600;background:var(--tag);color:var(--tagfg);border-radius:6px;padding:1px 7px;margin-left:6px;vertical-align:3px}
+.tag.close{background:var(--tag2);color:var(--tag2fg)}
+audio{flex:1;min-width:0;height:40px}
+button{font:inherit;padding:8px 14px;border-radius:10px;border:1px solid var(--acc);background:none;color:var(--acc);cursor:pointer}
+.bar{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}
+.box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:14px 0}
+.box p{margin:4px 0;color:var(--fg)}
+.ref{background:var(--card);border:2px solid var(--acc);border-radius:12px;padding:6px 12px;margin:10px 0}
+.ref .row{border:0}
+.blind .real,.blind .tag{display:none}
+.letter{display:none} .blind .letter{display:inline}
+table{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:6px 6px;border-bottom:1px solid var(--line)} th{color:var(--mute);font-weight:600}
+.scroll{overflow-x:auto}
+@media (max-width:600px){.row{flex-wrap:wrap}.lab{flex:1 0 100%}audio{flex:1 0 100%}}
+</style></head><body>
+<h1>Nutmeg pitch test</h1>
+<p>Her live voice, raised in pitch without changing her speed, next to the greeting clip you said sounds right.</p>
+<div class="box">
+<p><b>How to use it.</b> Play "This is Nutmeg" first. Then, for each line, play down the list and find the one that sounds most like her. Note the step (for example "+5"). It's fine if your pick isn't the "closest" tag: that tag only means the middle of her pitch matches the clip.</p>
+<p><b>Blind mode</b> shuffles each line's versions and labels them with letters. Pick a letter, then tap <b>Reveal</b>.</p>
+<p>Listen for her sounding buzzy, metallic or "auto-tuned", not just for how high she is. If you can, also try it on the iPad speaker.</p>
+</div>
+
+<h2>This is Nutmeg</h2>
+<div class="ref"><div class="row"><div class="lab"><span class="num">The greeting clip</span><div class="sub">"Welcome back! What should we play today?" As the app plays it (Varispeed 1.20). Middle of her pitch: 466 Hz.</div></div><audio controls preload="auto" src="ref-greeting.m4a"></audio></div></div>
+<p class="sub">The other greeting clip is a bit lower (406 Hz), for comparison: <audio controls preload="none" src="ref-greeting-2.m4a" style="width:100%;margin-top:6px"></audio></p>
+
+<div class="bar"><button id="blind">Blind mode</button><button id="reveal" hidden>Reveal</button></div>
+
+<div id="lines"></div>
+
+<h2>What I measured</h2>
+<div class="box">
+<p><b>Where the match is.</b> Her live lines sit 5.7 to 7.8 semitones below the greeting clip (raw 249–280 Hz vs 389 Hz). One fixed raise of about <b>+6 to +7</b> matches the clip on average. Per line, the closest step was +8, +6, +7 and +6.</p>
+<p><b>Artifacts.</b> Up to +3 the raised voice measures almost like plain natural speech at that pitch. From +4 it gets cleaner than natural: the breathy noise between her harmonics drops by about 30% at +4/+5 and about 40–45% at +6 to +8. That is the usual sign of a buzzy, slightly metallic, "auto-tuned" edge. I can't hear, so this is a measurement, not a listen. Please judge it by ear. Her timing doesn't change (same length, no added delay).</p>
+<p><b>Something to know.</b> The higher steps also move her vowel sounds up (the "chipmunk" effect). At +6 on top of today's 1.20 she is at about 1.7× her natural voice in total, which is a lot. If +4 or +5 already sounds like the clip to you, that's the safer pick.</p>
+</div>
+<div class="scroll"><table id="meas"></table></div>
+
+<p class="sub">All files are level-matched (within 1 dB) so louder never wins. Made 2026-11-17 offline, with no API calls, from the A/B v2 raw recordings (full model, before Varispeed) and the greeting clip shipped in the app. Rendered with the same Apple audio units the app uses: Varispeed 1.20, then TimePitch for the extra pitch. Notes: thinking/research/2026-11-17-voice-pitch-test.md.</p>
+
+<script>
+const LINES=[
+ {id:"02",title:"Line 1: a prop line",text:"First, can you find a pot? It'll be the mixing bowl! The Pizza Chef stirs the sauce in it. Tap the green check when you find it, or the X if you don't have one!",match:7.8,close:"p8",
+  hz:{today:301,p2:335,p3:359,p4:379,p5:402,p6:427,p7:452,p8:480,match:469}},
+ {id:"06",title:"Line 2: a question",text:"How many friends are playing this time? Tell me!",match:5.7,close:"p6",
+  hz:{today:338,p2:372,p3:400,p4:432,p5:450,p6:482,p7:510,p8:539,match:473}},
+ {id:"07",title:"Line 3: The End",text:"The end! What a show! Take a bow! Tap the star to save it, or the house to go home!",match:6.9,close:"p7",
+  hz:{today:316,p2:354,p3:375,p4:400,p5:421,p6:448,p7:472,p8:500,match:469}},
+ {id:"08",title:"Line 4: nothing heard",text:"Hmm, I didn't catch that. Hold the red button and tell me again!",match:6.3,close:"p6",
+  hz:{today:326,p2:365,p3:384,p4:409,p5:434,p6:468,p7:487,p8:517,match:471}}
+];
+const STEPS=[["today","Today","1.20 only, no extra pitch"],["p2","+2",""],["p3","+3",""],["p4","+4",""],["p5","+5",""],["p6","+6",""],["p7","+7",""],["p8","+8",""],["match","Per-line match","nudged to the clip's pitch"]];
+const LETTERS="ABCDEFGHI";
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function build(blind){
+  document.getElementById("lines").innerHTML=LINES.map(L=>{
+    const rows=blind?shuffle(STEPS.slice()):STEPS;
+    return `<h2>${L.title}</h2><p class="line">"${L.text}"</p><div class="rows">`+rows.map((s,i)=>{
+      const label=s[0]==="match"?`Per-line match (+${L.match.toFixed(1)})`:s[1];
+      const tags=(s[0]==="today"?'<span class="tag">the app today</span>':"")+(s[0]===L.close?'<span class="tag close">closest step to the clip</span>':"");
+      return `<div class="row"><div class="lab"><span class="num"><span class="letter">${LETTERS[i]}</span><span class="real">${blind?" = ":""}${label}</span></span>${tags}<div class="sub real">${s[2]?s[2]+", ":""}${L.hz[s[0]]} Hz</div></div><audio controls preload="none" src="${L.id}-${s[0]}.m4a"></audio></div>`;
+    }).join("")+"</div>";
+  }).join("");
+}
+function table(){
+  let h="<tr><th>Line</th><th>Today</th>"+STEPS.slice(1,8).map(s=>`<th>${s[1]}</th>`).join("")+"<th>Match</th></tr>";
+  h+=LINES.map(L=>`<tr><td>${L.title.split(":")[0]}</td>`+STEPS.map(s=>`<td${s[0]===L.close?' style="font-weight:700"':""}>${L.hz[s[0]]}</td>`).join("")+"</tr>").join("");
+  h+=`<tr><td colspan="10" class="sub">Middle (median) pitch in Hz as heard. The clip is 466 Hz. Bold = closest step.</td></tr>`;
+  document.getElementById("meas").innerHTML=h;
+}
+build(false); table();
+const blindBtn=document.getElementById("blind"),reveal=document.getElementById("reveal");
+blindBtn.onclick=()=>{const on=!document.body.classList.contains("blind")&&reveal.hidden;if(on){build(true);document.body.classList.add("blind");blindBtn.textContent="Leave blind mode";reveal.hidden=false;reveal.textContent="Reveal";}else{build(false);document.body.classList.remove("blind");blindBtn.textContent="Blind mode";reveal.hidden=true;}};
+reveal.onclick=()=>{document.body.classList.toggle("blind");const shown=!document.body.classList.contains("blind");reveal.textContent=shown?"Hide":"Reveal";document.querySelectorAll(".letter").forEach(e=>e.style.display=shown?"inline":"");};
+document.addEventListener("play",e=>{document.querySelectorAll("audio").forEach(a=>{if(a!==e.target)a.pause();});},true);
+</script>
+</body></html>

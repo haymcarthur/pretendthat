@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>After Cancel Screens</title>
+<!--
+  PretendThat: saved games after a family cancels their pass (design mockup, no app code).
+  Render one screen:  screens.html?s=1  (1 bookshelf, 2 game page A, 2b game page B recap, 3 Nutmeg's line,
+  4 grown-ups check, 5 grown-up card). 440x956 pt at device scale 3 = 1320x2868 (iPhone 6.9").
+  Kid side uses SF Pro Rounded (the app's Theme fonts: .rounded heavy/bold); grown-up side uses Poppins (GrownUpFont).
+-->
+<style>
+@font-face { font-family: "Kid"; src: url("file:///System/Library/Fonts/SFNSRounded.ttf"); font-weight: 100 1000; }
+@font-face { font-family: "Poppins"; src: url("fonts/Poppins-Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "Poppins"; src: url("fonts/Poppins-Medium.ttf"); font-weight: 500; }
+@font-face { font-family: "Poppins"; src: url("fonts/Poppins-SemiBold.ttf"); font-weight: 600; }
+:root {
+  /* NutmegCore BrandPalette + PretendThat/Theme/Theme.swift */
+  --coral:#FF6B5B; --coralStrong:#EE5242; --purple:#5B2A86; --purpleShade:#3F1A60;
+  --yellow:#FFC93C; --yellowShade:#E0A100; --lime:#8BD346; --limeShade:#67A82A;
+  --nutmeg:#A0623A; --cream:#FFE9CF; --creamShade:#F2CFA6; --ink:#2A1846; --inkMuted:#6E5D8A;
+  --white:#FFFFFF; --line:#E8E2F0; --lavender:#EFEAF7; --lavenderShade:#DCD3EC; --cta:#111111;
+  --chipGray:#EDEDED; --scrim:rgba(0,0,0,.45);
+  --p1:#2F6FD6; --p2:#D9650B; --p3:#0E8A75; --p4:#B8338F; --p5:#EE5242; --p6:#A0623A;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 440px; background: #fff; }
+body { font-family: "Kid", -apple-system, sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
+.screen { position: relative; width: 440px; height: 956px; overflow: hidden; background: #CDEBF5; }
+.screen.tall { height: 1640px; }
+.bg { position: absolute; inset: 0; width: 440px; height: 956px; object-fit: cover; }
+.home { position: absolute; left: 50%; bottom: 8px; width: 150px; height: 5px; margin-left: -75px; border-radius: 3px; background: #2a2a2a; z-index: 50; }
+
+/* ---------- Kid: saved game page (a sheet over the bookshelf, like "Chat with Nutmeg") ---------- */
+.sheet { position: absolute; left: 0; right: 0; top: 150px; bottom: 0; background: #fff; border-radius: 34px 34px 0 0;
+  box-shadow: 0 -4px 18px rgba(0,0,0,.10); padding: 20px 20px 34px; }
+.tall .sheet { bottom: 0; }
+.head { display: flex; align-items: center; gap: 14px; }
+.cover { width: 112px; height: 75px; border-radius: 12px; object-fit: cover; border: 3px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,.18); flex: none; }
+.head h1 { font-weight: 850; font-size: 25px; line-height: 1.1; letter-spacing: -.2px; flex: 1; }
+.iconbtn { width: 48px; height: 48px; border-radius: 50%; background: var(--chipGray); display: grid; place-items: center; flex: none; }
+
+.btn3d { position: relative; display: flex; align-items: center; justify-content: center; gap: 12px; border-radius: 999px;
+  font-weight: 850; }
+.btn-yellow { background: var(--yellow); box-shadow: 0 6px 0 var(--yellowShade); color: var(--ink); }
+.btn-black { background: var(--cta); box-shadow: 0 5px 0 #000; color: #fff; }
+.play { height: 66px; font-size: 25px; margin-top: 18px; }
+
+.label { font-weight: 800; font-size: 19px; margin-top: 26px; display: flex; align-items: baseline; justify-content: space-between; }
+.label small { font-weight: 650; font-size: 15px; color: var(--inkMuted); }
+.seg { display: flex; gap: 10px; margin-top: 10px; }
+.seg div { flex: 1; height: 54px; border-radius: 999px; display: flex; align-items: center; justify-content: center; gap: 10px;
+  font-weight: 800; font-size: 17px; border: 2px solid var(--line); background: #fff; }
+.seg .on { border: 3px solid var(--yellow); background: #FFF6E2; }
+.dots { display: flex; } .dots i { width: 16px; height: 16px; border-radius: 50%; margin-left: -5px; border: 2px solid #fff; }
+.dots i:first-child { margin-left: 0; }
+.rings i { background: #fff !important; border: 2.5px solid var(--ink); }
+
+.players { display: flex; align-items: center; justify-content: space-between; margin-top: 18px; }
+.players b { font-weight: 800; font-size: 18px; }
+.count { display: flex; gap: 6px; }
+.count span { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; font-weight: 850; font-size: 18px;
+  background: #fff; border: 2px solid var(--line); color: var(--ink); }
+.count .on { background: var(--purple); border-color: var(--purple); color: #fff; }
+.hint { font-weight: 600; font-size: 14px; color: var(--inkMuted); margin-top: 6px; text-align: right; }
+
+.pages { display: flex; gap: 14px; margin: 16px -20px 0 -6px; overflow: hidden; padding: 6px 0 10px 6px; }
+.page { position: relative; flex: none; width: 138px; height: 207px; border-radius: 8px; background: #fff;
+  box-shadow: 0 1px 2px rgba(0,0,0,.12), 0 3px 10px rgba(42,24,70,.12); overflow: hidden; }
+.page img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.page.first { outline: 3px solid var(--yellow); outline-offset: 2px; }
+.blank { position: absolute; background: #fff; }
+.tag { position: absolute; left: 6px; top: 6px; background: var(--purple); color: #fff; font-weight: 800; font-size: 11px;
+  padding: 2px 7px; border-radius: 999px; }
+.print { height: 60px; font-size: 22px; margin-top: 18px; }
+
+/* recap (alternate B) */
+.recap h3 { font-weight: 800; font-size: 19px; margin: 26px 0 10px; }
+.roles { display: flex; flex-wrap: wrap; gap: 8px; }
+.roles span { display: inline-flex; align-items: center; gap: 7px; padding: 7px 13px 7px 7px; border-radius: 999px; background: var(--lavender);
+  font-weight: 750; font-size: 16px; }
+.roles span i { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; }
+.list { border: 2px solid var(--line); border-radius: 16px; overflow: hidden; }
+.list div { padding: 11px 14px; font-weight: 650; font-size: 16px; border-top: 1.5px solid var(--line); display: flex; gap: 10px; align-items: baseline; }
+.list div:first-child { border-top: 0; }
+.list em { font-style: normal; color: var(--inkMuted); font-weight: 600; }
+.list .n { width: 24px; height: 24px; border-radius: 50%; background: var(--yellow); display: grid; place-items: center; font-weight: 850; font-size: 14px; flex: none; align-self: center; }
+.note { margin-top: 18px; padding: 14px 16px; border-radius: 16px; background: var(--lavender); font-weight: 650; font-size: 15px; color: var(--ink); line-height: 1.35; }
+
+/* ---------- Kid: Nutmeg's line ---------- */
+.scrim { position: absolute; inset: 0; background: var(--scrim); }
+.bubble { position: absolute; left: 24px; right: 24px; top: 388px; background: #fff; border-radius: 30px; padding: 26px 24px 24px;
+  box-shadow: 0 8px 30px rgba(0,0,0,.18); }
+.bubble::after { content: ""; position: absolute; left: 110px; bottom: -24px; border: 16px solid transparent; border-top: 22px solid #fff; border-bottom: 0;
+  transform: skewX(-18deg); }
+.bubble .cov { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.bubble .cov img { width: 84px; height: 56px; border-radius: 10px; object-fit: cover; border: 2.5px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.18); }
+.bubble .cov span { font-weight: 800; font-size: 15px; color: var(--inkMuted); }
+.bubble p { font-weight: 800; font-size: 27px; line-height: 1.22; letter-spacing: -.2px; }
+.bubble .row { display: flex; gap: 12px; margin-top: 22px; }
+.okbtn { flex: none; min-width: 108px; height: 58px; border-radius: 999px; border: 2px solid rgba(91,42,134,.5); color: var(--purple);
+  display: grid; place-items: center; font-weight: 800; font-size: 21px; }
+.gubtn { flex: 1; height: 58px; font-size: 21px; }
+.nutmeg { position: absolute; left: 8px; bottom: 22px; width: 228px; }
+.speaker { position: absolute; right: 28px; bottom: 120px; width: 72px; height: 72px; border-radius: 50%; background: #fff; display: grid; place-items: center;
+  box-shadow: 0 4px 0 var(--lavenderShade); }
+
+/* ---------- Grown-up sheet (iOS page sheet, Poppins) ---------- */
+.behind { position: absolute; left: 16px; right: 16px; top: 56px; height: 956px; border-radius: 26px; overflow: hidden; opacity: .9; }
+.behind img { width: 100%; }
+.dark { position: absolute; inset: 0; background: #000; }
+.gsheet { position: absolute; left: 0; right: 0; top: 68px; bottom: 0; background: #fff; border-radius: 26px 26px 0 0; font-family: "Poppins"; }
+.toolbar { height: 56px; display: flex; align-items: center; padding: 0 20px; font-family: -apple-system, "SF Pro Text", sans-serif; font-size: 17px; color: var(--purple); }
+.gate { display: flex; flex-direction: column; align-items: center; padding: 32px 32px 0; text-align: center; }
+.lock { width: 64px; height: 64px; border-radius: 50%; background: var(--lavender); display: grid; place-items: center; }
+.gate h2 { font-weight: 600; font-size: 28px; letter-spacing: -.56px; margin-top: 32px; }
+.gate p.m { font-weight: 500; font-size: 22px; color: var(--inkMuted); margin-top: 32px; line-height: 1.35; }
+.hold { margin-top: 20px; height: 72px; border-radius: 999px; background: var(--cta); display: flex; align-items: center; gap: 12px; padding: 0 32px 0 12px; color: #fff;
+  font-weight: 600; font-size: 22px; }
+.ring { width: 44px; height: 44px; border-radius: 50%; border: 4px solid rgba(255,255,255,.25); display: grid; place-items: center; }
+
+.gcard { padding: 22px 28px 0; display: flex; flex-direction: column; align-items: center; text-align: center; }
+.gcard .bigcover { width: 300px; height: 200px; border-radius: 20px; object-fit: cover; box-shadow: 0 2px 4px rgba(0,0,0,.08), 0 8px 24px rgba(42,24,70,.16); border: 4px solid #fff; }
+.gcard .gname { font-weight: 600; font-size: 15px; color: var(--inkMuted); margin-top: 12px; }
+.gcard h2 { font-weight: 600; font-size: 30px; line-height: 1.2; letter-spacing: -.6px; margin-top: 26px; }
+.gcard p { font-weight: 400; font-size: 20px; line-height: 1.45; color: var(--ink); margin-top: 14px; }
+.gcard .yes { width: 100%; height: 60px; font-family: "Poppins"; font-weight: 600; font-size: 20px; margin-top: 34px; }
+.gcard .no { margin-top: 18px; height: 52px; display: grid; place-items: center; font-weight: 600; font-size: 20px; color: var(--purple); }
+.gcard .foot { font-size: 13px; color: var(--inkMuted); margin-top: 22px; line-height: 1.4; }
+</style>
+</head>
+<body>
+<script>
+const s = new URLSearchParams(location.search).get("s") || "2";
+const I = {
+  play: '<svg width="22" height="24" viewBox="0 0 22 24"><path d="M3 2.5v19a1.5 1.5 0 0 0 2.3 1.3l15-9.5a1.5 1.5 0 0 0 0-2.6l-15-9.5A1.5 1.5 0 0 0 3 2.5z" fill="#2A1846"/></svg>',
+  chevron: '<svg width="22" height="22" viewBox="0 0 24 24"><path d="M5 9l7 7 7-7" fill="none" stroke="#2A1846" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  printer: '<svg width="28" height="26" viewBox="0 0 28 26"><rect x="7" y="1.5" width="14" height="6" rx="1.5" fill="#fff"/><rect x="1.5" y="8" width="25" height="11" rx="3.5" fill="#fff"/><rect x="7" y="14" width="14" height="10.5" rx="1.5" fill="#fff" stroke="#111" stroke-width="2"/><rect x="10" y="17.5" width="8" height="1.8" rx=".9" fill="#111"/><rect x="10" y="20.5" width="6" height="1.8" rx=".9" fill="#111"/></svg>',
+  lock: (c, w) => `<svg width="${w}" height="${w*1.15}" viewBox="0 0 20 23"><path d="M5 10V6.5a5 5 0 0 1 10 0V10" fill="none" stroke="${c}" stroke-width="2.8"/><rect x="1.5" y="9.5" width="17" height="12.5" rx="3" fill="${c}"/></svg>`,
+  ticket: '<svg width="24" height="18" viewBox="0 0 24 18"><path d="M2 2h20v4.2a2.8 2.8 0 0 0 0 5.6V16H2v-4.2a2.8 2.8 0 0 0 0-5.6z" fill="#2A1846"/><path d="M15 3v12" stroke="#FFC93C" stroke-width="1.6" stroke-dasharray="2 2"/></svg>',
+  hand: '<svg width="20" height="22" viewBox="0 0 20 22"><path d="M7 11V3.2a1.6 1.6 0 0 1 3.2 0V9l5 .9c1.4.3 2.3 1.6 2.1 3l-.7 4.8A3.5 3.5 0 0 1 13.1 21H9.5a3.5 3.5 0 0 1-2.8-1.4l-3.6-4.8a1.5 1.5 0 0 1 2.3-1.9z" fill="none" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/></svg>',
+  speaker: '<svg width="34" height="30" viewBox="0 0 34 30"><path d="M3 10h6l8-7v24l-8-7H3z" fill="#2A1846"/><path d="M22 9a8 8 0 0 1 0 12M26 5a13 13 0 0 1 0 20" fill="none" stroke="#2A1846" stroke-width="2.6" stroke-linecap="round"/></svg>',
+  star: '<svg width="12" height="12" viewBox="0 0 24 24"><path d="M12 2l3 6.6 7.2.8-5.4 4.9 1.5 7.1L12 17.8 5.7 21.4l1.5-7.1L1.8 9.4 9 8.6z" fill="#fff"/></svg>',
+};
+
+// The badges page at the picked player count: cells after the count are left blank (the whole-page art has 6 badges).
+// Cell boxes measured on page-color-badges.png (1024x1536), in %.
+const CELLS = [[1,3,33,47],[34.3,3,32,47],[65.8,3,33.5,47],[1,49.5,33,49],[34.3,49.5,32,49],[65.8,49.5,33.5,49]];
+function badgesPage(n) {
+  return `<div class="page first"><img src="img/page-color-badges.png">${CELLS.slice(n).map(c =>
+    `<div class="blank" style="left:${c[0]}%;top:${c[1]}%;width:${c[2]}%;height:${c[3]}%"></div>`).join("")}<span class="tag">${n} badges</span></div>`;
+}
+
+function gamePage(recap) {
+  const pages = ["sign","menu","order-slips","money","cutouts"].map(p => `<div class="page"><img src="img/page-color-${p}.png"></div>`).join("");
+  return `
+  <div class="screen ${recap ? "tall" : ""}">
+    <img class="bg" src="img/bookshelf.png">
+    <div class="sheet">
+      <div class="head">
+        <img class="cover" src="img/cover-bakery-on-the-moon.png">
+        <h1>Bakery on the Moon</h1>
+        <div class="iconbtn">${I.chevron}</div>
+      </div>
+      <div class="btn3d btn-yellow play">${I.play}<span>Play with Nutmeg</span></div>
+
+      <div class="label">Printables <small>6 pages</small></div>
+      <div class="seg">
+        <div class="on"><span class="dots"><i style="background:#FF6B5B"></i><i style="background:#FFC93C"></i><i style="background:#8BD346"></i><i style="background:#5B2A86"></i></span>Color</div>
+        <div><span class="dots rings"><i></i><i></i><i></i><i></i></span>Black &amp; white</div>
+      </div>
+      <div class="players"><b>How many players?</b>
+        <div class="count">${[1,2,3,4,5,6].map(n => `<span class="${n===4?"on":""}">${n}</span>`).join("")}</div>
+      </div>
+      <div class="hint">Badges and tickets match the number of players.</div>
+      <div class="pages">${badgesPage(4)}${pages}</div>
+      <div class="btn3d btn-black print">${I.printer}<span>Print</span></div>
+      ${recap ? `
+      <div class="recap">
+        <h3>Roles</h3>
+        <div class="roles">${["Head Baker","Customer","Dough Mixer","Cake Decorator","Delivery Driver","VIP Customer"].map((r,i) =>
+          `<span><i style="background:var(--p${i+1})">${I.star}</i>${r}</span>`).join("")}</div>
+        <h3>Props from home</h3>
+        <div class="list">
+          <div>Colander <em>becomes the space helmet</em></div>
+          <div>Wagon <em>becomes the delivery truck</em></div>
+          <div>Bedsheet <em>becomes the moon floor</em></div>
+          <div>Step stool <em>becomes the serving counter</em></div>
+          <div>Paper <em>becomes the recipe sheet</em></div>
+        </div>
+        <h3>Scenes</h3>
+        <div class="list">
+          <div><span class="n">1</span>First Customers Arrive</div>
+          <div><span class="n">2</span>The Great Dough Bounce</div>
+          <div><span class="n">3</span>The Big Moon Party</div>
+        </div>
+      </div>` : ""}
+    </div>
+    <div class="home"></div>
+  </div>`;
+}
+
+const screens = {
+  "1": `<div class="screen"><img class="bg" src="img/bookshelf.png"></div>`,
+  "2": gamePage(false),
+  "2b": gamePage(true),
+  "3": `
+  <div class="screen">
+    <img class="bg" src="2-game-page-a.png">
+    <div class="scrim"></div>
+    <div class="bubble">
+      <p>Ooh, Bakery on the Moon! Let's ask a grown-up to help us play this one again.</p>
+      <div class="row">
+        <div class="okbtn">OK</div>
+        <div class="btn3d btn-yellow gubtn">${I.lock("#2A1846", 18)}<span>Grown-ups</span></div>
+      </div>
+    </div>
+    <img class="nutmeg" src="img/nutmeg-point-talking.png">
+    <div class="speaker">${I.speaker}</div>
+    <div class="home" style="background:#ddd"></div>
+  </div>`,
+  "4": `
+  <div class="screen" style="background:#000">
+    <div class="behind"><img src="2-game-page-a.png"></div>
+    <div class="dark" style="opacity:.35"></div>
+    <div class="gsheet">
+      <div class="toolbar">Close</div>
+      <div class="gate">
+        <div class="lock">${I.lock("#5B2A86", 26)}</div>
+        <h2>Grown-ups only</h2>
+        <p class="m">Press and hold the button for 2 seconds.</p>
+        <div class="hold"><div class="ring">${I.hand}</div>Hold for 2 seconds</div>
+      </div>
+    </div>
+    <div class="home"></div>
+  </div>`,
+  "5": `
+  <div class="screen" style="background:#000">
+    <div class="behind"><img src="2-game-page-a.png"></div>
+    <div class="dark" style="opacity:.35"></div>
+    <div class="gsheet">
+      <div class="toolbar">Close</div>
+      <div class="gcard">
+        <img class="bigcover" src="img/cover-bakery-on-the-moon.png">
+        <div class="gname">Bakery on the Moon</div>
+        <h2>Your saved games are still yours.</h2>
+        <p>View and print this game's kit anytime. Playing saved games with Nutmeg is part of the Show Pass and the Season Pass.</p>
+        <div class="btn3d btn-yellow yes">${I.ticket}<span>See passes</span></div>
+        <div class="no">Not now</div>
+        <div class="foot">Your 2 Free Preview games always play again with Nutmeg.</div>
+      </div>
+    </div>
+    <div class="home"></div>
+  </div>`,
+};
+document.write(screens[s]);
+if (s === "2b") document.body.style.height = "1640px";
+</script>
+</body>
+</html>

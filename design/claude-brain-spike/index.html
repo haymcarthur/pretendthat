@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Brain Spike</title>
+<style>
+  :root { --bg:#fffaf3; --fg:#2b2320; --muted:#7a6d66; --line:#eadfd3; --accent:#c0392b; --chip:#f3e7da; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#1d1a19; --fg:#f2ebe6; --muted:#a99c94; --line:#3a3330; --accent:#ff8a7a; --chip:#2c2624; } }
+  body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.5 -apple-system, system-ui, sans-serif; }
+  main { max-width:860px; margin:0 auto; padding:24px 16px 48px; }
+  h1 { font-size:24px; margin:0 0 4px; }
+  p.sub { color:var(--muted); margin:0 0 16px; }
+  audio { width:100%; margin:8px 0 16px; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; }
+  button { font:inherit; font-size:13px; padding:4px 10px; border-radius:999px; border:1px solid var(--line); background:var(--chip); color:var(--fg); cursor:pointer; white-space:nowrap; }
+  .wait { font-weight:700; color:var(--accent); white-space:nowrap; }
+  .note { color:var(--muted); font-size:13px; }
+  .box { background:var(--chip); border-radius:12px; padding:12px 14px; margin:16px 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Claude brain spike: what the wait sounds like</h1>
+  <p class="sub">2026-11-17 · one live typed game on the PT-R15 simulator · Claude Sonnet 5.5 writes Nutmeg's words and calls the tools, gpt-realtime-2.1-mini reads them (coral, Varispeed 1.20, recorded after the Varispeed like the A/B files).</p>
+
+  <div class="box">
+    The file is the speaker output in real time, so <b>the silences are the real waits</b>. The kid's turns were typed, so you don't hear them:
+    press a <b>Jump</b> button to go to 1 second before a kid's turn was sent, then count the silence until Nutmeg answers.
+    Today (gpt-realtime-2.1 deciding and speaking) these planning answers start about <b>1.2 s</b> after the kid lets go.
+  </div>
+
+  <audio id="a" controls preload="metadata" src="spike-game-planning-and-hunt.m4a"></audio>
+
+  <table>
+    <thead><tr><th></th><th>Kid (typed)</th><th>Wait</th><th>Today</th><th>What she said</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <p class="note">The first sound (0:00) is her recorded greeting clip, then her live "Maybe a restaurant or a marching band?".
+  The "found it" turns include a 10 s pause that today's build has too (the app's prop line waits for the turn to go quiet; seen in every recent game log), so compare those by the corrected number.</p>
+</main>
+<script>
+const turns = [
+  [7.25, "Can we play restaurant", "4.8 s", "~1.3 s", "Ooh, a restaurant, yum! Any twist you like! Maybe a restaurant back in time, on a snowy mountain, or in the jungle?"],
+  [24.60, "Um, I don't know", "5.5 s", "~1.2 s", "That's okay, it's tricky to pick! Should our restaurant be back in time, on a snowy mountain, or in the jungle?"],
+  [38.09, "A pizza restaurant in the jungle", "7.3 s", "~1.2 s", "Wrote: Ooh, pizza in the jungle, with monkeys and parrots! How many friends are playing? Tell me! (The mini voice read a made-up greeting instead of the first sentence: listen.)"],
+  [63.17, "There are three of us", "4.9 s", "~1.1 s", "So it's a pizza restaurant in the jungle for three friends! Say yes, or tell me what to change!"],
+  [76.21, "Do mice like cheese?", "6.0 s", "~1.2 s", "Ha, mice love cheese, especially on pizza! So it's a pizza restaurant in the jungle for three friends. Say yes, or tell me what to change!"],
+  [92.79, "Yes", "5.4 s", "~1.2 s", "Great, let me put some plans together! … We need a Pizza Chef, a Hungry Customer, and a Waiter! Now it's time to hunt for props!"],
+  [127.62, "found it", "14.7 s (4.1 s without the app pause)", "~12 s (~2.3 s)", "App line: Woo-hoo! Now let's look for a baking sheet…"],
+  [151.79, "found it", "15.2 s (4.6 s)", "~12 s (~2.3 s)", "App line: Awesome! Can you find a hat?…"],
+  [175.99, "I can't find it", "5.2 s", "~2.3 s", "No problem! How about a scarf? You can tie it on your head like a chef's headband! Can you find one?"],
+  [190.06, "found it", "17.4 s (6.8 s)", "~12 s (~2.3 s)", "App line: Yay! Ooh, a chair would make a great customers' jungle seat!…"],
+  [218.67, "found it", "15.1 s (4.4 s)", "~12 s (~2.3 s)", "App line: Great job! Now let's look for a plastic plate…"],
+  [242.50, "found it (last prop)", "3.2 s", "~1.4 s", "App line: Ooh, let me make your kit! Wait for it..."]
+];
+const a = document.getElementById('a'), rows = document.getElementById('rows');
+const fmt = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+for (const [t, kid, wait, today, said] of turns) {
+  const tr = document.createElement('tr');
+  const b = document.createElement('button');
+  b.textContent = 'Jump ' + fmt(t);
+  b.onclick = () => { a.currentTime = Math.max(0, t - 1); a.play(); };
+  const c0 = document.createElement('td'); c0.append(b);
+  const cells = [kid, wait, today, said].map((x, i) => { const td = document.createElement('td'); td.textContent = x; if (i === 1) td.className = 'wait'; return td; });
+  tr.append(c0, ...cells); rows.append(tr);
+}
+</script>
+</body>
+</html>

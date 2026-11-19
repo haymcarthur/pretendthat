@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Onboarding v2 Mockups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --coral:#FF6B5B; --coralStrong:#EE5242; --coralShade:#C23B2D;
+  --purple:#5B2A86; --purpleShade:#3F1A60;
+  --yellow:#FFC93C; --yellowShade:#E0A100;
+  --lime:#8BD346; --limeShade:#67A82A; --limeTint:#E3F5D0;
+  --nutmeg:#A0623A; --cream:#FFE9CF; --creamShade:#F2CFA6;
+  --ink:#2A1846; --inkMuted:#6E5D8A; --line:#E8E2F0;
+  --sky:#CDEBF5; --floor:#EBC29A; --floorEdge:#D9A97B;
+  --paper:#FFFBF5; --lavender:#EFEAF7; --micRed:#D93025;
+  --page:#EDE8F3;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--page);font-family:ui-rounded,"SF Pro Rounded","Nunito",system-ui,sans-serif;color:var(--ink);padding:56px 16px 80px}
+.doc-head{max-width:1290px;margin:0 auto 40px}
+.doc-head h1{font-size:40px;font-weight:900}
+.doc-head p{font-size:19px;color:var(--inkMuted);font-weight:700;margin-top:8px;max-width:900px;line-height:1.4}
+.section-label{max-width:1290px;margin:24px auto 24px;font-size:15px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--purple)}
+.flow{display:flex;flex-direction:column;align-items:center;gap:64px}
+figure{display:flex;flex-direction:column;align-items:center;gap:18px}
+figcaption{max-width:1194px;width:100%;font-size:18px;line-height:1.45;color:var(--inkMuted);font-weight:700}
+figcaption b{color:var(--ink);font-weight:900}
+
+/* iPad frame */
+.ipad{background:#1d1b22;border-radius:56px;padding:28px;box-shadow:0 30px 60px rgba(42,24,70,.18)}
+.screen{width:1194px;height:834px;border-radius:30px;overflow:hidden;position:relative;background:var(--paper)}
+
+/* status bar */
+.status{position:absolute;top:0;left:0;right:0;height:24px;display:flex;justify-content:space-between;padding:6px 22px 0;font-size:13px;font-weight:800;color:var(--ink);z-index:5}
+
+/* split layout */
+.split{position:absolute;inset:0;display:flex;padding:24px 24px 24px 24px;gap:0}
+.art{position:relative;width:560px;flex:none;border-radius:40px;background:var(--sky);overflow:hidden}
+.art.cream{background:#FFF1DE}
+.art.lav{background:var(--lavender)}
+.art .valance{position:absolute;top:-14px;left:0;right:0;height:110px;background:url(img/stage-valance.svg) no-repeat;background-size:100% auto;z-index:2}
+.art .curtL,.art .curtR{position:absolute;top:30px;width:150px;height:282px;background-size:100% 100%;z-index:1}
+.art .curtL{left:-46px;background-image:url(img/stage-curtain-left.svg)}
+.art .curtR{right:-46px;background-image:url(img/stage-curtain-right.svg)}
+.art .floor{position:absolute;left:50%;bottom:58px;width:440px;height:104px;transform:translateX(-50%);border-radius:50%;background:var(--floor);box-shadow:0 12px 0 var(--floorEdge)}
+.art .glow{position:absolute;left:50%;top:110px;width:420px;height:420px;transform:translateX(-50%);border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.75) 0,rgba(255,255,255,0) 68%)}
+.nut{position:absolute;left:50%;transform:translateX(-50%);z-index:3}
+.deco{position:absolute;z-index:3}
+
+.text{flex:1;display:flex;flex-direction:column;padding:28px 40px 20px 64px;position:relative}
+.topbar{display:flex;align-items:center;justify-content:space-between;height:64px}
+.back{width:64px;height:64px;border-radius:50%;background:#fff;border:3px solid var(--line);display:grid;place-items:center}
+.back svg{width:26px;height:26px}
+.back.hidden{visibility:hidden}
+.dots{display:flex;gap:10px;align-items:center}
+.dots i{width:12px;height:12px;border-radius:6px;background:#DAD2E6}
+.dots i.done{background:#B9A6D3}
+.dots i.on{width:36px;background:var(--purple)}
+.body{flex:1;display:flex;flex-direction:column;justify-content:center}
+.eyebrow{display:inline-flex;align-self:flex-start;align-items:center;gap:8px;background:var(--lavender);color:var(--purple);font-weight:900;font-size:16px;letter-spacing:.06em;text-transform:uppercase;padding:9px 16px;border-radius:999px;margin-bottom:22px}
+h2{font-size:58px;line-height:1.04;font-weight:900;letter-spacing:-.01em}
+h2.m{font-size:48px}
+.lead{font-size:25px;line-height:1.38;font-weight:700;color:var(--inkMuted);margin-top:18px;max-width:500px}
+.actions{display:flex;flex-direction:column;gap:8px}
+.btn{height:88px;border-radius:24px;background:var(--coralStrong);box-shadow:0 6px 0 var(--coralShade);color:#fff;font-size:27px;font-weight:900;display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:6px}
+.btn svg{width:28px;height:28px}
+.btn.purple{background:var(--purple);box-shadow:0 6px 0 var(--purpleShade)}
+.btn2{height:64px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:var(--purple)}
+.btn2.quiet{border:3px solid var(--line);border-radius:22px;background:#fff;height:76px;box-shadow:0 4px 0 var(--line)}
+.fine{font-size:16px;font-weight:700;color:var(--inkMuted);text-align:center;margin-top:6px}
+
+/* gate */
+.hold{margin-top:40px;height:120px;border-radius:30px;background:#fff;border:3px solid var(--line);position:relative;overflow:hidden;display:flex;align-items:center;gap:20px;padding:0 28px;box-shadow:0 5px 0 var(--line)}
+.hold .fill{position:absolute;left:0;top:0;bottom:0;width:62%;background:#FFE1DC}
+.hold .ico{position:relative;width:72px;height:72px;border-radius:50%;background:var(--coralStrong);display:grid;place-items:center;box-shadow:0 5px 0 var(--coralShade)}
+.hold .lbl{position:relative;font-size:26px;font-weight:900}
+.hold .lbl small{display:block;font-size:18px;color:var(--inkMuted);font-weight:700}
+.hold.done{border-color:var(--lime);box-shadow:0 5px 0 var(--limeShade);background:var(--limeTint)}
+.ask{margin-top:34px;font-size:26px;font-weight:800}
+.ask b{font-weight:900;color:var(--purple)}
+.nums{display:flex;gap:16px;margin-top:16px}
+.num{width:108px;height:108px;border-radius:26px;background:#fff;border:3px solid var(--line);box-shadow:0 5px 0 var(--line);display:grid;place-items:center;font-size:48px;font-weight:900}
+
+/* full-width how-it-works */
+.full{position:absolute;inset:0;padding:52px 48px 40px;display:flex;flex-direction:column}
+.full .topbar{position:absolute;top:40px;left:48px;right:48px}
+.full .head{text-align:center;margin-top:36px}
+.full .head h2{font-size:52px}
+.full .head .lead{margin:12px auto 0;max-width:720px}
+.steps{display:flex;gap:22px;margin-top:40px;flex:1;align-items:stretch}
+.step{flex:1;background:#fff;border:3px solid var(--line);border-radius:32px;box-shadow:0 5px 0 var(--line);display:flex;flex-direction:column;align-items:center;padding:20px 18px 24px;text-align:center}
+.step .pic{width:100%;height:230px;border-radius:24px;position:relative;display:grid;place-items:center;overflow:hidden}
+.step .n{position:absolute;top:12px;left:12px;width:40px;height:40px;border-radius:50%;background:#fff;font-weight:900;font-size:20px;display:grid;place-items:center;color:var(--purple)}
+.step h3{font-size:34px;font-weight:900;margin-top:18px}
+.step p{font-size:21px;line-height:1.35;font-weight:700;color:var(--inkMuted);margin-top:6px}
+.full .actions{flex-direction:row;justify-content:center;margin-top:28px}
+.full .btn{width:420px}
+
+/* needs grid */
+.needs{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:30px}
+.need{background:#fff;border:3px solid var(--line);border-radius:26px;padding:16px 14px;display:flex;align-items:center;gap:16px;box-shadow:0 4px 0 var(--line)}
+.need .ic{width:60px;height:60px;border-radius:20px;flex:none;display:grid;place-items:center}
+.need .ic img,.need .ic svg{max-width:48px;max-height:44px}
+.need b{font-size:21px;font-weight:900;display:block;white-space:nowrap}
+.need span{white-space:nowrap;font-size:17px;font-weight:700;color:var(--inkMuted)}
+
+/* privacy list */
+.plist{list-style:none;margin-top:24px;display:flex;flex-direction:column;gap:14px}
+.plist li{display:flex;gap:14px;align-items:flex-start;font-size:20px;line-height:1.35;font-weight:700;color:var(--ink)}
+.plist .ck{width:34px;height:34px;flex:none;border-radius:50%;background:var(--limeTint);display:grid;place-items:center;margin-top:-2px}
+.plist .ck svg{width:18px;height:18px}
+.plink{margin-top:16px;font-size:19px;font-weight:800;color:var(--purple);text-decoration:underline;text-underline-offset:4px}
+
+/* plans */
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:22px}
+.card{background:#fff;border:3px solid var(--line);border-radius:26px;padding:18px 18px 16px;box-shadow:0 4px 0 var(--line);position:relative}
+.card h4{font-size:22px;font-weight:900;display:flex;align-items:center;gap:8px}
+.card .price{font-size:30px;font-weight:900;margin-top:8px;letter-spacing:-.01em}
+.card .price small{font-size:17px;font-weight:800}
+.card .then{font-size:15px;font-weight:700;color:var(--inkMuted);margin-top:2px;line-height:1.3}
+.card ul{list-style:none;margin-top:10px;display:flex;flex-direction:column;gap:5px}
+.card li{font-size:16px;font-weight:800;display:flex;gap:8px;align-items:center}
+.card li::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--lime);flex:none}
+.card .tag{position:absolute;top:-14px;right:16px;background:var(--yellow);color:var(--ink);font-size:13px;font-weight:900;padding:4px 10px;border-radius:999px;letter-spacing:.04em;text-transform:uppercase}
+.links{display:flex;justify-content:center;gap:28px;font-size:15px;font-weight:800;color:var(--inkMuted);margin-top:12px}
+
+.substep{font-size:16px;font-weight:900;color:var(--purple);background:var(--lavender);padding:8px 14px;border-radius:999px}
+</style>
+</head>
+<body>
+
+<div class="doc-head">
+  <h1>PretendThat · Parent onboarding v2</h1>
+  <p>Full-screen, one idea per page. Every page uses the same frame: a stage "art card" on the left (sky, scalloped valance, curtains, wooden floor and real Nutmeg art) and a calm text column on the right with a back arrow, progress dots, a big title, one short line, and one big button at the bottom. iPad landscape, 1194 × 834 pt.</p>
+</div>
+
+<!-- shared SVG snippets are inlined per page -->
+<div class="flow">
+
+<!-- ============ 01 HI GROWN-UP ============ -->
+<figure id="p01">
+<div class="ipad"><div class="screen">
+  <div class="split">
+    <div class="art">
+      <div class="valance"></div><div class="curtL"></div><div class="curtR"></div>
+      <div class="glow"></div><div class="floor"></div>
+      <img class="nut" src="img/nutmeg-wave-happy.png" style="height:540px;bottom:96px;margin-left:10px" alt="">
+      <img class="deco" src="img/stage-sparkle.svg" style="width:44px;top:120px;left:96px">
+      <img class="deco" src="img/stage-star.svg" style="width:44px;top:420px;right:28px">
+    </div>
+    <div class="text">
+      <div class="topbar"><div class="back hidden"></div><div class="dots"><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+      <div class="body">
+        <span class="eyebrow">For grown-ups · 1 minute</span>
+        <h2>Hi, grown-up!</h2>
+        <p class="lead">This part is for grown-ups. A quick look at how PretendThat works and how we keep it private.</p>
+      </div>
+      <div class="actions"><div class="btn">Let's get started</div></div>
+    </div>
+  </div>
+</div></div>
+<figcaption><b>01 · Hi, grown-up!</b> Nutmeg waves from the stage. No grown-up check here (the grown-up is the one who downloaded the app; the gate stays only in the in-app Grown-ups menu). No back arrow on the first page.</figcaption>
+</figure>
+
+<!-- ============ 03 HOW IT WORKS (one page) ============ -->
+<figure id="p02">
+<div class="ipad"><div class="screen" style="background:#FFF7EC">
+  <div class="full">
+    <div class="topbar"><div class="back"><svg viewBox="0 0 24 24"><path d="M15 4 7 12l8 8" fill="none" stroke="#5B2A86" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="dots"><i class="done"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i></div></div>
+    <div class="head">
+      <h2>How it works</h2>
+      <p class="lead">Turn your living room into a pretend-play adventure.</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="pic" style="background:var(--sky)"><span class="n">1</span>
+          <img src="img/toy-crown.svg" style="position:absolute;width:96px;left:34px;top:54px;transform:rotate(-10deg)">
+          <img src="img/prop-hat.svg" style="position:absolute;width:104px;right:26px;top:70px;transform:rotate(8deg)">
+        </div>
+        <h3>Pick</h3><p>Your child picks a story and a role with Nutmeg.</p>
+      </div>
+      <div class="step">
+        <div class="pic" style="background:#FFE6C2"><span class="n">2</span>
+          <img src="img/prop-cardboard-box.svg" style="position:absolute;width:120px;left:26px;bottom:26px">
+          <img src="img/prop-pot.svg" style="position:absolute;width:92px;right:28px;bottom:30px">
+        </div>
+        <h3>Props</h3><p>Nutmeg finds things you already have at home.</p>
+      </div>
+      <div class="step">
+        <div class="pic" style="background:var(--lavender)"><span class="n">3</span>
+          <svg width="170" height="150" viewBox="0 0 170 150"><rect x="38" y="8" width="94" height="44" rx="6" fill="#FCEBD5"/><rect x="10" y="40" width="150" height="70" rx="20" fill="#5B2A86"/><rect x="10" y="88" width="150" height="22" rx="11" fill="#3F1A60"/><circle cx="136" cy="62" r="7" fill="#8BD346"/><rect x="34" y="96" width="102" height="50" rx="4" fill="#FCEBD5"/><path d="M60 108l10 10 6-6 8 8m-10 12h22" stroke="#C77841" stroke-width="4" fill="none" stroke-linecap="round"/><circle cx="108" cy="114" r="6" fill="#FFC93C"/></svg>
+        </div>
+        <h3>Print</h3><p>Print a kit: masks, signs, tickets to color.</p>
+      </div>
+      <div class="step">
+        <div class="pic" style="background:var(--limeTint)"><span class="n">4</span>
+          <img src="img/nutmeg-celebrate-yay.png" style="position:absolute;height:178px;bottom:-12px;left:50%;transform:translateX(-50%)">
+          <img src="img/stage-sparkle.svg" style="position:absolute;width:28px;top:28px;right:34px">
+        </div>
+        <h3>Play</h3><p>Nutmeg guides each scene, then steps back.</p>
+      </div>
+    </div>
+    <div class="actions"><div class="btn">Next</div></div>
+  </div>
+</div></div>
+<figcaption><b>02 · How it works (option A, one page).</b> The only page that breaks the split frame: four illustrated step cards in a row on warm cream, the tagline as the line under the title. Good for grown-ups who skim. Option B (four swipeable mini-pages) follows the flow below.</figcaption>
+</figure>
+
+<!-- ============ 04 WHAT YOU'LL NEED ============ -->
+<figure id="p03">
+<div class="ipad"><div class="screen">
+  <div class="split">
+    <div class="art cream">
+      <div class="glow"></div>
+      <img class="deco" src="img/prop-rug.svg" style="width:420px;left:70px;bottom:40px;z-index:1">
+      <img class="nut" src="img/nutmeg-point-talking.png" style="height:500px;bottom:110px;margin-left:-40px" alt="">
+      <img class="deco" src="img/prop-crayons.svg" style="width:120px;right:44px;bottom:80px;transform:rotate(-8deg)">
+      
+    </div>
+    <div class="text">
+      <div class="topbar"><div class="back"><svg viewBox="0 0 24 24"><path d="M15 4 7 12l8 8" fill="none" stroke="#5B2A86" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="dots"><i class="done"></i><i class="done"></i><i class="on"></i><i></i><i></i><i></i><i></i></div></div>
+      <div class="body">
+        <h2>What you'll need</h2>
+        <p class="lead">Nothing fancy. Most of it is already in your home.</p>
+        <div class="needs">
+          <div class="need"><div class="ic" style="background:var(--lavender)"><svg viewBox="0 0 60 54" width="58" height="52"><rect x="14" y="2" width="32" height="16" rx="3" fill="#FCEBD5"/><rect x="2" y="14" width="56" height="26" rx="8" fill="#5B2A86"/><circle cx="48" cy="24" r="3" fill="#8BD346"/><rect x="12" y="34" width="36" height="18" rx="2" fill="#FCEBD5"/></svg></div><div><b>A printer</b><span>For the kit</span></div></div>
+          <div class="need"><div class="ic" style="background:#FFE6C2"><img src="img/prop-crayons.svg"></div><div><b>Crayons</b><span>To color it in</span></div></div>
+          <div class="need"><div class="ic" style="background:var(--sky)"><img src="img/prop-rug.svg"></div><div><b>Space</b><span>Room to move</span></div></div>
+          <div class="need"><div class="ic" style="background:var(--limeTint)"><svg viewBox="0 0 54 54" width="52" height="52"><circle cx="27" cy="27" r="24" fill="#fff"/><circle cx="27" cy="27" r="24" fill="none" stroke="#67A82A" stroke-width="5"/><path d="M27 13v14l9 6" stroke="#2A1846" stroke-width="5" fill="none" stroke-linecap="round"/></svg></div><div><b>15–25 min</b><span>Per show</span></div></div>
+        </div>
+      </div>
+      <div class="actions"><div class="btn">Next</div></div>
+    </div>
+  </div>
+</div></div>
+<figcaption><b>03 · What you'll need.</b> Its own page so "How it works" stays one idea. A 2 × 2 grid of icon tiles (printer, crayons, space, time) using the real prop art; Nutmeg points at the list from her rug.</figcaption>
+</figure>
+
+<!-- ============ 05 PRIVACY ============ -->
+<figure id="p04">
+<div class="ipad"><div class="screen">
+  <div class="split">
+    <div class="art">
+      <div class="valance"></div>
+      <div class="glow"></div><div class="floor"></div>
+      <img class="nut" src="img/nutmeg-idle-happy.png" style="height:480px;bottom:96px;margin-left:-70px" alt="">
+      <div class="deco" style="right:44px;top:96px">
+        <svg width="140" height="162" viewBox="0 0 170 196"><path d="M85 6 158 32v58c0 50-32 84-73 100C44 174 12 140 12 90V32Z" fill="#8BD346"/><path d="M85 6 158 32v58c0 50-32 84-73 100Z" fill="#67A82A"/><path d="M85 28 138 46v44c0 36-22 62-53 76-31-14-53-40-53-76V46Z" fill="#fff"/><path d="m58 96 18 18 36-38" fill="none" stroke="#5B2A86" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+    </div>
+    <div class="text" style="padding-left:56px">
+      <div class="topbar"><div class="back"><svg viewBox="0 0 24 24"><path d="M15 4 7 12l8 8" fill="none" stroke="#5B2A86" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="dots"><i class="done"></i><i class="done"></i><i class="done"></i><i class="on"></i><i></i><i></i><i></i></div></div>
+      <div class="body">
+        <h2 class="m">Private by design</h2>
+        <ul class="plist">
+          <li><span class="ck"><svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="#67A82A" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>No accounts, no sign-up.</li>
+          <li><span class="ck"><svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="#67A82A" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Nothing about your kids is saved.</li>
+          <li><span class="ck"><svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="#67A82A" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Your child's voice turns into words right on this iPad. Audio is never sent.</li>
+          <li><span class="ck"><svg viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="#67A82A" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Only the words, with names removed, go to our AI partners, OpenAI and Anthropic.</li>
+        </ul>
+        <span class="plink">Read our privacy policy</span>
+      </div>
+      <div class="actions"><div class="btn">I agree, let's play</div><div class="btn2">Not now</div></div>
+    </div>
+  </div>
+</div></div>
+<figcaption><b>04 · Private by design + AI consent.</b> Four short checked lines instead of a paragraph, a lime shield beside Nutmeg, and the privacy link under the list. Primary "I agree, let's play"; quiet text "Not now" below it (tap choices still work without AI).</figcaption>
+</figure>
+
+<!-- ============ 06 MICROPHONE ============ -->
+<figure id="p05">
+<div class="ipad"><div class="screen">
+  <div class="split">
+    <div class="art">
+      <div class="valance"></div><div class="curtL"></div><div class="curtR"></div>
+      <div class="glow"></div><div class="floor"></div>
+      <img class="nut" src="img/nutmeg-idle-ooh.png" style="height:500px;bottom:96px;margin-left:-60px" alt="">
+      <div class="deco" style="right:62px;bottom:120px;width:150px;height:150px">
+        <div style="position:absolute;inset:-26px;border-radius:50%;border:6px solid rgba(217,48,37,.18)"></div>
+        <div style="position:absolute;inset:-12px;border-radius:50%;border:6px solid rgba(217,48,37,.3)"></div>
+        <div style="position:absolute;inset:0;border-radius:50%;background:#D93025;box-shadow:0 8px 0 #A3231B;display:grid;place-items:center">
+          <svg width="64" height="78" viewBox="0 0 64 78"><rect x="18" y="2" width="28" height="46" rx="14" fill="#fff"/><path d="M8 34a24 24 0 0 0 48 0M32 58v14M20 74h24" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"/></svg>
+        </div>
+      </div>
+    </div>
+    <div class="text">
+      <div class="topbar"><div class="back"><svg viewBox="0 0 24 24"><path d="M15 4 7 12l8 8" fill="none" stroke="#5B2A86" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="dots"><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i><i class="on"></i><i></i><i></i></div></div>
+      <div class="body">
+        <h2>Hold to talk</h2>
+        <p class="lead">Nutmeg listens while your child holds the mic button. Let go, and she stops listening.</p>
+      </div>
+      <div class="actions"><div class="btn">Continue</div><p class="fine">Next, your iPad will ask to use the microphone.</p></div>
+    </div>
+  </div>
+</div></div>
+<figcaption><b>05 · Microphone.</b> Nutmeg (headset on) beside the real red push-to-talk button with listening rings. Exactly one "Continue" and no close, per Apple's pre-permission rule; the small line warns that the system prompt comes next.</figcaption>
+</figure>
+
+<!-- ============ 07 PLANS ============ -->
+<figure id="p06">
+<div class="ipad"><div class="screen">
+  <div class="split">
+    <div class="art" style="width:470px;background:#CDEBF5">
+      <div class="valance"></div>
+      <img class="nut" src="img/nutmeg-sit-perky.png" style="width:340px;bottom:176px" alt="">
+      <img class="deco" src="img/stage-ticket.svg" style="width:120px;left:40px;top:110px;transform:rotate(-14deg)">
+      <img class="deco" src="img/stage-sparkle.svg" style="width:40px;right:60px;top:120px">
+      <img class="deco" src="img/stage-star.svg" style="width:48px;right:90px;top:200px">
+      <div class="deco" style="left:24px;right:24px;bottom:24px;text-align:center;background:#fff;border-radius:28px;padding:22px 16px 20px;z-index:4">
+        <div style="font-size:30px;font-weight:900;line-height:1.15">2 free shows,<br>on the house!</div>
+        <div style="font-size:18px;font-weight:700;color:var(--inkMuted);margin-top:8px">No card. Nothing to cancel.</div>
+      </div>
+    </div>
+    <div class="text" style="padding:28px 36px 18px 48px">
+      <div class="topbar"><div class="back"><svg viewBox="0 0 24 24"><path d="M15 4 7 12l8 8" fill="none" stroke="#5B2A86" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="dots"><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i><i class="on"></i><i></i></div></div>
+      <div class="body">
+        <h2 class="m">Start free, upgrade anytime</h2>
+        <p class="lead" style="font-size:21px;margin-top:10px;max-width:600px">Want more new shows later? Pick a pass whenever you like.</p>
+        <div class="cards">
+          <div class="card">
+            <h4>Show Pass</h4>
+            <div class="price">$9.99<small>/month</small></div>
+            <div class="then">for 12 months, then $14.99/month</div>
+            <ul><li>10 new shows a month</li><li>Unlimited replays</li></ul>
+          </div>
+          <div class="card">
+            <span class="tag">About one a day</span>
+            <h4>Season Pass</h4>
+            <div class="price">$19.99<small>/month</small></div>
+            <div class="then">for 12 months, then $29.99/month</div>
+            <ul><li>Up to 30 new shows a month</li><li>Unlimited replays</li></ul>
+          </div>
+        </div>
+      </div>
+      <div class="actions">
+        <div class="btn"><svg viewBox="0 0 24 24"><path d="M3 8a2 2 0 0 0 2-2h14a2 2 0 0 0 2 2v8a2 2 0 0 0-2 2H5a2 2 0 0 0-2-2Z" fill="none" stroke="#fff" stroke-width="2.4" stroke-linejoin="round"/><path d="M9 6v12" stroke="#fff" stroke-width="2.4" stroke-dasharray="2 2.4"/></svg>Start my Free Preview</div>
+        <div class="links"><span>Restore purchases</span><span>Terms of Use</span><span>Privacy Policy</span></div>
+      </div>
+    </div>
+  </div>
+</div></div>
+<figcaption><b>06 · Plans.</b> Mascot-led: Nutmeg sits perky on a ticket-and-sparkle hero with "2 free shows, on the house!" The Free Preview is the one big button; the two passes are calm, equal cards with the billed price largest and the renewal price right under it (no pre-selected plan, no countdown). Restore, Terms and Privacy sit small at the bottom.</figcaption>
+</figure>
+
+<!-- ============ 08 READY ============ -->
+<figure id="p07">
+<div class="ipad"><div class="screen">
+  <div class="split">
+    <div class="art">
+      <div class="valance"></div><div class="curtL"></div><div class="curtR"></div>
+      <div class="glow" style="background:radial-gradient(circle,rgba(255,236,170,.95) 0,rgba(255,236,170,0) 68%)"></div>
+      <div class="floor"></div>
+      <img class="nut" src="img/nutmeg-celebrate-yay.png" style="height:550px;bottom:92px" alt="">
+      <img class="deco" src="img/stage-star.svg" style="width:56px;top:110px;left:92px;transform:rotate(-12deg)">
+      <img class="deco" src="img/stage-sparkle.svg" style="width:42px;top:96px;right:110px">
+      <img class="deco" src="img/stage-sparkle.svg" style="width:30px;top:360px;left:40px">
+      <img class="deco" src="img/stage-star.svg" style="width:40px;top:340px;right:36px;transform:rotate(14deg)">
+    </div>
+    <div class="text">
+      <div class="topbar"><div class="back"><svg viewBox="0 0 24 24"><path d="M15 4 7 12l8 8" fill="none" stroke="#5B2A86" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="dots"><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i><i class="done"></i><i class="on"></i></div></div>
+      <div class="body">
+        <span class="eyebrow" style="background:var(--limeTint);color:#3F6B16">All set</span>
+        <h2>Hand the iPad to your child</h2>
+        <p class="lead">Nutmeg will take it from here.</p>
+      </div>
+      <div class="actions">
+        <div class="btn"><svg viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5Z" fill="#fff"/></svg>Start our first game</div>
+        <div class="btn2 quiet">Go to the home page</div>
+      </div>
+    </div>
+  </div>
+</div></div>
+<figcaption><b>07 · Ready to play.</b> Spotlight glow and Nutmeg cheering on stage. Primary "Start our first game" opens a game with Nutmeg on stage, talking to the child; the white secondary "Go to the home page" lands on the start screen quietly (no talking).</figcaption>
+</figure>
+
+</div>
+
+<div class="section-label" style="margin-top:80px">Option B · How it works as four swipeable mini-pages (replaces 02)</div>
+<div class="flow">
+
+<!-- B1 -->
+<figure id="p08">
+<div class="ipad"><div class="screen">
+  <div class="split">
+    <div class="art">
+      <div class="valance"></div><div class="glow"></div><div class="floor"></div>
+      <img class="nut" src="img/nutmeg-point-talking.png" style="height:480px;bottom:96px;margin-left:-80px" alt="">
+      <img class="deco" src="img/toy-crown.svg" style="width:110px;right:70px;top:150px;transform:rotate(-10deg)">
+      <img class="deco" src="img/prop-hat.svg" style="width:120px;right:60px;top:290px;transform:rotate(8deg)">
+    </div>
+    <div class="text">
+      <div class="topbar"><div class="back"><svg viewBox="0 0 24 24"><path d="M15 4 7 12l8 8" fill="none" stroke="#5B2A86" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="dots"><i class="done"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i></div></div>
+      <div class="body">
+        <span class="substep" style="align-self:flex-start;margin-bottom:22px">How it works · 1 of 4</span>
+        <h2>Pick</h2>
+        <p class="lead">Your child picks a story and a role with Nutmeg, just by talking.</p>
+      </div>
+      <div class="actions"><div class="btn">Next</div></div>
+    </div>
+  </div>
+</div></div>
+<figcaption><b>B1 · Pick.</b> Same split frame as the rest of the flow. A "1 of 4" chip shows the sub-step while the main dots stay on page 2. Swipe or tap Next.</figcaption>
+</figure>
+
+<!-- B2 -->
+<figure id="p09">
+<div class="ipad"><div class="screen">
+  <div class="split">
+    <div class="art cream">
+      <div class="glow"></div>
+      <img class="deco" src="img/prop-rug.svg" style="width:440px;left:60px;bottom:40px;z-index:1">
+      <img class="deco" src="img/prop-cardboard-box.svg" style="width:180px;left:60px;bottom:110px">
+      <img class="deco" src="img/prop-pot.svg" style="width:130px;right:70px;bottom:120px">
+      <img class="deco" src="img/prop-blanket.svg" style="width:170px;left:70px;top:110px;transform:rotate(-8deg)">
+      <img class="deco" src="img/prop-wooden-spoon.svg" style="width:110px;right:90px;top:130px;transform:rotate(20deg)">
+      <img class="nut" src="img/nutmeg-idle-ooh.png" style="height:330px;bottom:120px" alt="">
+    </div>
+    <div class="text">
+      <div class="topbar"><div class="back"><svg viewBox="0 0 24 24"><path d="M15 4 7 12l8 8" fill="none" stroke="#5B2A86" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="dots"><i class="done"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i></div></div>
+      <div class="body">
+        <span class="substep" style="align-self:flex-start;margin-bottom:22px">How it works · 2 of 4</span>
+        <h2>Props</h2>
+        <p class="lead">Nutmeg turns things you already have into props: a box, a pot, a blanket.</p>
+      </div>
+      <div class="actions"><div class="btn">Next</div></div>
+    </div>
+  </div>
+</div></div>
+<figcaption><b>B2 · Props.</b> Real household prop art spread on the rug around Nutmeg.</figcaption>
+</figure>
+
+<!-- B3 -->
+<figure id="p10">
+<div class="ipad"><div class="screen">
+  <div class="split">
+    <div class="art lav">
+      <div class="glow"></div>
+      <div class="deco" style="left:50%;top:150px;transform:translateX(-50%)">
+        <svg width="400" height="420" viewBox="0 0 170 180"><rect x="38" y="8" width="94" height="44" rx="6" fill="#FCEBD5"/><rect x="10" y="40" width="150" height="70" rx="20" fill="#5B2A86"/><rect x="10" y="88" width="150" height="22" rx="11" fill="#3F1A60"/><circle cx="136" cy="62" r="7" fill="#8BD346"/><rect x="30" y="96" width="110" height="80" rx="4" fill="#FCEBD5"/><path d="M50 120q35-14 70 0" stroke="#C77841" stroke-width="4" fill="none" stroke-linecap="round"/><circle cx="66" cy="136" r="7" fill="none" stroke="#C77841" stroke-width="4"/><circle cx="104" cy="136" r="7" fill="none" stroke="#C77841" stroke-width="4"/><path d="M70 156h30" stroke="#C77841" stroke-width="4" stroke-linecap="round"/></svg>
+      </div>
+      <img class="deco" src="img/prop-crayons.svg" style="width:130px;left:40px;bottom:60px;transform:rotate(-12deg)">
+      <img class="deco" src="img/prop-tape.svg" style="width:90px;right:50px;bottom:70px">
+      <img class="deco" src="img/stage-sparkle.svg" style="width:40px;right:80px;top:100px">
+    </div>
+    <div class="text">
+      <div class="topbar"><div class="back"><svg viewBox="0 0 24 24"><path d="M15 4 7 12l8 8" fill="none" stroke="#5B2A86" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="dots"><i class="done"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i></div></div>
+      <div class="body">
+        <span class="substep" style="align-self:flex-start;margin-bottom:22px">How it works · 3 of 4</span>
+        <h2>Print</h2>
+        <p class="lead">Print a kit made for your story: masks, signs and tickets to color.</p>
+      </div>
+      <div class="actions"><div class="btn">Next</div></div>
+    </div>
+  </div>
+</div></div>
+<figcaption><b>B3 · Print.</b> A big flat printer (drawn in the prop style) pushing out a mask page, with crayons and tape.</figcaption>
+</figure>
+
+<!-- B4 -->
+<figure id="p11">
+<div class="ipad"><div class="screen">
+  <div class="split">
+    <div class="art">
+      <div class="valance"></div><div class="curtL"></div><div class="curtR"></div>
+      <div class="glow"></div><div class="floor"></div>
+      <img class="nut" src="img/nutmeg-celebrate-yay.png" style="height:540px;bottom:92px" alt="">
+      <img class="deco" src="img/stage-star.svg" style="width:52px;top:120px;left:96px">
+      <img class="deco" src="img/stage-sparkle.svg" style="width:40px;top:110px;right:110px">
+    </div>
+    <div class="text">
+      <div class="topbar"><div class="back"><svg viewBox="0 0 24 24"><path d="M15 4 7 12l8 8" fill="none" stroke="#5B2A86" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="dots"><i class="done"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i></div></div>
+      <div class="body">
+        <span class="substep" style="align-self:flex-start;margin-bottom:22px">How it works · 4 of 4</span>
+        <h2>Play</h2>
+        <p class="lead">Nutmeg guides each scene, then steps back so the play happens off the screen.</p>
+      </div>
+      <div class="actions"><div class="btn">Next</div></div>
+    </div>
+  </div>
+</div></div>
+<figcaption><b>B4 · Play.</b> Nutmeg cheering on the open stage. Next goes on to "What you'll need" (03).</figcaption>
+</figure>
+
+</div>
+</body>
+</html>

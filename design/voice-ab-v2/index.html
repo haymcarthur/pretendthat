@@ -1,0 +1,44 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nutmeg voice A/B v2</title>
+<style>
+:root{--bg:#fffaf3;--fg:#2a1846;--mute:#6b5a85;--line:#e8dccb;--acc:#5b2a91}
+@media (prefers-color-scheme:dark){:root{--bg:#1b1424;--fg:#f3ecff;--mute:#b9a9d4;--line:#3a2d4d;--acc:#c9a6ff}}
+body{background:var(--bg);color:var(--fg);font:16px/1.45 -apple-system,system-ui,sans-serif;margin:0;padding:24px 16px;max-width:1100px;margin:auto}
+h1{margin:0 0 4px} p{color:var(--mute)} table{width:100%;border-collapse:collapse}
+td{border-top:1px solid var(--line);padding:10px 8px;vertical-align:top} .n{color:var(--mute);width:2em}
+.t{color:var(--mute);font-size:14px} audio{width:220px} button{font:inherit;padding:8px 14px;border-radius:10px;border:1px solid var(--acc);background:none;color:var(--acc);cursor:pointer}
+.k{font-weight:600;color:var(--acc);white-space:nowrap}
+@media (max-width:700px){tr{display:block} td{display:block;border:0;padding:4px 0} tr{border-top:1px solid var(--line);padding:8px 0} audio{width:100%}}
+</style></head><body>
+<h1>Nutmeg voice A/B v2</h1>
+<p>Same line, two takes. One is the full Realtime model (today), one is the mini model (the cost cut). Both: voice <b>coral</b>,
+the same session setup and instructions, played through the app's own speaker at Varispeed <b>1.20</b> and captured at its
+output (iPad simulator PT-R15, 2026-11-16). A and B are shuffled per line. Listen first, pick the one that sounds less like
+Nutmeg (or say "can't tell"), then reveal.</p>
+<p>Reference: <audio controls preload="none" src="00-reference.m4a"></audio> her bundled onboarding clip through the same speaker path.</p>
+<table><tr><td class="n">01</td><td><b>Scene opening</b><div class="t">Pretend that the jungle pizza restaurant is opening for its very first night! The oven is hot and the tables are set. Everyone, take your places and get ready for the first hungry customer!</div></td>
+<td><audio controls preload="none" src="01-A.m4a"></audio></td><td><audio controls preload="none" src="01-B.m4a"></audio></td>
+<td class="k" hidden>A = full, B = mini</td></tr>
+<tr><td class="n">02</td><td><b>Prop line</b><div class="t">First, can you find a pot? It&#x27;ll be the mixing bowl! The Pizza Chef stirs the sauce in it. Tap the green check when you find it, or the X if you don&#x27;t have one!</div></td>
+<td><audio controls preload="none" src="02-A.m4a"></audio></td><td><audio controls preload="none" src="02-B.m4a"></audio></td>
+<td class="k" hidden>A = full, B = mini</td></tr>
+<tr><td class="n">03</td><td><b>Task read-out</b><div class="t">Server, put the hot pizza on the tray and carry it to the Hungry Customer&#x27;s table!</div></td>
+<td><audio controls preload="none" src="03-A.m4a"></audio></td><td><audio controls preload="none" src="03-B.m4a"></audio></td>
+<td class="k" hidden>A = full, B = mini</td></tr>
+<tr><td class="n">04</td><td><b>Returning greeting</b><div class="t">Hi again! What should we play today?</div></td>
+<td><audio controls preload="none" src="04-A.m4a"></audio></td><td><audio controls preload="none" src="04-B.m4a"></audio></td>
+<td class="k" hidden>A = full, B = mini</td></tr>
+<tr><td class="n">05</td><td><b>Print step</b><div class="t">Your kit is ready! Want them in color, or plain to color yourself? Tap the ones you like, then the printer! Tap the green play button when you&#x27;re set!</div></td>
+<td><audio controls preload="none" src="05-A.m4a"></audio></td><td><audio controls preload="none" src="05-B.m4a"></audio></td>
+<td class="k" hidden>A = mini, B = full</td></tr>
+<tr><td class="n">06</td><td><b>Replay Pick</b><div class="t">How many friends are playing this time? Tell me!</div></td>
+<td><audio controls preload="none" src="06-A.m4a"></audio></td><td><audio controls preload="none" src="06-B.m4a"></audio></td>
+<td class="k" hidden>A = full, B = mini</td></tr>
+<tr><td class="n">07</td><td><b>The End</b><div class="t">The end! What a show! Take a bow! Tap the star to save it, or the house to go home!</div></td>
+<td><audio controls preload="none" src="07-A.m4a"></audio></td><td><audio controls preload="none" src="07-B.m4a"></audio></td>
+<td class="k" hidden>A = full, B = mini</td></tr>
+<tr><td class="n">08</td><td><b>Nothing heard</b><div class="t">Hmm, I didn&#x27;t catch that. Hold the red button and tell me again!</div></td>
+<td><audio controls preload="none" src="08-A.m4a"></audio></td><td><audio controls preload="none" src="08-B.m4a"></audio></td>
+<td class="k" hidden>A = full, B = mini</td></tr></table>
+<p><button onclick="document.querySelectorAll('.k').forEach(e=>e.hidden=!e.hidden)">Reveal / hide the key</button></p>
+</body></html>

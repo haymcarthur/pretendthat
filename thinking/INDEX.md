@@ -1,6 +1,6 @@
 # Thinking index (PretendThat)
 
-**Morning summary:** [overnight-status.md](overnight-status.md)
+**Start here: [status-latest.md](status-latest.md)** (handoff: what's shipped, what's waiting, what's next). Older: [overnight-status.md](overnight-status.md)
 
 The map. Read this first, then open only what you need.
 

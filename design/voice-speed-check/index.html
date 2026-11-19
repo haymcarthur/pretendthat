@@ -1,0 +1,76 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nutmeg speed check</title>
+<style>
+:root{--bg:#fffaf3;--fg:#2a1846;--mute:#6b5a85;--line:#e8dccb;--acc:#5b2a91;--tag:#fff1c9;--tagfg:#6a4a00;--card:#fff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1b1424;--fg:#f3ecff;--mute:#b9a9d4;--line:#3a2d4d;--acc:#c9a6ff;--tag:#3d3216;--tagfg:#ffd97a;--card:#241b30}}
+:root[data-theme="dark"]{--bg:#1b1424;--fg:#f3ecff;--mute:#b9a9d4;--line:#3a2d4d;--acc:#c9a6ff;--tag:#3d3216;--tagfg:#ffd97a;--card:#241b30}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.45 -apple-system,system-ui,sans-serif;margin:0 auto;padding:24px 16px 48px;max-width:860px}
+h1{margin:0 0 6px;font-size:28px} h2{margin:32px 0 4px;font-size:20px} p{color:var(--mute);margin:6px 0 12px}
+.line{font-style:italic;color:var(--fg)}
+.rows{border-top:1px solid var(--line)}
+.row{display:flex;align-items:center;gap:12px;padding:10px 4px;border-bottom:1px solid var(--line)}
+.lab{flex:0 0 200px} .num{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+.sub{font-size:13px;color:var(--mute)}
+.tag{display:inline-block;font-size:12px;font-weight:600;background:var(--tag);color:var(--tagfg);border-radius:6px;padding:1px 7px;margin-left:6px;vertical-align:3px}
+audio{flex:1;min-width:0;height:40px}
+button{font:inherit;padding:8px 14px;border-radius:10px;border:1px solid var(--acc);background:none;color:var(--acc);cursor:pointer}
+.bar{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}
+.box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:14px 0}
+.box p{margin:4px 0;color:var(--fg)}
+.blind .num-real,.blind .tag,.blind .sub-real{display:none}
+.letter{display:none} .blind .letter{display:inline}
+@media (max-width:600px){.row{flex-wrap:wrap}.lab{flex:1 0 100%}audio{flex:1 0 100%}}
+</style></head><body>
+<h1>Nutmeg speed check</h1>
+<p>Same recording, played at different speeds. Speed and pitch go up together, the way the app does it today. Which one sounds like Nutmeg "at 1.2" to you?</p>
+<div class="box">
+<p><b>How to use it.</b> Play down the list for line 1. Note the number that sounds like the Nutmeg you picked. Do the same for line 2. Then tell Claude the two numbers.</p>
+<p>Want to check without seeing the numbers? Tap <b>Blind mode</b>. The rows get shuffled and labeled with letters. Pick a letter, then tap <b>Reveal</b>.</p>
+<p>If you can, also listen on the iPad, where you usually hear her. The iPad's small speaker makes her sound higher and thinner than laptop speakers or headphones do.</p>
+</div>
+<div class="bar"><button id="blind">Blind mode</button><button id="reveal" hidden>Reveal</button></div>
+
+<h2>Line 1: her first onboarding line</h2>
+<p class="line">"Hi! I'm Nutmeg. Can you get a grown-up? This part is just for them."</p>
+<p>This is the clip that ships inside the app.</p>
+<div class="rows ladder" data-set="a"></div>
+<h3 style="margin:18px 0 4px;font-size:16px">The same clip as the app really plays it</h3>
+<div class="rows">
+<div class="row"><div class="lab"><span class="num">App</span><div class="sub">Recorded inside the running app (iPad simulator, 2026-11-17)</div></div><audio controls preload="none" src="a-app.m4a"></audio></div>
+<div class="row"><div class="lab"><span class="num">A/B v2</span><div class="sub">The "reference" file from the A/B page you heard</div></div><audio controls preload="none" src="a-abv2-reference.m4a"></audio></div>
+</div>
+<p>Both should sound the same as 1.20 above. They measure the same.</p>
+
+<h2>Line 2: a game line (full model, from the A/B)</h2>
+<p class="line">"The end! What a show! Take a bow! Tap the star to save it, or the house to go home!"</p>
+<div class="rows ladder" data-set="b"></div>
+
+<h2>Extra: is it the speed or the pitch?</h2>
+<p>These two split 1.20 apart. "Faster only" keeps her normal pitch. "Higher only" keeps her normal speed. Neither one is how the app works today. They're here in case "1.2" to you means mostly faster, or mostly higher.</p>
+<div class="rows">
+<div class="row"><div class="lab"><span class="num">Line 1</span><div class="sub">Faster only (1.20 speed, normal pitch)</div></div><audio controls preload="none" src="a-tempo1.20.m4a"></audio></div>
+<div class="row"><div class="lab"><span class="num">Line 1</span><div class="sub">Higher only (1.20 pitch, normal speed)</div></div><audio controls preload="none" src="a-pitch1.20.m4a"></audio></div>
+<div class="row"><div class="lab"><span class="num">Line 2</span><div class="sub">Faster only (1.20 speed, normal pitch)</div></div><audio controls preload="none" src="b-tempo1.20.m4a"></audio></div>
+<div class="row"><div class="lab"><span class="num">Line 2</span><div class="sub">Higher only (1.20 pitch, normal speed)</div></div><audio controls preload="none" src="b-pitch1.20.m4a"></audio></div>
+</div>
+<p class="sub">All files are level-matched, so louder never wins by accident (except the two "App" and "A/B v2" files, which are left as recorded). Made 2026-11-17 from the clip shipped in the app and the A/B v2 raw recording. Notes are in thinking/research/2026-11-17-voice-speed-check.md.</p>
+
+<script>
+const RATES=[["1.00","Her raw voice, no speed-up"],["1.10",""],["1.15",""],["1.20","",true],["1.25",""],["1.30",""],["1.35",""],["1.40",""]];
+const LETTERS="ABCDEFGH";
+function build(blind){
+  document.querySelectorAll(".ladder").forEach(box=>{
+    const set=box.dataset.set;
+    let rows=RATES.map(r=>r);
+    if(blind){for(let i=rows.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[rows[i],rows[j]]=[rows[j],rows[i]];}}
+    box.innerHTML=rows.map((r,i)=>`<div class="row"><div class="lab"><span class="num"><span class="letter">${LETTERS[i]}</span><span class="num-real">${blind?" = ":""}${r[0]}</span></span>${r[2]?'<span class="tag">the app today</span>':""}<div class="sub sub-real">${r[1]}</div></div><audio controls preload="none" src="${set}-v${r[0]}.m4a"></audio></div>`).join("");
+  });
+}
+build(false);
+const blindBtn=document.getElementById("blind"),reveal=document.getElementById("reveal");
+blindBtn.onclick=()=>{const on=!document.body.classList.contains("blind");if(on){build(true);document.body.classList.add("blind");blindBtn.textContent="Leave blind mode";reveal.hidden=false;reveal.textContent="Reveal";}else{build(false);document.body.classList.remove("blind");blindBtn.textContent="Blind mode";reveal.hidden=true;}};
+reveal.onclick=()=>{document.body.classList.toggle("blind");const shown=!document.body.classList.contains("blind");reveal.textContent=shown?"Hide":"Reveal";document.querySelectorAll(".letter").forEach(e=>e.style.display=shown?"inline":"");};
+document.addEventListener("play",e=>{document.querySelectorAll("audio").forEach(a=>{if(a!==e.target)a.pause();});},true);
+</script>
+</body></html>

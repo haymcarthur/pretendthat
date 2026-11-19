@@ -1,0 +1,20 @@
+Nutmeg voice A/B: the SAME fixed app lines (sayExactly) on the full and the mini Realtime model
+Made 2026-11-16 by the cost v3 experiment (thinking/research/2026-11-16-cost-per-game-v3.md). Not committed.
+
+NN-full.m4a = gpt-realtime-2.1, the app's own session (full instructions + tools), as the app says app lines today
+NN-mini.m4a = gpt-realtime-2.1-mini, a separate fixed-lines session (short instructions, no tools: the -PTMiniLines prototype)
+Both: voice coral, server speed 1.0, the same voice style (Realtime.voiceStyle) in the session AND in every sayExactly,
+then Varispeed 1.20 applied exactly like the app's pitch unit (24 kHz audio resampled as 28.8 kHz: pitch + speed together).
+Transcripts: every line said the exact text on both models (2 takes each, 32 of 32 exact). These files are take 1.
+
+01  Scene opening (setup + 3 role tasks + how to move on): "Pretend that the jungle pizza restaurant is opening for its very first night! Pizza Chef, stir the sauce in the mixing bowl, then spread it on the pizza. Hungry Customer, read the menu and tell the Server what you want. Server, write the order on a ticket and carry it to the Pizza Chef! Tap the green play button for the next scene!"
+02  Task read-out (a row's speaker button): "Server, put the hot pizza on the tray and carry it to the Hungry Customer's table!"
+03  Print step: "Your kit is ready! Want them in color, or plain to color yourself? Tap the ones you like, then the printer! Tap the green play button when you're set!"
+04  Kit progress: "I'm making your name badges!"
+05  Replay hunt: "No problem, we'll pretend!"
+06  Replay Pick: "How many friends are playing this time? Tell me!"
+07  The End: "The end! What a show! Take a bow! Tap the star to save it, or the house to go home!"
+08  Nothing heard (round 31): "Hmm, I didn't catch that. Hold the red button and tell me again!"
+
+Listen for: the same girl (coral), the same brightness and bounce, the same pace. Mini read line 01 a little faster
+(21 s raw vs 22 to 27 s on full) and starts sooner (first audio about 0.55 s vs 0.83 s).

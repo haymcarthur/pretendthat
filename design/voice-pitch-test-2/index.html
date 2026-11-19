@@ -1,0 +1,86 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nutmeg pitch test 2</title>
+<style>
+:root{--bg:#fffaf3;--fg:#2a1846;--mute:#6b5a85;--line:#e8dccb;--acc:#5b2a91;--tag:#fff1c9;--tagfg:#6a4a00;--tag2:#e7f3e3;--tag2fg:#24561b;--card:#fff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1b1424;--fg:#f3ecff;--mute:#b9a9d4;--line:#3a2d4d;--acc:#c9a6ff;--tag:#3d3216;--tagfg:#ffd97a;--tag2:#1e3a1b;--tag2fg:#a9e59c;--card:#241b30}}
+:root[data-theme="dark"]{--bg:#1b1424;--fg:#f3ecff;--mute:#b9a9d4;--line:#3a2d4d;--acc:#c9a6ff;--tag:#3d3216;--tagfg:#ffd97a;--tag2:#1e3a1b;--tag2fg:#a9e59c;--card:#241b30}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.45 -apple-system,system-ui,sans-serif;margin:0 auto;padding:24px 16px 48px;max-width:860px}
+h1{margin:0 0 6px;font-size:28px} h2{margin:32px 0 4px;font-size:20px} p{color:var(--mute);margin:6px 0 12px}
+.line{font-style:italic;color:var(--fg)}
+.rows{border-top:1px solid var(--line)}
+.row{display:flex;align-items:center;gap:12px;padding:10px 4px;border-bottom:1px solid var(--line)}
+.lab{flex:0 0 280px;min-width:0} .num{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums}
+.sub{font-size:13px;color:var(--mute)}
+.tag{display:inline-block;font-size:12px;font-weight:600;background:var(--tag);color:var(--tagfg);border-radius:6px;padding:1px 7px;margin-left:6px;vertical-align:2px}
+.tag.good{background:var(--tag2);color:var(--tag2fg)}
+audio{flex:1;min-width:0;height:40px}
+button{font:inherit;padding:8px 14px;border-radius:10px;border:1px solid var(--acc);background:none;color:var(--acc);cursor:pointer}
+.bar{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}
+.box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:14px 0}
+.box p{margin:6px 0;color:var(--fg)}
+.box ol{margin:6px 0 6px 20px;padding:0} .box li{margin:4px 0}
+.ref{background:var(--card);border:2px solid var(--acc);border-radius:12px;padding:6px 12px;margin:10px 0}
+.ref .row{border:0}
+.blind .real,.blind .tag{display:none}
+.letter{display:none} .blind .letter{display:inline}
+table{border-collapse:collapse;width:100%;font-size:14px;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:6px 6px;border-bottom:1px solid var(--line);vertical-align:top} th{color:var(--mute);font-weight:600}
+.scroll{overflow-x:auto;max-width:100%}
+@media (max-width:600px){.row{flex-wrap:wrap}.lab{flex:1 0 100%}audio{flex:1 0 100%}}
+</style></head><body>
+<h1>Nutmeg pitch test 2</h1>
+<p>Ways to get the +2 you liked without the "talking inside a tunnel" sound.</p>
+<div class="box">
+<p><b>How to use it.</b> Play "This is Nutmeg" first. Then, for each line, play down the list. For each version ask two things: does she sound like she's in a tunnel (hollow, far away, phasey)? And is she too fast? Note the one you'd ship.</p>
+<p><b>Blind mode</b> shuffles each line's versions under letters A to J. Pick a letter, then tap <b>Reveal</b>.</p>
+<p>The first two rows are the anchors: <b>Today</b> and the <b>Old +2</b> (the tunnel one). Every version is level-matched, so louder never wins. If you can, also try the iPad speaker.</p>
+</div>
+
+<h2>This is Nutmeg</h2>
+<div class="ref"><div class="row"><div class="lab"><span class="num">The greeting clip</span><div class="sub">"Welcome back! What should we play today?" As the app plays it (speed 1.20). Middle of her pitch: 467 Hz.</div></div><audio controls preload="auto" src="ref.m4a"></audio></div></div>
+
+<div class="bar"><button id="blind">Blind mode</button><button id="reveal" hidden>Reveal</button></div>
+
+<div id="lines"></div>
+
+<h2>What I measured</h2>
+<div class="box">
+<p><b>What the tunnel sound is.</b> In a real voice, every vocal-cord pulse lines all the harmonics up at once, so the wave has one sharp click per cycle. Phase-vocoder shifters, like Apple's TimePitch, rebuild each harmonic on its own and the clicks smear out. The ear hears that as hollow and far away. I measured it as <b>pulse sharpness</b>: how peaky those clicks are, compared with natural speech at the same pitch (100% = natural).</p>
+<ol>
+<li><b>Speed only (1.35 and 1.27): 100%.</b> No processing, so no tunnel. The only cost is that she talks faster.</li>
+<li><b>PSOLA (+2, and the split): about 90%.</b> It copies her real pulses, so most of the sharpness survives. The trade-off is a little roughness or hoarseness: more noise between harmonics than natural, and the harmonics are a little less clean. The split only shifts +1, so it has less of this.</li>
+<li><b>Signalsmith (every setting) and TimePitch: 73 to 76%.</b> Both are phase-vocoder style, and both lose the same amount. That's true even at +1: the split with TimePitch or Signalsmith +1 measures the same 75%. So I don't expect Signalsmith to remove the tunnel. Its "vowels kept" setting does avoid the chipmunk shift, which may still sound nicer.</li>
+</ol>
+<p><b>Smearing in time</b> (echo before a word starts and a tail after it ends) is small for all of them, within about 1 dB. Signalsmith's default 120 ms block added 2 to 4 dB with "vowels kept". That's why this page uses a shorter 60 ms block for Signalsmith.</p>
+<p><b>My ranking for the least tunnel at about +2:</b> 1. Speed 1.35. 2. Split 1.27 + PSOLA +1. 3. PSOLA +2. 4. Signalsmith +2 with vowels kept. 5. Signalsmith +2. 6. Old TimePitch +2. Signalsmith +3 measures like +2, only higher. Speed 1.27 is clean, but it's only +1. I can't listen, so these are measurements. Your ear decides.</p>
+</div>
+<div class="scroll"><table>
+<tr><th>Version</th><th>Pitch (st)</th><th>Speed</th><th>Pulse sharpness</th><th>Harmonic clarity (dB)</th><th>Breath noise</th><th>Echo before (dB)</th><th>Tail after (dB)</th></tr>
+<tr><td>Today (1.20)</td><td>+0.0</td><td>1.20</td><td><b>100%</b></td><td>+0.0</td><td>100%</td><td>+0.0</td><td>+0.0</td></tr><tr><td>Old TimePitch +2</td><td>+1.9</td><td>1.20</td><td><b>74%</b></td><td>+1.1</td><td>100%</td><td>+0.8</td><td>-0.1</td></tr><tr><td>Speed 1.35</td><td>+2.0</td><td>1.35</td><td><b>100%</b></td><td>+0.0</td><td>100%</td><td>+0.0</td><td>+0.0</td></tr><tr><td>Speed 1.27</td><td>+1.0</td><td>1.27</td><td><b>100%</b></td><td>+0.0</td><td>100%</td><td>+0.0</td><td>+0.0</td></tr><tr><td>Split 1.27 + PSOLA +1</td><td>+2.0</td><td>1.27</td><td><b>91%</b></td><td>-0.2</td><td>117%</td><td>+0.4</td><td>+0.3</td></tr><tr><td>PSOLA +2</td><td>+2.0</td><td>1.20</td><td><b>90%</b></td><td>-0.6</td><td>136%</td><td>+0.9</td><td>+0.7</td></tr><tr><td>Signalsmith +2</td><td>+2.0</td><td>1.20</td><td><b>75%</b></td><td>+0.6</td><td>110%</td><td>-0.3</td><td>+0.1</td></tr><tr><td>Signalsmith +2, vowels kept</td><td>+1.9</td><td>1.20</td><td><b>74%</b></td><td>+0.8</td><td>110%</td><td>+0.8</td><td>+1.2</td></tr><tr><td>Signalsmith +3</td><td>+3.0</td><td>1.20</td><td><b>74%</b></td><td>+0.8</td><td>111%</td><td>-0.2</td><td>-0.2</td></tr><tr><td>Signalsmith +3, vowels kept</td><td>+2.9</td><td>1.20</td><td><b>74%</b></td><td>+0.8</td><td>111%</td><td>+1.1</td><td>+1.2</td></tr><tr><td>Split 1.27 + TimePitch +1 *</td><td>+2.1</td><td>1.27</td><td><b>75%</b></td><td>+0.4</td><td>98%</td><td>+0.6</td><td>-0.8</td></tr><tr><td>Split 1.27 + Signalsmith +1 *</td><td>+2.0</td><td>1.27</td><td><b>76%</b></td><td>+0.3</td><td>104%</td><td>-0.5</td><td>+0.2</td></tr><tr><td>Signalsmith +2, default block *</td><td>+2.0</td><td>1.20</td><td><b>74%</b></td><td>+0.8</td><td>117%</td><td>+1.5</td><td>+0.8</td></tr><tr><td>PSOLA +3 *</td><td>+3.0</td><td>1.20</td><td><b>89%</b></td><td>-0.9</td><td>161%</td><td>+1.3</td><td>+1.4</td></tr>
+<tr><td colspan="8" class="sub">Averages over the 4 lines. Pitch = semitones above today, measured. Pulse sharpness, harmonic clarity (harmonics-to-noise ratio, as a difference) and breath noise (spectral flatness 300–5000 Hz) are compared with natural speech at the same pitch, made by speed alone. Echo and tail compare the version with its own input. * = measured only, not on the page.</td></tr>
+</table></div>
+
+<p class="sub">Made 2026-11-17 offline, with no API calls. Sources: the A/B v2 raw recordings (full model, before speed) and the greeting clip shipped in the app. Speed and TimePitch use the same Apple audio units the app uses. Signalsmith Stretch is MIT licensed, version 1.3.2 from GitHub, with Signalsmith Linear 0.6.6, also MIT (60 ms block, 15 ms interval). PSOLA is a small shifter I wrote for this test. All files are level-matched to within 0.6 dB per line. Notes: thinking/research/2026-11-17-voice-pitch-test-2.md.</p>
+
+<script>
+const DATA={"lines": [{"id": "02", "title": "Line 1: a prop line", "text": "First, can you find a pot? It'll be the mixing bowl! The Pizza Chef stirs the sauce in it. Tap the green check when you find it, or the X if you don't have one!"}, {"id": "06", "title": "Line 2: a question", "text": "How many friends are playing this time? Tell me!"}, {"id": "07", "title": "Line 3: The End", "text": "The end! What a show! Take a bow! Tap the star to save it, or the house to go home!"}, {"id": "08", "title": "Line 4: nothing heard", "text": "Hmm, I didn't catch that. Hold the red button and tell me again!"}], "variants": [{"k": "today", "label": "Today", "how": "Speed 1.20 only. No extra pitch.", "tag": "the app today", "hz": [301, 338, 316, 326], "st": 0.0, "pulse": 100}, {"k": "tp2", "label": "Old +2 (TimePitch)", "how": "Speed 1.20, then Apple's TimePitch +2. The one you said sounds like a tunnel.", "tag": "the tunnel one", "hz": [335, 378, 354, 365], "st": 1.9, "pulse": 74}, {"k": "sp135", "label": "Speed 1.35", "how": "+2 from speed alone. Nothing is processed, but she talks 12% faster than today.", "tag": "faster", "hz": [338, 382, 354, 362], "st": 2.0, "pulse": 100}, {"k": "sp127", "label": "Speed 1.27", "how": "+1 from speed alone (halfway). 6% faster than today.", "tag": "faster, only +1", "hz": [318, 357, 334, 345], "st": 1.0, "pulse": 100}, {"k": "split", "label": "Split: speed 1.27 + PSOLA +1", "how": "Half the raise from speed, half from the PSOLA shifter.", "tag": "a bit faster", "hz": [338, 377, 353, 365], "st": 2.0, "pulse": 91}, {"k": "ps2", "label": "PSOLA +2", "how": "Speed 1.20, then a simple PSOLA shifter +2 (copies her own voice pulses closer together).", "tag": "", "hz": [339, 380, 353, 363], "st": 2.0, "pulse": 90}, {"k": "ss2", "label": "Signalsmith +2", "how": "Speed 1.20, then Signalsmith Stretch +2. Vowel sounds move up too.", "tag": "", "hz": [338, 380, 354, 365], "st": 2.0, "pulse": 75}, {"k": "ss2f", "label": "Signalsmith +2, vowels kept", "how": "Same, with formant preservation on (her vowel sounds stay where they are today).", "tag": "", "hz": [335, 381, 354, 363], "st": 1.9, "pulse": 74}, {"k": "ss3", "label": "Signalsmith +3", "how": "Speed 1.20, then Signalsmith Stretch +3. Vowel sounds move up too.", "tag": "", "hz": [358, 404, 376, 387], "st": 3.0, "pulse": 74}, {"k": "ss3f", "label": "Signalsmith +3, vowels kept", "how": "Same, with formant preservation on.", "tag": "", "hz": [353, 402, 374, 384], "st": 2.9, "pulse": 74}]};
+const LETTERS="ABCDEFGHIJ";
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function build(blind){
+  document.getElementById("lines").innerHTML=DATA.lines.map((L,li)=>{
+    const rows=blind?shuffle(DATA.variants.slice()):DATA.variants;
+    return `<h2>${L.title}</h2><p class="line">"${L.text}"</p><div class="rows">`+rows.map((v,i)=>{
+      const tag=v.tag?`<span class="tag${v.k==="sp135"||v.k==="split"?" good":""}">${v.tag}</span>`:"";
+      const st=v.k==="today"?"":` · ${v.st>0?"+":""}${v.st} st`;
+      return `<div class="row"><div class="lab"><span class="num"><span class="letter">${LETTERS[i]}</span><span class="real">${blind?" = ":""}${v.label}</span></span>${tag}<div class="sub real">${v.how} ${v.hz[li]} Hz${st} · pulse ${v.pulse}%</div></div><audio controls preload="none" src="${L.id}-${v.k}.m4a"></audio></div>`;
+    }).join("")+"</div>";
+  }).join("");
+}
+build(false);
+const blindBtn=document.getElementById("blind"),reveal=document.getElementById("reveal");
+blindBtn.onclick=()=>{const on=!document.body.classList.contains("blind")&&reveal.hidden;if(on){build(true);document.body.classList.add("blind");blindBtn.textContent="Leave blind mode";reveal.hidden=false;reveal.textContent="Reveal";}else{build(false);document.body.classList.remove("blind");blindBtn.textContent="Blind mode";reveal.hidden=true;}};
+reveal.onclick=()=>{document.body.classList.toggle("blind");const shown=!document.body.classList.contains("blind");reveal.textContent=shown?"Hide":"Reveal";document.querySelectorAll(".letter").forEach(e=>e.style.display=shown?"inline":"");};
+document.addEventListener("play",e=>{document.querySelectorAll("audio").forEach(a=>{if(a!==e.target)a.pause();});},true);
+</script>
+</body></html>
