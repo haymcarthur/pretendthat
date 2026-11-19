@@ -336,17 +336,18 @@ private struct Motion {
 /// iPhone play scenes (Haylee, 2026-11-17): Nutmeg peeks over the top edge of the scene card, paws over the edge,
 /// looking DOWN at the rows.
 ///
-/// Art v2 (2026-11-18, Haylee regenerated it in ChatGPT and vectorized it in Figma; `tools/peek_v2_imagesets.py` copies
-/// the SVGs verbatim, no shape edits), one shared 1774×887 export canvas:
-/// - `nutmeg-peek-back`: her HEADLESS body, forearms bent forward and cut flat at y 762, and her tail. BEHIND the card.
-/// - `nutmeg-peek-paws`: just the two paws, gripping. IN FRONT of the card's top edge.
+/// Art v3 (2026-11-18): Haylee's own headless body, `design/nutmeg/peek/regen/peek-body-v3.svg` (514×173): tail curling
+/// out to the left, vest with the cream V-neck and star, shoulders, and both paws. `tools/peek_v3_imagesets.py` splits
+/// its paths verbatim (no shape edits) into:
+/// - `nutmeg-peek-back`: everything but the paws. BEHIND the card.
+/// - `nutmeg-peek-paws`: the two paws (paw, dark top arc, finger lines). IN FRONT of the card's top edge.
+/// Both layers share the export canvas and one transform, so the paws keep the proportions she drew.
 /// Her head is the real rig head (head-base, the focus eyes, her mouth, the headset), so she still blinks, her mouth
 /// moves when she talks and she looks up at the kids while she speaks.
 ///
 /// Layout space = the v1 peek art (`design/nutmeg/peek/nutmeg-peek-parts.svg`, 1536×1024), whose proportions Haylee
-/// approved: the rig head fit, the card edge (y 514) and the figure box are the v1 ones. The v2 pieces are fitted to it
-/// by measured landmarks (Haylee, 2026-11-18): `bodyScale` / `bodyOffset` put the v2 body's shoulders and neck where
-/// v1's are, and `pawScale` makes each paw as wide as a v1 paw, centred on its forearm at the card edge.
+/// approved: the rig head fit, the card edge (y 514) and the figure box are the v1 ones. v3 is fitted to it by measured
+/// landmarks (`bodyScale`, `bodyOffset`).
 struct NutmegPeek: View {
     enum Part { case back, front }
     var part: Part
@@ -357,41 +358,20 @@ struct NutmegPeek: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var gaze = PeekGaze()
 
-    /// The v2 export canvas (both SVGs).
-    static let exportCanvas = CGSize(width: 1774, height: 887)
-
-    /// BODY SCALE (v2 export px → v1 art px): v1 shoulder width (outer edges of the upper arms, x 576…957 = 381) over
-    /// v2's (x 448…1509 = 1061).
-    static let bodyScale: CGFloat = 381.0 / 1061.0
-    /// BODY OFFSET (v1 art px): where the v2 export's origin goes, so v2's V-neck tip (978, 632) lands on v1's
-    /// (770.5, 496). The forearm and tail cuts (v2 y 762) then sit at v1 y 543, under the card edge (514).
-    static let bodyOffset = CGPoint(x: 770.5 - 978 * bodyScale, y: 496 - 632 * bodyScale)
-
-    /// PAW SCALE (v2 export px → v1 art px; one constant to nudge): a v1 paw is ~95 px wide, a v2 paw 495, so 0.192.
-    /// Note: v2's forearms are ~106–110 v1 px wide where they meet the card edge, a little wider than a v1 paw.
-    /// DEBUG: `-PTPeekPawScale <n>` overrides it for screenshots. A transform only, never a shape edit.
-    static let pawScaleDefault: CGFloat = 95.0 / 495.0
-    static var pawScale: CGFloat {
-        #if DEBUG
-        let args = ProcessInfo.processInfo.arguments
-        if let i = args.firstIndex(of: "-PTPeekPawScale"), i + 1 < args.count, let n = Double(args[i + 1]) { return CGFloat(n) }
-        #endif
-        return pawScaleDefault
-    }
-    /// Each paw: its half of the paws export (x range), its own centre in the export (`from`, at the paw's y 460, where
-    /// it bends over the edge) and where that point goes in v1 art px: the centre of its forearm (v2 x 603 / 1358 at the
-    /// card edge, through `bodyScale` / `bodyOffset`), on the card's edge. The backs of the paws sit on the forearm ends,
-    /// the fingers over the card's front.
-    static var paws: [(clip: ClosedRange<CGFloat>, from: CGPoint, to: CGPoint)] {[
-        (0...887, CGPoint(x: 530, y: 460), CGPoint(x: bodyOffset.x + 603 * bodyScale, y: edgeY)),
-        (887...1774, CGPoint(x: 1243, y: 460), CGPoint(x: bodyOffset.x + 1358 * bodyScale, y: edgeY)),
-    ]}
+    /// The v3 export canvas (both layers).
+    static let exportCanvas = CGSize(width: 514, height: 173)
+    /// BODY SCALE (v3 export px → v1 art px): v1's shoulders-and-paws width (outer edges, x 574…957 = 383) over v3's
+    /// (x 129…512 = 383). v3 is drawn at v1's scale.
+    static let bodyScale: CGFloat = 383.0 / 383.0
+    /// BODY OFFSET (v1 art px): where the v3 export's origin goes, so v3's V-neck tip (327.1, 125.05) lands on v1's
+    /// (771.9, 498.4). The tail then starts at v1's tail corner (444, 373), and the vest's bottom (v3 y ~148) sits at
+    /// v1 y ~521, just under the card edge.
+    static let bodyOffset = CGPoint(x: 771.9 - 327.1 * bodyScale, y: 498.4 - 125.05 * bodyScale)
 
     /// The card's top edge in the art (v1).
     static let edgeY: CGFloat = 514
-    /// The figure's box in the art (v1: ears x 433…995 from y 24); the bottom follows the paws (220 export px below
-    /// their `from` point, +2 px air).
-    static var box: CGRect { CGRect(x: 433, y: 24, width: 562, height: edgeY + 220 * pawScale + 2 - 24) }
+    /// The figure's box in the art (v1): ears x 433…995 from y 24 down to the paws' bottom (v3 y 172 → v1 545.4).
+    static let box = CGRect(x: 433, y: 24, width: 562, height: 546 - 24)
     /// The view's height above the card's edge, for a figure `width` points wide.
     static func heightAboveEdge(width: CGFloat) -> CGFloat { (edgeY - box.minY) * width / box.width }
     /// How far the paws reach below the card's edge (the card keeps its first row clear of them).
@@ -435,13 +415,12 @@ struct NutmegPeek: View {
                     let up = Self.debugLookUp ?? (reduceMotion ? (gaze.look(at: now) == .up ? 1 : 0) : gaze.headUp(at: now))
                     let lookingUp = Self.debugLookUp.map { $0 > 0 } ?? (gaze.look(at: now) == .up)
                     ZStack(alignment: .topLeading) {
-                        // v2: paws only (no arms), each on its forearm's end over the card's edge.
-                        ForEach(Self.paws.indices, id: \.self) { i in paw(Self.paws[i], u: u) }
+                        art("nutmeg-peek-paws", u: u)
                         head(motion: m, u: u, up: up, lookingUp: lookingUp)
                     }
                 }
             case .back:
-                bodyArt(u: u)
+                art("nutmeg-peek-back", u: u)
             }
         }
         .onChange(of: isSpeaking, initial: true) { _, on in gaze.speaking(on, at: Date().timeIntervalSinceReferenceDate) }
@@ -451,27 +430,12 @@ struct NutmegPeek: View {
         .accessibilityLabel("Nutmeg the mouse")
     }
 
-    /// The v2 body (tail + headless body), `bodyScale` and `bodyOffset` into v1 art px, shifted to the figure box.
-    private func bodyArt(u: CGFloat) -> some View {
+    /// A v3 layer (export canvas), `bodyScale` and `bodyOffset` into v1 art px, shifted to the figure box.
+    private func art(_ name: String, u: CGFloat) -> some View {
         let s = Self.bodyScale * u
-        return Image("nutmeg-peek-back").resizable().scaledToFit()
+        return Image(name).resizable().scaledToFit()
             .frame(width: Self.exportCanvas.width * s, height: Self.exportCanvas.height * s)
             .offset(x: (Self.bodyOffset.x - Self.box.minX) * u, y: (Self.bodyOffset.y - Self.box.minY) * u)
-            .frame(width: Self.box.width * u, height: Self.box.height * u, alignment: .topLeading)
-            .accessibilityHidden(true)
-    }
-
-    /// One paw: the paws export clipped to its half, `pawScale` into v1 art px, its `from` point moved onto `to`.
-    /// Transform and clip only.
-    private func paw(_ p: (clip: ClosedRange<CGFloat>, from: CGPoint, to: CGPoint), u: CGFloat) -> some View {
-        let s = Self.pawScale * u
-        return Image("nutmeg-peek-paws").resizable().scaledToFit()
-            .frame(width: Self.exportCanvas.width * s, height: Self.exportCanvas.height * s)
-            .mask(alignment: .topLeading) {
-                Rectangle().frame(width: (p.clip.upperBound - p.clip.lowerBound) * s, height: Self.exportCanvas.height * s)
-                    .offset(x: p.clip.lowerBound * s)
-            }
-            .offset(x: (p.to.x - Self.box.minX) * u - p.from.x * s, y: (p.to.y - Self.box.minY) * u - p.from.y * s)
             .frame(width: Self.box.width * u, height: Self.box.height * u, alignment: .topLeading)
             .accessibilityHidden(true)
     }

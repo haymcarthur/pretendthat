@@ -27,3 +27,19 @@ Build 4 waits on this art.
   - The vest's V-neck is WHITE in the new art (the old one was cream). The rig chin covers most of it, but a small white triangle shows under her chin. Not recoloured (regenerate, don't patch).
   - The new body/paws fur (#B55E31) is a hair redder than the rig head's fur. You can only see it up close.
 - **Screenshots:** `/tmp/pt-peek-v2/` (`iphone18pro-*`, `iphone17e-*`, `zoom-*` close-ups of the paws). Demo mode, no keys, $0.
+
+## Follow-up 2 (2026-11-18): Haylee's body v3 replaces v2
+- **Art:** `design/nutmeg/peek/regen/peek-body-v3.svg` (514×173, 15 flat paths), Haylee's own composition. The tail curls out to the left, the V-neck is cream, and it includes both paws. **v2 is dropped** (body and paws). `tools/peek_v2_imagesets.py` is removed.
+- **What I found about the paws:** they are their OWN paths, not fused with the forearms. Each paw is one shape (#AF6131), plus its dark top arc and two finger lines (#843912). Under the left paw, the vest path traces the paw's bottom (a purple blob); it is hidden behind the paw. Behind the right paw there is no forearm fill, but the paw covers that spot.
+- **Split:** `tools/peek_v3_imagesets.py` is a path split only. Every path is copied verbatim, in its original order.
+  - `nutmeg-peek-paws` (IN FRONT of the card): paths 5–8 and 10–13 (each paw, its arc, its fingers).
+  - `nutmeg-peek-back` (BEHIND the card): the other 7 (vest, neck shading, cream V, both shoulders, star, tail).
+  - The script checks every path's fill, so a re-export in a different order fails instead of splitting wrong. The paws touch nothing they used to sit under (the star and tail come after them in the file, but don't overlap them), so the look is unchanged.
+- **Fit by landmarks (same method):** v3 is drawn at v1's scale.
+  - Shoulders and paws, outer edges: v3 x 129…512 = 383, v1 x 574…957 = 383. So **`bodyScale` = 1.0**.
+  - V-neck tip: v3 (327.1, 125.05) → v1 (771.9, 498.4). So **`bodyOffset` = (444.8, 373.35)**. The tail then starts at v1's tail corner (444, 373).
+  - Both layers use the same transform, so the paws keep her proportions. There's no separate paw scale any more (`pawScale` and `-PTPeekPawScale` are gone).
+  - The v1 head fit, card edge (y 514) and figure box (x 433…995, y 24…546) are unchanged. The paws overhang the card by 32 v1 px, the same as v1.
+- **Onion skin:** v3 at 50% over v1 is a near-exact overlap (`/tmp/pt-peek-v3/onion-v3-over-v1.png`).
+- **Screenshots:** `/tmp/pt-peek-v3/` (iPhone 18 Pro and 17e, 4 and 6 rows, looking down and up, `zoom-*` close-ups of the paws). Demo mode, no keys, $0.
+- The Follow-up above (v2: landmarks, tail behind the ear, paws narrower than the forearms) is history now.
