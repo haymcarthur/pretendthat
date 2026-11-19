@@ -184,6 +184,7 @@ The map. Read this first, then open only what you need.
 - [Saved-game offer is only the picture: the saved cover above the bar, no card, ▶, title or "New game"; answer by voice/typing; tapping the picture is a quiet shortcut; the unclear-answer line asks in words; round 2: whole cover (no crop), beside Nutmeg on the iPad](decisions/2026-11-18-saved-offer-picture-only.md): Haylee (Claude's calls noted)
 - [Peek hands: regenerate as a hands-free body (behind the card) + paws only (in front), none of the lift variants work; build 4 waits on the art](decisions/2026-11-18-peek-hands-regenerate.md): Haylee (Claude's calls noted) · follow-up: v2 art wired in, PeekHands removed
 - [Printables after a lock: calls cut off by the lock are retried on return, color and coloring pages always the same AI picture, no fallback art in live games (a not-ready page shows Try again and isn't printed)](decisions/2026-11-18-printables-after-lock.md): Haylee (no fallback art, show an error); Claude's call on the fix
+- [TestFlight build 1.0 (4): peek v4 body and hands, saved-game offer picture only, Nutmeg looks up while she talks, idle/lock tap and mic fix, printables after a lock](decisions/2026-11-18-build-4.md): Haylee
 - [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–32 (31: on-device speech + instant mic; 32: Grown-ups menu) + C1 + D1 + D2 + D3a + D3b done (round 27's mockups separate); next: D4 iCloud
 
 - [Libraries and services list](team-profile-libraries.md): what the app uses (Code Camp is finished; no team-profile task)
