@@ -334,13 +334,20 @@ private struct Motion {
 #Preview { NutmegCharacter(state: .idle).padding() }
 
 /// iPhone play scenes (Haylee, 2026-11-17): Nutmeg peeks over the top edge of the scene card, paws over the edge,
-/// looking DOWN at the rows. Art: Haylee's Figma logo frame (design/nutmeg/peek/nutmeg-peek-parts.svg, 1536×1024),
-/// split by group into `nutmeg-peek-back` (tail + body, BEHIND the card) and `nutmeg-peek-paws` (IN FRONT of the card's
-/// edge); no shape edits. Her head is the real rig head (head-base, the focus eyes, her mouth, the headset) placed where
-/// the art's `head` group sits, so she still blinks and her mouth moves when she talks.
+/// looking DOWN at the rows.
 ///
-/// The view is the figure's box: art x 433…995 (562 art px wide) from the ear tops (y 24) down to the paws' bottom
-/// (y 546). The card's top edge belongs at `edge` (art y 514, just above the body's curved bottom cut).
+/// Art v3 (2026-11-18): Haylee's own headless body, `design/nutmeg/peek/regen/peek-body-v3.svg` (514×173): tail curling
+/// out to the left, vest with the cream V-neck and star, shoulders, and both paws. `tools/peek_v3_imagesets.py` splits
+/// its paths verbatim (no shape edits) into:
+/// - `nutmeg-peek-back`: everything but the paws. BEHIND the card.
+/// - `nutmeg-peek-paws`: the two paws (paw, dark top arc, finger lines). IN FRONT of the card's top edge.
+/// Both layers share the export canvas and one transform, so the paws keep the proportions she drew.
+/// Her head is the real rig head (head-base, the focus eyes, her mouth, the headset), so she still blinks, her mouth
+/// moves when she talks and she looks up at the kids while she speaks.
+///
+/// Layout space = the v1 peek art (`design/nutmeg/peek/nutmeg-peek-parts.svg`, 1536×1024), whose proportions Haylee
+/// approved: the rig head fit, the card edge (y 514) and the figure box are the v1 ones. v3 is fitted to it by measured
+/// landmarks (`bodyScale`, `bodyOffset`).
 struct NutmegPeek: View {
     enum Part { case back, front }
     var part: Part
@@ -351,17 +358,26 @@ struct NutmegPeek: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var gaze = PeekGaze()
 
-    static let canvas = CGSize(width: 1536, height: 1024)
-    /// The figure's box in the art (ears, tail and paws).
-    static let box = CGRect(x: 433, y: 24, width: 562, height: 546 - 24)
-    /// The card's top edge in the art.
+    /// The v3 export canvas (both layers).
+    static let exportCanvas = CGSize(width: 514, height: 173)
+    /// BODY SCALE (v3 export px → v1 art px): v1's shoulders-and-paws width (outer edges, x 574…957 = 383) over v3's
+    /// (x 129…512 = 383). v3 is drawn at v1's scale.
+    static let bodyScale: CGFloat = 383.0 / 383.0
+    /// BODY OFFSET (v1 art px): where the v3 export's origin goes, so v3's V-neck tip (327.1, 125.05) lands on v1's
+    /// (771.9, 498.4). The tail then starts at v1's tail corner (444, 373), and the vest's bottom (v3 y ~148) sits at
+    /// v1 y ~521, just under the card edge.
+    static let bodyOffset = CGPoint(x: 771.9 - 327.1 * bodyScale, y: 498.4 - 125.05 * bodyScale)
+
+    /// The card's top edge in the art (v1).
     static let edgeY: CGFloat = 514
+    /// The figure's box in the art (v1): ears x 433…995 from y 24 down to the paws' bottom (v3 y 172 → v1 545.4).
+    static let box = CGRect(x: 433, y: 24, width: 562, height: 546 - 24)
     /// The view's height above the card's edge, for a figure `width` points wide.
     static func heightAboveEdge(width: CGFloat) -> CGFloat { (edgeY - box.minY) * width / box.width }
     /// How far the paws reach below the card's edge (the card keeps its first row clear of them).
     static func pawOverhang(width: CGFloat) -> CGFloat { (box.maxY - edgeY) * width / box.width }
-    /// What's left of the overhang after the lift: the card's content starts this far below its edge.
-    static func pawClearance(width: CGFloat) -> CGFloat { pawOverhang(width: width) * (1 - PeekHands.current.liftShare) }
+    /// The card's content starts this far below its edge (clear of the paws): the whole overhang (no lift since v2).
+    static func pawClearance(width: CGFloat) -> CGFloat { pawOverhang(width: width) }
 
     /// DEBUG screenshots: `-PTPeekLookUp` holds her looking up at the kids (1) or down at the rows (0).
     static var debugLookUp: Double? {
@@ -371,19 +387,13 @@ struct NutmegPeek: View {
         #endif
         return nil
     }
-    /// 2026-11-18: how far the paws are lifted (art px) so they rest on the card's edge instead of hanging over it.
-    /// 2026-11-18 (device testing, Haylee: the hands looked worse after the lift): the paws layer carries the whole
-    /// arms, so lifting it slides the arms up off the shoulders. The lift is now a choice (`PeekHands`, one constant)
-    /// so Haylee can pick from screenshots. Offsets only, never a shape edit.
-    static var pawLift: CGFloat { (box.maxY - edgeY) * PeekHands.current.liftShare }
-
     /// Gaze in Play (2026-11-18): she looks UP at the kids while she says a line (talking eyes, head tipped up a
     /// little), DOWN at the rows otherwise (focus eyes). `PeekGaze` (NutmegCore) holds the timing.
     static let lookUpTurn: Double = 4        // degrees added to `headTurn` at full "up" (−5° → −1°)
     static let lookUpLift: CGFloat = 8       // art px the head rises at full "up"
 
-    /// The rig head on the peek body (rig canvas 1178×1335 → peek art), fitted by overlaying the rig head stack on the
-    /// art's `head` group (eyes, nose, ears, chin): 0.6 scale, turned −5° around the rig nose, the nose at (795, 314).
+    /// The rig head on the peek body (rig canvas 1178×1335 → v1 peek art), fitted by overlaying the rig head stack on the
+    /// v1 art's `head` group (eyes, nose, ears, chin): 0.6 scale, turned −5° around the rig nose, the nose at (795, 314).
     static let headScale: CGFloat = 0.6
     static let headTurn: Double = -5
     static let rigNose = CGPoint(x: 698, y: 545)
@@ -405,10 +415,7 @@ struct NutmegPeek: View {
                     let up = Self.debugLookUp ?? (reduceMotion ? (gaze.look(at: now) == .up ? 1 : 0) : gaze.headUp(at: now))
                     let lookingUp = Self.debugLookUp.map { $0 > 0 } ?? (gaze.look(at: now) == .up)
                     ZStack(alignment: .topLeading) {
-                        // 2026-11-18 (Haylee: the paws hung over onto the white card): the paws (with their arms) are
-                        // lifted (`PeekHands`) so their bottoms rest on or near the card's top edge. Offset only.
                         art("nutmeg-peek-paws", u: u)
-                            .offset(y: -Self.pawLift * u)
                         head(motion: m, u: u, up: up, lookingUp: lookingUp)
                     }
                 }
@@ -423,11 +430,12 @@ struct NutmegPeek: View {
         .accessibilityLabel("Nutmeg the mouse")
     }
 
-    /// A full-canvas art layer, shifted so the figure box's top-left is the view's origin.
+    /// A v3 layer (export canvas), `bodyScale` and `bodyOffset` into v1 art px, shifted to the figure box.
     private func art(_ name: String, u: CGFloat) -> some View {
-        Image(name).resizable().scaledToFit()
-            .frame(width: Self.canvas.width * u, height: Self.canvas.height * u)
-            .offset(x: -Self.box.minX * u, y: -Self.box.minY * u)
+        let s = Self.bodyScale * u
+        return Image(name).resizable().scaledToFit()
+            .frame(width: Self.exportCanvas.width * s, height: Self.exportCanvas.height * s)
+            .offset(x: (Self.bodyOffset.x - Self.box.minX) * u, y: (Self.bodyOffset.y - Self.box.minY) * u)
             .frame(width: Self.box.width * u, height: Self.box.height * u, alignment: .topLeading)
             .accessibilityHidden(true)
     }
@@ -454,36 +462,6 @@ struct NutmegPeek: View {
     private func layer(_ name: String) -> some View {
         Image(name).resizable().scaledToFit().accessibilityHidden(true)
             .transaction(value: name) { $0.animation = nil }
-    }
-}
-
-/// The peek's hands (2026-11-18, Haylee's device testing: "the hands got worse after the paw lift"). The paws layer
-/// carries the WHOLE arms (shoulder to paw), so lifting it slides the arms up off her shoulders; not lifting it leaves
-/// the paws hanging over the card's top edge. One constant picks the look (Haylee chooses from the screenshots in
-/// decisions/2026-11-18-device-testing-fixes.md); `-PTPeekHands <name>` overrides it for DEBUG screenshots.
-/// If none looks right, the art needs a re-export from Figma (one whole arm + paw layer per side), never a shape edit.
-enum PeekHands: String, CaseIterable {
-    /// The original (before 2026-11-18): arms on her shoulders, paws hanging over the card's edge.
-    case hang
-    /// Halfway: the paws lifted half their overhang (arms stay closer to the shoulders, paw tips just over the edge).
-    case half
-    /// The 2026-11-18 lift: paw bottoms resting exactly on the card's edge (arms slide up off the shoulders).
-    case onEdge
-
-    /// The look in the app.
-    static let chosen: PeekHands = .half
-
-    /// Share of the paws' overhang they're lifted by.
-    var liftShare: CGFloat {
-        switch self { case .hang: 0; case .half: 0.5; case .onEdge: 1 }
-    }
-
-    static var current: PeekHands {
-        #if DEBUG
-        let args = ProcessInfo.processInfo.arguments
-        if let i = args.firstIndex(of: "-PTPeekHands"), i + 1 < args.count, let h = PeekHands(rawValue: args[i + 1]) { return h }
-        #endif
-        return chosen
     }
 }
 
