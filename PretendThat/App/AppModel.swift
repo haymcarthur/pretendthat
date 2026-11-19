@@ -1794,10 +1794,11 @@ final class AppModel {
     }
 
     #if DEBUG
-    /// `-PTDemo soundsLike`: the card for the closest saved game (else the first on the shelf), no voice.
-    func debugSoundsLike() {
+    /// `-PTDemo soundsLike`: the card for the closest saved game (else the `prefer` title, else the first on the shelf), no voice.
+    func debugSoundsLike(prefer: String? = nil) {
         refreshShelf()
-        soundsLike = GameMatch.closest(gameType: store.gameType, title: store.currentTitle, in: shelfGames) ?? shelfGames.first
+        soundsLike = GameMatch.closest(gameType: store.gameType, title: store.currentTitle, in: shelfGames)
+            ?? shelfGames.first(where: { $0.title == prefer }) ?? shelfGames.first
         rtLog("SOUNDS LIKE (demo): \(soundsLike?.title ?? "no saved game")")
     }
     #endif
