@@ -31,7 +31,7 @@ struct SavedGamePageView: View {
                     .frame(width: peekW, height: above + overhang)
                     .position(x: full.width / 2, y: sheetTop - above + (above + overhang) / 2)
                     .allowsHitTesting(false)
-                sheet(width: sheetW, bottomInset: geo.safeAreaInsets.bottom, topClear: NutmegPeek.pawClearance(width: peekW))   // 2026-11-18: what the paws still overhang (PeekHands)
+                sheet(width: sheetW, bottomInset: geo.safeAreaInsets.bottom, topClear: NutmegPeek.pawClearance(width: peekW))   // what the paws overhang (v2 art, no lift)
                     .frame(width: sheetW, height: full.height - sheetTop)
                     .background(UnevenRoundedRectangle(topLeadingRadius: 36, topTrailingRadius: 36, style: .continuous).fill(Theme.white))
                     .clipShape(UnevenRoundedRectangle(topLeadingRadius: 36, topTrailingRadius: 36, style: .continuous))

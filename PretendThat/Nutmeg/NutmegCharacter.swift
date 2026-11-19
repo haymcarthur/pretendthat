@@ -334,13 +334,19 @@ private struct Motion {
 #Preview { NutmegCharacter(state: .idle).padding() }
 
 /// iPhone play scenes (Haylee, 2026-11-17): Nutmeg peeks over the top edge of the scene card, paws over the edge,
-/// looking DOWN at the rows. Art: Haylee's Figma logo frame (design/nutmeg/peek/nutmeg-peek-parts.svg, 1536×1024),
-/// split by group into `nutmeg-peek-back` (tail + body, BEHIND the card) and `nutmeg-peek-paws` (IN FRONT of the card's
-/// edge); no shape edits. Her head is the real rig head (head-base, the focus eyes, her mouth, the headset) placed where
-/// the art's `head` group sits, so she still blinks and her mouth moves when she talks.
+/// looking DOWN at the rows.
 ///
-/// The view is the figure's box: art x 433…995 (562 art px wide) from the ear tops (y 24) down to the paws' bottom
-/// (y 546). The card's top edge belongs at `edge` (art y 514, just above the body's curved bottom cut).
+/// Art v2 (2026-11-18, Haylee regenerated it in ChatGPT and vectorized it in Figma; `tools/peek_v2_imagesets.py` copies
+/// the SVGs verbatim, no shape edits), one shared 1774×887 export canvas:
+/// - `nutmeg-peek-back`: her HEADLESS body, forearms bent forward and cut flat at y 762, and her tail. BEHIND the card.
+/// - `nutmeg-peek-paws`: just the two paws, gripping. IN FRONT of the card's top edge.
+/// Her head is the real rig head (head-base, the focus eyes, her mouth, the headset), so she still blinks, her mouth
+/// moves when she talks and she looks up at the kids while she speaks.
+///
+/// Layout space = the v1 peek art (`design/nutmeg/peek/nutmeg-peek-parts.svg`, 1536×1024), whose proportions Haylee
+/// approved: the rig head fit, the card edge (y 514) and the figure box are the v1 ones. The v2 pieces are fitted to it
+/// by measured landmarks (Haylee, 2026-11-18): `bodyScale` / `bodyOffset` put the v2 body's shoulders and neck where
+/// v1's are, and `pawScale` makes each paw as wide as a v1 paw, centred on its forearm at the card edge.
 struct NutmegPeek: View {
     enum Part { case back, front }
     var part: Part
@@ -351,17 +357,47 @@ struct NutmegPeek: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var gaze = PeekGaze()
 
-    static let canvas = CGSize(width: 1536, height: 1024)
-    /// The figure's box in the art (ears, tail and paws).
-    static let box = CGRect(x: 433, y: 24, width: 562, height: 546 - 24)
-    /// The card's top edge in the art.
+    /// The v2 export canvas (both SVGs).
+    static let exportCanvas = CGSize(width: 1774, height: 887)
+
+    /// BODY SCALE (v2 export px → v1 art px): v1 shoulder width (outer edges of the upper arms, x 576…957 = 381) over
+    /// v2's (x 448…1509 = 1061).
+    static let bodyScale: CGFloat = 381.0 / 1061.0
+    /// BODY OFFSET (v1 art px): where the v2 export's origin goes, so v2's V-neck tip (978, 632) lands on v1's
+    /// (770.5, 496). The forearm and tail cuts (v2 y 762) then sit at v1 y 543, under the card edge (514).
+    static let bodyOffset = CGPoint(x: 770.5 - 978 * bodyScale, y: 496 - 632 * bodyScale)
+
+    /// PAW SCALE (v2 export px → v1 art px; one constant to nudge): a v1 paw is ~95 px wide, a v2 paw 495, so 0.192.
+    /// Note: v2's forearms are ~106–110 v1 px wide where they meet the card edge, a little wider than a v1 paw.
+    /// DEBUG: `-PTPeekPawScale <n>` overrides it for screenshots. A transform only, never a shape edit.
+    static let pawScaleDefault: CGFloat = 95.0 / 495.0
+    static var pawScale: CGFloat {
+        #if DEBUG
+        let args = ProcessInfo.processInfo.arguments
+        if let i = args.firstIndex(of: "-PTPeekPawScale"), i + 1 < args.count, let n = Double(args[i + 1]) { return CGFloat(n) }
+        #endif
+        return pawScaleDefault
+    }
+    /// Each paw: its half of the paws export (x range), its own centre in the export (`from`, at the paw's y 460, where
+    /// it bends over the edge) and where that point goes in v1 art px: the centre of its forearm (v2 x 603 / 1358 at the
+    /// card edge, through `bodyScale` / `bodyOffset`), on the card's edge. The backs of the paws sit on the forearm ends,
+    /// the fingers over the card's front.
+    static var paws: [(clip: ClosedRange<CGFloat>, from: CGPoint, to: CGPoint)] {[
+        (0...887, CGPoint(x: 530, y: 460), CGPoint(x: bodyOffset.x + 603 * bodyScale, y: edgeY)),
+        (887...1774, CGPoint(x: 1243, y: 460), CGPoint(x: bodyOffset.x + 1358 * bodyScale, y: edgeY)),
+    ]}
+
+    /// The card's top edge in the art (v1).
     static let edgeY: CGFloat = 514
+    /// The figure's box in the art (v1: ears x 433…995 from y 24); the bottom follows the paws (220 export px below
+    /// their `from` point, +2 px air).
+    static var box: CGRect { CGRect(x: 433, y: 24, width: 562, height: edgeY + 220 * pawScale + 2 - 24) }
     /// The view's height above the card's edge, for a figure `width` points wide.
     static func heightAboveEdge(width: CGFloat) -> CGFloat { (edgeY - box.minY) * width / box.width }
     /// How far the paws reach below the card's edge (the card keeps its first row clear of them).
     static func pawOverhang(width: CGFloat) -> CGFloat { (box.maxY - edgeY) * width / box.width }
-    /// What's left of the overhang after the lift: the card's content starts this far below its edge.
-    static func pawClearance(width: CGFloat) -> CGFloat { pawOverhang(width: width) * (1 - PeekHands.current.liftShare) }
+    /// The card's content starts this far below its edge (clear of the paws): the whole overhang (no lift since v2).
+    static func pawClearance(width: CGFloat) -> CGFloat { pawOverhang(width: width) }
 
     /// DEBUG screenshots: `-PTPeekLookUp` holds her looking up at the kids (1) or down at the rows (0).
     static var debugLookUp: Double? {
@@ -371,19 +407,13 @@ struct NutmegPeek: View {
         #endif
         return nil
     }
-    /// 2026-11-18: how far the paws are lifted (art px) so they rest on the card's edge instead of hanging over it.
-    /// 2026-11-18 (device testing, Haylee: the hands looked worse after the lift): the paws layer carries the whole
-    /// arms, so lifting it slides the arms up off the shoulders. The lift is now a choice (`PeekHands`, one constant)
-    /// so Haylee can pick from screenshots. Offsets only, never a shape edit.
-    static var pawLift: CGFloat { (box.maxY - edgeY) * PeekHands.current.liftShare }
-
     /// Gaze in Play (2026-11-18): she looks UP at the kids while she says a line (talking eyes, head tipped up a
     /// little), DOWN at the rows otherwise (focus eyes). `PeekGaze` (NutmegCore) holds the timing.
     static let lookUpTurn: Double = 4        // degrees added to `headTurn` at full "up" (−5° → −1°)
     static let lookUpLift: CGFloat = 8       // art px the head rises at full "up"
 
-    /// The rig head on the peek body (rig canvas 1178×1335 → peek art), fitted by overlaying the rig head stack on the
-    /// art's `head` group (eyes, nose, ears, chin): 0.6 scale, turned −5° around the rig nose, the nose at (795, 314).
+    /// The rig head on the peek body (rig canvas 1178×1335 → v1 peek art), fitted by overlaying the rig head stack on the
+    /// v1 art's `head` group (eyes, nose, ears, chin): 0.6 scale, turned −5° around the rig nose, the nose at (795, 314).
     static let headScale: CGFloat = 0.6
     static let headTurn: Double = -5
     static let rigNose = CGPoint(x: 698, y: 545)
@@ -405,15 +435,13 @@ struct NutmegPeek: View {
                     let up = Self.debugLookUp ?? (reduceMotion ? (gaze.look(at: now) == .up ? 1 : 0) : gaze.headUp(at: now))
                     let lookingUp = Self.debugLookUp.map { $0 > 0 } ?? (gaze.look(at: now) == .up)
                     ZStack(alignment: .topLeading) {
-                        // 2026-11-18 (Haylee: the paws hung over onto the white card): the paws (with their arms) are
-                        // lifted (`PeekHands`) so their bottoms rest on or near the card's top edge. Offset only.
-                        art("nutmeg-peek-paws", u: u)
-                            .offset(y: -Self.pawLift * u)
+                        // v2: paws only (no arms), each on its forearm's end over the card's edge.
+                        ForEach(Self.paws.indices, id: \.self) { i in paw(Self.paws[i], u: u) }
                         head(motion: m, u: u, up: up, lookingUp: lookingUp)
                     }
                 }
             case .back:
-                art("nutmeg-peek-back", u: u)
+                bodyArt(u: u)
             }
         }
         .onChange(of: isSpeaking, initial: true) { _, on in gaze.speaking(on, at: Date().timeIntervalSinceReferenceDate) }
@@ -423,11 +451,27 @@ struct NutmegPeek: View {
         .accessibilityLabel("Nutmeg the mouse")
     }
 
-    /// A full-canvas art layer, shifted so the figure box's top-left is the view's origin.
-    private func art(_ name: String, u: CGFloat) -> some View {
-        Image(name).resizable().scaledToFit()
-            .frame(width: Self.canvas.width * u, height: Self.canvas.height * u)
-            .offset(x: -Self.box.minX * u, y: -Self.box.minY * u)
+    /// The v2 body (tail + headless body), `bodyScale` and `bodyOffset` into v1 art px, shifted to the figure box.
+    private func bodyArt(u: CGFloat) -> some View {
+        let s = Self.bodyScale * u
+        return Image("nutmeg-peek-back").resizable().scaledToFit()
+            .frame(width: Self.exportCanvas.width * s, height: Self.exportCanvas.height * s)
+            .offset(x: (Self.bodyOffset.x - Self.box.minX) * u, y: (Self.bodyOffset.y - Self.box.minY) * u)
+            .frame(width: Self.box.width * u, height: Self.box.height * u, alignment: .topLeading)
+            .accessibilityHidden(true)
+    }
+
+    /// One paw: the paws export clipped to its half, `pawScale` into v1 art px, its `from` point moved onto `to`.
+    /// Transform and clip only.
+    private func paw(_ p: (clip: ClosedRange<CGFloat>, from: CGPoint, to: CGPoint), u: CGFloat) -> some View {
+        let s = Self.pawScale * u
+        return Image("nutmeg-peek-paws").resizable().scaledToFit()
+            .frame(width: Self.exportCanvas.width * s, height: Self.exportCanvas.height * s)
+            .mask(alignment: .topLeading) {
+                Rectangle().frame(width: (p.clip.upperBound - p.clip.lowerBound) * s, height: Self.exportCanvas.height * s)
+                    .offset(x: p.clip.lowerBound * s)
+            }
+            .offset(x: (p.to.x - Self.box.minX) * u - p.from.x * s, y: (p.to.y - Self.box.minY) * u - p.from.y * s)
             .frame(width: Self.box.width * u, height: Self.box.height * u, alignment: .topLeading)
             .accessibilityHidden(true)
     }
@@ -454,36 +498,6 @@ struct NutmegPeek: View {
     private func layer(_ name: String) -> some View {
         Image(name).resizable().scaledToFit().accessibilityHidden(true)
             .transaction(value: name) { $0.animation = nil }
-    }
-}
-
-/// The peek's hands (2026-11-18, Haylee's device testing: "the hands got worse after the paw lift"). The paws layer
-/// carries the WHOLE arms (shoulder to paw), so lifting it slides the arms up off her shoulders; not lifting it leaves
-/// the paws hanging over the card's top edge. One constant picks the look (Haylee chooses from the screenshots in
-/// decisions/2026-11-18-device-testing-fixes.md); `-PTPeekHands <name>` overrides it for DEBUG screenshots.
-/// If none looks right, the art needs a re-export from Figma (one whole arm + paw layer per side), never a shape edit.
-enum PeekHands: String, CaseIterable {
-    /// The original (before 2026-11-18): arms on her shoulders, paws hanging over the card's edge.
-    case hang
-    /// Halfway: the paws lifted half their overhang (arms stay closer to the shoulders, paw tips just over the edge).
-    case half
-    /// The 2026-11-18 lift: paw bottoms resting exactly on the card's edge (arms slide up off the shoulders).
-    case onEdge
-
-    /// The look in the app.
-    static let chosen: PeekHands = .half
-
-    /// Share of the paws' overhang they're lifted by.
-    var liftShare: CGFloat {
-        switch self { case .hang: 0; case .half: 0.5; case .onEdge: 1 }
-    }
-
-    static var current: PeekHands {
-        #if DEBUG
-        let args = ProcessInfo.processInfo.arguments
-        if let i = args.firstIndex(of: "-PTPeekHands"), i + 1 < args.count, let h = PeekHands(rawValue: args[i + 1]) { return h }
-        #endif
-        return chosen
     }
 }
 

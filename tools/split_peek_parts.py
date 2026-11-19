@@ -1,4 +1,4 @@
-"""Builds the peek imagesets from design/nutmeg/peek/nutmeg-peek-parts.svg: groups copied verbatim (same 1536x1024
+"""SUPERSEDED 2026-11-18 by tools/peek_v2_imagesets.py (regenerated body + paws). Builds the peek imagesets from design/nutmeg/peek/nutmeg-peek-parts.svg: groups copied verbatim (same 1536x1024
 canvas, no shape edits). back = tail + body, paws = paw-left + paw-right."""
 import re, sys, pathlib, json
 src = pathlib.Path(sys.argv[1]).read_text()
