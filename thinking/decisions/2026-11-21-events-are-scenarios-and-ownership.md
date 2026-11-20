@@ -19,3 +19,4 @@ From Haylee's first real test of the one-scene flow (space game, 4 kids).
 - **End the scene early:** a way to be done that leaves the music part and goes to the finale and then clean-up.
 - **Checklist buttons are never blocked:** ▶ Let's play! and ▶ The End always work. Pressing one early checks every remaining item, then continues.
 - **Shown text must be speakable:** the print-mess item mentioned scissors, and the voice refused to read it ("not safe for me to say it like that"). Claude's call: app-written items never mention sharp or unsafe tools, and one shared "speakable" check runs on every line shown or read aloud, so the card and the voice always match. Read-aloud uses the exact words.
+- **Music on/off (Haylee):** kids can turn the background music on and off during the scene (the music pill is the toggle). Nutmeg's voice and the chime still play.
