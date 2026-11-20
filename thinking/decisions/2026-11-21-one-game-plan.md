@@ -29,3 +29,4 @@
 - 3 kids: two cards on top, one centered below.
 - The calm-stretch idea card has a 🔊 hear-again. It stays about 20 s or until the next event, with no chime and no music duck.
 - No dashed/queued markers (the iPhone mockup's dashed rows are leftovers). ▶ Let's play! is always enabled.
+- **Safety:** areas and objects are always pretend and built from props and printouts; never a real appliance or a hazard (see the safety rule in 2026-11-21-events-are-scenarios-and-ownership.md).
