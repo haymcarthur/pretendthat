@@ -90,6 +90,21 @@ final class AppModel {
     @ObservationIgnored var checklistEndTask: Task<Void, Never>?
     /// 2026-11-20 (Haylee): the game left mid-play to continue after a relaunch (the start screen offers it).
     var resumeOffer: ResumeOffer?
+    /// 2026-11-21 (Haylee, one scene with music): the scene's state (`AppModel+OneScene`). What the stage shows now
+    /// (playing / an event card / the calm-again card / the finale), the scene bar, ⏸ Pause, the finale's confetti.
+    var beatDisplay: BeatDisplay = .playing
+    var beatProgress: Double = 0
+    var beatFiredEvents = 0
+    var scenePaused = false
+    var beatConfetti = 0
+    @ObservationIgnored var beatRun: BeatRun?
+    @ObservationIgnored var beatClock = BeatClock()
+    @ObservationIgnored var beatTask: Task<Void, Never>?
+    @ObservationIgnored var beatLineTask: Task<Void, Never>?
+    @ObservationIgnored var beatChimeUntil: TimeInterval = 0
+    @ObservationIgnored var beatSavedAt: TimeInterval = 0
+    /// The scene's music (calm / tense loops, the win ending, the event chime); silent when the files aren't bundled.
+    @ObservationIgnored let music = MusicPlayer()
     /// Round D2: the Grown-ups sheet (gate, then Saved games + About saved games).
     #if DEBUG
     /// Round 25 (button audit): the driver's `#leavedialog` shows the X's leave dialog (RootView owns its state).
@@ -245,10 +260,10 @@ final class AppModel {
         // Tool-first kid turns (round 7): no narration is ever heard; she speaks after the tool result.
         realtime.onKidTurnTools = { [weak self] in
             guard let self else { return nil }
-            if self.store.isReplay { return ReplayLines.tools(self.store.phase) }   // round D1
+            if self.store.isReplay { return ReplayLines.tools(self.store.phase, oneScene: self.store.isOneSceneGame) }   // round D1
             if self.store.gameLocked && self.store.phase == .players { return Realtime.pickBackTools }   // round 28: back on Pick
             guard self.planningNow else {
-                return Realtime.afterHuntTools(self.store.phase)   // round 23
+                return Realtime.afterHuntTools(self.store.phase, oneScene: self.store.isOneSceneGame)   // round 23
             }
             return Realtime.kidTurnTools(step: self.store.planningStep, huntActive: self.store.huntActive)
         }
@@ -261,7 +276,7 @@ final class AppModel {
                     + " Otherwise answer in ONE short line. No \"go play\" yet."
             case .scene, .end:
                 // Round 23: the only tool while playing is going back ("print it again", "back to the props").
-                return BackNav.playNote
+                return self.store.isOneSceneGame ? BackNav.oneScenePlayNote : BackNav.playNote   // 2026-11-21
             default: return nil
             }
         }
@@ -557,6 +572,7 @@ final class AppModel {
         replayGame = nil; replayConnecting = false
         resetAutoSave()   // round 39: what was saved stays saved; the watchers and the moments stop
         stopChecklistReading()
+        endBeatScene()   // 2026-11-21: the scene's clock and music stop
         clearResumePoint()   // 2026-11-20: going home on purpose ends the game (a relaunch mid-game offers it instead)
         // Round 37: the game just played stays reportable from Grown-ups → Report a problem until the app quits (in
         // memory only: its title and AI-made text, never anything about the kids).
@@ -637,6 +653,7 @@ final class AppModel {
         // 2026-11-20 (checklist scenes): a new scene starts with nothing queued or highlighted; where the game is is
         // kept for a resume after a relaunch (game content only), and dropped at The End.
         stopChecklistReading()
+        beatPhaseChanged()   // 2026-11-21: the one scene's clock starts or stops
         if case .scene = store.phase { saveResumePoint() }
         if store.phase == .end { clearResumePoint() }
         // Round 39: the kit of a new game was made (the end of Props): count the show and save the game.
@@ -1200,6 +1217,8 @@ final class AppModel {
         // Writing moment (round 5): focus face (eyes down at the clipboard) while she writes; she looks up happy after.
         if isWriting { return .coloring }
         if beat == .lookUp { return .idle }
+        // 2026-11-21 (Haylee): in the one scene her face follows the beat (calm play, an event, calm-again, the finale).
+        if let s = beatState { return s }
         if store.phase == .makingKit || store.phase == .kitReady {
             switch kitBeat { case .coloring: return realtime.isSpeaking ? .idle : .thinking; case .lookUp: return .excited; case .papers: break }
         }
@@ -1560,6 +1579,7 @@ final class AppModel {
         case .background:
             rtLog("scene: background (phase \(store.phase), step \(store.planningStep))")
             AppPresence.shared.setForeground(false)   // 2026-11-18: image calls cut off from here are retried on return
+            pauseScene()   // 2026-11-21: the one scene pauses (music, clock, speech); ▶ Resume when they're back
             realtime.suspend()
             onboardingVoice.stop()   // v2: her onboarding clip never plays with the page off screen
             scribble.setPlaying(false, ducked: false)
@@ -2410,6 +2430,10 @@ final class AppModel {
     /// Round 31: the grown-up note to show (the mic was pressed while the iPad can't listen on the device).
     var speechHelp: SpeechReadiness?
     func talkPressed(touchHost: Double = CACurrentMediaTime()) {
+        // 2026-11-21 (Haylee, decisions/2026-11-17-saved-game-page-and-play-bar.md): the microphone stays off for the
+        // whole Play phase (setup, the scene, clean-up) and The End: no mic button shows there, and a press that gets
+        // through anyway is refused (`PlayMic`, tested in NutmegCore).
+        guard PlayMic.allowed(store.phase) else { rtLog("mic: off during Play (refused)"); return }
         wakeUp()
         guard listener.available else {
             // Round 34: iPadOS 26+: the one-tap in-app download sheet instead of the Settings note.
@@ -2443,6 +2467,7 @@ final class AppModel {
     }
 
     func micPressed(touchHost: Double = CACurrentMediaTime()) {
+        guard PlayMic.allowed(store.phase) else { return }   // 2026-11-21: never listens during Play
         if speaker.isSpeaking { speaker.cancel() }   // Nutmeg never hears herself
         listener.startListening(touchHost: touchHost)
     }
@@ -2523,7 +2548,9 @@ extension AppModel {
         guard finished, let scene = store.kit?.scenes[i] else { return }
         rtLog("scene: every item checked (\(scene.arc == .cleanup ? "clean-up" : "scene \(store.playNumber(i))"))")
         gesture(.celebrate)
-        if scene.arc == .cleanup {
+        if scene.arc == .cleanup && store.isOneSceneGame {
+            // 2026-11-21 (Haylee): the one-scene clean-up waits for its ▶ The End button (it lights up now).
+        } else if scene.arc == .cleanup {
             checklistEndTask?.cancel()
             checklistEndTask = Task { @MainActor [weak self] in
                 try? await Task.sleep(for: .seconds(1.2))   // the last check lands before The End

@@ -315,8 +315,17 @@ private struct Motion {
             let c = (t / 1.7).truncatingRemainder(dividingBy: 1)
             if c < 0.18 { nod = CGFloat(2 * sin(c / 0.18 * .pi) * k) }
             headTilt += 1 * sin(t * 1.1) * k
-        case .idle, .napping, .sitting:
+        case .idle, .napping, .sitting, .calling, .relieved:
             break
+        case .alarmed:
+            stateTilt = 2   // a small "uh-oh" lean
+        case .grooving:
+            // 2026-11-21 (Haylee): calm play in the one scene: she gently bobs to the music (about 96 beats a minute):
+            // a small head nod on each beat and a slow sway every two beats, the tail swinging along. Subtle, like the
+            // writing nod; nothing with reduced motion.
+            nod = CGFloat(-2.5 * abs(sin(t * .pi * 1.6)) * k)
+            headTilt += 2 * sin(t * .pi * 0.8) * k
+            tailSwing = 5 * sin(t * .pi * 1.6) * k
         case .drowsy:
             stateTilt = -2   // the head starts to nod down
         case .asleep:
