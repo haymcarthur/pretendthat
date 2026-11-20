@@ -1,3 +1,5 @@
+> New session (after the repo transfer)? Read [session-handoff-2026-11-21.md](session-handoff-2026-11-21.md) first.
+
 # MORNING SUMMARY (for Haylee, 2026-11-21 morning)
 
 Everything below was built overnight on the branch `claude/optimistic-allen-mifsgp` (pushed). Nothing was compiled as an app here (no Xcode): NutmegCore compiles and its tests pass on Linux; the app files were read line by line against NutmegCore and pass `swiftc -parse`. No API keys, no live calls, $0.

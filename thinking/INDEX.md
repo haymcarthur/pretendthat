@@ -1,6 +1,6 @@
 # Thinking index (PretendThat)
 
-**Start here: [status-latest.md](status-latest.md)** (handoff: what's shipped, what's waiting, what's next). Older: [overnight-status.md](overnight-status.md)
+**Start here: [session-handoff-2026-11-21.md](session-handoff-2026-11-21.md)** (the whole 11-20/21 session, where everything lives, repo-transfer steps), then **[status-latest.md](status-latest.md)** (handoff: what's shipped, what's waiting, what's next). Older: [overnight-status.md](overnight-status.md)
 
 The map. Read this first, then open only what you need.
 
