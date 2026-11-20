@@ -26,8 +26,9 @@ struct ChecklistSceneView: View {
                 PTScenarioPanel(model: model, index: index, scene: scene, width: width, height: height)
                     .transition(.opacity.combined(with: .scale(scale: 0.96)))
             } else if metrics.isPhone {
-                PTChecklistShelf(model: model, index: index, scene: scene, width: width, height: height)
-                    .transition(.opacity)
+                // 2026-11-20 (Haylee): the iPhone's checklist is the chat's edge-to-edge bottom sheet, drawn by
+                // RootView in the sheet layer (`phoneChecklistSheet`), not in the stage's content zone.
+                EmptyView()
             } else {
                 PTChecklistBoard(model: model, index: index, scene: scene, width: width, height: height)
                     .transition(.opacity)
@@ -195,12 +196,14 @@ struct PTChecklistBoard: View {
 
 // MARK: - iPhone: the shelf (like the chat shelf) holding every card
 
+/// 2026-11-20 (Haylee): the same sheet as the iPhone chat (`PTChatPanelShape(shelf: true)`): edge to edge, attached to
+/// the bottom of the screen, rounded top corners only, under the ✕ + step rail. RootView places it; the one big button
+/// (▶ Let's play! / ▶ The End, or the ◀ / ▶ pair) floats over its bottom, so the rows keep `bottomClearance` free.
 struct PTChecklistShelf: View {
     let model: AppModel
     let index: Int
     let scene: KitScene
-    let width: CGFloat
-    let height: CGFloat
+    var bottomClearance: CGFloat = 0
     private var store: AdventureStore { model.store }
 
     var body: some View {
@@ -226,14 +229,16 @@ struct PTChecklistShelf: View {
                     }
                 }
                 .padding(.horizontal, Theme.Space.s)
-                .padding(.bottom, Theme.Space.l)
+                .padding(.bottom, Theme.Space.s)
             }
             .scrollIndicators(.visible)
             .scrollIndicatorsFlash(onAppear: true)
+            // The sheet's white footer: the floating button sits on it (like the chat's input row), so the rows
+            // stop above it instead of running behind the button.
+            Color.clear.frame(height: bottomClearance)
         }
-        .frame(width: width, height: height, alignment: .top)
-        .background(UnevenRoundedRectangle(topLeadingRadius: 28, topTrailingRadius: 28, style: .continuous).fill(Theme.white))
-        .shadow(color: Theme.panelShadow, radius: 10, y: -2)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .modifier(PTChatPanelShape(shelf: true))
     }
 }
 
@@ -346,7 +351,9 @@ struct PTChecklistRow: View {
             }
             Button { model.tapChecklistRow(step) } label: {
                 Text(text).font(Theme.bodyFont(size.font)).foregroundStyle(checked ? Theme.inkMuted : Theme.ink)
-                    .multilineTextAlignment(.leading).lineLimit(2).minimumScaleFactor(0.8)
+                    // 2026-11-20 (Haylee): up to 3 lines, so a row never ends in "…" on the iPhone.
+                    .multilineTextAlignment(.leading).lineLimit(3).minimumScaleFactor(0.8)
+                    .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, minHeight: size.button, alignment: .leading)
                     .contentShape(Rectangle())
             }

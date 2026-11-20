@@ -1,4 +1,4 @@
-> **2026-11-20, MacBook Air:** everything is on main now (no branches). The app builds (two compiler fixes), the demo checks pass, and the 3-kid setup card clipping is fixed: [first-mac-build-of-overnight-work](decisions/2026-11-20-first-mac-build-of-overnight-work.md). Next: the sound checks and the one live game; iPhone setup rows that end in "…".
+> **2026-11-20, MacBook Air:** everything is on main now (no branches). The app builds (two compiler fixes), the demo checks pass, and the 3-kid setup card clipping is fixed: [first-mac-build-of-overnight-work](decisions/2026-11-20-first-mac-build-of-overnight-work.md). iPhone checklist now uses the chat's bottom sheet and rows wrap ([iphone-checklist-sheet](decisions/2026-11-20-iphone-checklist-sheet.md)). Next: the sound checks and the one live game.
 
 > New session (after the repo transfer)? Read [session-handoff-2026-11-21.md](session-handoff-2026-11-21.md) first.
 

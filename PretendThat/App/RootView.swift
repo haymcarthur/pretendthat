@@ -123,6 +123,11 @@ struct RootView: View {
                     phoneChatSheet
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
+                // 2026-11-20 (Haylee): the checklist (setup, clean-up, older checklist scenes) in the same sheet.
+                if chromeVisible, let i = phoneChecklistIndex, let scene = store.kit?.scenes[i] {
+                    phoneChecklistSheet(index: i, scene: scene)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
             } else {
             HStack(spacing: Theme.Space.m) {
                 Spacer(minLength: 0)
@@ -507,6 +512,26 @@ struct RootView: View {
             .padding(.top, LayoutMetrics.phoneTopInset(screen: screenSize == .zero ? rootSize : screenSize, safeTop: rootTop)
                      + LayoutMetrics.phoneTopBar + Theme.Space.xs)
             .ignoresSafeArea(.container, edges: .bottom)
+    }
+
+    /// The iPhone checklist sheet's scene: a checklist scene with its cards up (not the scenario moment, chat closed).
+    private var phoneChecklistIndex: Int? {
+        guard metrics.isPhone, checklistCards, !store.inStory, case .scene(let i) = store.phase,
+              store.kit?.scenes.indices.contains(i) == true, store.kit!.scenes[i].isChecklist else { return nil }
+        return i
+    }
+
+    /// 2026-11-20 (Haylee): the iPhone checklist in the chat's sheet: edge to edge, attached to the bottom of the
+    /// screen, under the ✕ + step rail. Its rows keep clear of the floating button (and the home indicator).
+    private func phoneChecklistSheet(index: Int, scene: KitScene) -> some View {
+        let screen = screenSize == .zero ? rootSize : screenSize
+        // The home indicator's room: the button floats above it (`safeInsets`; the root-size difference reads 0 here).
+        let safeBottom = max(safeInsets.bottom, screen.height - rootSize.height - rootTop, 0)
+        return PTChecklistShelf(model: model, index: index, scene: scene,
+                                bottomClearance: navRoom + safeBottom)
+            .padding(.top, LayoutMetrics.phoneTopInset(screen: screen, safeTop: rootTop) + LayoutMetrics.phoneTopBar + Theme.Space.xs)
+            .ignoresSafeArea(.container, edges: .bottom)
+            .ignoresSafeArea(.keyboard)
     }
 
     /// What the phone shows in the content zone under Nutmeg right now (its height comes from `LayoutMetrics`).
