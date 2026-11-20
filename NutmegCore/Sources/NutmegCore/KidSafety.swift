@@ -239,7 +239,18 @@ extension GamePlan: SafetyText {
 extension Props: SafetyText { public var safetyTexts: [String] { [nutmegSays] + props.flatMap { [$0.householdItem, $0.becomes, $0.reason ?? ""] } } }
 extension Kit: SafetyText {
     public var safetyTexts: [String] {
-        [nutmegSays] + items.flatMap { [$0.title] + $0.lines } + scenes.flatMap { [$0.title, $0.nutmegSays] + $0.steps.flatMap { [$0.text] + ($0.short.map { [$0] } ?? []) } }
+        // Built in steps: as one expression, Xcode 26's compiler gave up type-checking it.
+        var texts: [String] = [nutmegSays]
+        for item in items { texts.append(item.title); texts.append(contentsOf: item.lines) }
+        for scene in scenes {
+            texts.append(scene.title)
+            texts.append(scene.nutmegSays)
+            for step in scene.steps {
+                texts.append(step.text)
+                if let short = step.short { texts.append(short) }
+            }
+        }
+        return texts
     }
 }
 extension NutmegTurn: SafetyText { public var safetyTexts: [String] { [nutmegSays] + choices.map(\.label) } }
