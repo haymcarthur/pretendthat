@@ -1,0 +1,58 @@
+# Superhero city: the picks (2026-11-21, Claude's call by analysis)
+
+2 takes per segment (flow `nA4iFu6YdytPTl9Xbduj`, prompts in [PROMPTS.md](PROMPTS.md)). Nobody can listen in the
+agent sandbox, so the pairing is by measurement (ffmpeg ebur128, librosa CQT chroma + Krumhansl key profiles, a comb
+beat-grid fit, harmonic-change downbeats), as for space adventure. Script: `tools/process_music_more.py`. No extra AI calls.
+
+**Note:** the model ignored "B-flat". Every take came out centred on **C** (calm C major, tense D minor / C minor, win
+on C), so the family is in C, the same as space adventure. All takes are exactly **112.0 BPM** 4/4 (comb fit
+111.99–112.00).
+
+## Picks
+
+| segment | pick | why |
+|---|---|---|
+| calm | **calm-1** | Clearest downbeats of the two (harmonic change on beat 1: 1.0 vs 0.07–0.12 on the others), steady level (RMS spread 0.88 dB, drift +0.8 dB), and the best chroma match to both tense (0.895) and win-1 (0.971). Best loop seam: mel distance 0.36 (calm-2's best is 0.58). calm-2 is a clearer C major (0.80 vs 0.59) but climbs +2 dB over its last 20 s. |
+| tense | **tense-1** | D minor (0.82): the same notes as C major (its ii chord), so the switch from calm is smooth. Steady across the whole take (drift +0.8 dB), so it gives a 16-bar loop (34.3 s, seam score 0.34). tense-2 is the closer C minor (chroma 0.978 to calm-1) but drops 3 dB halfway with a near-break at 26 s, leaving only an 8-bar (17 s) loop: too repetitive for a tense stretch. |
+| win | **win-1** | The only take that ends: the last chord is C/G (C4 G4 C5 G5, bass on C), then a clean ring-out to −57 dB by 14.5 s. win-2 is in A major and is still at full level when the file stops (a cut, not an ending). |
+
+## Measurements of every take
+
+| take | length | LUFS | LRA | peak dBFS | key (corr.) | RMS spread dB | drift dB |
+|---|---|---|---|---|---|---|---|
+| **calm-1** | 60 s | −10.9 | 2.2 | −0.2 | C maj (0.59) | 0.88 | +0.8 |
+| calm-2 | 60 s | −16.3 | 2.7 | −2.9 | C maj (0.80) | 0.95 | +2.1 |
+| **tense-1** | 45 s | −14.3 | 1.7 | −0.8 | D min (0.82) | 1.19 | +0.8 |
+| tense-2 | 45 s | −14.1 | 2.3 | −0.9 | C min (0.65) | 1.52 | −3.0 (break at 26 s) |
+| **win-1** | 15 s | −13.2 | 1.4 | −0.4 | C min/maj (0.81/0.77), ends C/G | — | — |
+| win-2 | 15 s | −12.3 | 1.6 | 0.0 | A maj (0.84), no ending | — | — |
+
+Chroma similarity: calm-1↔tense-1 0.895, calm-1↔win-1 0.971, tense-1↔win-1 0.923 (calm-1↔tense-2 0.978,
+calm-2↔tense-1 0.758).
+
+## Processing (`python3 tools/process_music_more.py process superhero-city`)
+
+- **calm**: calm-1 from 15.040 s (beat 28, a downbeat), **20 bars = 42.86 s**. **tense**: tense-1 from 6.468 s
+  (beat 12), **16 bars = 34.28 s**. Both chosen from every downbeat start × 4-bar-phrase length by the closest match
+  between the 250 ms after the loop end and the loop head (log-mel + RMS), stopping before any fade.
+- Same method as space (30 ms equal-power seam crossfade, static gain, circular look-ahead limiter, AAC-LC 96 kbps
+  48 kHz with an edit list), plus one step: 112 BPM bars are not whole AAC frames, so each loop is resampled
+  circularly (FFT) to the nearest whole 1024-sample frame count (calm −0.005 %, tense +0.009 % speed: inaudible).
+  The decoded .m4a is exactly the loop (checked).
+- **win**: the whole take, 3 ms fade-in, 20 ms fade-out.
+
+## Results (decoded .m4a)
+
+| file | length | LUFS | TP dBTP | size |
+|---|---|---|---|---|
+| superhero-city/calm.m4a | 42.86 s (20 bars) | −16.0 | −5.2 | 525 KB |
+| superhero-city/tense.m4a | 34.28 s (16 bars) | −15.1 | −1.7 | 420 KB |
+| superhero-city/win.m4a | 15.0 s | −15.9 | −2.8 | 187 KB |
+
+| loop | RMS jump last→first 200 ms | the source's own jump there | 10 ms RMS step | HF (>8 kHz) first 10 ms vs other bar starts |
+|---|---|---|---|---|
+| calm | +2.5 dB | +2.3 dB | 0.55 dB | −43.0 dB vs median −42.1 (range −43.9…−38.9) |
+| tense | +4.3 dB | +3.7 dB | 1.2 dB | −45.8 dB vs median −44.7 (range −47.9…−37.5) |
+
+The seams look like ordinary bar lines. Listen: `processed/loop-test-calm-x3.m4a` (seams 0:42.9, 1:25.7),
+`processed/loop-test-tense-x3.m4a` (0:34.3, 1:08.6). Full numbers: `processed/measurements.json`.

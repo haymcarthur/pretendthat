@@ -1,0 +1,82 @@
+{
+ "calm": {
+  "source_lufs": -10.7,
+  "lufs": -16.0,
+  "lra": 2.1,
+  "true_peak_dbtp": -5.2,
+  "limiter_ceiling_db": -1.5,
+  "source": "calm-1.mp3",
+  "start_s": 15.0397,
+  "cut_samples": 2057106,
+  "samples": 2057216,
+  "length_s": 42.8587,
+  "speed_change_pct": -0.0053,
+  "decoded_samples": 2057216,
+  "seam_raw_cut": {
+   "rms_jump_db": 2.69,
+   "mel_dist": 0.8,
+   "rms10_step_db": 1.84,
+   "sample_step": 0.033,
+   "median_sample_step": 0.0139,
+   "natural_rms_jump_db": 2.25,
+   "natural_mel_dist": 0.761
+  },
+  "seam_processed_m4a": {
+   "rms_jump_db": 2.51,
+   "mel_dist": 0.882,
+   "rms10_step_db": 0.55,
+   "sample_step": 0.0161,
+   "median_sample_step": 0.0077
+  },
+  "bytes": 525188,
+  "bpm": 112.002,
+  "start_beat": 28,
+  "beats": 80
+ },
+ "tense": {
+  "source_lufs": -14.2,
+  "lufs": -15.1,
+  "lra": 1.6,
+  "true_peak_dbtp": -1.7,
+  "limiter_ceiling_db": -1.5,
+  "source": "tense-1.mp3",
+  "start_s": 6.4684,
+  "cut_samples": 1645714,
+  "samples": 1645568,
+  "length_s": 34.2827,
+  "speed_change_pct": 0.0089,
+  "decoded_samples": 1645568,
+  "seam_raw_cut": {
+   "rms_jump_db": 4.41,
+   "mel_dist": 0.604,
+   "rms10_step_db": 0.09,
+   "sample_step": 0.1365,
+   "median_sample_step": 0.0063,
+   "natural_rms_jump_db": 3.74,
+   "natural_mel_dist": 0.625
+  },
+  "seam_processed_m4a": {
+   "rms_jump_db": 4.3,
+   "mel_dist": 0.709,
+   "rms10_step_db": 1.2,
+   "sample_step": 0.0167,
+   "median_sample_step": 0.0058
+  },
+  "bytes": 420168,
+  "bpm": 112.0,
+  "start_beat": 12,
+  "beats": 64
+ },
+ "win": {
+  "source_lufs": -13.2,
+  "lufs": -15.9,
+  "lra": 1.4,
+  "true_peak_dbtp": -2.8,
+  "limiter_ceiling_db": -1.5,
+  "source": "win-1.mp3",
+  "length_s": 15.0,
+  "samples": 720000,
+  "decoded_samples": 720896,
+  "bytes": 187469
+ }
+}
