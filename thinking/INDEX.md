@@ -199,6 +199,7 @@ The map. Read this first, then open only what you need.
 - [Printables after a lock: calls cut off by the lock are retried on return, color and coloring pages always the same AI picture, no fallback art in live games (a not-ready page shows Try again and isn't printed)](decisions/2026-11-18-printables-after-lock.md): Haylee (no fallback art, show an error); Claude's call on the fix
 - [TestFlight build 1.0 (4): peek v4 body and hands, saved-game offer picture only, Nutmeg looks up while she talks, idle/lock tap and mic fix, printables after a lock](decisions/2026-11-18-build-4.md): Haylee
 - [Demo seeds Moon Crumbs Bakery with its real cover, so the saved-game offer and the shelf book show the same picture](decisions/2026-11-18-demo-seed-real-cover.md): Haylee (how: Claude's call)
+- [TestFlight build 1.0 (5): the overnight rounds + today's fixes, Free Preview stays 2](decisions/2026-11-20-build-5.md): Haylee
 - [Saved game page: sheet slides up alone, ✕ on the sheet; shelf names no longer overlap](decisions/2026-11-20-saved-page-sheet-and-shelf-names.md): Haylee
 - [Prop art: openings show through; 10 images fixed (bag, cup and chair regenerated; prompts in design/props-regen)](decisions/2026-11-20-prop-art-openings.md): Haylee
 - [Code Cracker: AI picture + the kit's colors; page names never become "a friend"](decisions/2026-11-20-code-cracker-picture-and-page-names.md): Haylee + Claude's calls
@@ -242,6 +243,7 @@ The map. Read this first, then open only what you need.
 - [Name check: Boxley](research/name-check-boxley.md): why Boxley is out
 
 ## Ideas
+- [Later: Free Preview of 3 free games (built and rolled back 2026-11-20; how to bring it back)](ideas/free-preview-three-later.md): Haylee
 - [Onboarding v3: 6 calm pages (welcome with the start-screen toy chest, how it works rows, what you'll need tiles, privacy + mic in one "I agree, turn on the mic", plans in "game" words with plain renewal prices, you're all set with the logo), purple pill, every page fits 375×812 and 402×874; mockup in design/mockups/onboarding-v3/](ideas/2026-11-17-onboarding-v3.md): Haylee's round-3 changes in; 4 small questions
 - [iPhone version: mockups + Haylee's feedback (no point pose, stage fills empty space, full chat sheet, no mute)](ideas/2026-11-15-iphone-version.md): **built 2026-11-17, see iphone-build**
 - [Paid-app project checklist: kit fixes, back-navigation, generate-for-6, saved games + real-voice replays, StoreKit, Grown-ups corner](ideas/2026-11-15-paid-app-project.md): queued, design doc first
