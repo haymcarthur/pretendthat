@@ -30,3 +30,4 @@
 - **◀ Previous / ▶ Next scene:** centered on the screen as a pair, both the same size (the first mockup's mismatched pair looked broken).
 - **Update (Haylee):** on iPhone, Nutmeg sits in a circle next to the scene title (not peeking over the shelf), so the shelf can be taller. There's more space between checklist items so they don't feel squished.
 - **Layout approved (Haylee, 2026-11-20):** design/mockups/checklist-scenes/ v3 is final. At the scenario moment, Nutmeg's stage and zoom follow the app's existing stage framing (the same stageMove/zoom behavior as the rest of the app), not the mockup's drawn stage.
+- **Update (Haylee):** no "NEXT" tag or queued-row marking on any item. Only the row being read is highlighted. Taps while she talks still queue, just without any visible marker.
