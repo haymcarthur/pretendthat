@@ -106,8 +106,11 @@ struct PTChecklistBoard: View {
             let fitW: CGFloat = (width - CGFloat(columns - 1) * gap) / CGFloat(columns)
             let cardW = min(maxW, fitW)
             // Her peek over the top-right card: big when there's room, smaller with two rows of cards.
-            let share: CGFloat = n <= 3 ? 0.42 : 0.34
-            let cap: CGFloat = n <= 3 ? 210 : 150
+            // 2026-11-20: by rows, not count: 3 kids with area cards are two rows (2 + 1), and the big peek pushed
+            // the bottom card past the screen (the board fell back to scrolling and cut it off).
+            let oneRow = n <= columns
+            let share: CGFloat = oneRow ? 0.42 : 0.34
+            let cap: CGFloat = oneRow ? 210 : 150
             let peekW = min(cardW * share, cap)
             var rows: [[ChecklistScenes.Card]] = []
             var i = 0

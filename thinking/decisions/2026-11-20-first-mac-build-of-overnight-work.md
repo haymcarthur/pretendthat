@@ -9,7 +9,8 @@
 
 ## Demo checks (no keys, throwaway simulators, $0)
 Shots in design/sim-checks-2026-11-20/ (local, git-ignored).
-- iPad area setup cards at 2, 3, 4, 6 kids: role small, area job big, picture chips, ▶ Let's play! green. **Bug: at 3 kids the centered bottom card is clipped** (its last row is cut and the card loses its bottom edge above ▶ Let's play!). 2, 4 and 6 fit.
+- iPad area setup cards at 2, 3, 4, 6 kids: role small, area job big, picture chips, ▶ Let's play! green. At 3 kids the centered bottom card was clipped: Nutmeg's peek used the one-row (big) size for two rows of cards and pushed the board past the screen. **Fixed** (ChecklistSceneView `BoardLayout`: the peek size goes by rows, not kid count; Haylee said fix it). Rechecked 2, 3, 4, 6 on iPad: all fit, 2/4/6 unchanged.
+- iPhone (not changed): some setup rows end in "…" (e.g. "Set the steering wheel in the co…"); same before the fix.
 - `oneIdea`: small translucent card low right with thumbnail, line and 🔊.
 - `onePlaying -PTFastScene` (2 kids): event card with 🔊 → tense card (coral, alarmed face, "uh-oh" music pill) → calm-again (phew) → finale (celebrate, End scene hidden) → clean-up opens by itself.
 - `oneCleanup`: "Tidy up the cockpit" cards, one put-away per prop, the paper-scraps row, ▶ The End.

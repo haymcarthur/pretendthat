@@ -1,4 +1,4 @@
-> **2026-11-20, MacBook Air:** everything is on main now (no branches). The app builds (two compiler fixes) and the demo checks pass except the 3-kid setup card clipping: [first-mac-build-of-overnight-work](decisions/2026-11-20-first-mac-build-of-overnight-work.md). Next: fix the 3-kid clipping, then the sound checks and the one live game.
+> **2026-11-20, MacBook Air:** everything is on main now (no branches). The app builds (two compiler fixes), the demo checks pass, and the 3-kid setup card clipping is fixed: [first-mac-build-of-overnight-work](decisions/2026-11-20-first-mac-build-of-overnight-work.md). Next: the sound checks and the one live game; iPhone setup rows that end in "…".
 
 > New session (after the repo transfer)? Read [session-handoff-2026-11-21.md](session-handoff-2026-11-21.md) first.
 
