@@ -1,6 +1,6 @@
 # Scene music (one scene with music, 2026-11-21)
 
-**Everything in this folder is a PLACEHOLDER except `space-adventure/` and `chime.m4a`** (real music, see the end) (soft synthesized tones from `tools/make_placeholder_music.py`).
+**The seven original families and `chime.m4a` are real music now** (see the end); anything still made by `tools/make_placeholder_music.py` is a soft synthesized placeholder.
 Replace each file with the real AI-made music, keeping the same names. Plan and licensing:
 `thinking/research/2026-11-21-ai-music-options.md`.
 
@@ -49,3 +49,9 @@ Families (the guide picks one; `MusicFamily` in NutmegCore/OneScene.swift):
   its own tail in front, then cut back with an MP4 edit list (1024 priming samples), so the decoded file is exactly
   the loop with no start click. If a seam is ever heard on a device, re-check `AVAudioPlayer` looping first; the
   file itself measures clean (PICKS.md, `design/music-test/space-adventure/processed/loop-test-*-x3.m4a`).
+- **The other six original families are REAL music too** (2026-11-21): jungle-outdoors, magical, cozy-shop,
+  spooky-silly, under-the-sea, desert-western, one ElevenLabs flow each (4 takes per segment), picked by analysis in
+  `design/music-test/<family>/PICKS.md` (prompts in `PROMPTS.md`). Made by `tools/process_music_families.py` (the same
+  method; tempo measured per take, and loops whose bar length isn't a whole number of AAC frames are resampled by
+  under 0.05 % to the next whole frame, so they stay sample-exact). Calm loops 37–48 s, tense 29–42 s.
+  Under the sea came out in C major / C minor (no take was in the A major asked for).

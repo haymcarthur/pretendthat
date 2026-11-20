@@ -1,0 +1,141 @@
+{
+ "calm": {
+  "source_lufs": -17.0,
+  "lufs": -16.3,
+  "lra": 1.9,
+  "true_peak_dbtp": -1.3,
+  "limiter_ceiling_db": -2.6,
+  "source": "calm-2.mp3",
+  "bpm_measured": 107.996,
+  "bpm_used": 108.0,
+  "beat_grid_resid_ms": 1.8,
+  "downbeat_phase": 0,
+  "start_s": 2.2368,
+  "start_bar": 1,
+  "bars": 20,
+  "body_end_s": 57.5,
+  "length_s": 44.4587,
+  "samples_source": 2133333,
+  "samples": 2134016,
+  "resample_ppm": 320.2,
+  "decoded_samples": 2134016,
+  "loop_candidates_top3": [
+   [
+    0.36251736677161805,
+    1,
+    20,
+    0.28,
+    0.28
+   ],
+   [
+    0.6954985621336235,
+    0,
+    20,
+    0.599,
+    0.32
+   ],
+   [
+    0.9141631697792505,
+    0,
+    24,
+    0.89,
+    -0.08
+   ]
+  ],
+  "seam_raw_cut": {
+   "rms_jump_db": 13.19,
+   "mel_dist": 1.969,
+   "rms10_step_db": 2.84,
+   "sample_step": 0.2694,
+   "median_sample_step": 0.0024,
+   "natural_rms_jump_db": 13.46,
+   "natural_mel_dist": 1.156
+  },
+  "seam_processed_m4a": {
+   "rms_jump_db": 13.27,
+   "mel_dist": 1.169,
+   "rms10_step_db": 4.49,
+   "sample_step": 0.0192,
+   "median_sample_step": 0.0028,
+   "natural_rms_jump_db": 12.45,
+   "natural_mel_dist": 1.201
+  },
+  "bytes": 550201
+ },
+ "tense": {
+  "source_lufs": -15.2,
+  "lufs": -15.0,
+  "lra": 1.3,
+  "true_peak_dbtp": -1.5,
+  "limiter_ceiling_db": -1.5,
+  "source": "tense-4.mp3",
+  "bpm_measured": 107.997,
+  "bpm_used": 108.0,
+  "beat_grid_resid_ms": 1.6,
+  "downbeat_phase": 3,
+  "start_s": 4.1834,
+  "start_bar": 1,
+  "bars": 16,
+  "body_end_s": 42.46,
+  "length_s": 35.5627,
+  "samples_source": 1706667,
+  "samples": 1707008,
+  "resample_ppm": 199.8,
+  "decoded_samples": 1707008,
+  "loop_candidates_top3": [
+   [
+    1.23070152763613,
+    1,
+    16,
+    0.715,
+    1.72
+   ],
+   [
+    1.4192441138084917,
+    2,
+    16,
+    0.903,
+    1.72
+   ],
+   [
+    1.4467090807782204,
+    0,
+    16,
+    0.836,
+    2.03
+   ]
+  ],
+  "seam_raw_cut": {
+   "rms_jump_db": -1.26,
+   "mel_dist": 1.557,
+   "rms10_step_db": 2.8,
+   "sample_step": 0.0737,
+   "median_sample_step": 0.0029,
+   "natural_rms_jump_db": 0.49,
+   "natural_mel_dist": 0.945
+  },
+  "seam_processed_m4a": {
+   "rms_jump_db": -1.25,
+   "mel_dist": 1.101,
+   "rms10_step_db": 0.67,
+   "sample_step": 0.0023,
+   "median_sample_step": 0.003,
+   "natural_rms_jump_db": 0.23,
+   "natural_mel_dist": 0.908
+  },
+  "bytes": 436242
+ },
+ "win": {
+  "source_lufs": -14.9,
+  "lufs": -16.1,
+  "lra": 2.5,
+  "true_peak_dbtp": -2.2,
+  "limiter_ceiling_db": -1.5,
+  "source": "win-4.mp3",
+  "length_s": 14.471,
+  "samples": 694619,
+  "decoded_samples": 695296,
+  "bytes": 179605,
+  "trimmed_lead_s": 0.529
+ }
+}
