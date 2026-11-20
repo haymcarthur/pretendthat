@@ -1706,26 +1706,44 @@ public final class AdventureStore {
     /// (written during the hunt, or now if that failed) gets every found prop placed into it by ONE small call (skips
     /// and swaps are known, so nothing is patched afterwards), and Play starts as soon as it's in. No answer, or one
     /// that fails the safety check: the app places the props (stand-ins, areas), with no second call.
+    /// Review pass: the longest Play waits (seconds) for the plan still being written, a late plan call and the props call.
+    nonisolated static let planWait: Double = 60, latePlanWait: Double = 60, propsWait: Double = 25
+
     private func finishWithPlan(items: [KitItem], gen: Int) async {
         guard gen == kitGeneration else { return }
         fullKit = Kit(nutmegSays: "", items: items, scenes: [])
         guidePending = true
         phase = .kitReady
-        if guideKit == nil { _ = await guideTask?.value }
+        // Review pass: Play never waits forever. The plan still being written gets `planWait` more seconds; a plan
+        // call that failed is made once more (`latePlanWait`); the props call gets `propsWait`. Past any of them the
+        // app composes the game (the bundled plan with this kit's pages, the props placed by the app).
+        var stillWriting = false
+        if guideKit == nil, let t = guideTask {
+            stillWriting = await Deadline.run(seconds: Self.planWait) { () -> Bool in _ = await t.value; return true } == nil
+        }
         guard gen == kitGeneration else { return }
         var guide: Kit? = guideGeneration == draftGeneration ? guideKit : nil
-        if guide == nil, let service, !usingFallback {
+        if guide == nil, !stillWriting, let service, !usingFallback {
             guideCalls += 1
-            guide = try? await RetryOnce.run { [ctx = context] in try await service.earlyGuide(ctx: ctx, items: items) }
+            guide = await Deadline.run(seconds: Self.latePlanWait) { [ctx = context] in
+                try await RetryOnce.run { try await service.earlyGuide(ctx: ctx, items: items) }
+            }
             guard gen == kitGeneration else { return }
         }
+        #if DEBUG
+        if guide == nil, service != nil, !usingFallback { NSLog("[PLAN] no plan in time (still writing: %@): the app composes the game", stillWriting ? "yes" : "no") }
+        #endif
         let roles = plan?.roles ?? []
         let found = (props?.props ?? []).filter { !$0.isSkipped }
         var scenes = guide?.scenes ?? Fallback.gamePlanScenes
         if let i = scenes.firstIndex(where: { $0.beats?.plan != nil }) {
             var answer: PlanPropsAnswer?
             if let service, !usingFallback, !found.isEmpty, guide != nil {
-                answer = try? await service.placeProps(scene: scenes[i], props: found, ctx: context)
+                let scene = scenes[i], ctx = context
+                answer = await Deadline.run(seconds: Self.propsWait) { try await service.placeProps(scene: scene, props: found, ctx: ctx) }
+                #if DEBUG
+                if answer == nil { NSLog("[PLAN] no props answer in time: the app places the props") }
+                #endif
                 guard gen == kitGeneration else { return }
             }
             let base = scenes[i]

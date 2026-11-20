@@ -291,4 +291,41 @@ struct GamePlanTests {
         let issues = PlayPlans.trace(store.kit!.scenes, kit: store.fullKit!, roles: store.plan!.roles, players: 3, props: store.props?.props ?? [])
         #expect(issues.isEmpty, "\(issues)")
     }
+
+    // MARK: Review pass (replays with other props; Play never waits forever)
+
+    @Test func aReplayWithoutAPropNeverAsksForItAndASwapPutsTheNewItemAway() throws {
+        let k = kit()
+        // The plate (the steering wheel) skipped on this replay: lines that name it say "the pretend steering wheel".
+        let skip: [Prop] = props.map { p in var q = p; if p.id == "plate" { q.skipped = true }; return q }
+        for n in [1, 3, 6] {
+            let play = try #require(arc(k, n, props: skip).first { $0.isBeatScene }?.beats)
+            for e in play.events where e.line.lowercased().contains("steering wheel") {
+                #expect(e.line.lowercased().contains("pretend steering wheel"), "\(e.line)")
+            }
+            #expect(!play.events.contains { ($0.objects ?? []).contains("prop:plate") })
+        }
+        // The plate swapped for a pan: the steering wheel stays, the put-away names the pan's item (not the plate).
+        let swap: [Prop] = props.map { p in
+            var q = p
+            if p.id == "plate" { q.householdItem = "Pan"; q.libraryID = "pan"; q.swapped = true }
+            return q
+        }
+        let cleanup = try #require(arc(k, 6, props: swap).first { $0.arc == .cleanup })
+        let row = try #require(cleanup.steps.first { $0.objects == ["prop:plate"] })
+        #expect(!row.text.lowercased().contains("plate"), "\(row.text)")
+        #expect(PlayPlans.trace(arc(k, 3, props: swap), kit: k, roles: roles, players: 3, props: swap).isEmpty)
+    }
+
+    @Test func aDeadlineAnswersOrGivesUpInTime() async {
+        let fast = await Deadline.run(seconds: 5) { 7 }
+        #expect(fast == 7)
+        let started = Date()
+        let slow = await Deadline.run(seconds: 0.3) { () -> Int in
+            try await Task.sleep(for: .seconds(30)); return 1
+        }
+        #expect(slow == nil && Date().timeIntervalSince(started) < 5)
+        let failed = await Deadline.run(seconds: 5) { () -> Int in throw ClaudeError.decoding("no") }
+        #expect(failed == nil)
+    }
 }

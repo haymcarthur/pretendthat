@@ -76,7 +76,14 @@ extension PlayPlans {
         guard let b = guide.beats, let raw = b.plan else { return k.scenes }
         let p = PlayCast.players(n)
         let cover = Bookends.coverItems(items: k.items, props: props)
-        let plan = complete(raw, cover: cover, roles: roles, title: guide.title)
+        var plan = complete(raw, cover: cover, roles: roles, title: guide.title)
+        // Review pass (replays): a prop swapped for another household item keeps its pretend name, but a put-away item
+        // that names none of its current names (it named the first play's item) gets the app's line.
+        for k in plan.objects.indices {
+            guard let it = cover.first(where: { $0.id == plan.objects[k].id }), let prop = it.prop, prop.swapped == true,
+                  !Bookends.propNames(prop).contains(where: { Bookends.mentions(plan.objects[k].putAway, name: $0) }) else { continue }
+            plan.objects[k].putAway = Bookends.fallbackCleanup(it).short
+        }
         let playing = RoleCast.playing(roles, kids: p).map(\.id)
         let cast = cast(plan, playing: playing)
         var out: [Scene] = []
@@ -84,7 +91,7 @@ extension PlayPlans {
             out.append(Scene(id: "story", owner: .all, title: guide.title, picture: .point, nutmegSays: story, steps: [], kind: .story))
         }
         out.append(setupScene(guide, plan: plan, cast: cast, cover: cover, roles: roles, players: p, props: props))
-        let pool = b.events.map { tie($0, plan: plan, cover: cover, roles: roles) }
+        let pool = pretendGone(b.events, plan: raw, cover: cover, props: props).map { tie($0, plan: plan, cover: cover, roles: roles) }
         let events = OneScene.pick(pool: pool, roles: roles, players: p)
         let ideas = scheduleIdeas(plan: plan, events: events, cover: cover, cast: cast, roles: roles, players: p)
         let rawOpener = EventScenario.isGenericOpener(b.opener) ? EventScenario.opener(story: k.story, title: guide.title) : b.opener
@@ -94,6 +101,24 @@ extension PlayPlans {
         out.append(Scene(id: "play", owner: .all, title: guide.title, picture: .point, nutmegSays: beats.opener, steps: [], beats: beats))
         out.append(cleanupScene(k.cleanup ?? Bookend(title: "", nutmegSays: ""), plan: plan, cast: cast, cover: cover, roles: roles,
                                 players: p, props: props))
+        return out
+    }
+
+    /// Review pass (replays): a prop the saved plan placed that the kids don't have now (skipped on this replay) is
+    /// "the pretend …" in the event lines that name it, so no line asks for a prop that isn't there.
+    static func pretendGone(_ events: [BeatEvent], plan: PlayPlan, cover: [CoverItem], props: [Prop]) -> [BeatEvent] {
+        let here = Set(cover.map(\.id))
+        let gone = plan.objects.filter { $0.isProp && !here.contains($0.id) }
+        guard !gone.isEmpty else { return events }
+        var out = events
+        for o in gone {
+            let prop = props.first { Bookends.propID($0.id) == o.id }
+            let name = prop.map { KitDraft.cutoutLabel(becomes: $0.becomes) } ?? KitDraft.cutoutLabel(becomes: o.pretend ?? "")
+            guard !name.isEmpty else { continue }
+            for k in out.indices {
+                out[k].line = GuideWeave.pretend(out[k].line, item: prop?.householdItem ?? "", becomes: name, label: name)
+            }
+        }
         return out
     }
 

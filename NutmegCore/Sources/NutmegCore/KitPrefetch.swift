@@ -206,3 +206,49 @@ public enum RetryOnce {
         }
     }
 }
+
+/// 2026-11-21 (review pass): a wait that can't hold Play up forever. The answer, or nil when the work fails or takes
+/// longer than `seconds` (the work is then cancelled and its late answer dropped). It returns at the deadline even if
+/// the work ignores the cancel. (Use a non-optional `T`: nil means "no answer in time".)
+public enum Deadline {
+    public static func run<T: Sendable>(seconds: Double, _ op: @escaping @Sendable () async throws -> T) async -> T? {
+        let box = DeadlineBox<T>()
+        return await withCheckedContinuation { (c: CheckedContinuation<T?, Never>) in
+            box.start(c,
+                      work: Task { box.finish(try? await op()) },
+                      clock: Task { try? await Task.sleep(for: .seconds(seconds)); box.finish(nil) })
+        }
+    }
+}
+
+/// The deadline's one-time answer (whichever comes first: the work or the clock); the loser is cancelled.
+final class DeadlineBox<T: Sendable>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var cont: CheckedContinuation<T?, Never>?
+    private var done = false
+    private var early: T??
+    private var work: Task<Void, Never>?
+    private var clock: Task<Void, Never>?
+
+    func start(_ c: CheckedContinuation<T?, Never>, work w: Task<Void, Never>, clock k: Task<Void, Never>) {
+        lock.lock()
+        work = w; clock = k
+        if let e = early {   // the work answered before the continuation was stored (very fast work)
+            lock.unlock(); c.resume(returning: e); k.cancel(); return
+        }
+        cont = c
+        lock.unlock()
+    }
+
+    func finish(_ value: T?) {
+        lock.lock()
+        guard !done else { lock.unlock(); return }
+        done = true
+        guard let c = cont else { early = .some(value); lock.unlock(); return }
+        cont = nil
+        let loser = value == nil ? work : clock
+        lock.unlock()
+        c.resume(returning: value)
+        loser?.cancel()
+    }
+}
