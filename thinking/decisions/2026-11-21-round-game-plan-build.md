@@ -1,0 +1,51 @@
+# Round build: one game plan (areas, object life cycles, play jobs, ideas, traceability) (2026-11-21)
+
+- **Date:** 2026-11-21 (built 2026-11-20 night on the branch, Haylee asleep)
+- **Who decided:** Haylee decided the design ([one-game-plan](2026-11-21-one-game-plan.md): areas, every printout used, calm-stretch ideas, the approved layout in design/mockups/area-setup/, the safety line). How it's built and everything marked "Claude's call" are Claude's calls. Nothing was checked with Haylee during the round.
+- **Builds on:** [round-scenarios-ownership-build](2026-11-21-round-scenarios-ownership-build.md) (ObjectOwners, PropStandIns, Speakable + the safety rule, EventScenarios, OneScene's fair calls and timeline are kept and reused).
+
+## Where the plan sits in the flow (Claude's call)
+1. **Kit pages: same spot, now chosen with a use.** The kit pages call still runs first, as soon as the hunt starts (the page art is the slow part and starts right away). Its library list now carries each type's PLAY JOB ("in play: stamped at each stop"), so a page is only picked for a real use.
+2. **The PLAN call replaces the guide call, same spot (during the hunt).** It knows the pages and writes: the story, 2–4 AREAS (name, owner R1–R4, a short job), every page's LIFE CYCLE (area, owner, a setup item that places it, a calm-stretch idea that uses it, a put-away item), the opener, 8–12 events that name the pages and the area they use, the finale, the music.
+3. **When the hunt ends: ONE props call** (replaces the per-prop weave calls). Skips and swaps are known by then, so it places every found prop into the plan (area, owner, setup, idea, put-away) and may rewrite ONE event per prop so the same roles use it. Paper never waits for it; ▶ Play waits (the existing "play queued" path), and the kids are printing meanwhile.
+4. **Composing for N kids: no AI.** Areas merge, objects get one fair owner, the events are picked (fair calls), ideas fill the calm gaps for every object no picked event uses.
+
+**Why not move the plan before the pages:** a plan call before the kit pages call would put one more serial AI call before the art starts, and the art already takes most of the hunt. The kit prompt's play jobs + the plan giving every page a life cycle + the app's repair get the same result ("every printout exists because the plan uses it") without the wait. **Unused printouts are repaired, never dropped** (a page is being drawn already; `PrintPlayJobs` always has a real use for every type).
+
+## What was built (files)
+- **NutmegCore/PrintPlayJobs.swift**: the play-job table for every printable type (use, the setup verb, an app idea line, whether setup counts as its use: badges, sign, labels). Fed to the plan prompt (this kit's pages) and to the kit pages prompt (the library).
+- **NutmegCore/PlayPlan.swift**: `PlanArea`, `PlanObject`, `PlayPlan` (named PlayPlan: the app already has a `GamePlan` = title + roles), `BeatIdea`; `GamePlanGuide` (the plan call's answer → one guide scene, setup steps rebuilt from the objects); `PlanPropsAnswer`; `PlayPlans.schema/prompt/rules`, `propsSchema/propsPrompt/placeProps`, `repairGuide/complete/tie`, the app's lines (`appObject`), text checks (`validItem/validIdea/validPutAway/validEventLine`, a prop is named by its PRETEND name only), `ideaLine` ("While we fly, Captain, write…").
+- **NutmegCore/PlayPlanCompose.swift**: `cast` (owners for N), `compose`, area `setupScene`, `cleanupScene`, `scheduleIdeas`, `trace` (the traceability check).
+- **OneScene.swift**: `BeatEvent.objects/area`, `SceneBeats.plan/ideas`; `repair` runs `PlayPlans.repairGuide`; `compose` branches to the plan; timeline: `BeatCueKind.idea`, `BeatDisplay.idea`, `BeatTimeline.gap/ideaRoom/ideaTimes`, `BeatRun(events:ideas:)`, `ideaEnds`, a calm event's card goes down at its gap's idea.
+- **Models.swift**: `Step.objects` (which object a composed row places/puts away), `Scene.areaJobs` (+ `areaJob(_:)`).
+- **PhaseService.swift**: `earlyGuide` asks for `GamePlanGuide`; new `placeProps`; `Validate.scenes` doesn't re-ask a plan for missing setup items (the app writes them).
+- **AdventureStore.swift**: no per-prop weave and no page-job re-ask for a plan guide; `finishWithPlan` (late plan if the hunt-time one failed, the props call, safety check, app fallback); `useGamePlanFallback` (default on).
+- **Picture.swift**: `.kit("page:<recipe>")` resolves any printed page (row chips, idea card).
+- **Prompts.swift**: the kit library lines carry each type's play job. **SavedGame.swift**: schema 8 (2–8 readable).
+- **Fallback.swift + Resources/airplane-gameplan.json**: the bundled game as a plan (the cockpit, the passenger cabin, the snack galley, the gate; 5 pages + 4 props with life cycles; 12 events with references). `airplane-onescene.json` stays (the schema 7 path's tests).
+- **App:** `ChecklistSceneView.swift` (area card header: role name small + the area job in big text; picture chip per row; 3 area cards = 2 on top + 1 centered), `BeatSceneView.swift` (`PTIdeaCard`), `RootView.swift` (the idea card low right above the scene bar), `AppModel+OneScene.swift` (idea cue: no chime, no duck; hear-again; she keeps grooving), `DemoDriver.swift` (`oneIdea`).
+
+## Claude's calls
+- **Ownership for N:** an object keeps its plan owner when that role plays, else its area's owner; an area whose owner isn't playing goes to the playing role with the fewest areas (then fewest objects). Then objects move one at a time from the busiest role to the least busy (an object in an area the receiver builds first) until no role is two ahead. Cards: max 3 rows (pairs past 3: "Set up the X and the Y"); a solo kid with more than 6 objects gets more rows (as before).
+- **Card words:** one area → its job ("Build the cockpit"); merged → "Set up the cockpit and the snack galley" (the setup title if that's over 10 words); a role with no area (5–6 kids) → "Help set up the passenger cabin". Filler rows for a card with under 2 rows: "Take your place in <area>", then "Get in your spot". Badges stay in the setup cue ("Everyone, put on your badge"), not in rows.
+- **Clean-up:** each prop's put-away by its owner, then the one print-mess row to a least busy role, then the pages' put-away rows while a card has room (under 3). Card words: "Tidy up <area>". A role with nothing: the high five.
+- **Ideas:** one per object no picked event uses (wearables only when their area would otherwise never come up); gaps between events first, then after the last event, then before the first (after a 25 s opener room); a gap starts 30 s after a calm event or after a tense event's calm-again card; ideas need 35 s each, max 2 a gap. An object with no room left joins an idea of the same owner ("…! Then …"). She says the idea over the music (no duck, no chime) and keeps grooving; the card stays 20 s or until the next cue. A calm event's card goes down at its gap's idea.
+- **Validation of AI text:** setup/put-away 2–10 words naming the object (a prop by its pretend name, never only the household word); ideas 4–22 words, no gesture-only, no hazard; an event rewrite must name exactly the event's roles and the prop. Anything else → the app's line (`PrintPlayJobs` / stand-in). Every text through `Speakable.repair` (+ the safety rule).
+- **Event references are true to the line:** an event's objects = the pages/props its line names (of the ones it listed, when it listed any), so a "uses" claim is never just the AI's word.
+
+## Cost estimate (per game, no live call made)
+- Before: guide ≈ 2.4k in / 0.85k out + ~3 weave calls ≈ 3 × (1.2k in / 0.13k out) (+ sometimes one page-jobs re-ask).
+- Now: plan ≈ 2.7k in / 1.4k out (+areas, +5 life cycles, +event refs) + ONE props call ≈ 1.6k in / 0.3k out; no weaves, no page-jobs re-ask.
+- Net: ≈ −1.9k input tokens, ≈ +0.45k output tokens, two fewer calls (and two fewer copies of the system prompt). **About the same per game, within ±0.3¢** at today's prices. Measure on the one live game (Console token lines for the guide/plan and the props call).
+
+## Tests (NutmegCore, Linux harness)
+- New `GamePlanTests` (11 tests): the bundled plan is whole + repair idempotent; play jobs for every type (speakable, scenario ideas), prompt/schema; idea lines put the owner's title in; **traceability at counts 1–6** with all props, a skipped prop, an extra prop and no props (`PlayPlans.trace` empty, fair calls, every card line speakable); a plan that left pages unused / an empty area / a gesture idea is repaired; the props answer is checked (pretend name, hazard refused, a rewrite naming another role refused, a skipped prop has no object); area cards (jobs, merges for 2 kids, helpers for 6, chips, clean-up by area); ideas in calm gaps (no tense music, she grooves, card ≤ 20 s, never inside a tense event's window), End scene skips them; schema 8 round trip and the schema 7 path unchanged; the plan answer decodes; the demo store plays the plan.
+- `OneSceneTests` uses the plain one-scene path (`useGamePlanFallback = false`); schema expectations moved to 8.
+- RESULTS: see the end of this file.
+
+## Riskiest spots (app files not compiled here; all pass `swiftc -parse`)
+- `PretendThat/Screens/ChecklistSceneView.swift` `PTChecklistCard.titles/progressMark` (an extension with `@ViewBuilder` funcs) and `PTChecklistRow`'s chip (`model.pictureTile`); the 3-card 2 + 1 layout (`BoardLayout(…areas:)`).
+- `PretendThat/App/RootView.swift` `beatChrome`: the idea card's padding against the right curtain (`PTCurtain.metrics(screen).visible * 0.55`) and the scene bar.
+- `PretendThat/App/AppModel+OneScene.swift` `beatTick`'s duck (`isSpeaking && !beatIdeaUp`): if a calm-again line ever overlaps an idea card, it won't duck.
+- `NutmegCore/AdventureStore.swift` `finishWithPlan`: Play waits for the props call (low effort, small); a slow answer shows as the existing "play queued" wait.
+- A replay with different props: the plan drops gone props' objects and app-writes new ones, but an event line still names the old prop by its pretend name (it's then a pretend cut-out).
