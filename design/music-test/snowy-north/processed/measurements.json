@@ -1,0 +1,223 @@
+{
+ "calm": {
+  "source_lufs": -13.6,
+  "lufs": -16.0,
+  "lra": 3.5,
+  "true_peak_dbtp": -2.4,
+  "limiter_ceiling_db": -1.5,
+  "source": "calm-1.mp3",
+  "bpm_measured": 95.999,
+  "bpm_used": 96.0,
+  "beat_grid_resid_ms": 1.7,
+  "downbeat_phase": 1,
+  "start_s": 5.9554,
+  "start_bar": 2,
+  "bars": 20,
+  "body_end_s": 57.5,
+  "length_s": 50.0053,
+  "samples_source": 2400000,
+  "samples": 2400256,
+  "resample_ppm": 106.7,
+  "decoded_samples": 2400256,
+  "loop_candidates_top3": [
+   [
+    1.1282448164429215,
+    2,
+    20,
+    0.887,
+    0.8
+   ],
+   [
+    1.3582469070144407,
+    1,
+    16,
+    0.63,
+    2.43
+   ],
+   [
+    1.3714272707011876,
+    2,
+    16,
+    0.857,
+    1.72
+   ]
+  ],
+  "seam_raw_cut": {
+   "rms_jump_db": 0.35,
+   "mel_dist": 1.259,
+   "rms10_step_db": 2.36,
+   "sample_step": 0.1408,
+   "median_sample_step": 0.0072,
+   "natural_rms_jump_db": 1.07,
+   "natural_mel_dist": 0.777
+  },
+  "seam_processed_m4a": {
+   "rms_jump_db": 0.11,
+   "mel_dist": 0.91,
+   "rms10_step_db": 0.8,
+   "sample_step": 0.0465,
+   "median_sample_step": 0.0055,
+   "natural_rms_jump_db": 3.55,
+   "natural_mel_dist": 1.056
+  },
+  "bytes": 612601
+ },
+ "calm2": {
+  "source_lufs": -13.8,
+  "lufs": -16.1,
+  "lra": 2.2,
+  "true_peak_dbtp": -2.7,
+  "limiter_ceiling_db": -1.5,
+  "source": "calm2-2.mp3",
+  "bpm_measured": 95.998,
+  "bpm_used": 96.0,
+  "beat_grid_resid_ms": 1.9,
+  "downbeat_phase": 0,
+  "start_s": 5.0203,
+  "start_bar": 2,
+  "bars": 16,
+  "body_end_s": 57.5,
+  "length_s": 40.0,
+  "samples_source": 1920000,
+  "samples": 1920000,
+  "resample_ppm": 0.0,
+  "decoded_samples": 1920000,
+  "loop_candidates_top3": [
+   [
+    1.2700370792982352,
+    2,
+    16,
+    0.944,
+    1.09
+   ],
+   [
+    1.363873713171726,
+    0,
+    20,
+    0.962,
+    1.34
+   ],
+   [
+    1.473885192395755,
+    0,
+    16,
+    0.911,
+    1.88
+   ]
+  ],
+  "seam_raw_cut": {
+   "rms_jump_db": 5.77,
+   "mel_dist": 1.235,
+   "rms10_step_db": 2.63,
+   "sample_step": 0.136,
+   "median_sample_step": 0.0099,
+   "natural_rms_jump_db": 6.6,
+   "natural_mel_dist": 1.173
+  },
+  "seam_processed_m4a": {
+   "rms_jump_db": 5.82,
+   "mel_dist": 1.176,
+   "rms10_step_db": 1.01,
+   "sample_step": 0.0004,
+   "median_sample_step": 0.0078,
+   "natural_rms_jump_db": 8.75,
+   "natural_mel_dist": 1.738
+  },
+  "bytes": 490589,
+  "aba": {
+   "file": "design/music-test/snowy-north/processed/loop-test-calm-aba.m4a",
+   "seams_s": [
+    50.01,
+    90.01
+   ],
+   "calm_lufs": -16.0,
+   "calm2_lufs": -16.1,
+   "joins": {
+    "A_to_B": {
+     "rms_jump_db": 2.47,
+     "mel_dist": 1.597
+    },
+    "B_to_A": {
+     "rms_jump_db": 3.46,
+     "mel_dist": 1.355
+    }
+   }
+  }
+ },
+ "tense": {
+  "source_lufs": -15.6,
+  "lufs": -15.1,
+  "lra": 2.0,
+  "true_peak_dbtp": -1.2,
+  "limiter_ceiling_db": -1.5,
+  "source": "tense-1.mp3",
+  "bpm_measured": 96.0,
+  "bpm_used": 96.0,
+  "beat_grid_resid_ms": 4.3,
+  "downbeat_phase": 1,
+  "start_s": 3.145,
+  "start_bar": 1,
+  "bars": 12,
+  "body_end_s": 42.46,
+  "length_s": 30.016,
+  "samples_source": 1440000,
+  "samples": 1440768,
+  "resample_ppm": 533.3,
+  "decoded_samples": 1440768,
+  "loop_candidates_top3": [
+   [
+    0.8575525104719294,
+    1,
+    12,
+    0.663,
+    0.65
+   ],
+   [
+    1.2069502605967792,
+    0,
+    16,
+    0.904,
+    1.01
+   ],
+   [
+    1.2184645393234335,
+    2,
+    12,
+    1.149,
+    0.23
+   ]
+  ],
+  "seam_raw_cut": {
+   "rms_jump_db": 1.49,
+   "mel_dist": 0.947,
+   "rms10_step_db": 3.44,
+   "sample_step": 0.0476,
+   "median_sample_step": 0.0043,
+   "natural_rms_jump_db": 2.2,
+   "natural_mel_dist": 0.943
+  },
+  "seam_processed_m4a": {
+   "rms_jump_db": 1.22,
+   "mel_dist": 0.803,
+   "rms10_step_db": 3.91,
+   "sample_step": 0.0087,
+   "median_sample_step": 0.0047,
+   "natural_rms_jump_db": 1.72,
+   "natural_mel_dist": 0.935
+  },
+  "bytes": 367869
+ },
+ "win": {
+  "source_lufs": -12.6,
+  "lufs": -16.1,
+  "lra": 3.2,
+  "true_peak_dbtp": -4.1,
+  "limiter_ceiling_db": -1.5,
+  "source": "win-1.mp3",
+  "length_s": 15.0,
+  "samples": 720000,
+  "decoded_samples": 720896,
+  "bytes": 186434,
+  "trimmed_lead_s": 0.0
+ }
+}

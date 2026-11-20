@@ -59,7 +59,12 @@ CALM2 = {
 }
 
 # New families: bpm, calm, calm2, tense, win takes.
-NEW = {}
+NEW = {
+    'snowy-north': (96, 'calm-1', 'calm2-2', 'tense-1', 'win-1'),       # asked A major; every pick came out in C
+    'robot-lab': (108, 'calm-1', 'calm2-1', 'tense-1', 'win-1'),
+    'circus-carnival': (112, 'calm-1', 'calm2-2', 'tense-1', 'win-1'),
+    'race-day': (120, 'calm-1', 'calm2-1', 'tense-2', 'win-2'),
+}
 
 
 def analyze_take(path, bpm, asked=None):
@@ -204,15 +209,32 @@ def do_win(fam, take):
     return info
 
 
+# Loops placed by hand on the comb beat grid (process_music_more.comb_grid + loop_search) where librosa's beat list
+# wobbles: circus calm-1's oompah off-beats gave a 41 ms grid residual and a weaker seam (mel 0.81 vs 0.55 here).
+OVERRIDE = {('circus-carnival', 'calm'): dict(bpm=112.0, first_beat=0.292, start_beat=14, beats=96)}
+
+
+def loop(fam, seg, take, bpm, target, min_s):
+    t, out = os.path.join(TESTS, fam), os.path.join(MUSIC, fam)
+    src, dst, test = f'{t}/{take}.mp3', f'{out}/{seg}.m4a', f'{t}/processed/loop-test-{seg}-x3.m4a'
+    o = OVERRIDE.get((fam, seg))
+    if not o:
+        return pf.make_loop(src, dst, test, bpm, target, min_s)
+    per = 60 / o['bpm']
+    info = pmm.make_loop(src, dst, test, o['first_beat'] + o['start_beat'] * per, o['beats'] * per, target)
+    info.update(o, bars=o['beats'] // 4, bpm_used=o['bpm'], grid='comb (process_music_more)')
+    return info
+
+
 def do_family(fam):
     bpm, calm, calm2, tense, win = NEW[fam]
     t, out = os.path.join(TESTS, fam), os.path.join(MUSIC, fam)
     for d in (out, os.path.join(t, 'processed')):
         os.makedirs(d, exist_ok=True)
     report = {
-        'calm': pf.make_loop(f'{t}/{calm}.mp3', f'{out}/calm.m4a', f'{t}/processed/loop-test-calm-x3.m4a', bpm, -16.0, 36),
-        'calm2': pf.make_loop(f'{t}/{calm2}.mp3', f'{out}/calm2.m4a', f'{t}/processed/loop-test-calm2-x3.m4a', bpm, -16.0, 36),
-        'tense': pf.make_loop(f'{t}/{tense}.mp3', f'{out}/tense.m4a', f'{t}/processed/loop-test-tense-x3.m4a', bpm, -15.0, 28),
+        'calm': loop(fam, 'calm', calm, bpm, -16.0, 36),
+        'calm2': loop(fam, 'calm2', calm2, bpm, -16.0, 36),
+        'tense': loop(fam, 'tense', tense, bpm, -15.0, 28),
         'win': pf.make_win(f'{t}/{win}.mp3', f'{out}/win.m4a'),
     }
     report['calm2']['aba'] = aba_test(fam)
