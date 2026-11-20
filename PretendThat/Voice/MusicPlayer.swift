@@ -22,6 +22,8 @@ final class MusicPlayer {
     private(set) var segment: BeatMusic = .silent
     private var ducked = false
     private var paused = false
+    /// The segment's player was sounding when ⏸ Pause came (a win ending that already finished isn't replayed).
+    private var wasPlaying = false
     private var stopTasks: [BeatMusic: Task<Void, Never>] = [:]
 
     /// At least one segment of this family is bundled.
@@ -61,7 +63,13 @@ final class MusicPlayer {
 
     /// Switches to `seg` with a crossfade (the win ending starts from its beginning; a loop keeps its place).
     func play(_ seg: BeatMusic) {
-        guard !paused, seg != segment else { return }
+        guard !paused else { return }
+        if seg == segment {
+            // Review: a loop the system stopped (an audio interruption, a session change by the voice) comes back on the
+            // next tick. Only loops: the win ending plays once.
+            if MusicMix.loops(seg), let p = players[seg], !p.isPlaying { p.play(); p.setVolume(level, fadeDuration: MusicMix.duckRamp) }
+            return
+        }
         let old = segment
         segment = seg
         if let o = players[old] { fadeOut(o, key: old) }
@@ -100,6 +108,7 @@ final class MusicPlayer {
     /// ⏸ Pause: everything stops where it is.
     func pause() {
         paused = true
+        wasPlaying = players[segment]?.isPlaying ?? false
         for t in stopTasks.values { t.cancel() }
         stopTasks = [:]
         for p in players.values where p.isPlaying { p.pause() }
@@ -110,7 +119,7 @@ final class MusicPlayer {
     func resume() {
         guard paused else { return }
         paused = false
-        guard let p = players[segment] else { return }
+        guard let p = players[segment], wasPlaying || MusicMix.loops(segment) else { return }
         p.volume = 0
         p.play()
         p.setVolume(level, fadeDuration: MusicMix.duckRamp)

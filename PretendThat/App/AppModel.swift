@@ -1611,7 +1611,10 @@ final class AppModel {
 
     /// The screen stays awake during the conversation and kit making; auto-lock is allowed in the Print and Play steps.
     func updateIdleTimer() {
+        // 2026-11-21 (review): also while the one scene runs (nobody touches the iPad for ~10 minutes; an auto-lock would
+        // background the app and pause the scene). Paused, auto-lock is allowed again.
         let awake = planningNow || store.phase == .makingKit || (store.phase == .kitReady && !kitPapersOut)
+            || (store.currentBeatScene != nil && !scenePaused)
         if UIApplication.shared.isIdleTimerDisabled != awake {
             UIApplication.shared.isIdleTimerDisabled = awake
             rtLog("idle timer disabled: \(awake)")

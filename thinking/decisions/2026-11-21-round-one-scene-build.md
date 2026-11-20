@@ -65,3 +65,17 @@
 - `MusicPlayer.swift`: `Task { @MainActor [weak self, weak p] … }` capturing an `AVAudioPlayer`; `Bundle.main.url(forResource:withExtension:subdirectory:)` depends on the folder reference really landing at `Music/` in the bundle.
 - `BeatSceneView.swift`: `switch` with `where` inside a `Group` ViewBuilder; `phaseAnimator` in `PTTenseHalo`.
 - `NutmegCharacter.swift` `Motion` grooving numbers (looks right on paper; check it isn't too much on the device).
+
+## Review pass (2026-11-20 evening, Claude's call; no build, no live call, $0)
+Every new or changed app file was read against the definitions it calls (NutmegCore `OneScene`, `StageCamera`, `SpeechStop`, `AdventureStore`, Theme, `PTNextSceneButton.Style`, `PTCharacterPicture`, `ClipStore.has`). Every switch over an enum that gained cases (`NutmegState`, `NutmegFace`, `UserAction`, `BeatDisplay`) is exhaustive. All edited files pass `swiftc -parse`. NutmegCore wasn't touched (no harness run needed).
+
+**Fixed:**
+- **Auto-lock in the middle of the scene** (the real bug): auto-lock was allowed in Play, so after a few untouched minutes the iPad locked, the app went to the background and the scene paused itself. `AppModel.updateIdleTimer` now keeps the screen awake while the one scene runs (not while it's paused); the scene's start, end, pause and resume update it.
+- **Music after an interruption:** a calm/tense loop the system stopped (Siri, an alarm, the voice touching the session) stayed silent until the next segment change. `MusicPlayer.play` restarts the current loop on the next tick (loops only).
+- **Resume during the finale:** ▶ Resume replayed a win ending that had already finished; now only what was playing at the pause goes on.
+- **Chime duck:** the music stayed down only 1.2 s after the chime, so it swelled back before a live line started (0.9 s + network). Now 2.5 s; her speech keeps it down after that.
+- **Phew face blink:** the blink swapped her closed phew eyes for the nap eyes (yay was already excluded). The alarmed/phew mouth checks are looked up once (`alarmedMouthAvailable`, `phewMouthAvailable`) instead of `UIImage(named:)` on every frame.
+
+**Checked and fine:** no buttons in the scene except ✕ and ⏸ (rail, ◀/▶ pair and control bar hidden); the mic stays off in Play (`PlayMic`, `talkPressed`/`micPressed`); pause stops the music, the clock and her speech (`userAction(.pauseScene)` → the voice-stall stop path) and resume works; going to the background pauses; repeats replay the game's take (`ClipStore.has` → `GameTakes`); the finale opens the clean-up by itself; the one-scene clean-up waits for ▶ The End; the relaunch resume opens paused at the saved time; schema 2–6 scenes have no `beats` and keep their path; no RealtimeSession, NutmegSpeaker or ClipStore change (voice-stall fixes hold); the music only uses `AVAudioPlayer` on the current session.
+
+**Still uncompiled risks:** the RootView body's size (type-check time); `while let self` in the tick task; the Music folder reference landing at `Music/` in the bundle (check after `xcodegen`: the log says "music: space-adventure (3 of 3 segments)"); the music's abrupt stop when the clean-up opens if a real win ending runs longer than 20 s.

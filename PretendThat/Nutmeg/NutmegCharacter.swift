@@ -199,7 +199,7 @@ struct NutmegCharacter: View {
             layer("nutmeg-head-base")   // round 4: head only (no body parts in the export)
             // Oops: the right ear flops over (Haylee's nutmeg-ears-flop art draws over the normal ear).
             if l.ears == .flop { layer(NutmegEars.flop.asset) }
-            layer(m.blink && l.face != .nap && l.face != .yay ? NutmegFace.nap.asset : l.face.asset)
+            layer(m.blink && l.face != .nap && l.face != .yay && l.face != .phew ? NutmegFace.nap.asset : l.face.asset)   // phew: eyes already closed
             layer(isSpeaking ? (mouthShape ?? NutmegMouth.forLevel(mouthLevel, oohBeat: m.oohBeat)).asset : l.face.mouthAsset)
             if Self.headsetAvailable { layer("nutmeg-headset") }   // on top of the face; moves with the head
             if let costume, UIImage(named: "nutmeg-costume-\(costume)") != nil { layer("nutmeg-costume-\(costume)") }

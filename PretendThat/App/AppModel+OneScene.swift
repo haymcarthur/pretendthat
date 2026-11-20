@@ -58,6 +58,7 @@ extension AppModel {
         }
         rtLog("one scene: start at \(Int(at)) s, \(b.events.count) events, music \(b.music.rawValue)\(Self.beatSpeed > 1 ? " (fast clock)" : "")\(at > 0 ? ", paused (resumed)" : "")")
         publishBeat(run, at: at)
+        updateIdleTimer()   // review: the screen stays awake while the scene runs (no auto-lock mid-scene)
         beatTask?.cancel()
         beatTask = Task { @MainActor [weak self] in
             while let self, !Task.isCancelled {
@@ -77,6 +78,7 @@ extension AppModel {
         beatDisplay = .playing
         beatProgress = 0
         beatFiredEvents = 0
+        updateIdleTimer()
     }
 
     /// One tick (4 a second): the cues that are due fire, the music follows the beat, the screen follows the clock.
@@ -118,7 +120,8 @@ extension AppModel {
             guard run.events.indices.contains(i) else { return }
             // The chime first (the music ducks around it), then her line (Haylee: kids learn the cue).
             music.playChime()
-            beatChimeUntil = CACurrentMediaTime() + 1.2
+            // Review: ducked until her line can start (a live line takes a moment), so the music doesn't swell between.
+            beatChimeUntil = CACurrentMediaTime() + 2.5
             rtLog("one scene: event \(i + 1)/\(run.events.count) (\(run.events[i].mood.rawValue), \(run.events[i].roles.map(\.rawValue).joined(separator: "+")))")
             sayBeat(run.events[i].line, after: 0.9)
         case .repeatEvent(let i):
@@ -172,6 +175,7 @@ extension AppModel {
         userAction(.pauseScene)
         music.pause()
         saveResumePoint()
+        updateIdleTimer()
         rtLog("one scene: paused at \(Int(store.beatTime)) s")
     }
 
@@ -181,6 +185,7 @@ extension AppModel {
         scenePaused = false
         beatClock.start(now: CACurrentMediaTime())
         music.resume()
+        updateIdleTimer()
         rtLog("one scene: resumed at \(Int(store.beatTime)) s")
     }
 

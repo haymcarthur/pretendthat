@@ -168,6 +168,9 @@ enum NutmegFace: String, CaseIterable {
     static let focusAvailable = UIImage(named: "nutmeg-face-focus") != nil
     static let alarmedAvailable = UIImage(named: "nutmeg-face-alarmed") != nil
     static let phewAvailable = UIImage(named: "nutmeg-face-phew") != nil
+    /// Looked up once (the mouth is read on every frame of her animation).
+    static let alarmedMouthAvailable = UIImage(named: "nutmeg-face-alarmed-mouth") != nil
+    static let phewMouthAvailable = UIImage(named: "nutmeg-face-phew-mouth") != nil
     /// The writing moment's face (round 5): the focus EYES (looking down at the clipboard). Its own lopsided tongue-tip
     /// mouth is replaced by the happy face's simple closed smile (`mouthAsset`), Haylee.
     static let writing: NutmegFace = .focus
@@ -181,8 +184,8 @@ enum NutmegFace: String, CaseIterable {
         case .focus: NutmegFace.happy.mouthAsset
         case .thinking: NutmegFace.listening.mouthAsset
         // 2026-11-21: their own mouth when the art brings one, else a fitting existing mouth.
-        case .alarmed: UIImage(named: "nutmeg-face-alarmed-mouth") != nil ? "nutmeg-face-alarmed-mouth" : NutmegFace.ooh.mouthAsset
-        case .phew: UIImage(named: "nutmeg-face-phew-mouth") != nil ? "nutmeg-face-phew-mouth" : NutmegFace.happy.mouthAsset
+        case .alarmed: NutmegFace.alarmedMouthAvailable ? "nutmeg-face-alarmed-mouth" : NutmegFace.ooh.mouthAsset
+        case .phew: NutmegFace.phewMouthAvailable ? "nutmeg-face-phew-mouth" : NutmegFace.happy.mouthAsset
         default: "nutmeg-face-\(rawValue)-mouth"
         }
     }
