@@ -24,7 +24,7 @@ public enum EventScenario {
         "clean", "steer", "guide", "serve", "cook", "hold", "protect", "rescue", "explore", "catch", "collect", "gather",
         "pack", "load", "fly", "drive", "sail", "deliver", "feed", "care", "calm", "keep", "hide", "warn", "lead", "plan",
         "count", "sort", "repair", "prepare", "set", "open", "close", "organize", "watch", "make", "ask", "tell", "show",
-        "read", "write", "draw", "map", "measure", "stir", "bake", "mix", "pour", "wrap", "fold", "stack", "line", "patch",
+        "read", "write", "measure", "stir", "bake", "mix", "pour", "wrap", "fold", "stack", "line", "patch",
         "tidy", "sweep", "wash", "dry", "spray", "pump", "pull", "push", "lift", "row", "paddle", "climb", "follow",
         "track", "chase", "escape", "dodge", "land", "launch", "unload", "sell", "buy", "pay", "greet", "welcome", "seat",
         "dance", "sing", "practice", "train", "teach", "treat", "heal", "bandage", "visit", "decorate", "paint", "plant",

@@ -15,7 +15,8 @@ import Foundation
 //   cadence, and FAIR CALLS: each playing role is called a near-equal number of times (max difference 1, at least
 //   once), counted here. A pool that can't do it is repaired with app-written events (no AI call).
 // - When the events fire is `BeatTimeline` (~10 minutes; events 1.5–3 min apart; calm-again 45 s after a tense event;
-//   Nutmeg repeats each event line once 15 s later; the finale near the end; the clean-up 20 s after it), driven by
+//   2026-11-21: no automatic repeat, the event card stays up until the next cue with a 🔊; the finale near the end;
+//   "End scene" jumps to it; the clean-up 20 s after it), driven by
 //   `BeatClock` (an injected clock, so tests and the demo fast-clock run it at any speed).
 // - Clean-up (`cleanupScene`): one item for EVERY prop the kids got out + exactly one item for the print mess, spread
 //   fairly over the playing roles (max difference 1).

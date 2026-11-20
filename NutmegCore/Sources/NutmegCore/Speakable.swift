@@ -41,7 +41,7 @@ public enum Speakable {
                                        with: "$1 and $2", options: .regularExpression)
             // "A and W" → "A"; "W and A" → "A"; "W, A" → "A"; ", W," → ","
             t = t.replacingOccurrences(of: #"(?i),?\s+and\s+"# + item + #"(?![\p{L}\p{N}-])"#, with: "", options: .regularExpression)
-            t = t.replacingOccurrences(of: #"(?i)(?<![\p{L}\p{N}-])"# + item + #"\s+and\s+"#, with: "", options: .regularExpression)
+            t = t.replacingOccurrences(of: #"(?i)(?<![\p{L}\p{N}-])"# + w + #"\s+and\s+"#, with: "", options: .regularExpression)
             t = t.replacingOccurrences(of: #"(?i),\s+"# + item + #"(?=,)"#, with: "", options: .regularExpression)
             t = t.replacingOccurrences(of: pattern(word), with: safe, options: .regularExpression)
         }

@@ -11,6 +11,13 @@ Start here in a new session, after CLAUDE.md. The 2026-11-18 handoff is below (s
   - Clean-up: one item per prop the kids got out + one print-mess item, spread fairly.
   - Nutmeg grooves to the music, alarmed at tense events, phew at calm-again (both faces are in the catalog), yay + celebrate at the finale.
   - The mic stays off for all of Play (`PlayMic`, tested). Saved games are schema 7; 2–6 still replay.
+- **Scenarios + ownership round + live-test fixes** ([round-scenarios-ownership-build](decisions/2026-11-21-round-scenarios-ownership-build.md)):
+  - Events are scenarios (prompt with good/bad examples; a gesture-only line becomes an app scenario event); the opener always sets the scene ("Pretend that we're at…").
+  - No automatic repeat: the event card stays up until the next cue, with a 🔊 hear-again (also on the calm-again card).
+  - One owner per object: every page and prop in exactly one setup card (2–3 rows; a solo kid may get more), the badges said once in the setup cue; clean-up by the same owners + one print-mess item.
+  - Prop stand-ins: 10–15 believable uses per prop, for review in **design/prop-stand-ins.md**; the hunt and the weave only allow listed uses (no AI call).
+  - Items use the pretend name ("Hold up the planet"); 3 new music families (superhero city, pirate adventure, rescue team).
+  - Live-test fixes: End scene (asks first → finale → clean-up); ▶ Let's play! / ▶ The End never grey (they check what's left); every card line is speakable (the print-mess item no longer says scissors); the music pill toggles music off/on (remembered on the device); ⏸ Pause verified (it does stop the music, nothing changed); the face drifting off her head during zooms (root cause + fix in the decision file).
 - **Compiled/tested here:** NutmegCore only (Linux): 737 tests, all pass except the 10 known environment-only failures. **The app files were not compiled** (no Xcode here) and nothing ran on a simulator. No live calls, no music generation, $0.
 
 ## Haylee's Mac checklist
@@ -24,7 +31,15 @@ Start here in a new session, after CLAUDE.md. The 2026-11-18 handoff is below (s
    - **Pause/resume:** ⏸ mid-scene: the music and the bar stop; ▶ Resume continues from the same spot. Lock the device mid-scene: it comes back Paused.
    - **Relaunch resume:** kill the app mid-scene, relaunch: the start screen's picture with ▶ opens the scene paused at its time (no event said again); the same from the setup and the clean-up keeps the checks.
    - **Music missing = silent:** delete Resources/Music (or rename the family folder) and run `onePlaying -PTFastScene`: no music, everything else runs.
-4. **One live game** (the round's one live game): check the AI's setup items, the event pool (short lines, roles named, tense ones resolved without "you fixed it", fair at your count), the music family, the opener/finale, and that the repeats replay the same take (Console "voice": take kept, no new live line).
+4. **Scenarios + ownership round (demo mode, no keys):**
+   - `-PTDemo oneSetup` with `-PTPlayers 1`, `2`, `4` and `6`: no job or page in two cards; 2–3 rows per card (one kid: more rows, pairs); the cue says "Everyone, put on your badge."; no "pretend" or household names in the rows. ▶ Let's play! is green even with rows unchecked: press it and watch the rows tick off, then the scene starts. `oneSetupDone`: green with the halo.
+   - `oneEvent` / `oneTense`: the card has a 🔊 (tap it: the same line again, no new call in Console); the card stays up until the next event (calm) or its calm-again (tense), check with `-PTFastScene`. `oneCalmAgain`: the soft card has a 🔊 too.
+   - `onePlaying`: tap the music pill: "Music off" (crossed speaker), events still chime and she still talks; relaunch: still off. ⏸ Pause: music stops; Resume: it continues.
+   - "End scene" under ⏸ Pause (iPad) / under the top bar (iPhone): asks first; End scene → the finale, then the clean-up 20 s later. Kill + relaunch right after: it resumes at the finale.
+   - `oneCleanup`: the print-mess row reads "Pick up the paper scraps and crayons"; ▶ The End works with rows unchecked.
+   - **Face drift:** watch Nutmeg's face through setup → ▶ Let's play! (zoom in), each event card (she moves aside), calm-again, finale, clean-up: the face, eyes and mouth stay on her head.
+   - Read **design/prop-stand-ins.md** and mark anything that isn't believable.
+5. **One live game** (the round's one live game; also check: scenario events, not gestures; the hunt's Console "PROP stand-in" lines; no repeated jobs; 🔊 on every card says exactly the card's words): check the AI's setup items, the event pool (short lines, roles named, tense ones resolved without "you fixed it", fair at your count), the music family, the opener/finale, and that 🔊 hear-again replays the same take (Console "voice": take kept, no new live line).
 
 # Earlier handoff (end of 2026-11-18 session)
 

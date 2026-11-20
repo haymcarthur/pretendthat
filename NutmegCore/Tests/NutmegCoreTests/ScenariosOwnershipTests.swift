@@ -173,7 +173,7 @@ struct ScenariosOwnershipTests {
 
     @Test func everyPropHasBelievableStandInsAndTheCuratedPairsPass() {
         #expect(Set(PropStandIns.table.map(\.id)) == Set(PropLibrary.ids) && PropStandIns.table.count == PropLibrary.ids.count)
-        for row in PropStandIns.table { #expect((3...6).contains(row.standIns.count), "\(row.id)") }
+        for row in PropStandIns.table { #expect((10...15).contains(row.standIns.count), "\(row.id)") }
         for (id, uses) in PropLibrary.uses { for u in uses { #expect(PropStandIns.allows(id, u.becomes), "\(id) → \(u.becomes)") } }
         #expect(PropStandIns.allows("sock", "the sock puppet") && PropStandIns.allows("ball", "the planet") && PropStandIns.allows("bowl", "the captain's hat"))
         #expect(!PropStandIns.allows("sock", "the planet") && !PropStandIns.allows("books", "the planet"))
@@ -181,7 +181,8 @@ struct ScenariosOwnershipTests {
         // The hunt: a sock as a planet becomes the ball (when allowed), else the sock's closest stand-in (a snowball).
         let better = PropStandIns.settle(itemID: "sock", becomes: "the planet", avoiding: [])
         #expect(better?.itemID == "ball" && better?.becomes == "the planet")
-        let own = PropStandIns.settle(itemID: "sock", becomes: "the planet", avoiding: ["ball"])
+        let own = PropStandIns.settle(itemID: "sock", becomes: "the planet", avoiding: Set(PropStandIns.betterProps(for: "the planet")))
+        #expect(PropStandIns.settle(itemID: "sock", becomes: "the planet", avoiding: ["ball"])?.itemID == "paper-plate")   // the next prop that lists it
         #expect(own?.itemID == "sock" && own.map { PropStandIns.allows("sock", $0.becomes) } == true)
         #expect(PropStandIns.settle(itemID: "sock", becomes: "the sock puppet", avoiding: []) == nil)
         #expect(PropStandIns.settle(itemID: "free-text-thing", becomes: "the planet", avoiding: []) == nil)
