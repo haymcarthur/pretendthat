@@ -28,3 +28,4 @@
 - **iPad:** Nutmeg sits on one of the checklist cards (peeking over a card), not on the stage.
 - **iPhone:** setup opens a shelf like the chat shelf, holding all the checklists, and Nutmeg peeks over the shelf.
 - **◀ Previous / ▶ Next scene:** centered on the screen as a pair, both the same size (the first mockup's mismatched pair looked broken).
+- **Update (Haylee):** on iPhone, Nutmeg sits in a circle next to the scene title (not peeking over the shelf), so the shelf can be taller. There's more space between checklist items so they don't feel squished.
