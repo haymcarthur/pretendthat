@@ -68,7 +68,7 @@ PretendThat is a voice-first pretend-play helper for kids 4–8. No account is n
 
 To try it: finish the short grown-up setup (agree to the AI partners), then hold the microphone button and say what to play, e.g. "a bakery". Typing works too: tap the keyboard button. Nutmeg plans the game, sends kids on a prop hunt, makes a printable kit (you can view it without printing), and guides the scenes.
 
-The Free Preview includes 3 new games, so a reviewer can play a full game without buying. The Show Pass and Season Pass subscriptions are in the Grown-ups area (behind a grown-ups check) and on the paywall after the free games.
+The Free Preview includes 2 new games, so a reviewer can play a full game without buying. The Show Pass and Season Pass subscriptions are in the Grown-ups area (behind a grown-ups check) and on the paywall after the free games.
 
 AI: Nutmeg's replies and voice come from OpenAI; the story and play guide come from Anthropic (Claude). Kids' audio never leaves the device (Apple on-device speech recognition); only text, with names removed, is sent through our relay. Content is filtered for kid safety on the device and by the AI providers.
 

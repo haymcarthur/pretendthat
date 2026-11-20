@@ -178,7 +178,7 @@ struct OnboardingView: View {
         }
     }
 
-    // MARK: 5 · Start with 3 free games (plans; no Monthly/Yearly switch)
+    // MARK: 5 · Start with 2 free games (plans; no Monthly/Yearly switch)
 
     private var plans: some View {
         let continueOnly = (flow.isReplay && model.freePreview.exhausted) || model.purchases.entitlement != nil   // round 38: a plan is active

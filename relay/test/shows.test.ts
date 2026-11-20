@@ -190,10 +190,11 @@ describe("POST /v1/shows/start and the ticket on paid calls", () => {
     expect(((await over.json()) as { error: { type: string } }).error.type).toBe("limit_reached");
   });
 
-  it("the Free Preview gets 3", async () => {
+  it("the Free Preview gets 2", async () => {
     const e = env();
     const jws = await sign({ bundleId: "co.crimsonfoundry.pretendthat", appTransactionId: "42", environment: "Production" });
-    for (let i = 0; i < 3; i++) expect((await worker.fetch(post("/v1/shows/start", { kind: "preview", jws }), e)).status).toBe(200);
+    expect((await worker.fetch(post("/v1/shows/start", { kind: "preview", jws }), e)).status).toBe(200);
+    expect((await worker.fetch(post("/v1/shows/start", { kind: "preview", jws }), e)).status).toBe(200);
     expect((await worker.fetch(post("/v1/shows/start", { kind: "preview", jws }), e)).status).toBe(402);
   });
 

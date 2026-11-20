@@ -8,7 +8,7 @@ import Foundation
 // six calm pages, no gate:
 //   1 Welcome to PretendThat · 2 How it works · 3 What you'll need · 4 Private by design (REQUIRED AI consent and the
 //   microphone in one step: "I agree, turn on the mic", the only button; a denied mic shows "No mic? Kids can type.")
-//   · 5 Start with 3 free games (plans) · 6 You're all set: "Start our first game" or "Go to the home page".
+//   · 5 Start with 2 free games (plans) · 6 You're all set: "Start our first game" or "Go to the home page".
 // AI is required, so there's no "Not now" and no decline page (consent can still be turned off in Grown-ups).
 
 // MARK: - Screens and the flow
@@ -109,7 +109,7 @@ public struct OnboardingFlow: Equatable, Sendable {
     /// The privacy page shows the denied state ("No mic? Kids can type.", Next, Open Settings).
     public var showsMicDenied: Bool { screen == .privacy && micAsked && micDenied }
 
-    /// "Start with 3 free games" (or Continue on a replay with the games used up / a plan active): the last page.
+    /// "Start with 2 free games" (or Continue on a replay with the games used up / a plan active): the last page.
     public mutating func startFreePreview() {
         guard screen == .plans else { return }
         screen = .handOff
@@ -225,7 +225,7 @@ public final class ParentSettings {
     }
 }
 
-/// The Free Preview: 3 free NEW shows, no card, counted on this iPad. Replays never count.
+/// The Free Preview: 2 free NEW shows, no card, counted on this iPad. Replays never count.
 public final class FreePreviewCounter {
     let defaults: OnboardingDefaults
     public let allowance: Int
@@ -246,7 +246,7 @@ public final class FreePreviewCounter {
         return n
     }
 
-    /// DEBUG flag (`-PTResetFreePreview`): back to the 3 free games to try.
+    /// DEBUG flag (`-PTResetFreePreview`): back to the 2 free games to try.
     public func reset() { defaults.removeObject(forKey: OnboardingKeys.freePreviewUsed) }
 }
 
@@ -271,7 +271,7 @@ public enum NewGameGate: Equatable, Sendable {
     }
 
     /// A saved game's replay with Nutmeg (never counted). Saved game page (Haylee, 2026-11-17): it needs an ACTIVE pass
-    /// (the 3 Free Preview games included: only viewing and printing are free), and Nutmeg's live voice still needs the
+    /// (the 2 Free Preview games included: only viewing and printing are free), and Nutmeg's live voice still needs the
     /// AI consent. No pass → `.needsPlan` (her ask-a-grown-up line, the gate, the grown-up card).
     public static func replay(consent: Bool, hasPass: Bool) -> NewGameGate {
         guard hasPass else { return .needsPlan }
@@ -318,9 +318,8 @@ public struct PlanOffer: Equatable, Sendable, Identifiable {
 }
 
 public enum PlanCatalog {
-    /// The Free Preview: 3 new games to try, ONCE (never per month; no card). 2026-11-20 (Haylee): 3, was 2 (replays
-    /// now need a pass, so 2 plays was too little to fall for it).
-    public static let freePreviewShows = 3
+    /// The Free Preview: 2 new games to try, ONCE (never per month; no card).
+    public static let freePreviewShows = 2
     /// Plans 5/20 (Haylee, decisions/2026-11-17-plans-5-and-20.md): Show Pass 5, Season Pass 20 new games a month.
     public static let showPassShows = 5
     public static let seasonPassShows = 20
@@ -404,7 +403,7 @@ public enum OnboardingCopy {
     public static let declinedTitle = "PretendThat needs this to work"
     public static let declinedBody = "Nutmeg uses our AI partners to listen, talk and make each game, so PretendThat can't play without them. That's OK. You can turn it on any time in Grown-ups."
 
-    // 5 · 3 free games to try (no Monthly/Yearly switch: yearly lives in Grown-ups → Plans). Plans 5/20 (Haylee): the
+    // 5 · 2 free games to try (no Monthly/Yearly switch: yearly lives in Grown-ups → Plans). Plans 5/20 (Haylee): the
     // Free Preview is ONCE, so every mention reads "to try", never "a month".
     public static var plansV3Title: String { "\(PlanCatalog.freePreviewShows) free games to try" }
     /// Haylee's follow-up 3 wording (decisions/2026-11-17-onboarding-v3-feedback.md).
@@ -420,7 +419,7 @@ public enum OnboardingCopy {
 
     // Plans behind the gate (the Free Preview used up)
     public static let plansTitle = "Start with your Free Preview"
-    public static let plansBody = "3 free games to try. No card, nothing to cancel. Your saved games' printables are always yours to view and print."
+    public static let plansBody = "2 free games to try. No card, nothing to cancel. Your saved games' printables are always yours to view and print."
     public static let freePreviewButton = "Start my Free Preview"
     public static let continueButton = "Continue"
     public static let plansFooter = "Show Pass and Season Pass are subscriptions billed by Apple. They renew automatically until cancelled in Settings, at least 24 hours before renewal."
@@ -447,7 +446,7 @@ public enum OnboardingCopy {
     public static let yearlyLink = "Yearly plans"
     public static let monthlyLink = "Monthly plans"
     public static let outOfShowsTitle = "Your Free Preview is used up"
-    public static let outOfShowsBody = "You've played your 3 free games to try. Pick a pass for new games, and to play your saved games again with Nutmeg. Their printables are always yours to view and print."
+    public static let outOfShowsBody = "You've played your 2 free games to try. Pick a pass for new games, and to play your saved games again with Nutmeg. Their printables are always yours to view and print."
 
     // 6 · You're all set (the logo; "your device" is the device word)
     public static let handOffTitle = "You're all set"
