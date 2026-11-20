@@ -1,6 +1,6 @@
 # Scene music (one scene with music, 2026-11-21)
 
-**Everything in this folder today is a PLACEHOLDER** (soft synthesized tones from `tools/make_placeholder_music.py`).
+**Everything in this folder is a PLACEHOLDER except `space-adventure/` and `chime.m4a`** (real music, see the end) (soft synthesized tones from `tools/make_placeholder_music.py`).
 Replace each file with the real AI-made music, keeping the same names. Plan and licensing:
 `thinking/research/2026-11-21-ai-music-options.md`.
 
@@ -36,3 +36,16 @@ Families (the guide picks one; `MusicFamily` in NutmegCore/OneScene.swift):
   chime. The scene clock and Nutmeg's events run either way.
 - This folder is a **folder reference** in `project.yml` (the sub-folders are kept in the app bundle; the seven families
   share file names). Run `xcodegen` after adding or renaming files.
+
+## Real music bundled so far
+
+- **`space-adventure/` and `chime.m4a` are the REAL music** (2026-11-21): calm-2 / tense-3 / win-4 / chime-1 of the
+  ElevenLabs takes, picked and measured in `design/music-test/space-adventure/PICKS.md`. Don't re-run
+  `tools/make_placeholder_music.py` over them (it writes every family and the chime).
+- Made by `tools/process_music.py` (ffmpeg + numpy + librosa, no AI calls): calm 20 bars = 48.0 s, tense 16 bars =
+  38.4 s at 100 BPM; calm/win −16 LUFS, tense −15, chime −15; true peak ≤ −1 dBTP after decoding; AAC-LC 96 kbps,
+  **48 kHz** stereo (the takes are 48 kHz and iOS hardware runs at 48 kHz, so no resampling).
+- Loops are sample-exact: an even bar count is a whole number of AAC frames at 48 kHz, and each file is encoded with
+  its own tail in front, then cut back with an MP4 edit list (1024 priming samples), so the decoded file is exactly
+  the loop with no start click. If a seam is ever heard on a device, re-check `AVAudioPlayer` looping first; the
+  file itself measures clean (PICKS.md, `design/music-test/space-adventure/processed/loop-test-*-x3.m4a`).

@@ -1,0 +1,92 @@
+{
+ "calm": {
+  "source_lufs": -14.1,
+  "lufs": -16.1,
+  "lra": 1.9,
+  "true_peak_dbtp": -1.8,
+  "limiter_ceiling_db": -1.5,
+  "source": "calm-2.mp3",
+  "start_s": 7.2128,
+  "start_bar": 3,
+  "bars": 20,
+  "length_s": 48.0,
+  "samples": 2304000,
+  "decoded_samples": 2304000,
+  "seam_raw_cut": {
+   "rms_jump_db": 10.55,
+   "mel_dist": 1.373,
+   "rms10_step_db": 6.36,
+   "sample_step": 0.0875,
+   "median_sample_step": 0.0048,
+   "natural_rms_jump_db": 10.69,
+   "natural_mel_dist": 0.936
+  },
+  "seam_processed_m4a": {
+   "rms_jump_db": 9.8,
+   "mel_dist": 1.312,
+   "rms10_step_db": 0.83,
+   "sample_step": 0.0425,
+   "median_sample_step": 0.0039,
+   "natural_rms_jump_db": 10.69,
+   "natural_mel_dist": 0.936
+  },
+  "bytes": 591651
+ },
+ "tense": {
+  "source_lufs": -13.7,
+  "lufs": -15.0,
+  "lra": 1.0,
+  "true_peak_dbtp": -1.1,
+  "limiter_ceiling_db": -2.9,
+  "source": "tense-3.mp3",
+  "start_s": 0.0095,
+  "start_bar": 0,
+  "bars": 16,
+  "length_s": 38.4,
+  "samples": 1843200,
+  "decoded_samples": 1843200,
+  "seam_raw_cut": {
+   "rms_jump_db": 2.54,
+   "mel_dist": 0.951,
+   "rms10_step_db": 2.55,
+   "sample_step": 0.6402,
+   "median_sample_step": 0.0041,
+   "natural_rms_jump_db": 2.35,
+   "natural_mel_dist": 0.79
+  },
+  "seam_processed_m4a": {
+   "rms_jump_db": 2.7,
+   "mel_dist": 0.832,
+   "rms10_step_db": 2.68,
+   "sample_step": 0.1443,
+   "median_sample_step": 0.0039,
+   "natural_rms_jump_db": 2.35,
+   "natural_mel_dist": 0.79
+  },
+  "bytes": 474346
+ },
+ "win": {
+  "source_lufs": -12.7,
+  "lufs": -16.0,
+  "lra": 3.5,
+  "true_peak_dbtp": -3.6,
+  "limiter_ceiling_db": -1.5,
+  "source": "win-4.mp3",
+  "length_s": 15.0,
+  "samples": 720000,
+  "decoded_samples": 720896,
+  "bytes": 185090
+ },
+ "chime": {
+  "source_lufs": -17.8,
+  "lufs": -15.0,
+  "lra": 0.0,
+  "true_peak_dbtp": -1.6,
+  "limiter_ceiling_db": -1.5,
+  "source": "chime-1.mp3",
+  "length_s": 1.48,
+  "samples": 71040,
+  "decoded_samples": 71680,
+  "bytes": 20668
+ }
+}
