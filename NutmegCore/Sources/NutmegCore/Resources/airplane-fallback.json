@@ -320,7 +320,7 @@
         "steps": [
           {
             "role": "R1",
-            "text": "Captain, steer with the steering wheel and tell the passengers what you can see out the window.",
+            "text": "Captain, steer with the steering wheel and tell the passengers what you can see out the pretend window.",
             "picture": {
               "kind": "prop",
               "id": "plate"

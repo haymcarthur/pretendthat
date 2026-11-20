@@ -172,7 +172,9 @@ public enum GuideWeave {
         (taken), and at most one prop per item, and never an item of a role that already has another prop's or page's job \
         (each object has ONE owner). Name the prop ONLY by what it becomes (Hold up the planet), never the household \
         item and never the word pretend (not "your sock pretend planet"), and only as one of its allowed pretend uses. \
-        Gentle and kid-safe. ALSO, for EACH prop, its clean-up job (one entry per prop, item = the prop id): cleanupSay = how they put the \
+        Gentle and kid-safe. Everything is pretend: an appliance or place is the pretend one tied to a prop (the pretend \
+        stove, never the real stove), and never send the kids to anything real and unsafe (stove, oven, sink, outlet, \
+        stairs, climbing, outside). ALSO, for EACH prop, its clean-up job (one entry per prop, item = the prop id): cleanupSay = how they put the \
         household item back at the end, framed in the story, starting with a verb (e.g. put the box back in the closet \
         so the ship can rest); role = the playing role it suits best. Return PropWeave (scene and step are the numbers above).
         """

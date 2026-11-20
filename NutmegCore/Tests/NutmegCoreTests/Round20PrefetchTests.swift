@@ -31,7 +31,7 @@ import Testing
         // The hunt: one found, one skipped (each card's prop is woven into the guide; the skip itself makes no call).
         _ = await store.apply(.showNextProp(.init(itemID: "bowl", becomes: "the mixing bowl", forRole: "all")))
         _ = await store.apply(.markFound("bowl"))
-        _ = await store.apply(.showNextProp(.init(itemID: "pot", becomes: "the big oven", forRole: "all")))
+        _ = await store.apply(.showNextProp(.init(itemID: "pot", becomes: "the cauldron", forRole: "all")))
         _ = await store.apply(.skipProp("pot"))
         #expect(store.draftItems != nil)                                         // the hunt never restarts the pages
         _ = await store.apply(.finishPlanning)
@@ -39,7 +39,7 @@ import Testing
         #expect(!llm.users.contains { $0.contains("Phase: printable kit and scenes") })
         #expect(llm.users.filter { $0.contains("Phase: the play guide") }.count == 1)
         let cut = store.kit?.items.first { $0.recipe == .cutouts }
-        #expect(cut?.lines.count == 7 && cut?.lines.last == "big oven")            // the skipped prop's cut-out, appended
+        #expect(cut?.lines.count == 7 && cut?.lines.last == "cauldron")            // the skipped prop's cut-out, appended
         #expect(store.kit?.items.map(\.id) == store.draftItems?.map(\.id))        // same pages: their art carries over
         #expect((store.kit?.playScenes.count ?? 0) == 1)   // 2026-11-21: the one scene
     }
@@ -97,11 +97,11 @@ import Testing
         #expect(hunt.contains { $0.key == "badges@all" } && hunt.contains { $0.key == KitArtPlan.characterKey })   // round 47
         #expect(hunt.filter { !$0.isSheet }.allSatisfy { $0.size == KitPagePrompt.size && $0.prompt.hasPrefix(KitPagePrompt.page) })
         // Hunt over with one skip: only the cut-outs' extra page (the skipped prop) is new.
-        let props = Props(nutmegSays: "", props: [Prop(id: "pot", householdItem: "Pot", becomes: "the big oven", forRole: .all, safetyOK: true, skipped: true),
+        let props = Props(nutmegSays: "", props: [Prop(id: "pot", householdItem: "Pot", becomes: "the cauldron", forRole: .all, safetyOK: true, skipped: true),
                                                    Prop(id: "bowl", householdItem: "Bowl", becomes: "the mixing bowl", forRole: .all, safetyOK: true)])
         let final = KitDraft.finalItems(draft, props: props)
         let after = KitArtPlan.jobs(items: final, ctx: ctx, style: .fullColor, settled: Set(hunt.map(\.key)), characters: true)
-        #expect(after.map(\.key) == ["cutouts#more"] && after[0].prompt.contains("big oven") && !after[0].prompt.contains("suitcase"))
+        #expect(after.map(\.key) == ["cutouts#more"] && after[0].prompt.contains("cauldron") && !after[0].prompt.contains("suitcase"))
         #expect(KitArtPlan.keys(items: final, ctx: ctx).count == draft.count + 1)   // the kit is final per page
         // Round 47: a new count draws nothing (the badge page was drawn for all 6; its first N pieces print).
         var four = ctx; four.players = 4

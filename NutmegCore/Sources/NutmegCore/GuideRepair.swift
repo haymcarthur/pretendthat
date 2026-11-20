@@ -37,6 +37,14 @@ public enum GuideRepair {
     /// The repaired guide (see the type comment). `roles` = the 6 ranked roles; `props` = the game's props; `items` =
     /// the printed pages (round 28: tasks may name only the props, the printed kit and body actions, `realProps`).
     public static func repair(_ scenes: [Scene], roles: [Role], props: [Prop], title: String, items: [KitItem] = []) -> [Scene] {
+        // 2026-11-21 (Haylee's safety rule): the STORED guide is made speakable and safe for play (a stove is always the
+        // pretend stove; nothing sends kids to a real hazard) before anything is shown or said, on every guide that
+        // lands AND on every saved game that loads (replays, older schemas too). One text for the card, the voice and
+        // the saved game; there is no separate spoken version.
+        repairRaw(scenes, roles: roles, props: props, title: title, items: items).map(Speakable.repair)
+    }
+
+    static func repairRaw(_ scenes: [Scene], roles: [Role], props: [Prop], title: String, items: [KitItem] = []) -> [Scene] {
         guard !scenes.isEmpty else { return scenes }
         // 2026-11-20 (Haylee): checklist scenes have their own repair (items, scenario, 4 scenes); the props reach the
         // items through their weave and, for every count, the app's coverage step when the scenes are composed.

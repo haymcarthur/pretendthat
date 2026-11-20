@@ -263,4 +263,71 @@ struct ScenariosOwnershipTests {
         let rep = OneScene.repair(sc, roles: roles, props: props, title: "Sky Airlines", items: a.kit.items)
         #expect(rep.spokenTexts.allSatisfy(Speakable.isSpeakable))
     }
+
+    // MARK: 10b. Haylee's safety rule: everything is pretend; nothing sends kids to a real hazard
+
+    @Test func appliancesArePretendAndRealHazardsAreReplaced() {
+        #expect(Speakable.safe("Put the pot on the stove spot", fallback: "x") == "Put the pot on the pretend stove spot")
+        #expect(Speakable.safe("Put the pot on the pretend stove spot", fallback: "x") == "Put the pot on the pretend stove spot")
+        #expect(Speakable.safe("Bake the cookies in the play oven", fallback: "x") == "Bake the cookies in the play oven")
+        #expect(Speakable.safe("Heat it in the microwave", fallback: "x") == "Heat it in the pretend microwave")
+        #expect(Speakable.safe("Doctor, give the patient medicine", fallback: "x") == "Doctor, give the patient pretend medicine")
+        #expect(Speakable.safe("There's a fire! Firefighter, drive the fire truck!", fallback: "x")
+                == "There's a pretend fire! Firefighter, drive the fire truck!")
+        for line in ["Climb on the couch to look around", "Run up the stairs", "Go outside and find a leaf", "Open the window",
+                     "Plug it into the outlet", "Fill the cup at the sink", "Turn on the water", "Hop into the car",
+                     "Stand on the counter top"] {
+            #expect(Speakable.sendsToHazard(line), "\(line)")
+            #expect(Speakable.safe(line, fallback: Speakable.safeItem) == Speakable.safeItem)
+            #expect(!Speakable.isSpeakable(line))
+        }
+        for line in ["Look out the pretend window", "The ship might sink", "Line up the airplane seats", "Tap your picture"] {
+            #expect(!Speakable.sendsToHazard(line), "\(line)")
+        }
+        // Events and items in the stored guide are rewritten (the card and the voice use the same text).
+        var sc = a.kit.scenes[0]
+        sc.beats?.events[0].line = "The control tower is calling! Captain, climb on the chair and look for the runway!"
+        sc.beats?.events[1].line = "Bumpy clouds ahead! Captain, put the snacks in the oven and steer around them!"
+        sc.steps[0].text = "Set up the stove spot"; sc.steps[0].short = "Set up the stove spot"
+        let fixed = GuideRepair.repair([sc], roles: roles, props: props, title: "Sky Airlines", items: a.kit.items)[0]
+        let ev = fixed.beats!.events
+        #expect(ev[0].appWritten == true && !Speakable.sendsToHazard(ev[0].line) && ev[0].line.hasPrefix("Captain, "))
+        #expect(ev[1].line.contains("pretend oven"))
+        #expect(fixed.steps[0].short == "Set up the pretend stove spot" && fixed.steps[0].text == fixed.steps[0].short)
+        #expect(fixed.spokenTexts.allSatisfy(Speakable.isSpeakable))
+        #expect(GuideRepair.repair([fixed], roles: roles, props: props, title: "Sky Airlines", items: a.kit.items) == [fixed])
+        // An older saved game's guide (schema 6 checklist scenes) is made safe as it loads too.
+        var old = Fallback.checklistAirplane(playerCount: 6).kit.scenes
+        old[0].steps[0].short = "Run up the stairs"; old[0].steps[0].text = "Run up the stairs"
+        let oldFixed = GuideRepair.repair(old, roles: roles, props: props, title: "Sky Airlines", items: a.kit.items)
+        #expect(oldFixed.allSatisfy { $0.spokenTexts.allSatisfy(Speakable.isSpeakable) })
+        // Every stand-in can be shown and said as it is (no swap, no hazard).
+        for row in PropStandIns.table { for x in row.standIns { #expect(Speakable.problems(x).isEmpty && !Speakable.sendsToHazard(x), "\(row.id): \(x)") } }
+        // The app's templates are safe.
+        for line in EventScenario.calmTemplates + EventScenario.tenseTemplates + OneScene.calmAgainLines
+            + [OneScene.printMessShort, Speakable.safeItem, "Tidy up your spot", EventScenario.opener(story: nil, title: "")] {
+            #expect(Speakable.isSpeakable(line), "\(line)")
+        }
+    }
+
+    @Test func theCardTextAndTheSpokenLineAreTheSameWords() {
+        var list = props
+        list.append(Prop(id: "box", householdItem: "Cardboard box", becomes: "the big oven", forRole: .R2, safetyOK: true, libraryID: "cardboard-box"))
+        let k = kit(props: list)
+        for n in 1...6 {
+            let scenes = PlayCast.kit(k, roles: roles, players: n, props: list).scenes
+            for sc in scenes where sc.isChecklist {
+                for st in sc.steps {
+                    let role = roles.first { $0.id == st.role.role }!
+                    if sc.arc == .setup { #expect(st.text == ChecklistScenes.say(st.short ?? "", role: role), "\(n): \(st.text)") }
+                    // What the card shows and what she says are both final, safe text (a second pass changes nothing).
+                    #expect(Speakable.repair(st) == st, "\(n): \(st.short ?? "")")
+                }
+            }
+            let b = scenes[2].beats!
+            #expect(Speakable.repair(b) == b && scenes[2].nutmegSays == b.opener)
+            let oven = scenes[1].steps.first { ($0.short ?? "").lowercased().contains("oven") }
+            #expect(oven.map { ($0.short ?? "").contains("pretend oven") && $0.text.contains("pretend oven") } ?? true, "\(n)")
+        }
+    }
 }

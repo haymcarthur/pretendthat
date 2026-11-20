@@ -27,7 +27,7 @@
     {"role": "R2", "text": "Find your airplane seat", "short": "Find your airplane seat"},
     {"role": "R3", "text": "Check every boarding pass", "short": "Check every boarding pass"},
     {"role": "R3", "text": "Show how to buckle up", "short": "Show how to buckle up"},
-    {"role": "R4", "text": "Look out the window", "short": "Look out the window"},
+    {"role": "R4", "text": "Look out the pretend window", "short": "Look out the pretend window"},
     {"role": "R4", "text": "Count down from five", "short": "Count down from five"},
     {"role": "R5", "text": "Warm up the snacks", "short": "Warm up the snacks"},
     {"role": "R5", "text": "Fill the snack cart", "short": "Fill the snack cart"},

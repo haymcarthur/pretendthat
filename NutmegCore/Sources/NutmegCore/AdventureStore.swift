@@ -1021,6 +1021,7 @@ public final class AdventureStore {
                 d.reason = PropFit.reason(itemID: alt, becomes: d.becomes)
                 freshNote += "(The app picked a \(PropFit.itemName(alt)) as \(d.becomes): an everyday thing for the first prop. Use THIS item.) "
             }
+            if PropFit.check(itemID: d.itemID, becomes: d.becomes).unknown { propLog?("PROP unknown use: \(d.itemID) → \(d.becomes)") }
             // 2026-11-21 (Haylee: "a sock as a planet" must stop): the prop may only become one of its stand-ins
             // (`PropStandIns`). Otherwise a prop whose stand-ins include the use takes its place, else it becomes its
             // own closest stand-in. No extra AI call.
@@ -1033,7 +1034,6 @@ public final class AdventureStore {
                 d.reason = PropFit.reason(itemID: d.itemID, becomes: d.becomes)
                 freshNote += "(The app made it a \(PropFit.itemName(d.itemID)) as \(d.becomes), a better fit: use THIS item and use.) "
             }
-            if PropFit.check(itemID: d.itemID, becomes: d.becomes).unknown { propLog?("PROP unknown use: \(d.itemID) → \(d.becomes)") }
             if props == nil { foundProps = [] }
             let owner = plan?.roles.first { $0.roleName.localizedCaseInsensitiveCompare(d.forRole) == .orderedSame }
                 .map { SceneOwner(rawValue: $0.id.rawValue) ?? .all } ?? .all

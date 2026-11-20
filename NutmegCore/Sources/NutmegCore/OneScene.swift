@@ -284,6 +284,10 @@ public enum OneScene {
         + "call ONLY R1; at least 2 call R2 (alone or with R1); then every role R3, R4, R5 and R6 is called by at least 2 "
         + "events, which may also call roles ranked above it (a lower R number); include a few events that call 2 or 3 "
         + "roles together. opener = \"Pretend that…\" plus WHERE we are and what's happening (e.g. Pretend that our rocket is blasting off to the Moon! Everyone, take your places!), never a generic get ready. finale = the big ending for everyone (\"We made it to the Moon! Everyone, celebrate!\"). "
+        + "EVERYTHING IN THE PLAY WORLD IS PRETEND, made from the props and the printed pages: never send the kids to a "
+        + "real stove, oven, microwave, toaster, sink, bath, water tap, outlet, cord, fireplace, candle, window, stairs, "
+        + "the car, outside, medicine, cleaning products or knives, and never ask them to climb; an appliance or place "
+        + "is always the pretend one tied to a prop or page (the pretend stove, the play oven page). "
         + "Lines are pretend actions with the kids' bodies, voices and the printed pages: use NO household props and no "
         + "household things (the kids are still hunting for props), no scripted words to repeat, no quotes. Only the opener, finale and story name no "
         + "role except R1. music = one of: \(musicList). "
@@ -318,7 +322,7 @@ public enum OneScene {
         var b = s.beats ?? SceneBeats(opener: s.nutmegSays, events: [], finale: "", music: .guess(title))
         // 2026-11-21 (Haylee): the opener sets the scene; a generic "get ready" gets a real "Pretend that…" from the title.
         let raw = b.opener.isEmpty ? s.nutmegSays : b.opener
-        b.opener = opener(EventScenario.isGenericOpener(raw) ? EventScenario.opener(story: nil, title: title) : raw)
+        b.opener = opener(EventScenario.isGenericOpener(raw) || Speakable.sendsToHazard(raw) ? EventScenario.opener(story: nil, title: title) : raw)
         b.finale = finale(b.finale, title: title)
         var seen = Set<String>()
         b.events = b.events.compactMap { repairEvent($0, roles: roles) }.filter { seen.insert($0.line.lowercased()).inserted }
@@ -422,7 +426,7 @@ public enum OneScene {
         // 2026-11-21 (Haylee): an event is a scenario, never a single gesture: a gesture-only line becomes the app's
         // scenario event for the same role(s).
         var written = e.appWritten
-        if EventScenario.isGestureOnly(line, roles: roles) {
+        if EventScenario.isGestureOnly(line, roles: roles) || Speakable.sendsToHazard(line) {   // + Haylee's safety rule
             line = EventScenario.appLine(mood: e.mood, who: names(ids, roles: roles), index: ids.first?.rank ?? 0)
             written = true
         }
@@ -641,7 +645,8 @@ public enum OneScene {
                     shown = PropWording.clean(Bookends.rowShort([job], items: [item], verb: "Put away", cleanup: true), props: props)
                     text = "\(role.roleName), \(PlayCast.lowerFirst(Bookends.trimEnd(PropWording.clean(job.say, props: props))))!"
                 }
-                shown = Speakable.repair(shown); text = Speakable.repair(text)
+                shown = Speakable.repair(shown, fallback: "Tidy up your spot")
+                text = Speakable.repair(text, fallback: "\(role.roleName), tidy up your spot!")
                 if p > 1 { shown = PlayCast.unname(shown, roles: roles, players: p); text = PlayCast.unname(text, roles: roles, players: p) }
                 steps.append(Step(picture: id == printMessID ? .point : .prop(byID[id]?.prop?.libraryID ?? byID[id]?.prop?.id ?? "point"),
                                   text: text, role: SceneOwner(role.id), short: shown))

@@ -18,14 +18,14 @@ import Testing
     static let weave = PropWeave(uses: [
         .init(propID: "bowl", scene: 0, step: 0, text: "Captain, hand out snacks from the snack bowl!"),
         .init(propID: "bowl", scene: 0, step: 2, text: "Passenger, grab a snack from the snack bowl!"),
-        .init(propID: "pot", scene: 1, step: 3, text: "Passenger, peek in the big oven!"),
+        .init(propID: "pot", scene: 1, step: 3, text: "Passenger, peek in the cauldron!"),
     ])
 
     /// 2026-11-21: the weave for the one-scene guide (ONE guide scene: R1's items are 0…2, R2's 3…5).
     static let oneWeave = PropWeave(uses: [
         .init(propID: "bowl", scene: 0, step: 0, text: "Captain, hand out snacks from the snack bowl!"),
         .init(propID: "bowl", scene: 0, step: 2, text: "Captain, grab a snack from the snack bowl!"),
-        .init(propID: "pot", scene: 0, step: 4, text: "Passenger, peek in the big oven!"),
+        .init(propID: "pot", scene: 0, step: 4, text: "Passenger, peek in the cauldron!"),
     ])
 
     private func hunting(_ store: AdventureStore, title: String = "Airplane to the Beach") async {
@@ -45,7 +45,7 @@ import Testing
     @Test func skipsAndSwapsAreAppliedWithNoCall() {
         let a = Fallback.airplane
         var scenes = a.kit.scenes
-        let props = [Prop(id: "pot", householdItem: "Pot", becomes: "the big oven", forRole: .all, safetyOK: true, libraryID: "pot"),
+        let props = [Prop(id: "pot", householdItem: "Pot", becomes: "the cauldron", forRole: .all, safetyOK: true, libraryID: "pot"),
                      Prop(id: "bowl", householdItem: "Bowl", becomes: "the snack bowl", forRole: .all, safetyOK: true, libraryID: "bowl")]
         let woven = GuideWeave.apply(Self.weave, to: scenes, props: props, taken: [])
         scenes = woven.scenes
@@ -56,15 +56,15 @@ import Testing
         let items = KitDraft.finalItems(a.kit.items, props: Props(nutmegSays: "", props: final))
         let cut = items.first { $0.recipe == .cutouts }!
         let out = GuideWeave.finalize(scenes, uses: woven.uses, props: Props(nutmegSays: "", props: final), items: items)
-        #expect(out[1].steps[3].text == "Passenger, peek in the pretend big oven!")
-        #expect(out[1].steps[3].picture == .kit("cutout:\(cut.lines.firstIndex(of: "big oven")!)"))
+        #expect(out[1].steps[3].text == "Passenger, peek in the pretend cauldron!")
+        #expect(out[1].steps[3].picture == .kit("cutout:\(cut.lines.firstIndex(of: "cauldron")!)"))
         #expect(out[0].steps[0] == scenes[0].steps[0])       // found: unchanged
         #expect(out[1].steps[3].role == a.kit.scenes[1].steps[3].role)   // same role: hand-offs and coverage unchanged
         // Never "pretend pretend"; the household item's name is replaced too.
-        #expect(GuideWeave.pretend("Everyone, peek in the pretend big oven!", item: "Pot", becomes: "the big oven", label: "big oven")
-                == "Everyone, peek in the pretend big oven!")
-        #expect(GuideWeave.pretend("Captain, stir the pot!", item: "Pot", becomes: "the big oven", label: "big oven")
-                == "Captain, stir the pretend big oven!")
+        #expect(GuideWeave.pretend("Everyone, peek in the pretend cauldron!", item: "Pot", becomes: "the cauldron", label: "cauldron")
+                == "Everyone, peek in the pretend cauldron!")
+        #expect(GuideWeave.pretend("Captain, stir the pot!", item: "Pot", becomes: "the cauldron", label: "cauldron")
+                == "Captain, stir the pretend cauldron!")
         // A swap: the bowl became a cup (same use): its step shows the cup.
         var swapped = props; swapped[1].libraryID = "cup"; swapped[1].householdItem = "Cup"
         let sw = GuideWeave.finalize(scenes, uses: woven.uses, props: Props(nutmegSays: "", props: swapped), items: items)
@@ -77,20 +77,20 @@ import Testing
 
     @Test func weaveAnswersAreChecked() {
         let scenes = Fallback.airplane.kit.scenes
-        let props = [Prop(id: "pot", householdItem: "Pot", becomes: "the big oven", forRole: .all, safetyOK: true, libraryID: "pot")]
+        let props = [Prop(id: "pot", householdItem: "Pot", becomes: "the cauldron", forRole: .all, safetyOK: true, libraryID: "pot")]
         let bad = PropWeave(uses: [
-            .init(propID: "pot", scene: 9, step: 0, text: "Captain, open the big oven!"),           // no such scene
+            .init(propID: "pot", scene: 9, step: 0, text: "Captain, open the cauldron!"),           // no such scene
             .init(propID: "lamp", scene: 0, step: 0, text: "Captain, turn on the lamp!"),           // not asked for
             .init(propID: "pot", scene: 0, step: 2, text: String(repeating: "word ", count: 60)),   // too long
-            .init(propID: "pot", scene: 0, step: 3, text: "Everyone, peek in the big oven!"),       // taken
-            .init(propID: "pot", scene: 2, step: 4, text: "Passenger, smell the big oven!"),        // fine
+            .init(propID: "pot", scene: 0, step: 3, text: "Everyone, peek in the cauldron!"),       // taken
+            .init(propID: "pot", scene: 2, step: 4, text: "Passenger, smell the cauldron!"),        // fine
         ])
         let taken = [PropUse(propID: "bowl", scene: 0, step: 3, libraryID: "bowl", item: "Bowl", becomes: "the bowl")]
         let r = GuideWeave.apply(bad, to: scenes, props: props, taken: taken)
         #expect(r.uses.map { "\($0.scene).\($0.step)" } == ["2.4"])
         // The prompt lists only the playing roles to pick from and marks taken steps.
         let p = GuideWeave.prompt(scenes: scenes, props: props, taken: taken, roles: Fallback.airplane.plan.roles, players: 2)
-        #expect(p.contains("(R1, R2)") && p.contains("s0.3 [") && p.contains("(taken)") && p.contains("becomes the big oven"))
+        #expect(p.contains("(R1, R2)") && p.contains("s0.3 [") && p.contains("(taken)") && p.contains("becomes the cauldron"))
     }
 
     @Test func theEarlyGuideHasAFixedShape() throws {
@@ -124,7 +124,7 @@ import Testing
         #expect(guidePrompts(llm)[0].contains("use NO household props"))
         _ = await store.apply(.showNextProp(.init(itemID: "bowl", becomes: "the snack bowl", forRole: "all")))
         _ = await store.apply(.markFound("bowl"))
-        _ = await store.apply(.showNextProp(.init(itemID: "pot", becomes: "the big oven", forRole: "all")))
+        _ = await store.apply(.showNextProp(.init(itemID: "pot", becomes: "the cauldron", forRole: "all")))
         await waitFor { weavePrompts(llm).count == 2 }
         try? await Task.sleep(for: .milliseconds(50))
         let calls = llm.calls
@@ -135,7 +135,7 @@ import Testing
         #expect(guidePrompts(llm).count == 1 && store.guideCalls == 1)
         let steps = store.fullKit?.scenes.flatMap(\.steps) ?? []
         // 2026-11-20: checklist items (the role title the weave wrote is taken off: the card shows the role).
-        #expect(steps.contains { $0.short == "Peek in the pretend big oven" && $0.picture.kind == .kit })
+        #expect(steps.contains { $0.short == "Peek in the pretend cauldron" && $0.picture.kind == .kit })
         #expect(steps.contains { $0.picture == .prop("bowl") })
         // Round 29: the playing roles are Captain + the customer counterpart (Passenger); every scene shows both cards.
         #expect(store.playingRoles.map(\.roleName) == ["Captain", "Passenger"])
@@ -186,7 +186,7 @@ import Testing
         // An unsafe weave answer is asked once more, then dropped (the guide keeps its own steps).
         let bad = PropWeave(uses: [.init(propID: "pot", scene: 0, step: 0, text: "Captain, wave the bloody knife!")])
         let weaving = PhaseService(llm: FakeLLM(responses: ["PropWeave": bad]))
-        let props = [Prop(id: "pot", householdItem: "Pot", becomes: "the big oven", forRole: .all, safetyOK: true, libraryID: "pot")]
+        let props = [Prop(id: "pot", householdItem: "Pot", becomes: "the cauldron", forRole: .all, safetyOK: true, libraryID: "pot")]
         await #expect(throws: ClaudeError.refusal) {
             _ = try await weaving.weaveProps(scenes: Fallback.airplane.kit.scenes, props: props, taken: [],
                                              ctx: AdventureContext(gameTitle: "Airplane", plan: Fallback.airplane.plan, playerCount: 2))

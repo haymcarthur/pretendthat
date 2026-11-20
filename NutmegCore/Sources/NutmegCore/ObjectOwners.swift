@@ -134,7 +134,7 @@ extension OneScene {
                 }
             }
             for row in rows {
-                var shown = Speakable.repair(row.shown)
+                var shown = Speakable.repair(row.shown, fallback: Speakable.safeItem)
                 if p > 1 { shown = PlayCast.unname(shown, roles: roles, players: p) }
                 steps.append(Step(picture: row.picture, text: ChecklistScenes.say(shown, role: role), role: SceneOwner(role.id), short: shown))
             }
