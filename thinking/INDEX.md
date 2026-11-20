@@ -149,6 +149,8 @@ The map. Read this first, then open only what you need.
 - [Events are scenarios to play out (not one-time actions), scene-setting opener, card stays + hear-again (no auto repeat), one owner per object, prop stand-ins table, pretend-name wording, 3 new music families](decisions/2026-11-21-events-are-scenarios-and-ownership.md): Haylee (Claude's calls noted)
 - [Round build: scenario events (gesture check + app scenario events + scene-setting opener), event card stays + 🔊 hear-again (no repeat), one owner per object (exactly-once setup, clean-up by owner), prop stand-ins (10–15 per prop, design/prop-stand-ins.md), pretend-name wording, 3 new music families, End scene, never-blocked checklist buttons, Speakable check, music on/off, pause verified, face-drift root cause + fix](decisions/2026-11-21-round-scenarios-ownership-build.md): Haylee (the design + live-test items); Claude's calls noted (app files not compiled here)
 
+- [One game plan: story → areas (owner each) → every object's life cycle (area, owner, use in play, put away); setup by area; printouts chosen for the plan; traceability check; calm-stretch ideas. Goal: everything flows and belongs together](decisions/2026-11-21-one-game-plan.md): Haylee (Claude's plan noted)
+
 ## Work queue
 - [Round 34 build: app-written prop lines (first play = replay words, her first-play clips reused, no "Next,"/"still have"), replay hunt = the first play's layout and camera, in-app speech model download (iPadOS 26+, SpeechAnalyzer turn), tasks short on screen + spoken specifics (short/say, GuideRepair), scene opening = setup + cue (~22 s → 5–9 s), whole-row tap + read_job, one-sentence returning greeting (8.8–9.1 s → 5.5–5.7 s)](decisions/2026-11-16-round34.md): Haylee (items), Claude's calls noted
 - [Round 35 prep + onboarding voice fix: onboarding through NutmegSpeaker (one session, output-only until the mic is allowed), system TTS removed, mini voice for scripted lines and Sonnet for guide/weave behind flags (OFF), relay allow-lists, A/B v2 through the real app in design/voice-ab-v2/](decisions/2026-11-16-round35-prep.md): Haylee (items), Claude's calls noted; mini waits for Haylee's ear
@@ -236,8 +238,6 @@ The map. Read this first, then open only what you need.
 - [Save the current game to disk](ideas/save-game-to-disk.md): stretch, only if time (Haylee)
 - [Try the mini voice for her whole conversation](ideas/2026-11-17-mini-voice-full-conversation.md): low priority test, biggest cost lever (Haylee)
 - [Voice-light replays for families without a plan](ideas/2026-11-17-replay-cost-cap.md): only if cancelled-plan replay costs get out of hand (Haylee)
-
-- [Setup builds areas (cockpit, kitchen…) with an owner each; every printout gets a play job used in the scene; calm-stretch ideas](ideas/2026-11-21-areas-and-printable-uses.md): Haylee's idea, Claude's take, not built
 
 ## Open
 - [Open questions](open-questions.md): keys/credits, relay, domain, font, shared-simulator testing, wave art leftovers
