@@ -198,15 +198,15 @@ body{background:#ECEAE6;font-family:"SF Pro Rounded",ui-rounded,"Nunito",system-
     <div class="col phonecol" id="c4"><div class="phone" id="s4"><div class="screen"></div></div>
       <div class="num">Screen 4 · iPhone · 2 kids · setup</div>
       <div class="cap"><h2>Setup: the checklists live in a shelf</h2>
-      <p>Like the chat shelf (round 40): edge to edge, attached to the bottom, top corners rounded, white. Nutmeg peeks over the shelf's top edge (her live head, so no face avatar in the header). Header: the scene title and its 🔊. The role cards (pinned-card style: white with a hairline) fill the shelf; two fit without scrolling. The Prev / Next pair is pinned to the shelf's bottom.</p></div></div>
+      <p>Like the chat shelf (round 40): edge to edge, attached to the bottom, top corners rounded, white, starting right under the top bar. The header holds Nutmeg's live head, face-cropped in a circle (as in the chat shelf), the scene title and its 🔊. No peek, so the shelf is taller and the rows get more air. The role cards (pinned-card style: white with a hairline) fill the shelf; two fit without scrolling. The Prev / Next pair is pinned to the shelf's bottom.</p></div></div>
     <div class="col phonecol" id="c5"><div class="phone" id="s5"><div class="screen"></div></div>
       <div class="num">Screen 5 · iPhone · 6 kids (scrolled)</div>
       <div class="cap"><h2>6 kids: the cards scroll inside the shelf</h2>
-      <p>The shelf, Nutmeg, the title and the buttons stay put; only the card list scrolls (scroll bar, soft fades at both ends, a cut-off card). Here it's scrolled to Mission Control / Astronaut.</p></div></div>
+      <p>The shelf header (her live head, the title) and the buttons stay put; only the card list scrolls (scroll bar, soft fades at both ends, a cut-off card). Here it's scrolled to Mission Control / Astronaut.</p></div></div>
     <div class="col phonecol" id="c6"><div class="phone" id="s6"><div class="screen"></div></div>
       <div class="num">Screen 6 · iPhone · scenario</div>
       <div class="cap"><h2>Scenario: the shelf slides away</h2>
-      <p>Transition: when the last box is ticked the shelf slides down off the screen and Nutmeg grows from her peek back to her whole body on the stage (one stageMove spring). The line card with 🔊 sits under her, the roles collapse into a done strip, and the same button pair glows. ▶ Next scene: the shelf slides back up with the next scene's cards and she drops back to her peek.</p></div></div>
+      <p>Transition: when the last box is ticked the shelf slides down off the screen and Nutmeg grows from the header circle to her whole body on the stage (one stageMove spring). The line card with 🔊 sits under her, the roles collapse into a done strip, and the same button pair glows. ▶ Next scene: the shelf slides back up with the next scene's cards and she shrinks back into the header circle.</p></div></div>
   </div>
 </div>
 
@@ -233,9 +233,9 @@ function pale(c,t){const [r,g,b]=hex(c);return `rgb(${[r,g,b].map(v=>Math.round(
 
 // sizes: L = iPad 2 kids, M = iPad 6 kids, S = iPhone
 const SZ = {
-  L:{w:400,pad:18,pic:72,name:28,hgap:16,row:70,chk:50,spk:50,tx:22,gap:12,rpad:9,ig:14},
-  M:{w:290,pad:12,pic:46,name:20,hgap:10,row:52,chk:44,spk:44,tx:17,gap:7,rpad:4,ig:9},
-  P:{w:369,pad:10,pic:34,name:19,hgap:6,row:44,chk:44,spk:44,tx:17,gap:2,rpad:0,ig:10},
+  L:{w:400,pad:18,pic:72,name:28,hgap:18,row:70,chk:50,spk:50,tx:22,gap:15,rpad:9,ig:14},
+  M:{w:290,pad:12,pic:46,name:20,hgap:10,row:52,chk:44,spk:44,tx:17,gap:10,rpad:4,ig:9},
+  P:{w:369,pad:12,pic:36,name:19,hgap:10,row:48,chk:44,spk:44,tx:17,gap:9,rpad:2,ig:10},
   S:{w:369,pad:12,pic:40,name:20,hgap:10,row:48,chk:44,spk:44,tx:17.5,gap:3,rpad:2,ig:10},
 };
 function card(id,size,x,y,opt={}){
@@ -319,12 +319,12 @@ $('s1').innerHTML = ipadStage() + ipadTitle(224,84,TITLE)
 
 // 2. iPad, 6 kids: Nutmeg on the top-right card (Mission Control)
 {
-  const xs=[150,452,754], y1=154, y2=424, h=258;
+  const xs=[150,452,754], y1=154, y2=432, h=266;
   $('s2').innerHTML = ipadStage() + ipadTitle(150,74,TITLE,28)
     + card('pilot','M',xs[0],y1,{h}) + card('engineer','M',xs[1],y1,{h}) + card('mission','M',xs[2],y1,{h})
     + card('astro','M',xs[0],y2,{h}) + card('alien','M',xs[1],y2,{h}) + card('rover','M',xs[2],y2,{h})
     + peek(906,y1,104,{turn:-9})
-    + navPair(1180,700,250,62,18);
+    + navPair(1180,712,250,60,18);
 }
 
 // 3. iPad scenario
@@ -345,23 +345,30 @@ $('s1').innerHTML = ipadStage() + ipadTitle(224,84,TITLE)
 
 // iPhone: the checklist shelf (like the chat shelf: edge to edge, top corners rounded, under the top bar),
 // Nutmeg's peek on its top edge, the cards scroll inside, the Prev/Next pair pinned at its bottom.
-const SHELF=262;
+// Nutmeg's live head, face-cropped in a circle (PTNutmegAvatar: face center (628, 532), span 490 canvas px)
+function avatar(d){
+  const k=d/490, W=1178*k, H=1335*k, L=d/2-628*k, T=d/2-532*k;
+  const lay=['nutmeg-head-base','nutmeg-face-talking','nutmeg-mouth-open','nutmeg-headset'].map(n=>`<img src="${IMG+n}.svg" style="position:absolute;left:${L}px;top:${T}px;width:${W}px;height:${H}px">`).join('');
+  return `<span style="position:relative;flex:none;width:${d}px;height:${d}px;border-radius:50%;overflow:hidden;background:var(--sky);box-shadow:inset 0 0 0 1.5px var(--line)">${lay}<span style="position:absolute;inset:0;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--line)"></span></span>`;
+}
+// iPhone: the checklist shelf (like the chat shelf: edge to edge, top corners rounded, right under the top bar),
+// her live head in the header beside the title, the cards scroll inside, the Prev/Next pair pinned at its bottom.
+const SHELF=162;
 function shelf(inner,scrolled){
-  const top=SHELF, listTop=top+64, listBottom=752;
+  const top=SHELF, listTop=top+84, listBottom=752;
   return `<div style="position:absolute;left:0;right:0;top:${top}px;bottom:0;background:#fff;border-radius:28px 28px 0 0;box-shadow:0 -3px 10px rgba(0,0,0,.07);z-index:10"></div>
-    <div class="title" style="left:16px;top:${top+12}px;width:262px;padding:0;box-shadow:none;background:none;white-space:normal;font-size:19px;gap:8px;z-index:20"><span class="t" style="flex:1">${TITLE}</span>${spk(44)}</div>
+    <div class="title" style="left:16px;right:16px;top:${top+14}px;padding:0;box-shadow:none;background:none;white-space:normal;font-size:19px;gap:12px;z-index:20">${avatar(56)}<span class="t" style="flex:1">${TITLE}</span>${spk(44)}</div>
     <div style="position:absolute;left:0;top:${listTop}px;width:393px;height:${listBottom-listTop}px;overflow:hidden;z-index:11"><div style="position:relative">${inner}</div></div>
-    ${scrolled?`<div class="scrollbar" style="right:4px;top:${listTop+120}px;height:110px"></div>
+    ${scrolled?`<div class="scrollbar" style="right:4px;top:${listTop+130}px;height:120px"></div>
       <div class="fade" style="left:0;right:0;top:${listTop}px;height:14px;background:linear-gradient(#fff,rgba(255,255,255,0))"></div>`:''}
-    <div class="fade" style="left:0;right:0;top:${listBottom-16}px;height:16px;background:linear-gradient(rgba(255,255,255,0),#fff)"></div>
-    ${peek(268,top,112,{turn:-9,zb:9,zf:21})}`;
+    <div class="fade" style="left:0;right:0;top:${listBottom-16}px;height:16px;background:linear-gradient(rgba(255,255,255,0),#fff)"></div>`;
 }
 const pin={cls:'pinned'};
 $('s4').innerHTML = phoneStage()
-  + shelf(card('pilot','P',12,0,pin)+card('engineer','P',12,213,pin),false)
+  + shelf(card('pilot','P',12,2,pin)+card('engineer','P',12,256,pin),false)
   + `<div style="position:absolute;inset:0;z-index:22;pointer-events:none">${navPair(393,762,176,54,12)}</div>`;
 $('s5').innerHTML = phoneStage()
-  + shelf(card('engineer','P',12,-120,pin)+card('mission','P',12,93,pin)+card('astro','P',12,306,pin),true)
+  + shelf(card('engineer','P',12,-120,pin)+card('mission','P',12,136,pin)+card('astro','P',12,392,pin),true)
   + `<div style="position:absolute;inset:0;z-index:22;pointer-events:none">${navPair(393,762,176,54,12)}</div>`;
 
 // 6. iPhone scenario (the shelf has slid away; Nutmeg grows back onto the stage)
