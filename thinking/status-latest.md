@@ -18,7 +18,8 @@ Start here in a new session, after CLAUDE.md. The 2026-11-18 handoff is below (s
   - Prop stand-ins: 10–15 believable uses per prop, for review in **design/prop-stand-ins.md**; the hunt and the weave only allow listed uses (no AI call).
   - Items use the pretend name ("Hold up the planet"); 3 new music families (superhero city, pirate adventure, rescue team).
   - Live-test fixes: End scene (asks first → finale → clean-up); ▶ Let's play! / ▶ The End never grey (they check what's left); every card line is speakable (the print-mess item no longer says scissors); the music pill toggles music off/on (remembered on the device); ⏸ Pause verified (it does stop the music, nothing changed); the face drifting off her head during zooms (root cause + fix in the decision file).
-- **Compiled/tested here:** NutmegCore only (Linux): 737 tests, all pass except the 10 known environment-only failures. **The app files were not compiled** (no Xcode here) and nothing ran on a simulator. No live calls, no music generation, $0.
+- **Scenarios round, tested here:** NutmegCore (Linux): 749 tests, all pass except the same 10 environment-only failures (run in two parts after container restarts). App files pass `swiftc -parse` only (not compiled). No live calls, $0. Safety rule added late in the round (everything in play is pretend; hazards rewritten in the stored guide and on load).
+- **Compiled/tested here (one-scene round):** NutmegCore only (Linux): 737 tests, all pass except the 10 known environment-only failures. **The app files were not compiled** (no Xcode here) and nothing ran on a simulator. No live calls, no music generation, $0.
 
 ## Haylee's Mac checklist
 1. `xcodegen` (new files: App/AppModel+OneScene.swift, Screens/BeatSceneView.swift, Voice/MusicPlayer.swift; Resources/Music is now a folder reference), then build **Release**. Expect a few type-check fixes in the uncompiled app files (riskiest spots listed in the decision file).

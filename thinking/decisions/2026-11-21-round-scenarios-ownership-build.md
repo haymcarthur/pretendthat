@@ -80,7 +80,8 @@
 ## Tests (NutmegCore, Linux Swift 6.0.3 harness)
 - New `ScenariosOwnershipTests` (10 tests): gesture check + app templates + repair + prompt examples; the opener; card lifetime and no repeat; End scene + resume; exactly-once ownership at every count with prop variants, fair owners, clean-up owners, speakable arc; hidden roles 5–6 folding; stand-ins table (10–15 each, every library id, curated uses, settle, itemText, prompt note, review file sync); wording; music families + mute level; speakable repairs and every app template.
 - `OneSceneTests` updated: 10 families, the prompt's ownership rule, a wave event repaired, exactly-once setup with 2–3 rows (solo may need more), no repeat cue, card lifetime, the store's unblocked checklist (`checkAllRemaining`, voice "we're done" goes on), the badge cue.
-- Full-suite result: see the status file (run at the end of the round).
+- `appliancesArePretendAndRealHazardsAreReplaced` and `theCardTextAndTheSpokenLineAreTheSameWords` (the safety rule). Hunt/guide fixtures that used a pot as "the big oven" now use "the cauldron" (a pot can't be an oven under the stand-ins rule).
+- **Full suite: 749 tests, all pass except the 10 known environment-only failures** (the container restarted twice; the last run was finished in two parts covering every suite).
 
 ## Riskiest spots (app files, not compiled here; all pass `swiftc -parse`)
 - `RootView.swift` `beatChrome`: the new `else` branch (iPhone End scene pill) and the VStack of Pause + End scene; `PTEndSceneDialog` in the root ZStack (`zIndex(16.5)`).
