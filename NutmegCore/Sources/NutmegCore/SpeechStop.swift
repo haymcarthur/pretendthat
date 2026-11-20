@@ -57,6 +57,17 @@ public struct SpeechStop: Sendable {
         return ids
     }
 
+    /// 2026-11-20: cancels ONE response (a stale request that arrived after a stop). `cancelAll` here also cancelled
+    /// the tap's own new line when it was already running. True when it was in flight (send its response.cancel).
+    @discardableResult
+    public mutating func cancel(_ id: String?) -> Bool {
+        guard let id, let i = active.firstIndex(of: id) else { return false }
+        active.remove(at: i)
+        cancelled.insert(id)
+        if cancelled.count > 64 { cancelled = [id] }
+        return true
+    }
+
     /// True for a playback event (audio, her words) that belongs to a response the kid already moved past.
     public func drops(_ event: Realtime.Event, responseID: String?) -> Bool {
         guard let responseID, cancelled.contains(responseID) else { return false }

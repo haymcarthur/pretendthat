@@ -224,6 +224,10 @@ final class AppModel {
             self.clipStore.store(line, roles: self.store.plan?.roles ?? [])
         }
         realtime.onRecordRejected = { [weak self] _ in self?.clipLog.rejectedOne() }
+        // 2026-11-20 (decisions/2026-11-20-voice-stall-fix.md): every finished take stays in memory for this game, so a
+        // row tapped again plays it with no socket; a line that made no sound is said again once the voice is back.
+        realtime.onTake = { [weak self] line in self?.clipStore.keepForGame(line) }
+        realtime.onLineStalled = { [weak self] line in self?.deferredLine = line }
         realtime.recordRoles = { [weak self] in self?.store.plan?.roles }
         clipStore.onStored = { [weak self] _ in if self?.store.isReplay == true { self?.clipLog.savedOne() } }
         store.isRecorded = { [weak self] line in self?.clipStore.has(line) ?? false }
@@ -1403,6 +1407,14 @@ final class AppModel {
     func speak(_ text: String, deferIfAway: Bool = false) {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         speaker.remember(text)   // whitespace-only lines aren't remembered
+        // 2026-11-20: the session is still suspended but the app is in the foreground (a lock / unlock during a resume):
+        // resume first, then say it (`flushDeferredLine`). Before, every clip and live line was silently skipped.
+        if realtime.suspended && UIApplication.shared.applicationState == .active && !planningNow {
+            deferredLine = text
+            voiceLog("line while the session is suspended in the foreground: resuming first")
+            Task { await resumeSession() }
+            return
+        }
         // Round D3b: her recorded clip plays at once (no network, no thinking face), on a replay and on a first play
         // once a line has been recorded. Planning lines are hers to say in the conversation (never app lines).
         if clipStore.has(text) && !planningNow && !realtime.suspended {
@@ -1504,6 +1516,8 @@ final class AppModel {
     @ObservationIgnored private var kitReadySaid = false
     @ObservationIgnored private var deferredLine: String?
     private(set) var resuming = false
+    /// 2026-11-20: one resume at a time; it goes again when the app went away and came back during it.
+    @ObservationIgnored private var resumeLoop = ResumeLoop()
     @ObservationIgnored private var kitBackgroundTask: UIBackgroundTaskIdentifier = .invalid
     @ObservationIgnored private var lastReconnect = Date.distantPast
 
@@ -1570,16 +1584,25 @@ final class AppModel {
         return true
     }
 
+    /// 2026-11-20: a lock and unlock while the ping ran left `suspended` on in the foreground (no clips, no voice, until
+    /// the game was left). `ResumeLoop` runs one resume at a time and runs it again when it ends suspended with the app
+    /// active; `ForegroundRecovery` asks for a resume even while busy.
     private func resumeSession() async {
-        guard !resuming else { return }
-        resuming = true   // the mic shows "connecting" while the ping runs (no press into a stopped engine)
-        let alive = await realtime.resumeIfAlive()
-        resuming = false
-        if alive {
-            flushDeferredLine()
+        guard resumeLoop.request() else { return }   // one is running: it checks again when it ends
+        while true {
+            resuming = true   // the mic shows "connecting" while the ping runs (no press into a stopped engine)
+            let alive = await realtime.resumeIfAlive()
+            resuming = false
+            let active = UIApplication.shared.applicationState == .active
+            if resumeLoop.ended(stillSuspended: realtime.suspended, appActive: active) {
+                voiceLog("resume: away and back during the resume, resuming again")
+                continue
+            }
+            if realtime.suspended { return }   // in the background again (the next foreground resumes), or gave up
+            if alive { flushDeferredLine(); return }
+            await reconnectSilently()
             return
         }
-        await reconnectSilently()
     }
 
     /// Reconnects with the CURRENT game in the instructions (step, choices, current prop, kit, latest lines). No kick-off:

@@ -1,5 +1,6 @@
 import AVFoundation
 import Observation
+import os
 import QuartzCore
 import NutmegCore
 
@@ -240,6 +241,7 @@ final class RealtimeSession {
         }
         if responseActive || isSpeaking { interrupt() }
         silenceTask?.cancel(); gapTask?.cancel(); thinkingGap = false
+        watchdog.disarm()
         stopAudio()
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         rtLog("background: audio stopped, socket kept")
@@ -258,6 +260,9 @@ final class RealtimeSession {
         // stay "on". A hold or a release still finishing, the thinking dots, a reminder that never played.
         clearAwayState()
         let alive = !socketDropped && socket != nil ? await socket!.ping() : false
+        // 2026-11-20: locked again while the ping ran: stay asleep (no audio in the background); the app resumes again
+        // when it is back in the foreground (`ResumeLoop`).
+        guard !suspended else { voiceLog("foreground: back in the background during the ping, still suspended"); return false }
         guard alive, status == .live else {
             rtLog("foreground: socket gone (dropped=\(socketDropped)), reconnect needed")
             return false
@@ -302,6 +307,7 @@ final class RealtimeSession {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(SocketHealth.interval))
                 guard let self, !Task.isCancelled else { return }
+                await self.pingLineSocket()   // 2026-11-20: the fixed-lines session too
                 guard self.isLive, !self.suspended, let socket = self.socket else { continue }
                 let ok = await socket.ping()
                 guard !Task.isCancelled, socket === self.socket, !self.suspended else { continue }
@@ -379,9 +385,16 @@ final class RealtimeSession {
             for await text in socket.messages { await self?.receive(text) }
             await self?.socketClosed()
         }
+        lineArgs = (auth, config, instructions)
         await openLineSocket(auth: auth, config: config, instructions: instructions)   // round 35 prep: flag, default off
         updateGate()
         startKeepalive()
+        if suspended {
+            // 2026-11-20: the app went to the background while this connect ran: the socket stays, the audio stops,
+            // and the foreground resumes it (`ForegroundRecovery` → resume).
+            stopAudio()
+            voiceLog("connect: finished in the background, audio stopped until the app is back")
+        }
         return true
     }
 
@@ -439,6 +452,9 @@ final class RealtimeSession {
         receiveTask?.cancel(); receiveTask = nil
         socket?.close(); socket = nil
         lineTask?.cancel(); lineTask = nil; lineSocket?.close(); lineSocket = nil
+        lineReopenTask?.cancel(); lineReopenTask = nil; lineArgs = nil
+        lineHealth.reset(); linePings.reset(); lineSends = [:]; lineResponseIDs = []
+        watchdog.disarm(); watchdogLine = nil
         stopAudio()
         suspended = false; socketDropped = false; reminderAwaitingEnd = false; reminderDoneAt = nil
         pendingOutputs = []; gate = ResponseGate()   // (the speaker was cleared by stopAudio)
@@ -448,7 +464,7 @@ final class RealtimeSession {
         gapTask?.cancel(); expressionTask?.cancel(); expression = nil; thinkingGap = false; replyWait.reset()
         reminderPending = false; reminderPlaying = false; propLinePending = false; echoPending = false; echoActive = false
         forcedTools = nil; silentAllowed = nil; silentPending = false; silentResponse = false; silentItems = []; quickReplyOnly = false
-        speech = SpeechStop(); cancelThrough = 0; createdSeen = 0
+        speech = SpeechStop()
         recorder = ClipRecorder()   // round D3b: a half-recorded line is dropped with the session
         if status != .idle, case .failed = status {} else { status = .idle }
     }
@@ -613,10 +629,9 @@ final class RealtimeSession {
 
     /// Stops her mid-sentence: cancel the response, silence the speaker, truncate her item at what was heard.
     private func interrupt(sendCancel: Bool = true) {
-        if sendCancel && responseActive {
-            socket?.send(Realtime.responseCancel); rtLog("ptt: response.cancel")
-            lineSocket?.send(Realtime.responseCancel)
-        }
+        if sendCancel && responseActive { socket?.send(Realtime.responseCancel); rtLog("ptt: response.cancel") }
+        // 2026-11-20: the lines session's responses by id (a bare cancel there with nothing running is an error event).
+        if sendCancel { for id in lineResponseIDs { lineSocket?.send(Realtime.responseCancel(id: id)) } }
         if let id = audioItemID, let start = audioItemStart {
             let ms = speaker.heardMs(itemStart: start)
             socket?.send(Realtime.truncate(itemID: id, audioEndMs: ms))
@@ -634,7 +649,7 @@ final class RealtimeSession {
     @ObservationIgnored private var echoActive = false
     /// Round 15: something is being said or is about to be (a response running, audio playing, or an app line sent in
     /// the last moment whose audio hasn't started): a new app line waits, so two lines never overlap.
-    var voiceBusy: Bool { isSpeaking || gate.active || Date().timeIntervalSince(lastSayAt) < 1.5 }
+    var voiceBusy: Bool { isSpeaking || gate.active || lineInFlight || Date().timeIntervalSince(lastSayAt) < 1.5 }
 
     /// `thinking`: a kid is waiting on this line (a hand-off or Let's play! tap): show the thinking face + dots until it plays.
     /// `echo` (round 17, the pill's Repeat): a line she already said, said again: heard, but not a second chat bubble.
@@ -647,11 +662,12 @@ final class RealtimeSession {
         if record {
             // Round D3b: the app's own line, tagged so the recorder captures exactly this response.
             let r = recorder.request(line: line, kind: ClipMeta.kind(of: line), role: recordRoles().flatMap { ClipMeta.role(of: line, roles: $0) })
-            lineTarget(socket).send(Realtime.sayExactly(line, tag: r.tag))
+            sendLine(Realtime.sayExactly(line, tag: r.tag), main: socket)
         } else {
-            lineTarget(socket).send(Realtime.sayExactly(line))
+            sendLine(Realtime.sayExactly(line), main: socket)
         }
         trace.mark("say.create")
+        armWatchdog(line)
     }
 
     // MARK: Recording her app lines (round D3b)
@@ -659,6 +675,10 @@ final class RealtimeSession {
     @ObservationIgnored private var recorder = ClipRecorder()
     /// A recorded app line passed the gate (the app encodes it and keeps it with the game).
     @ObservationIgnored var onRecorded: (@MainActor (RecordedLine) -> Void)?
+    /// 2026-11-20: every FINISHED take of an app line (kept for saving or not), for this game's memory (`GameTakes`).
+    @ObservationIgnored var onTake: (@MainActor (RecordedLine) -> Void)?
+    /// 2026-11-20: an app line made no sound (the watchdog): the app says it again once the voice is back.
+    @ObservationIgnored var onLineStalled: (@MainActor (String) -> Void)?
     /// A recorded line was rejected (counts only, for the hit-rate log).
     @ObservationIgnored var onRecordRejected: (@MainActor (ClipRecorder.Reason) -> Void)?
     /// The game's roles (clip metadata: which role a line is about).
@@ -784,12 +804,14 @@ final class RealtimeSession {
             guard let self, !Task.isCancelled, self.isLive, self.micWanted, !self.isSpeaking, self.holdStartedAt == nil,
                   !self.awaitingReply, !self.responseActive, !self.beatRunning, let line = self.onSilence?() else { return }
             // Round 7: a fixed out-of-band line in her voice; its own chat bubble.
-            guard self.gate.request() else { return }
+            guard let s = self.socket else { return }
+            // 2026-11-20: a reminder on the lines session never takes the main ResponseGate (its done never reaches it).
+            if self.lineTarget(s) === s { guard self.gate.request() else { return } }
             self.chat.breakTurn()
             self.reasks += 1
             self.reminderPending = true
             rtLog("nudge: silence (fixed line, own chat bubble)")
-            if let s = self.socket { self.lineTarget(s).send(Realtime.sayExactly(line)) }
+            self.sendLine(Realtime.sayExactly(line), main: s)
         }
     }
 
@@ -798,10 +820,9 @@ final class RealtimeSession {
     /// Round 19: every response is tracked by id, so a kid's tap can cancel all of them (conversation replies and app
     /// lines), and late audio or words from a cancelled one never play or reach the chat.
     @ObservationIgnored private var speech = SpeechStop()
-    /// response.create events sent before the last stop whose response.created hasn't arrived yet are cancelled on arrival.
-    @ObservationIgnored private var cancelThrough = 0
-    @ObservationIgnored private var createdSeen = 0
-    @ObservationIgnored private var stopAt = Date.distantPast
+    // 2026-11-20: a response whose response.create was sent before the last stop is cancelled on arrival, by its
+    // per-request tag (`CreateLedger`, one per socket, kept by `RealtimeSocket`). The old count matching went out of
+    // step for good after one create that never got response.created, and then cancelled every new line.
 
     // MARK: Scripted lines on the mini model (cost v3; round 35 prep: behind `CostFlags.miniLines`, default OFF)
     // Both sockets are configured from ONE `VoiceSessionPlan` (the same VoiceConfig and instructions: identical
@@ -820,44 +841,194 @@ final class RealtimeSession {
     private func openLineSocket(auth: RealtimeAuth, config: VoiceConfig, instructions: String) async {
         guard let plan = VoiceSessionPlan.lines(config, instructions: instructions) else { return }
         lineTask?.cancel(); lineSocket?.close(); lineSocket = nil
+        let main = socket
         guard let bearer = try? await auth.bearer(model: plan.model) else { rtLog("lines: no bearer for \(plan.model)"); return }
         var req = URLRequest(url: plan.url)
         req.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
         let s = RealtimeSocket(request: req)
         s.send(plan.sessionUpdate)
-        guard await Self.waitReady(s) else { rtLog("lines: \(plan.model) not ready (\(s.firstError ?? "-")), app lines stay on the main session"); s.close(); return }
+        guard await Self.waitReady(s) else {
+            voiceLog("lines: session not ready (\(s.firstError?.prefix(80) ?? "-")), app lines stay on the main session")
+            s.close(); return
+        }
+        // 2026-11-20: the main session was replaced or closed meanwhile (a reconnect, leaving the game): not ours.
+        guard main != nil, socket === main else { s.close(); return }
         lineSocket = s
+        lineHealth.ready(); linePings.reset()
         rtLog("lines: fixed app lines go to \(plan.model) (separate session, same voice config: \(plan.config))")
         lineTask = Task { [weak self] in
             for await text in s.messages { await self?.receive(text, line: true) }
+            await self?.lineSocketEnded(s)   // 2026-11-20: never keep a lines session whose receive loop ended
         }
     }
 
-    /// Where a fixed app line (`sayExactly`) is sent: the main session, or (mini flag on) the fixed-lines session.
+    /// Where a fixed app line (`sayExactly`) is sent: the main session, or (lines flag on) the fixed-lines session while
+    /// it is healthy (2026-11-20: `LineSocketHealth`).
     private func lineTarget(_ main: RealtimeSocket) -> RealtimeSocket {
         #if DEBUG
         if debugLinesOnMain { return main }
         #endif
-        if let lineSocket, lineSocket.firstError == nil { return lineSocket }
+        if let lineSocket, lineSocket.firstError == nil, lineHealth.routesLines { return lineSocket }
         return main
+    }
+
+    // MARK: Lines-session health and the line watchdog (2026-11-20, decisions/2026-11-20-voice-stall-fix.md)
+
+    @ObservationIgnored private var lineHealth = LineSocketHealth()
+    @ObservationIgnored private var linePings = SocketHealth()
+    /// Lines sent to the lines session and not yet created there, by request tag (resent once on the main session).
+    @ObservationIgnored private var lineSends: [String: [String: Any]] = [:]
+    /// Responses running on the lines session (cancels go to the socket that owns the response).
+    @ObservationIgnored private var lineResponseIDs: Set<String> = []
+    @ObservationIgnored private var lineArgs: (auth: RealtimeAuth, config: VoiceConfig, instructions: String)?
+    @ObservationIgnored private var lineReopenTask: Task<Void, Never>?
+    @ObservationIgnored private var watchdog = LineWatchdog()
+    @ObservationIgnored private var watchdogLine: String?
+    @ObservationIgnored private var lastStallAt = Date.distantPast
+    /// A line is on its way on the lines session (sent, or created and not done): app lines wait (`voiceBusy`).
+    private var lineInFlight: Bool { !lineResponseIDs.isEmpty || lineHealth.hasPending }
+
+    /// Sends one fixed app line: the lines session while it's healthy (watched for its response.created), else main.
+    private func sendLine(_ event: [String: Any], main: RealtimeSocket) {
+        let target = lineTarget(main)
+        let tag = target.send(event)
+        guard target !== main, let tag else { return }
+        lineSends[tag] = event
+        lineHealth.sent(tag: tag, at: CACurrentMediaTime())
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(LineSocketHealth.createdTimeout + 0.05))
+            self?.checkLineSocket()
+        }
+    }
+
+    private func checkLineSocket() {
+        if let f = lineHealth.check(at: CACurrentMediaTime()) { lineSocketFailed(f) }
+    }
+
+    /// The lines session failed after it was ready: lines go to the main session from now on, the pending line is
+    /// resent there once, and the lines session is reopened in the background.
+    private func lineSocketFailed(_ f: LineSocketHealth.Failure) {
+        voiceLog("lines: session failed (\(f.reason.rawValue)); app lines fall back to the main session, \(f.resend.count) resent")
+        let dead = lineSocket
+        lineTask?.cancel(); lineTask = nil; lineSocket = nil
+        dead?.close()
+        if !lineResponseIDs.isEmpty {
+            // Whatever was running there is gone: never wait on it, never record it.
+            for id in lineResponseIDs { speech.done(id) }
+            recorder.cancel(Array(lineResponseIDs))
+            lineResponseIDs = []
+        }
+        if let main = socket, isLive, !suspended {
+            for tag in f.resend {
+                guard let e = lineSends[tag] else { continue }
+                main.send(e)
+                watchdog.rearm(at: CACurrentMediaTime())
+                armWatchdogCheck()
+                voiceLog("lines: fallback, the pending line was resent on the main session")
+            }
+        }
+        lineSends = [:]
+        scheduleLineReopen()
+    }
+
+    /// Reopens the lines session after `LineSocketHealth.reopenDelays` (a few tries; lines stay on main meanwhile).
+    private func scheduleLineReopen() {
+        guard lineReopenTask == nil, lineArgs != nil, let wait = lineHealth.nextReopenDelay() else { return }
+        lineReopenTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(wait))
+            guard let self, !Task.isCancelled else { return }
+            self.lineReopenTask = nil
+            guard self.isLive, !self.suspended, self.lineSocket == nil, let args = self.lineArgs else { return }
+            await self.openLineSocket(auth: args.auth, config: args.config, instructions: args.instructions)
+            if self.lineSocket == nil { self.scheduleLineReopen() } else { voiceLog("lines: session reopened") }
+        }
+    }
+
+    /// The lines session's receive loop ended (closed by the server or the network).
+    private func lineSocketEnded(_ s: RealtimeSocket) {
+        guard s === lineSocket else { return }
+        if let f = lineHealth.fail(.closed, at: CACurrentMediaTime()) { lineSocketFailed(f) } else { lineSocket = nil; lineTask = nil }
+    }
+
+    /// Keepalive for the lines session: two missed pongs in a row = failed.
+    private func pingLineSocket() async {
+        guard isLive, !suspended, let ls = lineSocket else { return }
+        let ok = await ls.ping()
+        guard ls === lineSocket, !suspended else { return }
+        if linePings.pinged(ok: ok), let f = lineHealth.fail(.missedPongs, at: CACurrentMediaTime()) { lineSocketFailed(f) }
+    }
+
+    /// The safety net: an app line that makes no sound within `LineWatchdog.limit` s.
+    private func armWatchdog(_ line: String) {
+        watchdog.lineSent(at: CACurrentMediaTime())
+        watchdogLine = line
+        armWatchdogCheck()
+    }
+
+    private func armWatchdogCheck() {
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(LineWatchdog.limit + 0.05))
+            self?.checkWatchdog()
+        }
+    }
+
+    /// No sound: logged, the voice is marked unhealthy and reconnects silently (both sessions); the app says the line
+    /// again once it's back.
+    private func checkWatchdog() {
+        guard watchdog.check(at: CACurrentMediaTime()) else { return }
+        let line = watchdogLine
+        watchdogLine = nil
+        guard isLive, !suspended, let socket else { return }
+        guard Date().timeIntervalSince(lastStallAt) > 20 else { voiceLog("watchdog: a line made no sound again (a reconnect ran moments ago)"); return }
+        lastStallAt = Date()
+        voiceLog("watchdog: an app line made no sound in \(Int(LineWatchdog.limit)) s; voice unhealthy, silent reconnect")
+        if let line { onLineStalled?(line) }
+        socket.close()   // the receive loop ends → socketClosed → onDropped → the app reconnects silently
     }
 
     /// Round 20: token counts from every response.done (never content), for the prompt-cache check.
     @ObservationIgnored private(set) var usageTotals = RealtimeUsageTotals()
 
     private func receive(_ text: String, line: Bool = false) async {
+        let isLine = line
         let id = Realtime.responseID(text)
         let event = Realtime.parse(text)
+        var lineFailure: LineSocketHealth.Failure?
         if line {
             // Cost v3: the fixed-lines session's counts are kept apart; its responses never count toward the main
-            // socket's response.create bookkeeping (createdSeen / cancelThrough).
+            // socket's response.create bookkeeping (its own `CreateLedger`) and never drive the main ResponseGate.
             if event == .responseDone, let u = RealtimeUsage.parse(text) {
                 lineUsageTotals.add(u)
                 rtLog("USAGE-LINES #\(lineUsageTotals.responses): \(u.line)")
             }
-            if event == .responseCreated { speech.created(id); recorder.created(responseID: id, tag: Realtime.lineTag(text)) }
+            if event == .responseCreated {
+                lineHealth.created(tag: CreateLedger.tag(in: text))
+                if let tag = CreateLedger.tag(in: text) { lineSends[tag] = nil }
+                if lineSocket?.cancelsOnArrival(text) == true, let id {
+                    // Asked for before the kid's tap: cancel just this one the moment it exists.
+                    speech.created(id)
+                    if speech.cancel(id) { lineSocket?.send(Realtime.responseCancel(id: id)) }
+                    rtLog("stop: a line asked for before the tap was cancelled on arrival (lines session)")
+                    return
+                }
+                if let id { lineResponseIDs.insert(id) }
+                speech.created(id); recorder.created(responseID: id, tag: Realtime.lineTag(text))
+            }
             if case .sessionReady = event { return }
-            if case .error(let m) = event { rtLog("lines session error (ignored): \(m)"); return }
+            if case .error(let m) = event {
+                // 2026-11-20: an error after ready is a failure (lines move to the main session), except a benign cancel.
+                if let f = lineHealth.error(m, at: CACurrentMediaTime()) {
+                    voiceLog("lines: session error (\(m.prefix(80)))")
+                    lineSocketFailed(f)
+                } else {
+                    rtLog("lines session error (benign): \(m)")
+                }
+                return
+            }
+            if event == .responseDone {
+                if let id { lineResponseIDs.remove(id) }
+                lineFailure = lineHealth.done(status: Realtime.responseStatus(text), at: CACurrentMediaTime())
+            }
         }
         if !line, event == .responseDone, let m = greetingMeasure, m.bytes > 0 {
             greetingMeasure = nil
@@ -871,14 +1042,12 @@ final class RealtimeSession {
                   + String(format: "(%.0f%%)", usageTotals.cachedShare * 100))
         }
         if event == .responseCreated, !line {
-            createdSeen += 1
-            if createdSeen <= cancelThrough, Date().timeIntervalSince(stopAt) < 4, let id {
-                // Asked for before the kid moved on (e.g. a cheer already sent): cancel it the moment it exists.
-                speech.created(id)
-                for c in speech.cancelAll() { socket?.send(Realtime.responseCancel(id: c)) }
-                rtLog("stop: a line asked for before the tap was cancelled on arrival")
-            } else {
-                speech.created(id)
+            speech.created(id)
+            if socket?.cancelsOnArrival(text) == true, let id {
+                // Asked for before the kid moved on (e.g. a cheer already sent): cancel just this one the moment it
+                // exists (2026-11-20: never everything running, which included the tap's own new line).
+                if speech.cancel(id) { socket?.send(Realtime.responseCancel(id: id)) }
+                rtLog("stop: a response asked for before the tap was cancelled on arrival")
             }
         }
         if event == .responseCreated, !line { recorder.created(responseID: id, tag: Realtime.lineTag(text)) }
@@ -888,22 +1057,55 @@ final class RealtimeSession {
             case .audioDelta(let d): recorder.audio(responseID: id, d)
             case .transcriptDone(let t): recorder.transcript(responseID: id, t)
             case .responseDone:
-                switch recorder.done(responseID: id, status: Realtime.responseStatus(text)) {
+                let finished = recorder.finish(responseID: id, status: Realtime.responseStatus(text))
+                // 2026-11-20: every finished take stays in this game's memory (repeat taps need no socket).
+                if let take = finished.take { onTake?(take) }
+                switch finished.outcome {
                 case .kept(let line):
                     // Round 34: line lengths for the scene-opening and prop-line measurements (heard = ÷ Varispeed).
                     rtLog(String(format: "CLIP kept %.1f s (heard %.1f s) [%@]: %@", line.duration, line.duration / VoiceConfig.nutmeg.playbackRate,
                                  line.request.kind.rawValue, String(line.request.line.prefix(70))))
+                    voiceLog(String(format: "clip kept for saving [%@, %.1f s, %@ session]", line.request.kind.rawValue, line.duration, isLine ? "lines" : "main"))
                     onRecorded?(line)
-                case .rejected(let why): rtLog("CLIP rejected (\(why.rawValue))"); onRecordRejected?(why)
+                case .rejected(let why):
+                    voiceLog("clip not kept for saving (\(why.rawValue)) [\(isLine ? "lines" : "main") session]\(finished.take != nil ? "; kept for this game" : "")")
+                    onRecordRejected?(why)
                 case .notTracked: break
                 }
             default: break
             }
         }
         if event == .responseDone { speech.done(id) }
+        if line, event == .responseCreated || event == .responseDone {
+            lineLifecycle(event)   // 2026-11-20: never the main ResponseGate
+            if let lineFailure { lineSocketFailed(lineFailure) }
+            return
+        }
         await handle(event)
         // Round 39: a response ended and nothing more was asked for: no reply is coming this turn (isBusy goes false).
         if event == .responseDone, !line { replyWait.responseDone(gateActive: gate.active) }
+    }
+
+    /// 2026-11-20: a lines-session response starting or ending. Only its own playback state (the main ResponseGate,
+    /// the turn checks and the tool outputs belong to the conversation session). Before, a line's response.done closed
+    /// the gate under a running conversation response, and a line that never ended kept it shut.
+    private func lineLifecycle(_ event: Realtime.Event) {
+        switch event {
+        case .responseCreated:
+            if reminderPending { reminderPending = false; reminderPlaying = true }
+            echoActive = echoPending; echoPending = false   // round 17: only the response the repeat asked for
+            trace.mark("created")
+            dropAudio = false
+            responseHadAudio = false
+            responseSerial += 1
+        case .responseDone:
+            if reminderPlaying {
+                reminderPlaying = false
+                reminderAwaitingEnd = true   // sleepy Nutmeg's clock starts when its audio has finished (round 9)
+                chat.breakTurn()
+            }
+        default: break
+        }
     }
 
     /// Round 19 (Haylee): the kid moved on (a tap that advances or changes the screen). Her current speech stops at once:
@@ -919,11 +1121,16 @@ final class RealtimeSession {
         let ids = speech.cancelAll()
         recorder.cancel(ids)   // round D3b: a cut line is never saved
         for id in ids {
-            socket.send(Realtime.responseCancel(id: id))
-            lineSocket?.send(Realtime.responseCancel(id: id))
+            // 2026-11-20: each cancel goes to the socket that owns the response (a cancel for an unknown id is an
+            // error event there).
+            if lineResponseIDs.remove(id) != nil { lineSocket?.send(Realtime.responseCancel(id: id)) }
+            else { socket.send(Realtime.responseCancel(id: id)) }
         }
-        cancelThrough = socket.createsSent
-        stopAt = Date()
+        // Requests sent before this moment are cancelled when they arrive; the next line never is (`CreateLedger`).
+        socket.markStop(); lineSocket?.markStop()
+        lineHealth.stop()
+        lineSends = [:]
+        watchdog.disarm()
         interrupt(sendCancel: false)
         reminderPending = false; echoPending = false; echoActive = false
         lastSayAt = .distantPast
@@ -947,9 +1154,17 @@ final class RealtimeSession {
         case .audioDone:
             // Voice pitch build: the line's audio is all here, so the pitch shifter's held-back last ~60 ms plays now.
             speaker.endOfLine()
-        case .audioDelta where dropAudio || holdStartedAt != nil || silentResponse || suspended || !speaker.isRunning:
-            break   // the kid interrupted this response (or is holding the mic): never play it
+        case .audioDelta where dropAudio || holdStartedAt != nil || silentResponse || suspended:
+            watchdog.heard()   // 2026-11-20: the voice is alive (this audio is just not for playing)
+            // the kid interrupted this response (or is holding the mic): never play it
         case .audioDelta(let data):
+            if !speaker.isRunning {
+                // 2026-11-20: the engine was left down (a failed rebuild): start it rather than drop her line.
+                do { try startAudio(echoCancel: echoCancel); voiceLog("speaker: engine was down, started for live audio") }
+                catch { voiceLog("speaker: engine start for live audio failed: \(error.localizedDescription)") }
+            }
+            guard speaker.isRunning else { break }
+            watchdog.heard()
             if audioItemStart == nil { audioItemStart = speaker.itemStart() }
             gate.spoke()
             responseHadAudio = true
@@ -1166,15 +1381,32 @@ final class RealtimeSocket: @unchecked Sendable {
         receive()
     }
 
-    /// Round 19: how many response.create events were sent (a stop cancels the ones still on their way).
-    var createsSent: Int { lock.withLock { _creates } }
-    private var _creates = 0
+    /// 2026-11-20: every response.create carries a per-request tag (`CreateLedger`); a stop marks the ones sent before
+    /// it, and those are cancelled when they arrive (round 19's rule, without counting).
+    private var ledger = CreateLedger()
 
-    func send(_ obj: [String: Any]) {
-        if obj["type"] as? String == "response.create" { lock.withLock { _creates += 1 } }
+    /// Sends one client event. Returns the request tag for a response.create (nil for anything else).
+    @discardableResult
+    func send(_ obj: [String: Any]) -> String? {
+        var obj = obj
+        var tag: String?
+        if obj["type"] as? String == "response.create" {
+            let t = lock.withLock { ledger.nextTag() }
+            obj = CreateLedger.stamp(obj, tag: t)
+            tag = t
+        }
         task.send(.string(Realtime.json(obj))) { [weak self] error in
             if let error { self?.noteError(error.localizedDescription) }
         }
+        return tag
+    }
+
+    /// A stop: every response.create sent so far is stale.
+    func markStop() { lock.withLock { ledger.stop() } }
+    /// A response.created whose request was sent before the last stop.
+    func cancelsOnArrival(_ text: String) -> Bool {
+        let tag = CreateLedger.tag(in: text)
+        return lock.withLock { ledger.cancelsOnArrival(tag) }
     }
 
     func close() {
@@ -1256,6 +1488,15 @@ func rtLog(_ message: @autoclosure () -> String) {
     #if DEBUG
     NSLog("[RT] %@", message())
     #endif
+}
+
+/// 2026-11-20: the few voice diagnostics that also show in Release (Console.app, subsystem "PretendThat", category
+/// "voice"): clip kept / not kept and why, lines-session failures and the fallback, the watchdog, resume. Fixed app
+/// text only: never anything a kid said, never a transcript, never a line's words.
+private let voiceLogger = Logger(subsystem: "PretendThat", category: "voice")
+func voiceLog(_ message: String) {
+    voiceLogger.notice("\(message, privacy: .public)")
+    rtLog(message)
 }
 
 /// Nutmeg's on-device pitch shaping (D7, revised in conversation-voice.md).

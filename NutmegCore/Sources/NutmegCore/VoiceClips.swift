@@ -160,17 +160,25 @@ public struct ClipRecorder: Sendable {
     /// response.done: keep the clip only if the response completed, the transcript matches the script and the
     /// trimmed audio is 0.4–30 s.
     public mutating func done(responseID: String?, status: String?) -> Outcome {
-        guard let id = responseID, let c = captures.removeValue(forKey: id) else { return .notTracked }
-        if status == "cancelled" { return .rejected(.cancelled) }
-        if let status, status != "completed" { return .rejected(.incomplete) }
-        if c.overflow { return .rejected(.tooLong) }
-        guard !c.audio.isEmpty else { return .rejected(.noAudio) }
-        guard TranscriptGate.accepts(requested: c.request.line, transcript: c.transcript) else { return .rejected(.transcriptMismatch) }
+        finish(responseID: responseID, status: status).outcome
+    }
+
+    /// 2026-11-20 (decisions/2026-11-20-voice-stall-fix.md): `done`, plus the finished take for THIS game's memory
+    /// (`GameTakes`): any response that completed with sound, even when the clip isn't kept for saving (transcript,
+    /// length; the app's pitch band is checked later, on the save path only). nil for a cancelled or cut response.
+    public mutating func finish(responseID: String?, status: String?) -> (outcome: Outcome, take: RecordedLine?) {
+        guard let id = responseID, let c = captures.removeValue(forKey: id) else { return (.notTracked, nil) }
+        if status == "cancelled" { return (.rejected(.cancelled), nil) }
+        if let status, status != "completed" { return (.rejected(.incomplete), nil) }
+        if c.overflow { return (.rejected(.tooLong), nil) }
+        guard !c.audio.isEmpty else { return (.rejected(.noAudio), nil) }
         let trimmed = ClipAudio.trimSilence(c.audio)
+        let take = GameTakes.keeps(status: status, audioBytes: trimmed.count) ? RecordedLine(request: c.request, pcm16: trimmed) : nil
+        guard TranscriptGate.accepts(requested: c.request.line, transcript: c.transcript) else { return (.rejected(.transcriptMismatch), take) }
         let secs = Double(trimmed.count / 2) / Realtime.sampleRate
-        if secs < Self.minSeconds { return .rejected(.tooShort) }
-        if secs > Self.maxSeconds { return .rejected(.tooLong) }
-        return .kept(RecordedLine(request: c.request, pcm16: trimmed))
+        if secs < Self.minSeconds { return (.rejected(.tooShort), take) }
+        if secs > Self.maxSeconds { return (.rejected(.tooLong), nil) }
+        return (.kept(RecordedLine(request: c.request, pcm16: trimmed)), take)
     }
 }
 
