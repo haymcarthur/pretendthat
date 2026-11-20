@@ -78,7 +78,19 @@ def chime():
     return np.concatenate([note(hz(84), 0.35, 0.3, bell=True), note(hz(91), 0.6, 0.3, bell=True)])
 
 
+def is_real_music(path):
+    """True when path exists and is NOT one of our placeholder tones (real music never carries title=PLACEHOLDER)."""
+    if not os.path.exists(path):
+        return False
+    tags = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format_tags=title", "-of", "default=nw=1:nk=1", path],
+                          capture_output=True, text=True).stdout.strip()
+    return tags != "PLACEHOLDER"
+
+
 def write(path, samples):
+    if is_real_music(path):
+        print(f"{os.path.relpath(path, ROOT)}: real music, kept")
+        return
     os.makedirs(os.path.dirname(path), exist_ok=True)
     pcm = (np.clip(samples, -1, 1) * 32767).astype(np.int16)
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
