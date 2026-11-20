@@ -2,6 +2,14 @@
 
 Start here in a new session, after CLAUDE.md. The decision files have the details; this is the map of what's done, what's live, and what's next.
 
+## First: set up the MacBook Air (2026-11-20)
+The repos moved to mcartha ([repos-moved-to-mcartha](decisions/2026-11-20-repos-moved-to-mcartha.md)) and this Mac has no copies yet.
+1. Clone if missing: `git clone https://github.com/mcartha/pretendthat ~/PretendThat` and `git clone https://github.com/mcartha/pretendthat-site ~/pretendthat-site` (same paths the notes and scripts use).
+2. Not in git: `Secrets.xcconfig` (ask Haylee to copy it from the old Mac, or fill in from Secrets.example.xcconfig), design/appstore-screens/ (only needed for App Store screenshot work).
+3. Tools: `brew install xcodegen`, then `xcodegen` in ~/PretendThat; `npm install` in ~/pretendthat-site. Check Xcode 16+ is installed and signed in.
+4. Check `swift test` in NutmegCore (751 tests passed last time) and a simulator build in demo mode, then do the next small task below.
+5. Pages for pretendthat-site was checked 2026-11-20: main / root, pretendthat.app, HTTPS enforced (DNS check was still running).
+
 ## Shipped
 - **TestFlight build 1.0 (4)** uploaded 2026-11-18 (commit 933c6c6, pushed to origin/main). Internal testers get it without beta review. Contents: [decisions/2026-11-18-build-4.md](decisions/2026-11-18-build-4.md).
   - Peek v4: Haylee's redrawn body + paws; the body sits behind the scene card, the paws in front ([peek-hands-regenerate](decisions/2026-11-18-peek-hands-regenerate.md)).
