@@ -145,8 +145,9 @@ struct RoundC1Tests {
         for n in [1, 6, 3] {
             _ = await store.apply(.setPlayerCount(n))
             #expect(store.playerCount == n && store.phase == .kitReady && store.fullKit == full)
-            #expect(store.kit?.playScenes.count == store.fullKit?.scenes.count)   // round 29: the same 3 scenes
-            #expect(store.kit?.scenes.filter { $0.arc == .play }.allSatisfy { $0.steps.count == n } == true)   // a row per playing role
+            // 2026-11-21: the one scene; the setup and clean-up checklists have a card per playing role.
+            #expect(store.kit?.playScenes.count == 1)
+            #expect(store.kit?.scenes.filter(\.isChecklist).allSatisfy { ChecklistScenes.cards($0).count == n } == true)
             let badges = KitLayout.pages(for: store.kit!, roles: store.plan!.roles, playerCount: n).filter { $0.item.recipe == .badges }
             #expect(badges.flatMap(\.slots).count == n)
         }

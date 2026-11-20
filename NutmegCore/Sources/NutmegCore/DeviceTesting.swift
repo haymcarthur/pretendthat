@@ -19,13 +19,16 @@ public enum ForegroundRecovery: Equatable, Sendable {
     /// - live / connecting: the session's status right now.
     /// - gameHadVoice: this game's conversation was live at some point (a voice was chosen for it).
     /// - inGame: the phase is past Hello (a game is on screen).
-    /// - busy: a reconnect is already running.
+    /// - busy: a reconnect (or a resume) is already running.
     /// - offlineReplay: a replay running without a voice on purpose (offline: its recorded lines carry it).
+    /// 2026-11-20 (decisions/2026-11-20-voice-stall-fix.md): a suspended session resumes EVEN while busy. A lock and
+    /// unlock during a resume left `suspended` on in the foreground (no clips, no live voice); the resume itself runs
+    /// once at a time (`ResumeLoop`) and goes again when it finds the session suspended with the app active.
     public static func decide(suspended: Bool, live: Bool, connecting: Bool, gameHadVoice: Bool, inGame: Bool,
                               busy: Bool, offlineReplay: Bool = false) -> ForegroundRecovery {
-        guard inGame, !busy else { return .none }
+        guard inGame else { return .none }
         if suspended { return .resume }
-        guard gameHadVoice, !live, !connecting, !offlineReplay else { return .none }
+        guard !busy, gameHadVoice, !live, !connecting, !offlineReplay else { return .none }
         return .reconnect
     }
 }

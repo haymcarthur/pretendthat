@@ -39,11 +39,12 @@ struct OBPrimaryButton: View {
     struct Style: ButtonStyle {
         var enabled: Bool
         func makeBody(configuration: Configuration) -> some View {
-            let down = configuration.isPressed ? Theme.depth : 0
+            let edge = Theme.edge(60)   // 2026-11-20: the slim edge for its 60 pt height
+            let down = configuration.isPressed ? edge : 0
             configuration.label
                 .background(Capsule().fill(enabled ? Theme.yellow : Theme.disabled))
                 .offset(y: down)
-                .background(Capsule().fill(enabled ? Theme.yellowShade : Theme.line).offset(y: Theme.depth))
+                .background(Capsule().fill(enabled ? Theme.yellowShade : Theme.line).offset(y: edge))
                 .contentShape(Capsule())
                 .animation(Theme.press, value: configuration.isPressed)
         }

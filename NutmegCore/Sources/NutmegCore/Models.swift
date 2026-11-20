@@ -220,18 +220,22 @@ public struct Step: Codable, Equatable, Sendable {
     public var picture: Picture; public var text: String
     public var role: SceneOwner
     public var short: String?
+    /// 2026-11-21 (game plan): the objects this composed setup / clean-up row places or puts away (cover item ids), so
+    /// the traceability check never guesses from words. Nil in every older step.
+    public var objects: [String]?
     /// The spoken version (round 34's `say`): the same storage as `text`.
     public var say: String { get { text } set { text = newValue } }
-    public init(picture: Picture, text: String, role: SceneOwner = .all, short: String? = nil) {
-        self.picture = picture; self.text = text; self.role = role; self.short = short
+    public init(picture: Picture, text: String, role: SceneOwner = .all, short: String? = nil, objects: [String]? = nil) {
+        self.picture = picture; self.text = text; self.role = role; self.short = short; self.objects = objects
     }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         picture = try c.decodeIfPresent(Picture.self, forKey: .picture) ?? .point; text = try c.decode(String.self, forKey: .text)
         role = (try? c.decodeIfPresent(SceneOwner.self, forKey: .role)) ?? .all   // older JSON: everyone's step
         short = try c.decodeIfPresent(String.self, forKey: .short)
+        objects = (try? c.decodeIfPresent([String].self, forKey: .objects)) ?? nil
     }
-    private enum CodingKeys: String, CodingKey { case picture, text, role, short }
+    private enum CodingKeys: String, CodingKey { case picture, text, role, short, objects }
     /// The same rewrite on both texts (skips, swaps, pretend stand-ins, scrubbing).
     public mutating func mapTexts(_ f: (String) -> String) {
         text = f(text)
@@ -246,9 +250,30 @@ public struct Scene: Codable, Equatable, Sendable, Identifiable {
     /// Round 36: what this scene is in the game's arc (nil = a play scene). Only the scenes the app composes for the
     /// players (`Bookends.compose`) carry story / setup / cleanup; the guide's own scenes are the play scenes.
     public var kind: SceneKind?
-    public init(id: String, owner: SceneOwner, title: String, picture: Picture, nutmegSays: String, steps: [Step], kind: SceneKind? = nil) {
+    /// 2026-11-20 (Haylee, checklist scenes: decisions/2026-11-20-checklist-then-scenario-scenes.md): true = a CHECKLIST
+    /// scene: each role has 2 to 3 short checklist items (`steps`, the shown item in `short`), and `nutmegSays` is the
+    /// short "Pretend that…" scenario said once every item is checked (empty in the clean-up checklist). Nil = an older
+    /// scene (ensemble tasks, setup / clean-up goal rows), which plays exactly as it did.
+    public var checklist: Bool?
+    /// 2026-11-21 (Haylee, one scene with music: decisions/2026-11-21-one-scene-music-beats.md): the ONE play scene's
+    /// beats (the "Pretend that…" opener, the events, the finale, the music family; `OneScene`). In the guide's scene
+    /// (which also holds the setup checklist as its steps) `events` is the pool; in the scene the players see it is the
+    /// picked plan. Nil in every older scene.
+    public var beats: SceneBeats?
+    /// 2026-11-21 (Haylee, one game plan): a composed setup / clean-up checklist's AREA job per role ("R1" → "Build the
+    /// cockpit"), shown big on each role's card. Nil in every older scene (the card shows only the role).
+    public var areaJobs: [String: String]?
+    public init(id: String, owner: SceneOwner, title: String, picture: Picture, nutmegSays: String, steps: [Step], kind: SceneKind? = nil,
+                checklist: Bool? = nil, beats: SceneBeats? = nil, areaJobs: [String: String]? = nil) {
         self.id = id; self.owner = owner; self.title = title; self.picture = picture; self.nutmegSays = nutmegSays; self.steps = steps; self.kind = kind
+        self.checklist = checklist; self.beats = beats; self.areaJobs = areaJobs
     }
+    /// The area job on a role's card (nil = no area card).
+    public func areaJob(_ role: RoleID) -> String? { areaJobs?[role.rawValue] }
+    /// The one scene with events and music (2026-11-21).
+    public var isBeatScene: Bool { beats != nil && arc == .play && !isChecklist }
+    /// A checklist scene (see `checklist`).
+    public var isChecklist: Bool { checklist == true }
     /// The arc position (a scene without a kind is a play scene).
     public var arc: SceneKind { kind ?? .play }
     public init(from decoder: Decoder) throws {
@@ -258,6 +283,9 @@ public struct Scene: Codable, Equatable, Sendable, Identifiable {
         title = try c.decode(String.self, forKey: .title); picture = try c.decodeIfPresent(Picture.self, forKey: .picture) ?? .point
         nutmegSays = try c.decode(String.self, forKey: .nutmegSays); steps = try c.decode([Step].self, forKey: .steps)
         kind = try? c.decodeIfPresent(SceneKind.self, forKey: .kind)
+        checklist = (try? c.decodeIfPresent(Bool.self, forKey: .checklist)) ?? nil
+        beats = (try? c.decodeIfPresent(SceneBeats.self, forKey: .beats)) ?? nil
+        areaJobs = (try? c.decodeIfPresent([String: String].self, forKey: .areaJobs)) ?? nil
     }
 }
 public struct Kit: Codable, Equatable, Sendable {
@@ -274,6 +302,9 @@ public struct Kit: Codable, Equatable, Sendable {
     }
     /// Round 36: this kit has the story / setup / clean-up arc.
     public var hasBookends: Bool { setup != nil || cleanup != nil || !(story ?? "").isEmpty }
+    /// 2026-11-20: a checklist-scenes kit (its play scenes are checklists + a scenario; no setup scene). Saved games
+    /// from schema 6 on; older kits are never this and keep their own scene path.
+    public var isChecklist: Bool { scenes.contains { $0.isChecklist } }
 }
 
 public struct Choice: Codable, Equatable, Sendable, Identifiable {

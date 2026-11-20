@@ -38,7 +38,8 @@ public struct ItemJobs: Codable, Equatable, Sendable, SafetyText {
             item = try c.decodeIfPresent(String.self, forKey: .item) ?? ""   // the guide's page jobs are keyed by recipe
             role = try c.decodeIfPresent(String.self, forKey: .role) ?? ""
             // Round 40: the rows show goals, so the jobs no longer carry a short row text (older answers still may).
-            setupShort = try c.decodeIfPresent(String.self, forKey: .setupShort) ?? ""; setupSay = try c.decode(String.self, forKey: .setupSay)
+            // 2026-11-20: a checklist kit's weave asks only for the clean-up job (no setup scene any more).
+            setupShort = try c.decodeIfPresent(String.self, forKey: .setupShort) ?? ""; setupSay = try c.decodeIfPresent(String.self, forKey: .setupSay) ?? ""
             cleanupShort = try c.decodeIfPresent(String.self, forKey: .cleanupShort) ?? ""; cleanupSay = try c.decode(String.self, forKey: .cleanupSay)
         }
         var texts: [String] { [setupShort, setupSay, cleanupShort, cleanupSay] }
@@ -83,8 +84,10 @@ public enum GuideWeave {
     /// A rewritten task longer than this is dropped (round 29: the tasks are one sentence of at most about 20 words).
     public static let maxWords = 40   // round 34: the spoken task has the job plus 1–2 concrete ideas
 
-    public static func schema(propIDs: [String]) -> [String: Any] {
+    public static func schema(propIDs: [String], checklist: Bool = false) -> [String: Any] {
         var j = ItemJobs.jobProps; j["item"] = Schemas.enumStr(propIDs.isEmpty ? ["none"] : propIDs)
+        // 2026-11-20: checklist scenes have no setup scene, so a prop's weave writes only its clean-up job.
+        if checklist { j["setupSay"] = nil }
         return Schemas.obj(["uses": Schemas.arr(Schemas.obj(["propID": Schemas.enumStr(propIDs.isEmpty ? ["none"] : propIDs),
                                                               "scene": Schemas.int, "step": Schemas.int, "text": Schemas.str])),
                             // Round 36: each prop's setup + clean-up job (one entry per prop).
@@ -93,6 +96,7 @@ public enum GuideWeave {
 
     /// The weave prompt: the guide as numbered lines, the props to add, the tasks already taken by other props.
     public static func prompt(scenes: [Scene], props: [Prop], taken: [PropUse], roles: [Role], players: Int) -> String {
+        if scenes.contains(where: \.isChecklist) { return checklistPrompt(scenes: scenes, props: props, taken: taken, roles: roles, players: players) }
         let n = PlayCast.players(players)
         let busy = Set(taken.map { "\($0.scene).\($0.step)" })
         func who(_ s: Step) -> String {
@@ -134,9 +138,51 @@ public enum GuideWeave {
         """
     }
 
+    /// 2026-11-20 (Haylee, checklist scenes): the weave for a checklist guide: each prop takes over 1 or 2 checklist
+    /// items (2 to 6 words, by what it becomes), preferably in the first or last scene (every group size sees those),
+    /// plus its clean-up job. The app's coverage step still adds any prop a count wouldn't see (no AI call).
+    static func checklistPrompt(scenes: [Scene], props: [Prop], taken: [PropUse], roles: [Role], players: Int) -> String {
+        let n = PlayCast.players(players)
+        let busy = Set(taken.map { "\($0.scene).\($0.step)" })
+        let guide = scenes.enumerated().map { i, sc in
+            "Scene \(i) \"\(sc.title)\":\n" + sc.steps.enumerated().map { j, st in
+                let who = st.role.role.map { r in "\(r.rawValue) \(roles.first { $0.id == r }?.roleName ?? "")" } ?? "everyone"
+                return "  s\(i).\(j) [\(who)]\(busy.contains("\(i).\(j)") ? " (taken)" : ""): \(st.short ?? st.text)"
+            }.joined(separator: "\n")
+        }.joined(separator: "\n")
+        let list = props.map { p in
+            (p.rule == .one ? "- id \(p.id): a \(p.householdItem.lowercased()) that becomes \(p.becomes)"
+                : "- id \(p.id): several \(p.itemWords) that become \(p.becomes) (always plural, never a number)")
+                + (p.forRole.role.map { r in r.rank <= n ? " (for the \(roles.first { $0.id == r }?.roleName ?? r.rawValue))" : "" } ?? "")
+                + (p.isSkipped ? " (pretend: they don't have it, they'll use a printed cut-out)" : "")
+                + PropStandIns.promptNote(p)   // 2026-11-21 (Haylee): only believable pretend uses
+        }.joined(separator: "\n")
+        let playing = (1...n).map { "R\($0)" }.joined(separator: ", ")
+        let last = max(0, scenes.count - 1)
+        // 2026-11-21: a one-scene guide has ONE checklist (the setup), so there's no scene to prefer.
+        let place = scenes.count == 1 ? "in the setup checklist," : "preferably in scene 0 or scene \(last) (every group size plays those),"
+        return """
+        Phase: add household props to the play checklists. The kids found these props in their home for this game:
+        \(list)
+        The checklists (sN.M = scene N, item M; [the role it belongs to]):
+        \(guide)
+        For EACH prop, pick 1 or 2 checklist items of the playing roles (\(playing)), \(place) spread over the roles (the prop's own role first), and rewrite ONLY those items \
+        so the kid sets up or uses the prop as what it becomes: 2 to 6 words, one simple action, no role title, no end \
+        punctuation, no quotes (e.g. Set up the airplane seats, Put on your space helmet). Never pick an item marked \
+        (taken), and at most one prop per item, and never an item of a role that already has another prop's or page's job \
+        (each object has ONE owner). Name the prop ONLY by what it becomes (Hold up the planet), never the household \
+        item and never the word pretend (not "your sock pretend planet"), and only as one of its allowed pretend uses. \
+        Gentle and kid-safe. Everything is pretend: an appliance or place is the pretend one tied to a prop (the pretend \
+        stove, never the real stove), and never send the kids to anything real and unsafe (stove, oven, sink, outlet, \
+        stairs, climbing, outside). ALSO, for EACH prop, its clean-up job (one entry per prop, item = the prop id): cleanupSay = how they put the \
+        household item back at the end, framed in the story, starting with a verb (e.g. put the box back in the closet \
+        so the ship can rest); role = the playing role it suits best. Return PropWeave (scene and step are the numbers above).
+        """
+    }
+
     /// Applies a weave answer: valid uses only (a prop asked for, a real step not already taken, a short non-empty
     /// text), at most `maxUsesPerProp` per prop. The step keeps its role; its picture becomes the prop.
-    public static func apply(_ weave: PropWeave, to scenes: [Scene], props: [Prop], taken: [PropUse]) -> (scenes: [Scene], uses: [PropUse]) {
+    public static func apply(_ weave: PropWeave, to scenes: [Scene], props: [Prop], taken: [PropUse], roles: [Role] = []) -> (scenes: [Scene], uses: [PropUse]) {
         var out = scenes, uses: [PropUse] = []
         var busy = Set(taken.map { "\($0.scene).\($0.step)" })
         var perProp: [String: Int] = [:]
@@ -145,9 +191,16 @@ public enum GuideWeave {
                   out.indices.contains(u.scene), out[u.scene].steps.indices.contains(u.step),
                   !busy.contains("\(u.scene).\(u.step)"), (perProp[p.id] ?? 0) < maxUsesPerProp else { continue }
             let lib = p.libraryID ?? p.id
-            let text = u.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            var text = u.text.trimmingCharacters(in: .whitespacesAndNewlines)
             let words = text.split(whereSeparator: \.isWhitespace).count
-            guard words >= 2, words <= maxWords else { continue }
+            // 2026-11-20: a checklist item stays short (shown and said as one item).
+            let checklist = out[u.scene].isChecklist
+            guard words >= 2, words <= (checklist ? ChecklistScenes.maxItemWords + 2 : maxWords) else { continue }
+            if checklist {
+                // 2026-11-21: the pretend name only, and only one of the prop's stand-ins.
+                text = ChecklistScenes.cleanItem(PropStandIns.itemText(PropWording.clean(text, props: props), prop: p), roles: roles)
+                out[u.scene].steps[u.step].short = text
+            }
             out[u.scene].steps[u.step].text = text
             out[u.scene].steps[u.step].picture = .prop(lib)
             busy.insert("\(u.scene).\(u.step)"); perProp[p.id, default: 0] += 1
@@ -240,6 +293,8 @@ public struct KitScenesSix: Decodable, Sendable, SafetyText {
         self.nutmegSays = nutmegSays; self.scenes = scenes; self.story = story; self.setup = setup; self.cleanup = cleanup
     }
     public static let count = 3
+    /// 2026-11-20 (Haylee, checklist scenes): a new guide has 4 checklist scenes (shown 2 to 4 by player count).
+    public static let checklistCount = ChecklistScenes.generated
 
     struct BookendBody: Decodable { var title: String; var nutmegSays: String; var goals: [String: String]? }
     /// Round 36: the setup / clean-up scenes and the pages' jobs (keyed by recipe).
@@ -271,6 +326,16 @@ public struct KitScenesSix: Decodable, Sendable, SafetyText {
         var scene: Scene
         init(from decoder: Decoder) throws {
             let c = try decoder.container(keyedBy: Key.self)
+            // 2026-11-20: a checklist scene is {title, scenario, R1…R6: [item]} (2 to 3 short items per role).
+            if c.contains(Key(stringValue: "scenario")) {
+                let steps = RoleID.allCases.flatMap { r -> [Step] in
+                    let list = (try? c.decodeIfPresent([String].self, forKey: Key(stringValue: r.rawValue))) ?? nil
+                    return (list ?? []).map { Step(picture: .point, text: $0, role: SceneOwner(r), short: $0) }
+                }
+                scene = Scene(id: "", owner: .all, title: try c.decode(String.self, forKey: Key(stringValue: "title")), picture: .point,
+                              nutmegSays: try c.decode(String.self, forKey: Key(stringValue: "scenario")), steps: steps, checklist: true)
+                return
+            }
             // Round 34: each task is {short, say} (shown, spoken); a plain string (older answers) is the spoken text.
             let steps = try KitScenesSix.taskKeys.compactMap { k -> Step? in
                 let key = Key(stringValue: k.key)
@@ -287,13 +352,38 @@ public struct KitScenesSix: Decodable, Sendable, SafetyText {
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: Key.self)
         nutmegSays = try c.decodeIfPresent(String.self, forKey: Key(stringValue: "nutmegSays")) ?? ""
-        scenes = try (1...Self.count).compactMap { i -> Scene? in
+        scenes = try (1...Self.checklistCount).compactMap { i -> Scene? in
             guard var s = try c.decodeIfPresent(SceneBody.self, forKey: Key(stringValue: "scene\(i)"))?.scene else { return nil }
             s.id = "s\(i)"
             return s
         }
         story = try? c.decodeIfPresent(String.self, forKey: Key(stringValue: "story"))
-        if let b = Self.bookends(c) { setup = b.setup; cleanup = b.cleanup }
+        if scenes.contains(where: \.isChecklist) {
+            // 2026-11-20: no setup scene; the clean-up checklist's title (its jobs come from the app and the weaves).
+            let t = ((try? c.decodeIfPresent(String.self, forKey: Key(stringValue: "cleanupTitle"))) ?? nil) ?? ""
+            cleanup = Bookend(title: t, nutmegSays: "")
+        } else if let b = Self.bookends(c) { setup = b.setup; cleanup = b.cleanup }
+    }
+
+    /// 2026-11-20 (Haylee, checklist scenes): the guide's schema: the story, 4 scenes (a title, 2 to 3 short checklist
+    /// items for EACH role R1 to R6, one scenario) and the clean-up checklist's title. No setup scene, no goals, no page
+    /// jobs, no spoken task texts (the app writes what Nutmeg says for each item), so the answer is about half as long.
+    public static func checklistSchema() -> [String: Any] {
+        var sceneProps: [String: Any] = [
+            "title": ["type": "string", "description": "2 to 5 words: what the kids get ready for in this scene (e.g. Get the rocket ready)."],
+            "scenario": ["type": "string", "description": "ONE short line, about 20 to 30 words, that starts with \"Pretend that\", adds a small twist and ALWAYS ends with an action for everyone (e.g. Pretend that the rocket is blasting off... uh-oh, the control panel is beeping! Everyone, do your job to get the rocket safely into space!)."],
+        ]
+        for r in RoleID.allCases {
+            sceneProps[r.rawValue] = ["type": "array", "items": ["type": "string"],
+                                      "description": "The \(r.rawValue) role's checklist in this scene: 2 or 3 items, each 2 to 6 words, one simple action, no role title, no end punctuation (e.g. Put on your badge)."]
+        }
+        var props: [String: Any] = [:]
+        for i in 1...checklistCount { props["scene\(i)"] = ["$ref": "#/$defs/scene"] }
+        props["story"] = ["type": "string", "description": "The story Nutmeg tells right after printing: 3 or 4 short sentences, about 40 to 55 words (15 seconds): where we are, who the kids are (the R1 role and the crew; name no other role), and what is about to happen. Kid words, exciting, no quotes."]
+        props["cleanupTitle"] = ["type": "string", "description": "2 to 4 words: the title of the final clean-up checklist, the story's ending (e.g. Closing Time)."]
+        var o = Schemas.obj(props)
+        o["$defs"] = ["scene": Schemas.obj(sceneProps)]
+        return o
     }
 
     /// Round 45: `pages` = this kit's printable types (one page job each; the kit is custom per game now).

@@ -10,3 +10,4 @@ xcuserdata/
 .swiftpm/
 .claude/
 design/appstore-screens/
+__pycache__/

@@ -115,8 +115,8 @@ struct SavedGamePageView: View {
             .padding(.horizontal, phone ? 14 : 24)
             .frame(maxWidth: .infinity, minHeight: h)
             .background(Capsule().fill(Theme.yellow))
-            .background(Capsule().fill(Theme.yellowShade).offset(y: Theme.depth))
-            .padding(.bottom, Theme.depth)
+            .background(Capsule().fill(Theme.yellowShade).offset(y: Theme.edge(h)))
+            .padding(.bottom, Theme.edge(h))
             .contentShape(Capsule())
         }
         .buttonStyle(PTPressStyle())
@@ -184,8 +184,8 @@ struct SavedGamePageView: View {
                 .font(Theme.displayFont(phone ? 24 : 30)).foregroundStyle(Theme.white)
                 .frame(maxWidth: .infinity, minHeight: phone ? 68 : 80)
                 .background(Capsule().fill(Theme.cta))
-                .background(Capsule().fill(Color.black).offset(y: Theme.depth))
-                .padding(.bottom, Theme.depth)
+                .background(Capsule().fill(Color.black).offset(y: Theme.edge(phone ? 68 : 80)))
+                .padding(.bottom, Theme.edge(phone ? 68 : 80))
                 .contentShape(Capsule())
         }
         .buttonStyle(PTPressStyle())
@@ -234,8 +234,8 @@ struct SavedPageAskCard: View {
                             .font(Theme.headlineFont(phone ? 22 : 26)).foregroundStyle(Theme.ink)
                             .frame(maxWidth: .infinity, minHeight: phone ? 64 : 72)
                             .background(Capsule().fill(Theme.yellow))
-                            .background(Capsule().fill(Theme.yellowShade).offset(y: Theme.depth))
-                            .padding(.bottom, Theme.depth)
+                            .background(Capsule().fill(Theme.yellowShade).offset(y: Theme.edge(phone ? 64 : 72)))
+                            .padding(.bottom, Theme.edge(phone ? 64 : 72))
                             .contentShape(Capsule())
                     }
                     .buttonStyle(PTPressStyle())
@@ -260,7 +260,7 @@ struct SavedPageAskCard: View {
                 Image(systemName: "speaker.wave.2.fill").font(.system(size: phone ? 30 : 36, weight: .bold)).foregroundStyle(Theme.ink)
                     .frame(width: phone ? 84 : 96, height: phone ? 84 : 96)
                     .background(Circle().fill(Theme.white))
-                    .background(Circle().fill(Theme.lavenderShade).offset(y: 5))
+                    .background(Circle().fill(Theme.lavenderShade).offset(y: Theme.edge(phone ? 84 : 96)))
                     .contentShape(Circle())
             }
             .buttonStyle(PTPressStyle())

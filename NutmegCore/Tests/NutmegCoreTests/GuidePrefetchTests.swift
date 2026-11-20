@@ -18,7 +18,14 @@ import Testing
     static let weave = PropWeave(uses: [
         .init(propID: "bowl", scene: 0, step: 0, text: "Captain, hand out snacks from the snack bowl!"),
         .init(propID: "bowl", scene: 0, step: 2, text: "Passenger, grab a snack from the snack bowl!"),
-        .init(propID: "pot", scene: 1, step: 3, text: "Passenger, peek in the big oven!"),
+        .init(propID: "pot", scene: 1, step: 3, text: "Passenger, peek in the cauldron!"),
+    ])
+
+    /// 2026-11-21: the weave for the one-scene guide (ONE guide scene: R1's items are 0…2, R2's 3…5).
+    static let oneWeave = PropWeave(uses: [
+        .init(propID: "bowl", scene: 0, step: 0, text: "Captain, hand out snacks from the snack bowl!"),
+        .init(propID: "bowl", scene: 0, step: 2, text: "Captain, grab a snack from the snack bowl!"),
+        .init(propID: "pot", scene: 0, step: 4, text: "Passenger, peek in the cauldron!"),
     ])
 
     private func hunting(_ store: AdventureStore, title: String = "Airplane to the Beach") async {
@@ -30,7 +37,9 @@ import Testing
     private func waitFor(_ cond: () -> Bool) async {
         for _ in 0..<400 where !cond() { try? await Task.sleep(for: .milliseconds(10)) }
     }
-    private func guidePrompts(_ llm: FakeLLM) -> [String] { llm.users.filter { $0.contains("Phase: the play guide") } }
+    private func guidePrompts(_ llm: FakeLLM) -> [String] { llm.users.filter { $0.contains("Phase: the GAME PLAN") } }
+    /// 2026-11-21 (game plan): the ONE props call when the hunt ends.
+    private func propsPrompts(_ llm: FakeLLM) -> [String] { llm.users.filter { $0.contains("Phase: add the household props to the GAME PLAN") } }
     private func weavePrompts(_ llm: FakeLLM) -> [String] { llm.users.filter { $0.contains("Phase: add household props") } }
 
     // MARK: Deterministic substitution (pure)
@@ -38,7 +47,7 @@ import Testing
     @Test func skipsAndSwapsAreAppliedWithNoCall() {
         let a = Fallback.airplane
         var scenes = a.kit.scenes
-        let props = [Prop(id: "pot", householdItem: "Pot", becomes: "the big oven", forRole: .all, safetyOK: true, libraryID: "pot"),
+        let props = [Prop(id: "pot", householdItem: "Pot", becomes: "the cauldron", forRole: .all, safetyOK: true, libraryID: "pot"),
                      Prop(id: "bowl", householdItem: "Bowl", becomes: "the snack bowl", forRole: .all, safetyOK: true, libraryID: "bowl")]
         let woven = GuideWeave.apply(Self.weave, to: scenes, props: props, taken: [])
         scenes = woven.scenes
@@ -49,15 +58,15 @@ import Testing
         let items = KitDraft.finalItems(a.kit.items, props: Props(nutmegSays: "", props: final))
         let cut = items.first { $0.recipe == .cutouts }!
         let out = GuideWeave.finalize(scenes, uses: woven.uses, props: Props(nutmegSays: "", props: final), items: items)
-        #expect(out[1].steps[3].text == "Passenger, peek in the pretend big oven!")
-        #expect(out[1].steps[3].picture == .kit("cutout:\(cut.lines.firstIndex(of: "big oven")!)"))
+        #expect(out[1].steps[3].text == "Passenger, peek in the pretend cauldron!")
+        #expect(out[1].steps[3].picture == .kit("cutout:\(cut.lines.firstIndex(of: "cauldron")!)"))
         #expect(out[0].steps[0] == scenes[0].steps[0])       // found: unchanged
         #expect(out[1].steps[3].role == a.kit.scenes[1].steps[3].role)   // same role: hand-offs and coverage unchanged
         // Never "pretend pretend"; the household item's name is replaced too.
-        #expect(GuideWeave.pretend("Everyone, peek in the pretend big oven!", item: "Pot", becomes: "the big oven", label: "big oven")
-                == "Everyone, peek in the pretend big oven!")
-        #expect(GuideWeave.pretend("Captain, stir the pot!", item: "Pot", becomes: "the big oven", label: "big oven")
-                == "Captain, stir the pretend big oven!")
+        #expect(GuideWeave.pretend("Everyone, peek in the pretend cauldron!", item: "Pot", becomes: "the cauldron", label: "cauldron")
+                == "Everyone, peek in the pretend cauldron!")
+        #expect(GuideWeave.pretend("Captain, stir the pot!", item: "Pot", becomes: "the cauldron", label: "cauldron")
+                == "Captain, stir the pretend cauldron!")
         // A swap: the bowl became a cup (same use): its step shows the cup.
         var swapped = props; swapped[1].libraryID = "cup"; swapped[1].householdItem = "Cup"
         let sw = GuideWeave.finalize(scenes, uses: woven.uses, props: Props(nutmegSays: "", props: swapped), items: items)
@@ -70,20 +79,20 @@ import Testing
 
     @Test func weaveAnswersAreChecked() {
         let scenes = Fallback.airplane.kit.scenes
-        let props = [Prop(id: "pot", householdItem: "Pot", becomes: "the big oven", forRole: .all, safetyOK: true, libraryID: "pot")]
+        let props = [Prop(id: "pot", householdItem: "Pot", becomes: "the cauldron", forRole: .all, safetyOK: true, libraryID: "pot")]
         let bad = PropWeave(uses: [
-            .init(propID: "pot", scene: 9, step: 0, text: "Captain, open the big oven!"),           // no such scene
+            .init(propID: "pot", scene: 9, step: 0, text: "Captain, open the cauldron!"),           // no such scene
             .init(propID: "lamp", scene: 0, step: 0, text: "Captain, turn on the lamp!"),           // not asked for
             .init(propID: "pot", scene: 0, step: 2, text: String(repeating: "word ", count: 60)),   // too long
-            .init(propID: "pot", scene: 0, step: 3, text: "Everyone, peek in the big oven!"),       // taken
-            .init(propID: "pot", scene: 2, step: 4, text: "Passenger, smell the big oven!"),        // fine
+            .init(propID: "pot", scene: 0, step: 3, text: "Everyone, peek in the cauldron!"),       // taken
+            .init(propID: "pot", scene: 2, step: 4, text: "Passenger, smell the cauldron!"),        // fine
         ])
         let taken = [PropUse(propID: "bowl", scene: 0, step: 3, libraryID: "bowl", item: "Bowl", becomes: "the bowl")]
         let r = GuideWeave.apply(bad, to: scenes, props: props, taken: taken)
         #expect(r.uses.map { "\($0.scene).\($0.step)" } == ["2.4"])
         // The prompt lists only the playing roles to pick from and marks taken steps.
         let p = GuideWeave.prompt(scenes: scenes, props: props, taken: taken, roles: Fallback.airplane.plan.roles, players: 2)
-        #expect(p.contains("(R1, R2)") && p.contains("s0.3 [") && p.contains("(taken)") && p.contains("becomes the big oven"))
+        #expect(p.contains("(R1, R2)") && p.contains("s0.3 [") && p.contains("(taken)") && p.contains("becomes the cauldron"))
     }
 
     @Test func theEarlyGuideHasAFixedShape() throws {
@@ -109,36 +118,38 @@ import Testing
     // MARK: The store
 
     @Test func theGuideIsWrittenDuringTheHuntAndASkipMakesNoCall() async {
-        let llm = FakeLLM(responses: ["PropWeave": Self.weave])
+        // 2026-11-21 (Haylee, one game plan): the PLAN is written during the hunt (no per-prop weave calls); when the
+        // hunt ends, ONE props call places the props the kids have (a skip is known by then: no regeneration).
+        let llm = FakeLLM()
         let store = AdventureStore(service: PhaseService(llm: llm))
         await hunting(store)
         await waitFor { store.guideWrittenAt != nil }
         #expect(guidePrompts(llm).count == 1 && store.phase == .players)   // still hunting
-        #expect(guidePrompts(llm)[0].contains("use NO household props"))
+        #expect(guidePrompts(llm)[0].contains("Use NO household props") && guidePrompts(llm)[0].contains("AREAS"))
         _ = await store.apply(.showNextProp(.init(itemID: "bowl", becomes: "the snack bowl", forRole: "all")))
         _ = await store.apply(.markFound("bowl"))
-        _ = await store.apply(.showNextProp(.init(itemID: "pot", becomes: "the big oven", forRole: "all")))
-        await waitFor { weavePrompts(llm).count == 2 }
-        try? await Task.sleep(for: .milliseconds(50))
-        let calls = llm.calls
+        _ = await store.apply(.showNextProp(.init(itemID: "pot", becomes: "the cauldron", forRole: "all")))
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(weavePrompts(llm).isEmpty)                                   // no weave calls any more
         _ = await store.apply(.skipProp("pot"))
         _ = await store.apply(.finishPlanning)
         await waitFor { store.phase == .kitReady && !store.guidePending }
-        #expect(llm.calls == calls)                                          // no regeneration on the skip
-        #expect(guidePrompts(llm).count == 1 && store.guideCalls == 1)
-        let steps = store.fullKit?.scenes.flatMap(\.steps) ?? []
-        #expect(steps.contains { $0.text == "Passenger, peek in the pretend big oven!" && $0.picture.kind == .kit })
-        #expect(steps.contains { $0.picture == .prop("bowl") })
-        // Round 29: the playing roles are Captain + the customer counterpart (Passenger); every scene shows both rows.
+        #expect(guidePrompts(llm).count == 1 && store.guideCalls == 1 && propsPrompts(llm).count == 1)
+        #expect(propsPrompts(llm)[0].contains("prop:bowl") && !propsPrompts(llm)[0].contains("prop:pot"))
+        let plan = store.fullKit?.scenes.first?.plan
+        #expect(plan?.object("prop:bowl") != nil && plan?.object("prop:pot") == nil && plan?.propsPlaced == true)
+        #expect(store.fullKit?.scenes.flatMap(\.steps).contains { $0.picture == .prop("bowl") } == true)
         #expect(store.playingRoles.map(\.roleName) == ["Captain", "Passenger"])
-        #expect(store.kit?.playScenes.count == 3)
-        #expect(store.kit?.scenes.filter { $0.arc == .play }.allSatisfy { $0.steps.map(\.role) == [.R1, .R2] } == true)
+        #expect(store.kit?.playScenes.count == 1)
+        #expect(store.kit?.scenes.filter(\.isChecklist).allSatisfy { Set($0.steps.map(\.role)) == [.R1, .R2] } == true)
+        let issues = PlayPlans.trace(store.kit!.scenes, kit: store.fullKit!, roles: store.plan!.roles, players: 2, props: store.props?.props ?? [])
+        #expect(issues.isEmpty, "\(issues)")
     }
 
     @Test func aCorrectionRestartsTheGuide() async {
         // Round 28 (Haylee): after the yes the game and theme can't change, so a mid-hunt theme fix is refused and the
         // guide written for this game stays (no new guide call).
-        let llm = FakeLLM(responses: ["PropWeave": Self.weave])
+        let llm = FakeLLM()
         let store = AdventureStore(service: PhaseService(llm: llm))
         await hunting(store)
         await waitFor { store.guideWrittenAt != nil }
@@ -148,12 +159,12 @@ import Testing
         _ = await store.apply(.showNextProp(.init(itemID: "bowl", becomes: "the snack bowl", forRole: "all")))
         _ = await store.apply(.finishPlanning)
         await waitFor { store.phase == .kitReady && !store.guidePending }
-        #expect(guidePrompts(llm).count == 1 && (store.fullKit?.scenes.count ?? 0) == 3)
+        #expect(guidePrompts(llm).count == 1 && (store.fullKit?.scenes.count ?? 0) == 1)   // 2026-11-21: one guide scene
     }
 
     @Test func paperGoesAheadAndPlayWaitsForTheGuide() async {
-        let fake = FakeLLM(responses: ["PropWeave": Self.weave])
-        let store = AdventureStore(service: PhaseService(llm: SlowLLM(fake, slow: "KitScenesSix", delay: .milliseconds(600))))
+        let fake = FakeLLM()
+        let store = AdventureStore(service: PhaseService(llm: SlowLLM(fake, slow: "GamePlanGuide", delay: .milliseconds(600))))
         await hunting(store)
         await waitFor { store.draftItems != nil }
         _ = await store.apply(.showNextProp(.init(itemID: "bowl", becomes: "the snack bowl", forRole: "all")))
@@ -165,7 +176,7 @@ import Testing
         #expect(await store.apply(.startPlay) == AdventureStore.playQueuedOutput)
         await waitFor { !store.guidePending }
         #expect(store.phase == .scene(0))   // play started by itself
-        #expect(!store.playQueued && (store.kit?.playScenes.count ?? 0) == 3)   // round 29: the 3 scenes, everyone together
+        #expect(!store.playQueued && (store.kit?.playScenes.count ?? 0) == 1)   // 2026-11-21: the one scene
         #expect(store.fullKit?.scenes.flatMap(\.steps).contains { $0.picture == .prop("bowl") } == true)
     }
 
@@ -178,7 +189,7 @@ import Testing
         // An unsafe weave answer is asked once more, then dropped (the guide keeps its own steps).
         let bad = PropWeave(uses: [.init(propID: "pot", scene: 0, step: 0, text: "Captain, wave the bloody knife!")])
         let weaving = PhaseService(llm: FakeLLM(responses: ["PropWeave": bad]))
-        let props = [Prop(id: "pot", householdItem: "Pot", becomes: "the big oven", forRole: .all, safetyOK: true, libraryID: "pot")]
+        let props = [Prop(id: "pot", householdItem: "Pot", becomes: "the cauldron", forRole: .all, safetyOK: true, libraryID: "pot")]
         await #expect(throws: ClaudeError.refusal) {
             _ = try await weaving.weaveProps(scenes: Fallback.airplane.kit.scenes, props: props, taken: [],
                                              ctx: AdventureContext(gameTitle: "Airplane", plan: Fallback.airplane.plan, playerCount: 2))

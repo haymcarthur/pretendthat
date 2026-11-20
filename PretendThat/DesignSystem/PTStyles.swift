@@ -139,7 +139,7 @@ struct PTCheckToggleStyle: ToggleStyle {
 
     private func bubble(_ isOn: Bool) -> some View {
         ZStack {
-            Circle().fill(isOn ? Theme.limeShade : Theme.line).offset(y: 4)
+            Circle().fill(isOn ? Theme.limeShade : Theme.line).offset(y: Theme.edge(Theme.Size.check))
             Circle().fill(isOn ? Theme.success : Theme.white)
             Circle().strokeBorder(isOn ? Color.clear : Theme.line, lineWidth: Theme.borderWidth)
             Image(systemName: "checkmark").font(Theme.displayFont(26)).foregroundStyle(Theme.ink)

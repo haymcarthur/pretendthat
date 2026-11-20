@@ -26,6 +26,13 @@ targets:
     sources:
       # Includes PretendThat/Resources/PrivacyInfo.xcprivacy (round 37), which xcodegen puts in the Resources phase.
       - path: PretendThat
+        # 2026-11-21: the scene music is a folder reference (below), so its sub-folders survive in the bundle
+        # (Music/<family>/calm.m4a, calm2, tense, win; fourteen families share the file names; run xcodegen after adding a family).
+        excludes:
+          - "Resources/Music/**"
+      - path: PretendThat/Resources/Music
+        type: folder
+        buildPhase: resources
     dependencies:
       - package: NutmegCore
       - package: TelemetryDeck

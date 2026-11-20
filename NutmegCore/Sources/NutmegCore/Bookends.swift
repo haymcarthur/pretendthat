@@ -205,7 +205,8 @@ public enum Bookends {
     public static func missingJobs(_ kit: Kit, props: [Prop]) -> (setup: [CoverItem], cleanup: [CoverItem]) {
         let setupItems = setupItems(items: kit.items, props: props)
         let cleanItems = coverItems(items: kit.items, props: props)
-        let s = setupItems.filter { !isValid(kit.setup?.job($0.id).map { transformed($0, props: props) }, for: $0) }
+        // 2026-11-20: a checklist kit has no setup scene (its pages and props are in the scenes' checklist items).
+        let s = kit.isChecklist ? [] : setupItems.filter { !isValid(kit.setup?.job($0.id).map { transformed($0, props: props) }, for: $0) }
         let c = cleanItems.filter { !isValid(kit.cleanup?.job($0.id).map { transformed($0, props: props) }, for: $0) }
         return (s, c)
     }
@@ -214,6 +215,7 @@ public enum Bookends {
     /// Only for a kit that has the arc (an older saved game stays as it was). Returns the kit and what was repaired.
     public static func repair(_ kit: Kit, props: [Prop], roles: [Role], title gameTitle: String) -> (kit: Kit, repaired: [String]) {
         guard kit.hasBookends else { return (kit, []) }
+        if kit.isChecklist { return repairChecklist(kit, props: props, roles: roles, title: gameTitle) }
         var k = kit, fixed: [String] = []
         var setup = k.setup ?? .empty, cleanup = k.cleanup ?? .empty
         let place = gameTitle.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -258,6 +260,28 @@ public enum Bookends {
         return (k, fixed)
     }
 
+    /// 2026-11-20: a checklist kit's arc: the story and the clean-up checklist (title + one clean-up job per item). No
+    /// setup scene and no goals (the scenes' checklists carry the setup). Idempotent.
+    static func repairChecklist(_ kit: Kit, props: [Prop], roles: [Role], title gameTitle: String) -> (kit: Kit, repaired: [String]) {
+        var k = kit, fixed: [String] = []
+        var cleanup = k.cleanup ?? Bookend(title: "", nutmegSays: "")
+        let place = gameTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        if k.setup != nil { k.setup = nil; fixed.append("setup dropped") }
+        if cleanup.title.trimmingCharacters(in: .whitespaces).isEmpty || GuideRepair.isPlaceholderTitle(cleanup.title) {
+            cleanup.title = "Clean-Up Time"; fixed.append("clean-up title")
+        }
+        if cleanup.goals != nil { cleanup.goals = nil }
+        let story = (k.story ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !isValidStory(story) {
+            k.story = fallbackStory(title: place, roles: roles); fixed.append("story")
+        }
+        for item in coverItems(items: k.items, props: props) where !isValid(cleanup.job(item.id).map { transformed($0, props: props) }, for: item) {
+            cleanup.put(fallbackCleanup(item)); fixed.append("clean-up \(item.id)")
+        }
+        k.cleanup = cleanup
+        return (k, fixed)
+    }
+
     /// Puts AI-written jobs into the kit where its job for that item is missing or unusable (a good job already there
     /// stays). `item` is a cover id ("page:sign" / "prop:bowl") or a bare prop id (the weave's answer).
     public static func merge(_ answer: [ItemJobs.Job], into kit: Kit, props: [Prop]) -> Kit {
@@ -267,7 +291,7 @@ public enum Bookends {
             let id = j.item.contains(":") ? j.item : propID(j.item)
             guard let item = all.first(where: { $0.id == id }) else { continue }
             let two = j.jobs(id: id, prop: item.prop)
-            if item.recipe != .badges, !isValid(k.setup?.job(id).map { transformed($0, props: props) }, for: item), isValid(two.setup, for: item) {
+            if !k.isChecklist, item.recipe != .badges, !isValid(k.setup?.job(id).map { transformed($0, props: props) }, for: item), isValid(two.setup, for: item) {
                 k.setup?.put(two.setup)
             }
             if !isValid(k.cleanup?.job(id).map { transformed($0, props: props) }, for: item), isValid(two.cleanup, for: item) {
@@ -279,6 +303,9 @@ public enum Bookends {
 
     /// The items to re-ask about (setup or clean-up job missing / unusable), each once.
     public static func toReask(_ kit: Kit, props: [Prop]) -> [CoverItem] {
+        // 2026-11-20 (cost): a checklist kit's clean-up jobs are short and the app's own fit them well ("Take down the
+        // sign", "Put the bowl away"), so nothing is re-asked; `repair` writes any that are missing.
+        if kit.isChecklist { return [] }
         let m = missingJobs(kit, props: props)
         var seen = Set<String>(), out: [CoverItem] = []
         for it in m.setup + m.cleanup where seen.insert(it.id).inserted { out.append(it) }
@@ -288,6 +315,12 @@ public enum Bookends {
     /// A new game's kit always has the arc: missing parts are written by `repair`.
     public static func ensure(_ kit: Kit) -> Kit {
         var k = kit
+        // 2026-11-20: a checklist kit has no setup scene and no goal rows.
+        if k.isChecklist {
+            if k.cleanup == nil { k.cleanup = Bookend(title: "", nutmegSays: "") }
+            if k.story == nil { k.story = "" }
+            return k
+        }
         if k.setup == nil { k.setup = .empty }
         if k.cleanup == nil { k.cleanup = .empty }
         if k.story == nil { k.story = "" }

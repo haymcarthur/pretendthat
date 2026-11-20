@@ -24,7 +24,7 @@ struct DeviceTestingTests {
         #expect(ForegroundRecovery.decide(suspended: false, live: true, connecting: false, gameHadVoice: true, inGame: true, busy: false) == .none)
         // Already connecting / a reconnect running.
         #expect(ForegroundRecovery.decide(suspended: false, live: false, connecting: true, gameHadVoice: true, inGame: true, busy: false) == .none)
-        #expect(ForegroundRecovery.decide(suspended: true, live: false, connecting: false, gameHadVoice: true, inGame: true, busy: true) == .none)
+        #expect(ForegroundRecovery.decide(suspended: false, live: false, connecting: false, gameHadVoice: true, inGame: true, busy: true) == .none)
         // Home screen, or a game that never had a voice (no keys / demo), or an offline replay.
         #expect(ForegroundRecovery.decide(suspended: false, live: false, connecting: false, gameHadVoice: true, inGame: false, busy: false) == .none)
         #expect(ForegroundRecovery.decide(suspended: false, live: false, connecting: false, gameHadVoice: false, inGame: true, busy: false) == .none)

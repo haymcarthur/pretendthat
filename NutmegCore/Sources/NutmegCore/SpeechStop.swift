@@ -6,6 +6,10 @@ import Foundation
 public enum UserAction: String, CaseIterable, Sendable {
     /// Round 29: `nextScene` (the green ▶), `readTask` (a row's 🔊) replace the checklist and hand-off taps.
     case nextScene, readTask, propFound, propMissing, print, letsPlay, repeatLine
+    /// 2026-11-20 (checklist scenes): ◀ Previous scene, and Skip to the scenes on a replay.
+    case previousScene, skipToScenes
+    /// 2026-11-21 (one scene with music): ⏸ Pause stops her (and the music and the scene clock).
+    case pauseScene
     case newGame, playAgain, close, goHome, stepRail, confirmYes, confirmChange
     /// Round 20 (Haylee: she typed during the greeting and the voice kept going): the kid starting their OWN turn,
     /// by sending typed text or pressing the mic, stops everything she's saying too.
@@ -55,6 +59,17 @@ public struct SpeechStop: Sendable {
         if cancelled.count > 64 { cancelled = Set(ids) }   // ids are unique; old ones never come back
         active = []
         return ids
+    }
+
+    /// 2026-11-20: cancels ONE response (a stale request that arrived after a stop). `cancelAll` here also cancelled
+    /// the tap's own new line when it was already running. True when it was in flight (send its response.cancel).
+    @discardableResult
+    public mutating func cancel(_ id: String?) -> Bool {
+        guard let id, let i = active.firstIndex(of: id) else { return false }
+        active.remove(at: i)
+        cancelled.insert(id)
+        if cancelled.count > 64 { cancelled = [id] }
+        return true
     }
 
     /// True for a playback event (audio, her words) that belongs to a response the kid already moved past.

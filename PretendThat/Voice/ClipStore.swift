@@ -22,6 +22,9 @@ final class ClipStore: NutmegClipSource {
     private let voiceID = VoiceConfig.nutmeg.voiceID
     /// A kept line was stored (counts only).
     var onStored: ((SavedClip) -> Void)?
+    /// 2026-11-20 (decisions/2026-11-20-voice-stall-fix.md): every FINISHED take of an app line in THIS game, in memory
+    /// only, whatever its pitch or transcript (`GameTakes`): a row tapped again plays it with no socket. Gone with the game.
+    private var takes = GameTakes()
 
     init(games: SavedGameStore) { self.games = games }
 
@@ -62,20 +65,20 @@ final class ClipStore: NutmegClipSource {
 
     // MARK: Modes
 
-    func startFirstPlay() { mode = .firstPlay; pending = [:]; decoded = [:]; pitches = [:]; index = ClipIndex(commonKeys: Self.bundledCommon) }
+    func startFirstPlay() { mode = .firstPlay; pending = [:]; decoded = [:]; pitches = [:]; takes.clear(); index = ClipIndex(commonKeys: Self.bundledCommon) }
     func load(_ game: SavedGame) {
         #if DEBUG
         // `-PTNoClips`: the D1 baseline (every replay line live, nothing recorded), for the cost comparison.
         if ProcessInfo.processInfo.arguments.contains("-PTNoClips") { reset(); rtLog("CLIPS off (-PTNoClips): D1 live-voice baseline"); return }
         #endif
-        mode = .saved(game.id); pending = [:]; decoded = [:]; pitches = [:]
+        mode = .saved(game.id); pending = [:]; decoded = [:]; pitches = [:]; takes.clear()
         index = ClipIndex(clips: game.clips, commonKeys: Self.bundledCommon)
         rtLog("CLIPS loaded: \(game.clips.count) recorded lines, \(Self.bundledCommon.count) bundled")
     }
     /// Leave / New game: an unsaved game's clips are thrown away.
     func reset() {
         if mode == .firstPlay && !pending.isEmpty { rtLog("CLIPS discarded with the unsaved game: \(pending.count)") }
-        mode = .off; pending = [:]; decoded = [:]; pitches = [:]; index = ClipIndex(commonKeys: Self.bundledCommon)
+        mode = .off; pending = [:]; decoded = [:]; pitches = [:]; takes.clear(); index = ClipIndex(commonKeys: Self.bundledCommon)
     }
 
     /// Save at The End: the clips to write with the game.
@@ -86,10 +89,10 @@ final class ClipStore: NutmegClipSource {
 
     // MARK: Lookup
 
-    func has(_ line: String) -> Bool { mode != .off && index.has(line) }
+    func has(_ line: String) -> Bool { (mode != .off && index.has(line)) || takes.has(ClipText.normalize(line)) }
 
     func clip(for line: String) -> NutmegClip? {
-        guard mode != .off, let hit = index.hit(for: line) else { return nil }
+        guard mode != .off, let hit = index.hit(for: line) else { return take(for: line) }
         switch hit {
         case .game(let c):
             if let s = decoded[c.key] { return NutmegClip(key: c.key, text: line, samples: s, pitchHz: pitches[c.key] ?? pitch(c.key, s)) }
@@ -107,6 +110,19 @@ final class ClipStore: NutmegClipSource {
             decoded[key] = s
             return NutmegClip(key: key, text: line, samples: s, common: true, pitchHz: pitch(key, s))
         }
+    }
+
+    /// 2026-11-20: this game's in-memory take of the line (no saved or bundled clip).
+    private func take(for line: String) -> NutmegClip? {
+        guard let pcm = takes.take(ClipText.normalize(line)) else { return nil }
+        return NutmegClip(key: "take-" + ClipKey.make(line: line, voiceID: voiceID), text: line, samples: ClipAudio.floats(pcm))
+    }
+
+    /// 2026-11-20: a finished take of an app line, kept in memory for the rest of this game (the save path, `store`,
+    /// still checks the transcript and the live pitch band before anything is kept for replays).
+    func keepForGame(_ line: RecordedLine) {
+        takes.add(ClipText.normalize(line.request.line), pcm16: line.pcm16)
+        voiceLog(String(format: "take kept for this game [%@, %.1f s] (%d in memory)", line.request.kind.rawValue, line.duration, takes.count))
     }
 
     private func pitch(_ key: String, _ samples: [Float]) -> Double? {
@@ -137,7 +153,7 @@ final class ClipStore: NutmegClipSource {
             }).value else {
                 rtLog("CLIP encode failed"); return
             }
-            guard let data else { rtLog(String(format: "CLIP not kept: take outside the live band (%.0f Hz raw)", hz ?? 0)); return }
+            guard let data else { voiceLog(String(format: "clip not kept for saving: take outside the live band (%.0f Hz raw)", hz ?? 0)); return }
             guard self.mode != .off else { return }
             switch self.mode {
             case .firstPlay: self.pending[key] = data

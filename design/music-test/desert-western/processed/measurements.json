@@ -1,0 +1,223 @@
+{
+ "calm": {
+  "source_lufs": -13.8,
+  "lufs": -16.0,
+  "lra": 0.9,
+  "true_peak_dbtp": -2.8,
+  "limiter_ceiling_db": -1.5,
+  "source": "calm-1.mp3",
+  "bpm_measured": 99.996,
+  "bpm_used": 100.0,
+  "beat_grid_resid_ms": 3.4,
+  "downbeat_phase": 2,
+  "start_s": 8.7174,
+  "start_bar": 3,
+  "bars": 20,
+  "body_end_s": 57.5,
+  "length_s": 48.0,
+  "samples_source": 2304000,
+  "samples": 2304000,
+  "resample_ppm": 0.0,
+  "decoded_samples": 2304000,
+  "loop_candidates_top3": [
+   [
+    0.6263597475973331,
+    3,
+    20,
+    0.577,
+    0.16
+   ],
+   [
+    0.7734934249391412,
+    2,
+    16,
+    0.469,
+    1.02
+   ],
+   [
+    1.048612142094568,
+    3,
+    16,
+    0.703,
+    1.15
+   ]
+  ],
+  "seam_raw_cut": {
+   "rms_jump_db": -6.45,
+   "mel_dist": 1.112,
+   "rms10_step_db": 0.59,
+   "sample_step": 0.0469,
+   "median_sample_step": 0.0056,
+   "natural_rms_jump_db": -6.25,
+   "natural_mel_dist": 0.922
+  },
+  "seam_processed_m4a": {
+   "rms_jump_db": -6.62,
+   "mel_dist": 1.216,
+   "rms10_step_db": 1.09,
+   "sample_step": 0.0194,
+   "median_sample_step": 0.0044,
+   "natural_rms_jump_db": -4.07,
+   "natural_mel_dist": 1.009
+  },
+  "bytes": 588237
+ },
+ "tense": {
+  "source_lufs": -13.7,
+  "lufs": -15.1,
+  "lra": 1.0,
+  "true_peak_dbtp": -2.3,
+  "limiter_ceiling_db": -1.5,
+  "source": "tense-1.mp3",
+  "bpm_measured": 99.998,
+  "bpm_used": 100.0,
+  "beat_grid_resid_ms": 2.0,
+  "downbeat_phase": 2,
+  "start_s": 8.4113,
+  "start_bar": 3,
+  "bars": 12,
+  "body_end_s": 42.5,
+  "length_s": 28.8,
+  "samples_source": 1382400,
+  "samples": 1382400,
+  "resample_ppm": 0.0,
+  "decoded_samples": 1382400,
+  "loop_candidates_top3": [
+   [
+    0.6975889095496218,
+    3,
+    12,
+    0.691,
+    0.02
+   ],
+   [
+    0.8070605123105363,
+    2,
+    12,
+    0.778,
+    0.1
+   ],
+   [
+    0.8590476824926367,
+    0,
+    12,
+    0.724,
+    -0.45
+   ]
+  ],
+  "seam_raw_cut": {
+   "rms_jump_db": 11.1,
+   "mel_dist": 1.305,
+   "rms10_step_db": 5.34,
+   "sample_step": 0.7929,
+   "median_sample_step": 0.0068,
+   "natural_rms_jump_db": 11.09,
+   "natural_mel_dist": 1.177
+  },
+  "seam_processed_m4a": {
+   "rms_jump_db": 9.91,
+   "mel_dist": 1.249,
+   "rms10_step_db": 2.97,
+   "sample_step": 0.0232,
+   "median_sample_step": 0.006,
+   "natural_rms_jump_db": 12.21,
+   "natural_mel_dist": 1.1
+  },
+  "bytes": 353215
+ },
+ "win": {
+  "source_lufs": -13.2,
+  "lufs": -16.0,
+  "lra": 15.0,
+  "true_peak_dbtp": -3.9,
+  "limiter_ceiling_db": -1.5,
+  "source": "win-1.mp3",
+  "length_s": 15.0,
+  "samples": 720000,
+  "decoded_samples": 720896,
+  "bytes": 186150,
+  "trimmed_lead_s": 0.0
+ },
+ "calm2": {
+  "source_lufs": -13.5,
+  "lufs": -16.0,
+  "lra": 1.2,
+  "true_peak_dbtp": -3.0,
+  "limiter_ceiling_db": -1.5,
+  "source": "calm2-2.mp3",
+  "bpm_measured": 100.0,
+  "bpm_used": 100.0,
+  "beat_grid_resid_ms": 1.4,
+  "downbeat_phase": 0,
+  "start_s": 4.8137,
+  "start_bar": 2,
+  "bars": 20,
+  "body_end_s": 57.5,
+  "length_s": 48.0,
+  "samples_source": 2304000,
+  "samples": 2304000,
+  "resample_ppm": 0.0,
+  "decoded_samples": 2304000,
+  "loop_candidates_top3": [
+   [
+    0.6917090108143438,
+    2,
+    20,
+    0.547,
+    0.48
+   ],
+   [
+    0.9088955780578145,
+    0,
+    20,
+    0.793,
+    -0.39
+   ],
+   [
+    0.910719424830815,
+    2,
+    16,
+    0.712,
+    0.66
+   ]
+  ],
+  "seam_raw_cut": {
+   "rms_jump_db": 9.82,
+   "mel_dist": 1.014,
+   "rms10_step_db": 10.44,
+   "sample_step": 0.2117,
+   "median_sample_step": 0.006,
+   "natural_rms_jump_db": 10.31,
+   "natural_mel_dist": 1.158
+  },
+  "seam_processed_m4a": {
+   "rms_jump_db": 9.13,
+   "mel_dist": 1.183,
+   "rms10_step_db": 4.7,
+   "sample_step": 0.0096,
+   "median_sample_step": 0.0046,
+   "natural_rms_jump_db": 12.76,
+   "natural_mel_dist": 0.961
+  },
+  "bytes": 588672,
+  "aba": {
+   "file": "design/music-test/desert-western/processed/loop-test-calm-aba.m4a",
+   "seams_s": [
+    48.0,
+    96.0
+   ],
+   "calm_lufs": -16.0,
+   "calm2_lufs": -16.0,
+   "joins": {
+    "A_to_B": {
+     "rms_jump_db": 0.21,
+     "mel_dist": 1.186
+    },
+    "B_to_A": {
+     "rms_jump_db": 2.3,
+     "mel_dist": 0.847
+    }
+   }
+  }
+ }
+}

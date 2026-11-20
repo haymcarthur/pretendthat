@@ -283,7 +283,7 @@ final class NutmegSpeaker {
         shutdown()
         holdEngine = hold
         do { try start(echoCancel: r.echoCancel, withInput: r.withInput, installInput: r.install); rtLog("audio (\(why)): engine rebuilt") }
-        catch { rtLog("audio (\(why)): engine rebuild failed: \(error.localizedDescription)") }
+        catch { voiceLog("audio (\(why)): engine rebuild failed (the next live line starts it again): \(error.localizedDescription)") }
     }
 
     /// Re-links mixer → output when the hardware rate no longer matches the link (logged). Stops and restarts the engine

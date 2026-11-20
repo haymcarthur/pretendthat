@@ -129,12 +129,12 @@ struct PTGrownUpGate: View {
 
     private struct NumberKey: ButtonStyle {
         func makeBody(configuration: Configuration) -> some View {
-            let down = configuration.isPressed ? Theme.depth / 2 : 0
+            let down = configuration.isPressed ? Theme.edge(44) : 0   // 2026-11-20: the slim edge (`Theme.edge`)
             configuration.label
                 .background(RoundedRectangle(cornerRadius: Theme.smallRadius, style: .continuous).fill(Theme.white))
                 .overlay(RoundedRectangle(cornerRadius: Theme.smallRadius, style: .continuous).strokeBorder(Theme.line, lineWidth: 1.5))
                 .offset(y: down)
-                .background(RoundedRectangle(cornerRadius: Theme.smallRadius, style: .continuous).fill(Theme.lavenderShade).offset(y: Theme.depth / 2))
+                .background(RoundedRectangle(cornerRadius: Theme.smallRadius, style: .continuous).fill(Theme.lavenderShade).offset(y: Theme.edge(44)))
                 .animation(Theme.press, value: configuration.isPressed)
         }
     }

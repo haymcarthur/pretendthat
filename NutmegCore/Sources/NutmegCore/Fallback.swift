@@ -13,6 +13,69 @@ public enum Fallback {
         return a
     }()
 
+    /// 2026-11-20 (Haylee, checklist scenes): the bundled airplane game's play guide as checklist scenes (4 scenes, 2 to
+    /// 3 items per role, a scenario each; `airplane-checklists.json`). The app's fallback and demo mode use it, so demo
+    /// screenshots show the new scene format with no AI. `airplane` keeps the round 36 shape (an older game's path).
+    public static let checklistScenes: [Scene] = {
+        guard let url = Bundle.module.url(forResource: "airplane-checklists", withExtension: "json"),
+              let data = try? Data(contentsOf: url),
+              let scenes = try? JSONDecoder().decode([Scene].self, from: data) else {
+            fatalError("airplane-checklists.json missing or invalid")   // covered by a test
+        }
+        return scenes
+    }()
+
+    /// 2026-11-21 (Haylee, one scene with music): the bundled airplane game's guide as ONE scene: the setup checklist
+    /// (2 to 3 items per role) and the scene's opener, event pool (12 events across the 6 roles, fair at every count),
+    /// finale and music family (`airplane-onescene.json`). The app's fallback and demo mode use it.
+    public static let oneScenes: [Scene] = {
+        guard let url = Bundle.module.url(forResource: "airplane-onescene", withExtension: "json"),
+              let data = try? Data(contentsOf: url),
+              let scenes = try? JSONDecoder().decode([Scene].self, from: data) else {
+            fatalError("airplane-onescene.json missing or invalid")   // covered by a test
+        }
+        return scenes
+    }()
+
+    /// 2026-11-21 (Haylee, one game plan): the bundled airplane game's guide as a GAME PLAN: four areas (the cockpit,
+    /// the passenger cabin, the snack galley, the gate), every page's and prop's life cycle, and the 12 events using
+    /// them (`airplane-gameplan.json`). The app's fallback and demo mode use it.
+    public static let gamePlanScenes: [Scene] = {
+        guard let url = Bundle.module.url(forResource: "airplane-gameplan", withExtension: "json"),
+              let data = try? Data(contentsOf: url),
+              let scenes = try? JSONDecoder().decode([Scene].self, from: data) else {
+            fatalError("airplane-gameplan.json missing or invalid")   // covered by a test
+        }
+        return scenes
+    }()
+
+    /// The fallback game with the game-plan guide (no setup scene; the story and the clean-up title stay).
+    public static func gamePlanAirplane(playerCount: Int) -> Airplane {
+        var a = airplane(playerCount: playerCount)
+        a.kit.scenes = gamePlanScenes
+        a.kit.setup = nil
+        a.kit.cleanup?.goals = nil
+        return a
+    }
+
+    /// The fallback game with the one-scene guide (no setup scene; the story and the clean-up jobs stay).
+    public static func oneSceneAirplane(playerCount: Int) -> Airplane {
+        var a = airplane(playerCount: playerCount)
+        a.kit.scenes = oneScenes
+        a.kit.setup = nil
+        a.kit.cleanup?.goals = nil
+        return a
+    }
+
+    /// The fallback game with the checklist play guide (no setup scene; the story and the clean-up jobs stay).
+    public static func checklistAirplane(playerCount: Int) -> Airplane {
+        var a = airplane(playerCount: playerCount)
+        a.kit.scenes = checklistScenes
+        a.kit.setup = nil
+        a.kit.cleanup?.goals = nil
+        return a
+    }
+
     /// The fallback game. Round C1: written for 6 ranked roles like every game; the count only says how many play.
     public static func airplane(playerCount: Int) -> Airplane {
         var a = airplane

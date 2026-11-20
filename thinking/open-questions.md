@@ -73,3 +73,8 @@
 - (2026-11-18) **Peek right paw rim:** in the v4 art the right paw's dark top rim is hidden under the taller redrawn right paw. Fix in Figma and re-export, or leave it? (decisions/2026-11-18-peek-hands-regenerate.md)
 - (2026-11-18) **Not-ready printable:** should Nutmeg say something when a page shows "Try again"? (needs a recorded clip; decisions/2026-11-18-printables-after-lock.md)
 - (2026-11-18) **Build 4 device checks** (Haylee): idle/lock mic + taps; printables after a lock match with no built-in art.
+
+- (2026-11-20) ~~Where does Nutmeg go with many checklists?~~ Answered: on a card (iPad), over a checklist shelf (iPhone). Built 2026-11-20: peeking over the top-right card (iPad), her head in a circle beside the shelf's title (iPhone).
+
+- (2026-11-21) **Music clips for Haylee's ear:** magical calm A→B→A (keep calm2?), new magical win, new superhero win, race-day win, circus tense. (session-handoff-2026-11-21.md)
+- (2026-11-21) **Merge `claude/optimistic-allen-mifsgp` to main and a TestFlight build:** after the Mac build and one live game of the game plan.

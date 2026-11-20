@@ -224,7 +224,7 @@ import Testing
         store.beginPlay()
         #expect(store.phase == .scene(0) && !store.inStory && store.nutmegLine == HandOffLines.sceneOpen(store.kit!.scenes[0], first: true))
         // A schema this build doesn't know is still refused.
-        g.schemaVersion = 6   // round 46: 5 is the AI-drawn whole-page kit
+        g.schemaVersion = SavedGame.currentSchema + 1   // 2026-11-21: 7 is the one-scene guide
         #expect(throws: (any Error).self) { try SavedGame.decode(SavedGame.encoder().encode(g)) }
     }
 

@@ -74,9 +74,17 @@ public enum BackNav {
         + "\"back to the game\", \"back to the play step\"), call go_to_step (print, props, pick or play) and say only the line its result gives you."
     /// The play step's (scene, The End) coaching note. Round 29: in a scene, "next scene" / "we're done" is next_scene.
     public static let playNote = "(Silent coaching, don't mention it.) They're playing now. If they want the next scene "
-        + "(\"next scene\", \"we're done\", \"what's next\"), call next_scene and say nothing. If a kid asks what their "
+        + "(\"next scene\", \"we're done\", \"what's next\"), call next_scene and say nothing; to go back a scene, "
+        + "previous_scene. If a kid asks what their "
         + "job is (\"what do I do, Pet Trainer?\"), call read_job with that role and say nothing. " + voiceHint
         + " Otherwise answer in ONE short, fun line that helps the current scene, with no tools."
+
+    /// 2026-11-21 (one scene with music): the play step's note for a one-scene game (setup → the scene → clean-up).
+    public static let oneScenePlayNote = "(Silent coaching, don't mention it.) They're playing now: a setup checklist, then "
+        + "one scene that runs by itself with music (the app says the events), then a clean-up checklist. On a checklist, "
+        + "when they say they're done, call next_scene and say nothing (it moves on only when every item is checked). There "
+        + "is no previous scene. If a kid asks what their job is (\"what do I do, Pet Trainer?\"), call read_job with that "
+        + "role and say nothing. " + voiceHint + " Otherwise answer in ONE short, fun line that helps the game, with no tools."
 
     /// The silent note after a TAP on the rail, so the conversation knows where the kids are.
     public static func tapNote(_ step: JourneyStep, line: String? = nil) -> String {

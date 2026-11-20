@@ -4,6 +4,13 @@ import Testing
 
 /// Returns canned values per type and records every prompt it sees.
 final class FakeLLM: LLM, @unchecked Sendable {
+    /// The bundled game plan as the plan call writes it during the hunt (no props placed yet).
+    static var planOnlyPages: Scene {
+        var sc = Fallback.gamePlanScenes[0]
+        sc.beats?.plan?.objects.removeAll(where: \.isProp)
+        sc.beats?.plan?.propsPlaced = nil
+        return sc
+    }
     private let lock = NSLock()
     private var _users: [String] = []
     private var _calls = 0
@@ -25,7 +32,14 @@ final class FakeLLM: LLM, @unchecked Sendable {
         let a = Fallback.airplane
         let all: [Any] = [a.ideas, a.plan, a.props, a.kit, NutmegTurn(nutmegSays: "Ready, Captain?", choices: [], understood: true),
                           KitPages(nutmegSays: a.kit.nutmegSays, items: a.kit.items), KitScenes(nutmegSays: a.kit.nutmegSays, scenes: a.kit.scenes),
-                          KitScenesSix(nutmegSays: a.kit.nutmegSays, scenes: a.kit.scenes)]
+                          // 2026-11-20: a new guide is 4 checklist scenes + the story and the clean-up title.
+                          KitScenesSix(nutmegSays: a.kit.nutmegSays, scenes: Fallback.checklistScenes, story: a.kit.story,
+                                       cleanup: Bookend(title: a.kit.cleanup?.title ?? "", nutmegSays: "")),
+                          // 2026-11-21: a new guide is the one-scene guide (setup checklist + the event pool).
+                          OneSceneGuide(scene: Fallback.oneScenes[0], story: a.kit.story, cleanupTitle: a.kit.cleanup?.title ?? ""),
+                          // 2026-11-21: a new guide is the GAME PLAN (pages only; the props come in the props call).
+                          GamePlanGuide(scene: Self.planOnlyPages, story: a.kit.story, cleanupTitle: a.kit.cleanup?.title ?? ""),
+                          PlanPropsAnswer(props: [])]
         guard let v = all.compactMap({ $0 as? T }).first else { throw ClaudeError.decoding("no fake for \(T.self)") }
         return v
     }

@@ -261,7 +261,26 @@ struct PTScenePinnedCard: View {
     private var store: AdventureStore { model.store }
 
     var body: some View {
-        if let scene = store.kit?.scenes[index] {
+        if let scene = store.kit?.scenes[index], scene.isChecklist {
+            // 2026-11-20 (checklist scenes): the title, the cards (compact), the scenario once done, and the ◀ / ▶ pair.
+            VStack(spacing: Theme.Space.s) {
+                PTChecklistTitle(model: model, text: ChecklistScenes.shownTitle(scene, number: store.playNumber(index)), font: 22, speaker: 44)
+                if store.sceneDone(index) && scene.arc == .play {
+                    Text(store.scenarioLine(index) ?? scene.nutmegSays).font(Theme.headlineFont(20)).foregroundStyle(Theme.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                    PTSpeakerButton(size: 48, tint: Theme.purple, label: "Hear it again") { model.hearScenario() }
+                } else {
+                    ForEach(ChecklistScenes.cards(scene), id: \.role) { card in
+                        PTChecklistCard(model: model, scene: scene, card: card, size: .padSmall)
+                    }
+                }
+                PTSceneNavPair(height: 56, width: 150, canGoBack: store.canGoBack,
+                               onPrevious: { model.tapPreviousScene() }, onNext: { model.tapNextScene() })
+            }
+            .padding(.vertical, Theme.Space.xs)
+            .ptPinnedCard()
+            .accessibilityElement(children: .contain)
+        } else if let scene = store.kit?.scenes[index] {
             VStack(spacing: Theme.Space.m) {
                 PTSceneCard(model: model, scene: scene, tier: scene.steps.count <= 3 ? 2 : 3)   // the panel is narrower: smaller pictures, same readable text
                 PTNextSceneButton(height: 64) { model.tapNextScene() }

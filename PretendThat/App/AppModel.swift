@@ -83,6 +83,32 @@ final class AppModel {
     var shelfGames: [SavedGame] = []
     /// The My games bookshelf screen is open (on the start screen; the phase stays Hello).
     var showingShelf = false
+    /// 2026-11-20 (checklist scenes): the reading queue. A 🔊 tap while she talks waits its turn (no marker); the row
+    /// being read is highlighted (`AppModel+Checklist` below).
+    var checklistReader = ChecklistReader()
+    @ObservationIgnored var checklistReaderTask: Task<Void, Never>?
+    @ObservationIgnored var checklistEndTask: Task<Void, Never>?
+    /// 2026-11-20 (Haylee): the game left mid-play to continue after a relaunch (the start screen offers it).
+    var resumeOffer: ResumeOffer?
+    /// 2026-11-21 (Haylee, one scene with music): the scene's state (`AppModel+OneScene`). What the stage shows now
+    /// (playing / an event card / the calm-again card / the finale), the scene bar, ⏸ Pause, the finale's confetti.
+    var beatDisplay: BeatDisplay = .playing
+    var beatProgress: Double = 0
+    var beatFiredEvents = 0
+    var scenePaused = false
+    var beatConfetti = 0
+    @ObservationIgnored var beatRun: BeatRun?
+    @ObservationIgnored var beatClock = BeatClock()
+    @ObservationIgnored var beatTask: Task<Void, Never>?
+    @ObservationIgnored var beatLineTask: Task<Void, Never>?
+    @ObservationIgnored var beatChimeUntil: TimeInterval = 0
+    @ObservationIgnored var beatSavedAt: TimeInterval = 0
+    /// 2026-11-21 (Haylee): the scene's music on/off (the music pill's toggle), a per-device preference.
+    var musicOn: Bool = UserDefaults.standard.object(forKey: MusicMix.musicOnKey) as? Bool ?? true
+    /// 2026-11-21: ▶ Let's play! / ▶ The End is ticking off the rows left before it goes on.
+    var oneSceneFinishing = false
+    /// The scene's music (calm / tense loops, the win ending, the event chime); silent when the files aren't bundled.
+    @ObservationIgnored let music = MusicPlayer()
     /// Round D2: the Grown-ups sheet (gate, then Saved games + About saved games).
     #if DEBUG
     /// Round 25 (button audit): the driver's `#leavedialog` shows the X's leave dialog (RootView owns its state).
@@ -224,6 +250,10 @@ final class AppModel {
             self.clipStore.store(line, roles: self.store.plan?.roles ?? [])
         }
         realtime.onRecordRejected = { [weak self] _ in self?.clipLog.rejectedOne() }
+        // 2026-11-20 (decisions/2026-11-20-voice-stall-fix.md): every finished take stays in memory for this game, so a
+        // row tapped again plays it with no socket; a line that made no sound is said again once the voice is back.
+        realtime.onTake = { [weak self] line in self?.clipStore.keepForGame(line) }
+        realtime.onLineStalled = { [weak self] line in self?.deferredLine = line }
         realtime.recordRoles = { [weak self] in self?.store.plan?.roles }
         clipStore.onStored = { [weak self] _ in if self?.store.isReplay == true { self?.clipLog.savedOne() } }
         store.isRecorded = { [weak self] line in self?.clipStore.has(line) ?? false }
@@ -234,10 +264,10 @@ final class AppModel {
         // Tool-first kid turns (round 7): no narration is ever heard; she speaks after the tool result.
         realtime.onKidTurnTools = { [weak self] in
             guard let self else { return nil }
-            if self.store.isReplay { return ReplayLines.tools(self.store.phase) }   // round D1
+            if self.store.isReplay { return ReplayLines.tools(self.store.phase, oneScene: self.store.isOneSceneGame) }   // round D1
             if self.store.gameLocked && self.store.phase == .players { return Realtime.pickBackTools }   // round 28: back on Pick
             guard self.planningNow else {
-                return Realtime.afterHuntTools(self.store.phase)   // round 23
+                return Realtime.afterHuntTools(self.store.phase, oneScene: self.store.isOneSceneGame)   // round 23
             }
             return Realtime.kidTurnTools(step: self.store.planningStep, huntActive: self.store.huntActive)
         }
@@ -250,7 +280,7 @@ final class AppModel {
                     + " Otherwise answer in ONE short line. No \"go play\" yet."
             case .scene, .end:
                 // Round 23: the only tool while playing is going back ("print it again", "back to the props").
-                return BackNav.playNote
+                return self.store.isOneSceneGame ? BackNav.oneScenePlayNote : BackNav.playNote   // 2026-11-21
             default: return nil
             }
         }
@@ -431,6 +461,7 @@ final class AppModel {
     func tapNextScene() {
         guard case .scene = store.phase else { return }
         userAction(.nextScene)
+        stopChecklistReading()
         rtLog("scene: next (tap)")
         store.nextScene()
     }
@@ -544,6 +575,9 @@ final class AppModel {
         gate.reset(); safeSnap = nil; screenedTurns = [:]
         replayGame = nil; replayConnecting = false
         resetAutoSave()   // round 39: what was saved stays saved; the watchers and the moments stop
+        stopChecklistReading()
+        endBeatScene()   // 2026-11-21: the scene's clock and music stop
+        clearResumePoint()   // 2026-11-20: going home on purpose ends the game (a relaunch mid-game offers it instead)
         // Round 37: the game just played stays reportable from Grown-ups → Report a problem until the app quits (in
         // memory only: its title and AI-made text, never anything about the kids).
         if let k = store.fullKit, !(k.items.isEmpty && k.scenes.isEmpty) {
@@ -620,6 +654,12 @@ final class AppModel {
     }
 
     func phaseChanged() {
+        // 2026-11-20 (checklist scenes): a new scene starts with nothing queued or highlighted; where the game is is
+        // kept for a resume after a relaunch (game content only), and dropped at The End.
+        stopChecklistReading()
+        beatPhaseChanged()   // 2026-11-21: the one scene's clock starts or stops
+        if case .scene = store.phase { saveResumePoint() }
+        if store.phase == .end { clearResumePoint() }
         // Round 39: the kit of a new game was made (the end of Props): count the show and save the game.
         if store.phase == .kitReady || { if case .scene = store.phase { return true } else { return false } }() { kitMadeIfNew() }
         if store.phase == .end { autoSave(reason: "the end") }
@@ -808,6 +848,8 @@ final class AppModel {
     /// queued or just sent: one reply per tap.
     func repeatScene() {
         guard case .scene(let i) = store.phase, let line = store.sceneLine(i) else { return }
+        // 2026-11-20 (checklist scenes): the title's 🔊 joins the reading queue like every other checklist tap.
+        if store.currentChecklist != nil { wakeUp(); readChecklist(.line(line)); return }
         guard repeatTask == nil, Date().timeIntervalSince(lastRepeatAt) > 2.5 else { return }
         userAction(.repeatLine)
         lastRepeatAt = Date()
@@ -1050,7 +1092,11 @@ final class AppModel {
         // Round 34: "what do I do, Pet Trainer?": the app reads that row's spoken task (same as tapping the row).
         if case .readJob = call {
             let out = await store.apply(call)
-            if let k = store.lastReadJobRow { store.lastReadJobRow = nil; rtLog("scene: read job (voice) row \(k + 1)"); readTask(k, wholeRole: true) }
+            if let k = store.lastReadJobRow {
+                store.lastReadJobRow = nil; rtLog("scene: read job (voice) row \(k + 1)")
+                // 2026-11-20: in a checklist scene the role's whole checklist in one line (like a tap on its picture).
+                if let sc = store.currentChecklist, sc.steps.indices.contains(k), let r = sc.steps[k].role.role { readRole(r) } else { readTask(k, wholeRole: true) }
+            }
             return (out, false)
         }
         // Round 39 (Haylee): the yes to the recap: a close saved game is offered first (suggest, never block).
@@ -1065,6 +1111,16 @@ final class AppModel {
             userAction(.nextScene)
             store.nextScene()
             return ("Next scene: the app moves on and says its line. Say nothing.", false)
+        }
+        // 2026-11-20: "go back" in a scene: the same as the ◀ Previous scene button (it stops her first).
+        if case .previousScene = call {
+            guard case .scene = store.phase else { return ("There's no scene right now. Answer in ONE short line.", true) }
+            guard store.canGoBack else { return ("This is the first scene, there's no scene before it. Answer in ONE short, kind line.", true) }
+            rtLog("scene: previous (voice)")
+            userAction(.previousScene)
+            stopChecklistReading()
+            store.previousScene()
+            return ("Back one scene: the app says its line. Say nothing.", false)
         }
         // (Round 26: a replay's Print is the first play's, so "print it" prints every page for the current count.)
         if case .printKit = call, store.phase.step != .play {
@@ -1165,6 +1221,8 @@ final class AppModel {
         // Writing moment (round 5): focus face (eyes down at the clipboard) while she writes; she looks up happy after.
         if isWriting { return .coloring }
         if beat == .lookUp { return .idle }
+        // 2026-11-21 (Haylee): in the one scene her face follows the beat (calm play, an event, calm-again, the finale).
+        if let s = beatState { return s }
         if store.phase == .makingKit || store.phase == .kitReady {
             switch kitBeat { case .coloring: return realtime.isSpeaking ? .idle : .thinking; case .lookUp: return .excited; case .papers: break }
         }
@@ -1403,6 +1461,14 @@ final class AppModel {
     func speak(_ text: String, deferIfAway: Bool = false) {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         speaker.remember(text)   // whitespace-only lines aren't remembered
+        // 2026-11-20: the session is still suspended but the app is in the foreground (a lock / unlock during a resume):
+        // resume first, then say it (`flushDeferredLine`). Before, every clip and live line was silently skipped.
+        if realtime.suspended && UIApplication.shared.applicationState == .active && !planningNow {
+            deferredLine = text
+            voiceLog("line while the session is suspended in the foreground: resuming first")
+            Task { await resumeSession() }
+            return
+        }
         // Round D3b: her recorded clip plays at once (no network, no thinking face), on a replay and on a first play
         // once a line has been recorded. Planning lines are hers to say in the conversation (never app lines).
         if clipStore.has(text) && !planningNow && !realtime.suspended {
@@ -1504,6 +1570,8 @@ final class AppModel {
     @ObservationIgnored private var kitReadySaid = false
     @ObservationIgnored private var deferredLine: String?
     private(set) var resuming = false
+    /// 2026-11-20: one resume at a time; it goes again when the app went away and came back during it.
+    @ObservationIgnored private var resumeLoop = ResumeLoop()
     @ObservationIgnored private var kitBackgroundTask: UIBackgroundTaskIdentifier = .invalid
     @ObservationIgnored private var lastReconnect = Date.distantPast
 
@@ -1515,6 +1583,7 @@ final class AppModel {
         case .background:
             rtLog("scene: background (phase \(store.phase), step \(store.planningStep))")
             AppPresence.shared.setForeground(false)   // 2026-11-18: image calls cut off from here are retried on return
+            pauseScene()   // 2026-11-21: the one scene pauses (music, clock, speech); ▶ Resume when they're back
             realtime.suspend()
             onboardingVoice.stop()   // v2: her onboarding clip never plays with the page off screen
             scribble.setPlaying(false, ducked: false)
@@ -1546,7 +1615,10 @@ final class AppModel {
 
     /// The screen stays awake during the conversation and kit making; auto-lock is allowed in the Print and Play steps.
     func updateIdleTimer() {
+        // 2026-11-21 (review): also while the one scene runs (nobody touches the iPad for ~10 minutes; an auto-lock would
+        // background the app and pause the scene). Paused, auto-lock is allowed again.
         let awake = planningNow || store.phase == .makingKit || (store.phase == .kitReady && !kitPapersOut)
+            || (store.currentBeatScene != nil && !scenePaused)
         if UIApplication.shared.isIdleTimerDisabled != awake {
             UIApplication.shared.isIdleTimerDisabled = awake
             rtLog("idle timer disabled: \(awake)")
@@ -1570,16 +1642,28 @@ final class AppModel {
         return true
     }
 
+    /// 2026-11-20: a lock and unlock while the ping ran left `suspended` on in the foreground (no clips, no voice, until
+    /// the game was left). `ResumeLoop` runs one resume at a time and runs it again when it ends suspended with the app
+    /// active; `ForegroundRecovery` asks for a resume even while busy.
     private func resumeSession() async {
-        guard !resuming else { return }
-        resuming = true   // the mic shows "connecting" while the ping runs (no press into a stopped engine)
-        let alive = await realtime.resumeIfAlive()
-        resuming = false
-        if alive {
-            flushDeferredLine()
+        guard resumeLoop.request() else { return }   // one is running: it checks again when it ends
+        while true {
+            // Review pass: a silent reconnect may already be running (a resume is allowed while busy now). Then the
+            // flag is the reconnect's (it clears it when it ends); clearing it here would let a second one start beside it.
+            let ownsFlag = !resuming
+            if ownsFlag { resuming = true }   // the mic shows "connecting" while the ping runs (no press into a stopped engine)
+            let alive = await realtime.resumeIfAlive()
+            if ownsFlag { resuming = false }
+            let active = UIApplication.shared.applicationState == .active
+            if resumeLoop.ended(stillSuspended: realtime.suspended, appActive: active) {
+                voiceLog("resume: away and back during the resume, resuming again")
+                continue
+            }
+            if realtime.suspended { return }   // in the background again (the next foreground resumes), or gave up
+            if alive { flushDeferredLine(); return }
+            await reconnectSilently()
             return
         }
-        await reconnectSilently()
     }
 
     /// Reconnects with the CURRENT game in the instructions (step, choices, current prop, kit, latest lines). No kick-off:
@@ -1668,6 +1752,7 @@ final class AppModel {
     func refreshShelf() {
         shelfGames = savedGames.list()
         coverCache = [:]
+        loadResumeOffer()
     }
     @ObservationIgnored private var coverCache: [UUID: UIImage] = [:]
     /// A game's shelf picture: its saved cover (the sign art), or nil (the card draws its prop stickers).
@@ -1989,7 +2074,7 @@ final class AppModel {
 
     /// Starts a replay: the saved art comes back from disk, the store loads the game (Pick), and the voice session
     /// (pre-connected on the start screen) speaks every line live (recorded clips are round D3b).
-    func startReplay(_ g: SavedGame) async {
+    func startReplay(_ g: SavedGame, resume: ResumePoint? = nil) async {
         repeatTask?.cancel(); pointTask?.cancel(); kitBeatTask?.cancel(); kitWait?.cancel()
         deferredLine = nil
         let files = savedGames.art(for: g)
@@ -2026,7 +2111,9 @@ final class AppModel {
         showingShelf = false
         gameStats.begin(kind: .replay)
         Analytics.send(.replayStarted(GameCategory.from(title: g.title)))
-        store.loadReplay(g)   // Pick; her greeting: a clip at once, else live once (waits for the session if it's connecting)
+        // Pick; her greeting: a clip at once, else live once (waits for the session if it's connecting). 2026-11-20: a
+        // resume opens straight at the scene it was on (its cue is the only line).
+        if let resume { store.resumeReplay(g, at: resume) } else { store.loadReplay(g) }
         if live {
             realtime.addNote(Realtime.systemNote(replayNote))
             return
@@ -2350,6 +2437,10 @@ final class AppModel {
     /// Round 31: the grown-up note to show (the mic was pressed while the iPad can't listen on the device).
     var speechHelp: SpeechReadiness?
     func talkPressed(touchHost: Double = CACurrentMediaTime()) {
+        // 2026-11-21 (Haylee, decisions/2026-11-17-saved-game-page-and-play-bar.md): the microphone stays off for the
+        // whole Play phase (setup, the scene, clean-up) and The End: no mic button shows there, and a press that gets
+        // through anyway is refused (`PlayMic`, tested in NutmegCore).
+        guard PlayMic.allowed(store.phase) else { rtLog("mic: off during Play (refused)"); return }
         wakeUp()
         guard listener.available else {
             // Round 34: iPadOS 26+: the one-tap in-app download sheet instead of the Settings note.
@@ -2383,6 +2474,7 @@ final class AppModel {
     }
 
     func micPressed(touchHost: Double = CACurrentMediaTime()) {
+        guard PlayMic.allowed(store.phase) else { return }   // 2026-11-21: never listens during Play
         if speaker.isSpeaking { speaker.cancel() }   // Nutmeg never hears herself
         listener.startListening(touchHost: touchHost)
     }
@@ -2424,4 +2516,179 @@ extension AppModel {
         }
         if store.usingFallback, store.phase != .hello, let e = gameStats.error(.aiUnavailable) { Analytics.send(e) }
     }
+}
+
+// MARK: - Checklist scenes (2026-11-20, Haylee: checklists, then a short scenario)
+
+/// The game to continue after a relaunch: the saved game and where it was.
+struct ResumeOffer: Equatable {
+    let game: SavedGame
+    let point: ResumePoint
+}
+
+extension AppModel {
+    /// A row's 🔊 (or its text): she reads that item. While she's talking the tap waits its turn (no visible marker);
+    /// the row being read is highlighted. Never cuts her off (Haylee: the kids tap a few rows in a row).
+    func tapChecklistRow(_ step: Int) {
+        guard case .scene(let i) = store.phase, let rows = store.kit?.scenes[i].steps, rows.indices.contains(step) else { return }
+        wakeUp()
+        rtLog("scene: read item \(step + 1)/\(rows.count)")
+        readChecklist(.row(step))
+    }
+
+    /// A card's picture or name: the role's whole checklist in one line ("Tap your picture to hear your jobs").
+    func readRole(_ role: RoleID) {
+        guard case .scene(let i) = store.phase, let scene = store.kit?.scenes[i],
+              let line = ChecklistScenes.roleLine(scene, role: role, roles: store.plan?.roles ?? []) else { return }
+        wakeUp()
+        rtLog("scene: read role \(role.rawValue)")
+        readChecklist(.line(line))
+    }
+
+    /// The round check: ticks or unticks the item (no speech). The last tick of a scene: Nutmeg says the scenario (after
+    /// the row she's reading, if any); the clean-up checklist goes on to The End by itself.
+    func tapCheck(_ step: Int) {
+        guard case .scene(let i) = store.phase else { return }
+        wakeUp()
+        let finished = store.toggleCheck(step)
+        saveResumePoint()
+        guard finished, let scene = store.kit?.scenes[i] else { return }
+        rtLog("scene: every item checked (\(scene.arc == .cleanup ? "clean-up" : "scene \(store.playNumber(i))"))")
+        gesture(.celebrate)
+        if scene.arc == .cleanup && store.isOneSceneGame {
+            // 2026-11-21 (Haylee): the one-scene clean-up waits for its ▶ The End button (it lights up now).
+        } else if scene.arc == .cleanup {
+            checklistEndTask?.cancel()
+            checklistEndTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .seconds(1.2))   // the last check lands before The End
+                guard let self, !Task.isCancelled, case .scene(i) = self.store.phase, self.store.sceneDone(i) else { return }
+                self.userAction(.nextScene)
+                self.store.nextScene()
+            }
+        } else if let line = store.scenarioLine(i) {
+            checklistReader.dropQueuedRows()
+            readChecklist(.line(line))
+        }
+    }
+
+    /// "Hear it again" on the scenario.
+    func hearScenario() {
+        guard case .scene(let i) = store.phase, let line = store.scenarioLine(i) else { return }
+        wakeUp()
+        readChecklist(.line(line))
+    }
+
+    /// ◀ Previous scene: back one scene, the checks as they were (it stops her, like ▶).
+    func tapPreviousScene() {
+        guard store.canGoBack else { return }
+        userAction(.previousScene)
+        stopChecklistReading()
+        rtLog("scene: previous (tap)")
+        store.previousScene()
+    }
+
+    /// Replays only (Haylee): from Props or Print straight to the scenes.
+    func tapSkipToScenes() {
+        guard store.canSkipToScenes else { return }
+        userAction(.skipToScenes)
+        rtLog("replay: skip to the scenes (tap)")
+        store.skipToScenes()
+    }
+
+    /// Says an item now, or queues it while she's talking (and starts the queue's watcher).
+    private func readChecklist(_ item: ChecklistReader.Item) {
+        let busy = checklistVoiceBusy || checklistReaderTask != nil
+        if let now = checklistReader.tap(item, busy: busy) { sayChecklist(now) }
+        if checklistReaderTask == nil { runChecklistReader() }
+    }
+
+    private func sayChecklist(_ item: ChecklistReader.Item) {
+        switch item {
+        case .row(let k):
+            guard case .scene(let i) = store.phase, let rows = store.kit?.scenes[i].steps, rows.indices.contains(k) else { return }
+            speak(HandOffLines.task(rows[k]))   // straight to the voice; recorded once, then her clip (same game, replays)
+        case .line(let line):
+            speak(line)
+        }
+    }
+
+    /// Waits for her to finish, then says the next queued item; the highlight goes off when nothing is left. With no
+    /// voice at all (offline without a clip, demo mode) each item still gets its highlight for a moment.
+    private func runChecklistReader() {
+        checklistReaderTask?.cancel()
+        checklistReaderTask = Task { @MainActor [weak self] in
+            while let self, !Task.isCancelled {
+                var started = false
+                for _ in 0..<40 where !Task.isCancelled {   // her line starts (a clip at once, a live line in a moment)
+                    if self.isSpeaking { started = true; break }
+                    try? await Task.sleep(for: .milliseconds(100))
+                }
+                // Review pass: bounded, so a speaking / busy flag that never clears (a dropped socket, an engine that
+                // stopped mid-line) can't hold the queue for good; a line is at most ~30 s.
+                var waited = 0
+                while !Task.isCancelled && self.checklistVoiceBusy && waited < Self.checklistMaxWait {
+                    try? await Task.sleep(for: .milliseconds(100)); waited += 1
+                }
+                if !started { try? await Task.sleep(for: .milliseconds(500)) }
+                guard !Task.isCancelled else { return }
+                guard let next = self.checklistReader.finished() else { break }
+                self.sayChecklist(next)
+            }
+            if !Task.isCancelled { self?.checklistReaderTask = nil }   // a cancelled one never clears its replacement
+        }
+    }
+
+    /// Her line is playing, or (live) one is on its way or running: the next queued item waits (never two at once).
+    private var checklistVoiceBusy: Bool { isSpeaking || (realtime.isLive && realtime.voiceBusy) }
+    /// The most the queue waits for one line to end, in 100 ms steps (30 s).
+    private static let checklistMaxWait = 300
+
+    /// The scene changed (or the game ended): nothing queued, nothing highlighted.
+    func stopChecklistReading() {
+        checklistReaderTask?.cancel(); checklistReaderTask = nil
+        checklistEndTask?.cancel(); checklistEndTask = nil
+        if !checklistReader.isIdle { checklistReader.clear() }
+    }
+
+    // MARK: Resume after a relaunch (Haylee)
+
+    static let resumeKey = "pt.resumePoint"
+
+    /// Where the game is now (scene + checks + count + the saved game's id; nothing about a kid), on this device only.
+    func saveResumePoint() {
+        guard let point = store.resumePoint(), let data = try? ResumePoint.encoder().encode(point) else { return }
+        UserDefaults.standard.set(data, forKey: Self.resumeKey)
+    }
+
+    func clearResumePoint() {
+        UserDefaults.standard.removeObject(forKey: Self.resumeKey)
+        resumeOffer = nil
+    }
+
+    /// On the start screen: the game left mid-play (still saved on this device, and from the last few days).
+    func loadResumeOffer() {
+        guard store.phase == .hello else { return }
+        guard let data = UserDefaults.standard.data(forKey: Self.resumeKey),
+              let point = try? ResumePoint.decoder().decode(ResumePoint.self, from: data), point.isFresh(),
+              let game = shelfGames.first(where: { $0.id == point.gameID }) else {
+            if resumeOffer != nil { resumeOffer = nil }
+            return
+        }
+        let offer = ResumeOffer(game: game, point: point)
+        if resumeOffer != offer { resumeOffer = offer }
+    }
+
+    /// The offer's picture: the game opens straight at the scene it was on, with its checks (no Pick, Props or Print).
+    func continueGame() {
+        guard let offer = resumeOffer else { return }
+        if !aiConsent { kidBlock = .needsConsent; return }
+        resumeOffer = nil
+        freePreview.gameStarted(isReplay: true)
+        userAction(.openSavedGame)
+        rtLog("resume \"\(offer.game.title)\" at scene \(offer.point.scene + 1)")
+        Task { await startReplay(offer.game, resume: offer.point) }
+    }
+
+    /// The offer's ✕: forget it.
+    func dismissResumeOffer() { clearResumePoint() }
 }

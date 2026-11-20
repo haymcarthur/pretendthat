@@ -86,7 +86,9 @@ func walk(_ store: AdventureStore) async -> [Phase] {
     await store.confirmProps()
     #expect(store.usingFallback)
     #expect(store.phase == .kitReady)
-    #expect(store.kit?.scenes.filter { $0.arc == .play }.allSatisfy { $0.steps.count == 2 && !$0.steps.contains { $0.role == .R3 } } == true)
+    // 2026-11-20: the bundled game plays checklist scenes: 2 kids, 2 cards a scene, nobody else's items.
+    // 2026-11-21: one scene now: the setup and clean-up checklists have the 2 cards.
+    #expect(store.kit?.scenes.filter(\.isChecklist).allSatisfy { ChecklistScenes.cards($0).map(\.role) == [.R1, .R2] } == true)
 }
 
 @Test @MainActor func newGameClearsEverything() async {
@@ -170,7 +172,7 @@ func storeAtFirstScene(players: Int = 3) async -> AdventureStore {
     let store = await storeAtFirstScene()
     let out = await store.apply(.nextScene)
     #expect(out.contains("Say nothing") && store.phase == .scene(1))
-    #expect(Realtime.afterHuntTools(.scene(0)) == ["next_scene", "read_job", "go_to_step", "just_talk"])
+    #expect(Realtime.afterHuntTools(.scene(0)) == ["next_scene", "previous_scene", "read_job", "go_to_step", "just_talk"])
     #expect(PlanningCall.decode(name: "next_scene", arguments: "{}") == .nextScene)
     #expect(Realtime.tools.contains { $0["name"] as? String == "next_scene" })
     #expect(!Realtime.tools.contains { ["finish_scene", "confirm_handoff"].contains($0["name"] as? String ?? "") })

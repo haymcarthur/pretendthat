@@ -1,0 +1,41 @@
+# Magic kingdom music: prompts (2026-11-21)
+
+ElevenLabs flow **"Magic kingdom music"**, flow id `wdnRvjnCcvFyYAPpiwuf`. Model `eleven_music_v2_5`, node type `music`,
+`{"lyrics_type": "instrumental", "instrumental": true}`, run once with the default 4 takes per node
+(Creator plan, Haylee's credits). Same recipe as space adventure (decisions/2026-11-21-one-scene-music-beats.md); no chime
+node (the shared `Music/chime.m4a` is used). No artists, films, franchises or famous songs named.
+
+Cost: calm 900 + tense 675 + win 225 credits per take, x4 = 7,200 credits for the family.
+
+| segment | node id | length | files | generation ids (take 1-4) |
+|---|---|---|---|---|
+| Calm loop | `R6yV558AaLQKkjs4VFmq` | 60 s | calm-1..4.mp3 | `Vew1ScG2oHCD3PKG1YZZ`, `awMTjpJUsdTdScieVhoA`, `2Dl86iP45QCeND8Wqhl7`, `8Nw23VhRUfPUoISaWobY` |
+| Tense loop | `7yKuDQNmHWc9xMHMMHtP` | 45 s | tense-1..4.mp3 | `AFkEbhmr9sVMFbSfe7I8`, `5dZ30fRDz9uW1f11ALb6`, `T53cbLS1qBxUtiEaSRGl`, `sl8WtP0qtLs4gcdwlYRL` |
+| Win ending | `ai0cDOAHqmAkVjttrtf6` | 15 s | win-1..4.mp3 | `I8CCuqfUL2STBLMmOKEe`, `kzBQ0kzi6wDluFayNdej`, `Q02Dxqu3xFIr7OC4xbfX`, `ZSag6BcrDQFILkhdN6sJ` |
+
+`loop-test-<calm|tense>-N.mp3` are the raw takes played 3x in a row (`ffmpeg -i "concat:a|a|a" -c copy`); the takes fade
+out, so these dip at each seam. The processed loops are in `processed/` (see PICKS.md).
+
+## Calm loop (60 s)
+
+> Playful, gentle kids' magic kingdom fairy-tale instrumental in F major at 90 BPM: celesta melody, harp arpeggios, flute, light strings, soft chimes. Sparkly, wondering and warm, like a friendly enchanted castle. Keep the energy even and steady the whole time, with no big intro, build-up or ending, so it can loop as background music under a voice.
+
+## Tense loop (45 s)
+
+> Playful kids' magic kingdom fairy-tale instrumental in F minor at 90 BPM, the urgent version of a playful theme: driving tremolo and pizzicato strings, soft timpani, mysterious celesta runs, harp and flute. Exciting, playful suspense, hurry-up energy, never scary or dark. Keep the energy even and steady the whole time, with no big intro, build-up or ending, so it can loop as background music under a voice.
+
+## Win ending (15 s)
+
+> Triumphant kids' magic kingdom finale in F major at 90 BPM: celesta, harp, flute and strings joined by a bright cheerful fanfare of brass and sparkling chimes, building to a big happy celebration and ending on one clear, final major chord.
+
+## Calm B loop (calm2, 60 s, 2026-11-20)
+
+ElevenLabs flow **"PretendThat calm B loops"** `dSxe4hBC3cnsB5nMN5GN` (one node per family, run once with 2 takes, 900 credits a take). Model `eleven_music_v2_5`, `{"duration_seconds": 60, "lyrics_type": "instrumental", "instrumental": true}`. Files: calm2-1.mp3; generation ids `qRwqx5BctaaKLY4NorHM` (take 2 `A0KecFB3oa6h7XXJGKzj` failed). In calm A's measured key and tempo (PICKS.md).
+
+> A second, gentle variation of the same theme: playful, gentle kids' magic kingdom fairy-tale instrumental in F major at 90 BPM, with celesta, harp arpeggios, flute, light strings and soft chimes, playing a different melody and arrangement. Sparkly, wondering and warm, like a friendly enchanted castle. Keep the energy even and steady the whole time, with no big intro, build-up or ending, so it can loop as background music under a voice.
+
+## Win redo (15 s, 2026-11-20)
+
+ElevenLabs flow **"PretendThat win redos"** `0E0ZhST9V8YYLYwyDEyQ`, node `12Y2QdhYVNh0gxE7cD2X`, run once with 2 takes (225 credits a take). Files: `win-redo-1.mp3`, `win-redo-2.mp3`; generation ids `fsZrDslRePVvG68PxUOP`, `JnyOYJudLVAUaCsfUIiG`. Brighter and stronger than the first win, in F major.
+
+> Triumphant kids' magic kingdom finale in F major at 90 BPM: a bright, bold brass fanfare with timpani and a cymbal swell, soaring strings, harp glissandos and sparkling celesta and chimes. Loud, joyful and strong, building to a big happy celebration and ending on one clear, final F major chord that rings out.

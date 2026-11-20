@@ -67,6 +67,8 @@ struct LayoutMetrics: Equatable, Sendable {
 
     enum PhoneContent: Equatable {
         case none, hunt, cards, print, scene(rows: Int), end, cover, players, propsGrid
+        /// 2026-11-20 (checklist scenes): the scenario bubble and the "All done!" strip under Nutmeg.
+        case scenario
     }
 
     /// How tall the content zone below her asks to be (clamped by `PTPhoneStage.split`, which keeps her on screen).
@@ -81,6 +83,7 @@ struct LayoutMetrics: Equatable, Sendable {
         case .cover: 300   // round 40: the whole 3:2 cover in its mat fits (2026-11-17: never number tiles under it)
         case .players: 380   // round 41: up to 6 role tiles in two columns
         case .propsGrid: 2000
+        case .scenario: 330
         }
     }
 }

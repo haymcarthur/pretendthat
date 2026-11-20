@@ -1,0 +1,307 @@
+[
+ {
+  "id": "s1",
+  "title": "Get the Plane Ready",
+  "checklist": true,
+  "nutmegSays": "Pretend that the plane is taking off over the big blue ocean! Everyone, take your places!",
+  "steps": [
+   {
+    "role": "R4",
+    "text": "Hang the Gate 3 sign by the door",
+    "short": "Hang the Gate 3 sign by the door"
+   },
+   {
+    "role": "R4",
+    "text": "Stack the boarding passes at the gate",
+    "short": "Stack the boarding passes at the gate"
+   },
+   {
+    "role": "R6",
+    "text": "Put the Sky Dollars by the seats",
+    "short": "Put the Sky Dollars by the seats"
+   },
+   {
+    "role": "R5",
+    "text": "Set the snack menu on the snack cart",
+    "short": "Set the snack menu on the snack cart"
+   },
+   {
+    "role": "R3",
+    "text": "Lay out the travel cut-outs in the galley",
+    "short": "Lay out the travel cut-outs in the galley"
+   },
+   {
+    "role": "R2",
+    "text": "Line up the airplane seats in two rows",
+    "short": "Line up the airplane seats in two rows"
+   },
+   {
+    "role": "R1",
+    "text": "Set the steering wheel in the cockpit",
+    "short": "Set the steering wheel in the cockpit"
+   },
+   {
+    "role": "R3",
+    "text": "Load the snack cart with snacks",
+    "short": "Load the snack cart with snacks"
+   },
+   {
+    "role": "R6",
+    "text": "Pack the carry-on bag for the trip",
+    "short": "Pack the carry-on bag for the trip"
+   }
+  ],
+  "beats": {
+   "opener": "Pretend that the plane is taking off over the big blue ocean! Everyone, take your places!",
+   "music": "space-adventure",
+   "finale": "We landed safely by the beach! Everyone, cheer and give a big wave!",
+   "events": [
+    {
+     "mood": "calm",
+     "roles": [
+      "R1"
+     ],
+     "line": "The control tower is calling! Captain, check the steering wheel and get the plane ready for takeoff!",
+     "area": "A1",
+     "objects": [
+      "prop:plate"
+     ]
+    },
+    {
+     "mood": "tense",
+     "roles": [
+      "R1"
+     ],
+     "line": "Bumpy clouds ahead! Captain, hold the steering wheel tight and steer the plane around them!",
+     "area": "A1",
+     "calmAgain": "Phew, the sky is smooth again.",
+     "objects": [
+      "prop:plate"
+     ]
+    },
+    {
+     "mood": "calm",
+     "roles": [
+      "R1"
+     ],
+     "line": "We're flying over the ocean! Captain, tell everyone in the cockpit what you can see down below!",
+     "area": "A1"
+    },
+    {
+     "mood": "calm",
+     "roles": [
+      "R1",
+      "R2"
+     ],
+     "line": "Passenger, you can't find your seat! Captain, check the boarding pass and help the Passenger find a good airplane seat!",
+     "area": "A2",
+     "objects": [
+      "page:tickets",
+      "prop:chair"
+     ]
+    },
+    {
+     "mood": "tense",
+     "roles": [
+      "R2"
+     ],
+     "line": "Uh-oh, Passenger, your things are rolling around the cabin! Gather them up and keep them safe in the carry-on bag!",
+     "area": "A2",
+     "calmAgain": "Phew, everything is put away again.",
+     "objects": [
+      "prop:backpack"
+     ]
+    },
+    {
+     "mood": "calm",
+     "roles": [
+      "R3"
+     ],
+     "line": "The passengers are hungry! Flight Attendant, roll the snack cart down the aisle and serve everyone a snack!",
+     "area": "A3",
+     "objects": [
+      "prop:tray"
+     ]
+    },
+    {
+     "mood": "tense",
+     "roles": [
+      "R3",
+      "R4"
+     ],
+     "line": "Oh no, a red light is blinking in the cockpit! Co-Pilot, check the buttons, and Flight Attendant, help everyone stay in their seats!",
+     "area": "A1",
+     "calmAgain": "Phew, the red light turned off.",
+     "objects": [
+      "prop:chair"
+     ]
+    },
+    {
+     "mood": "calm",
+     "roles": [
+      "R4"
+     ],
+     "line": "New passengers are at the gate! Co-Pilot, check their boarding passes and welcome them under the Gate 3 sign!",
+     "area": "A4",
+     "objects": [
+      "page:tickets",
+      "page:sign"
+     ]
+    },
+    {
+     "mood": "tense",
+     "roles": [
+      "R5"
+     ],
+     "line": "Oops, the snack galley is a mess! Snack Chef, sort the travel cut-outs and get the new orders ready fast!",
+     "area": "A3",
+     "calmAgain": "Phew, the snack galley is tidy again.",
+     "objects": [
+      "page:cutouts"
+     ]
+    },
+    {
+     "mood": "calm",
+     "roles": [
+      "R5",
+      "R6"
+     ],
+     "line": "VIP Passenger, order something fancy from the snack menu! Snack Chef, make it extra special!",
+     "area": "A3",
+     "objects": [
+      "page:menu"
+     ]
+    },
+    {
+     "mood": "tense",
+     "roles": [
+      "R6"
+     ],
+     "line": "Uh-oh, VIP Passenger, the cabin is getting wobbly! Make everything around your seat secure and hold on!",
+     "area": "A2",
+     "calmAgain": "Phew, the cabin is steady again."
+    },
+    {
+     "mood": "calm",
+     "roles": [
+      "R2",
+      "R6"
+     ],
+     "line": "Passenger and VIP Passenger, it's shopping time in the sky! Use your Sky Dollars to buy treats from the snack menu!",
+     "area": "A2",
+     "objects": [
+      "page:money",
+      "page:menu"
+     ]
+    }
+   ],
+   "plan": {
+    "areas": [
+     {
+      "id": "A1",
+      "place": "the cockpit",
+      "owner": "R1",
+      "job": "Build the cockpit"
+     },
+     {
+      "id": "A2",
+      "place": "the passenger cabin",
+      "owner": "R2",
+      "job": "Set up the passenger cabin"
+     },
+     {
+      "id": "A3",
+      "place": "the snack galley",
+      "owner": "R3",
+      "job": "Set up the snack galley"
+     },
+     {
+      "id": "A4",
+      "place": "the gate",
+      "owner": "R4",
+      "job": "Get the gate ready"
+     }
+    ],
+    "objects": [
+     {
+      "id": "page:sign",
+      "area": "A4",
+      "owner": "R4",
+      "setup": "Hang the Gate 3 sign by the door",
+      "idea": "While we wait, welcome a new passenger at the Gate 3 sign!",
+      "putAway": "Take down the Gate 3 sign"
+     },
+     {
+      "id": "page:tickets",
+      "area": "A4",
+      "owner": "R4",
+      "setup": "Stack the boarding passes at the gate",
+      "idea": "Before takeoff, check everyone's boarding pass and punch it!",
+      "putAway": "Collect the boarding passes"
+     },
+     {
+      "id": "page:money",
+      "area": "A2",
+      "owner": "R6",
+      "setup": "Put the Sky Dollars by the seats",
+      "idea": "While we fly, count your Sky Dollars and buy a treat!",
+      "putAway": "Stack the Sky Dollars"
+     },
+     {
+      "id": "page:menu",
+      "area": "A3",
+      "owner": "R5",
+      "setup": "Set the snack menu on the snack cart",
+      "idea": "While we fly, read the snack menu out loud and take orders!",
+      "putAway": "Fold up the snack menu"
+     },
+     {
+      "id": "page:cutouts",
+      "area": "A3",
+      "owner": "R3",
+      "setup": "Lay out the travel cut-outs in the galley",
+      "idea": "While we fly, hand out the travel cut-outs to anyone who needs a snack!",
+      "putAway": "Stack the travel cut-outs"
+     },
+     {
+      "id": "prop:chair",
+      "area": "A2",
+      "owner": "R2",
+      "setup": "Line up the airplane seats in two rows",
+      "idea": "While we fly, make sure every passenger has a comfy airplane seat!",
+      "putAway": "Push the chairs back to the table",
+      "pretend": "the airplane seats"
+     },
+     {
+      "id": "prop:plate",
+      "area": "A1",
+      "owner": "R1",
+      "setup": "Set the steering wheel in the cockpit",
+      "idea": "While we fly, steer us around the clouds with the steering wheel!",
+      "putAway": "Put the plate back on the shelf",
+      "pretend": "the steering wheel"
+     },
+     {
+      "id": "prop:tray",
+      "area": "A3",
+      "owner": "R3",
+      "setup": "Load the snack cart with snacks",
+      "idea": "While we fly, push the snack cart down the aisle!",
+      "putAway": "Put the tray back where it lives",
+      "pretend": "the snack cart"
+     },
+     {
+      "id": "prop:backpack",
+      "area": "A2",
+      "owner": "R6",
+      "setup": "Pack the carry-on bag for the trip",
+      "idea": "While we fly, find something fun in your carry-on bag!",
+      "putAway": "Hang the backpack back up",
+      "pretend": "the carry-on bag"
+     }
+    ],
+    "propsPlaced": true
+   }
+  }
+ }
+]

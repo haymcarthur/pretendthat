@@ -103,7 +103,12 @@ struct PTStageView<Character: View, Overlay: View>: View {
                 }
                 let big = PTStageCamera.layout(.closeUp, PTStageGeometry(size: geo.size, leadingInset: leadingInset,
                                                                          bottomInset: bottomInset, floor: g.floor), faceFocus: faceFocus)
+                // 2026-11-21 (Haylee: her face slid off her head during a zoom): the camera moves her as ONE piece. The
+                // zoom/move is the scale + position below (on the container, animated by the stage's one transaction);
+                // nothing inside the rig rides the camera's spring (a state change in the same update, like an event card
+                // and her alarmed face, is not sprung layer by layer).
                 character
+                    .transaction(value: f) { $0.animation = nil }
                     .frame(width: big.canvas.width, height: big.canvas.height)
                     .scaleEffect(L.k / big.k)
                     .position(L.canvasCenter)

@@ -10,6 +10,11 @@ enum NutmegState: String, CaseIterable, Identifiable {
     /// Sleepy Nutmeg (round 9): nobody answered after the reminder + ~30 s. She sits down (eyes open), her eyes droop
     /// (slow heavy blinks), then she's asleep (nap face, slow deep breathing). No text; round 22 (Haylee) adds the floating Zzz when asleep.
     case sitting, drowsy, asleep
+    /// 2026-11-21 (Haylee, one scene with music): her face follows the beat. `grooving` = calm play (happy, gently
+    /// bobbing to the music); `calling` = a calm event (talking, ears perked); `alarmed` = a tense event (the alarmed
+    /// face when its art is in, else ooh + perked ears); `relieved` = the calm-again line (the phew face when its art
+    /// is in, else happy). The finale uses `excited` + the celebrate gesture.
+    case grooving, calling, alarmed, relieved
     var id: String { rawValue }
 
     /// Face and ears per state. The BODY pose is separate (decision mascot-nutmeg.md): idle is the resting default
@@ -30,6 +35,10 @@ enum NutmegState: String, CaseIterable, Identifiable {
         case .asleep: NutmegLook(face: .nap, ears: .normal)
         // Coloring (planning beats, kit): eyes down on the clipboard (focus art when it's imported, thinking until then).
         case .coloring: NutmegLook(face: NutmegFace.writing, ears: .normal)
+        case .grooving: NutmegLook(face: .happy, ears: .normal)
+        case .calling: NutmegLook(face: .talking, ears: .perked)
+        case .alarmed: NutmegLook(face: NutmegFace.alarmedAvailable ? .alarmed : .ooh, ears: .perked)
+        case .relieved: NutmegLook(face: NutmegFace.phewAvailable ? .phew : .happy, ears: .normal)
         }
     }
 
@@ -150,8 +159,18 @@ enum NutmegPose: String, CaseIterable, Identifiable {
 
 enum NutmegFace: String, CaseIterable {
     case happy, talking, listening, thinking, ooh, yay, oops, nap, focus
+    /// 2026-11-21 (Haylee): the tense-event face ("uh-oh!", worried brows) and the calm-again face (relieved "phew"),
+    /// art still to come (ChatGPT → Figma → tools/import_art.py: nutmeg-face-alarmed / -phew + their -mouth). Until
+    /// the assets exist the states fall back to ooh + perked ears and happy (`alarmedAvailable`, `phewAvailable`), the
+    /// same pattern as `focusAvailable`.
+    case alarmed, phew
     /// nutmeg-face-focus (eyes down at the clipboard) is new art; fall back until it's imported.
     static let focusAvailable = UIImage(named: "nutmeg-face-focus") != nil
+    static let alarmedAvailable = UIImage(named: "nutmeg-face-alarmed") != nil
+    static let phewAvailable = UIImage(named: "nutmeg-face-phew") != nil
+    /// Looked up once (the mouth is read on every frame of her animation).
+    static let alarmedMouthAvailable = UIImage(named: "nutmeg-face-alarmed-mouth") != nil
+    static let phewMouthAvailable = UIImage(named: "nutmeg-face-phew-mouth") != nil
     /// The writing moment's face (round 5): the focus EYES (looking down at the clipboard). Its own lopsided tongue-tip
     /// mouth is replaced by the happy face's simple closed smile (`mouthAsset`), Haylee.
     static let writing: NutmegFace = .focus
@@ -164,6 +183,9 @@ enum NutmegFace: String, CaseIterable {
         switch self {
         case .focus: NutmegFace.happy.mouthAsset
         case .thinking: NutmegFace.listening.mouthAsset
+        // 2026-11-21: their own mouth when the art brings one, else a fitting existing mouth.
+        case .alarmed: NutmegFace.alarmedMouthAvailable ? "nutmeg-face-alarmed-mouth" : NutmegFace.ooh.mouthAsset
+        case .phew: NutmegFace.phewMouthAvailable ? "nutmeg-face-phew-mouth" : NutmegFace.happy.mouthAsset
         default: "nutmeg-face-\(rawValue)-mouth"
         }
     }

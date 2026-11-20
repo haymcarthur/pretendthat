@@ -93,6 +93,9 @@ enum DemoDriver {
         return Double(args[i + 1])
     }
 
+    /// 2026-11-21 (one scene): `-PTFastScene`: the scene clock runs 10× (the whole 10 minute scene in about a minute).
+    static var fastScene: Bool { ProcessInfo.processInfo.arguments.contains("-PTFastScene") }
+
     /// Round 11: `-PTKeyboard` (with `-PTChat`): focus the chat field so the keyboard comes up (stage audit screenshots).
     static var keyboard: Bool { ProcessInfo.processInfo.arguments.contains("-PTKeyboard") }
 
@@ -251,6 +254,15 @@ enum DemoDriver {
             }
             if turn == "#next" { model.realtime.beginTrace("next scene tap"); model.tapNextScene(); continue }
             if turn.hasPrefix("#task "), let n = Int(turn.dropFirst(6)) { model.readTask(n); continue }
+            // 2026-11-20 (checklist scenes): "#item N" (row N's 🔊, queued while she talks), "#check N" (row N's
+            // check), "#role R2" (a card's picture), "#prev" (◀ Previous scene), "#hear" (the scenario again),
+            // "#skip" (a replay's skip to the scenes).
+            if turn.hasPrefix("#item "), let n = Int(turn.dropFirst(6)) { model.tapChecklistRow(n); continue }
+            if turn.hasPrefix("#check "), let n = Int(turn.dropFirst(7)) { model.tapCheck(n); continue }
+            if turn.hasPrefix("#role "), let r = RoleID(rawValue: String(turn.dropFirst(6))) { model.readRole(r); continue }
+            if turn == "#prev" { model.tapPreviousScene(); continue }
+            if turn == "#hear" { model.hearScenario(); continue }
+            if turn == "#skip" { model.tapSkipToScenes(); continue }
             if turn == "#scene" {   // round 29: the current scene's rows (text only, for the log)
                 if case .scene(let i) = model.store.phase, let sc = model.store.kit?.scenes[i] {
                     rtLog("SCENE \(i + 1) \"\(sc.title)\": \(sc.nutmegSays)")
@@ -514,6 +526,46 @@ enum DemoDriver {
             if target == "cleanup" { while case .scene(let i) = store.phase, store.currentArc != .cleanup, i < 10 { store.nextScene() } }
             return
         }
+        // 2026-11-21 (one scene with music; with `-PTPlayers N`, and `-PTFastScene` for a whole scene in ~1 min):
+        // `oneSetup` = the setup checklist with a couple of items checked; `oneSetupDone` = every item checked (▶ Let's
+        // play! lights up); `onePlaying` = the scene, calm play; `oneEvent` = a calm event's card; `oneTense` = a tense
+        // event (one calling two roles when the count has one); `oneCalmAgain` = its calm-again card; `oneFinale`;
+        // `oneCleanup` = the clean-up checklist; `onePaused` = the Paused card.
+        // 2026-11-21 (game plan): the bundled game is a game plan, so `oneSetup` with `-PTPlayers 2 | 3 | 4` shows the
+        // AREA cards (3 kids: two on top, one centered below); `oneIdea` = the first calm-stretch idea card.
+        if target.hasPrefix("one") {
+            await oneScene(store, model: model, to: target)
+            return
+        }
+        // 2026-11-20 (checklist scenes): `-PTDemo checklist` = the first checklist scene with a couple of items checked;
+        // `scenario` = every item checked (the scenario moment); `cleanupList` = the clean-up checklist; `checklist2`
+        // = the second scene (◀ Previous showing). With `-PTPlayers N` for the card layouts (2 and 6 on the iPad).
+        if target == "checklist" || target == "scenario" || target == "checklist2" || target == "cleanupList" {
+            await drive(store, model: model, to: "scene2")   // the first checklist scene (scene 1 of the arc is the story)
+            if target == "checklist2" { store.nextScene(); return }
+            if target == "cleanupList" { while case .scene(let i) = store.phase, store.currentArc != .cleanup, i < 10 { store.nextScene() }; return }
+            guard let sc = store.currentChecklist else { return }
+            if target == "checklist" {
+                model.tapCheck(0)
+                if let second = ChecklistScenes.cards(sc).dropFirst().first?.rows.first { model.tapCheck(second) }
+            } else {
+                for k in sc.steps.indices { model.tapCheck(k) }
+            }
+            return
+        }
+        // 2026-11-20: `-PTDemo replaySkip`: a saved game's replay at Props, the skip button showing.
+        if target == "replaySkip" {
+            await drive(store, model: model, to: "end")
+            if let g = store.savedGame(now: Date(), art: [], cover: nil) {
+                try? model.savedGames.save(g, art: [:], cover: nil)
+                model.leave(); model.refreshShelf()
+                if let saved = model.shelfGames.first(where: { $0.id == g.id }) {
+                    await model.startReplay(saved)
+                    store.replayPick(demoPlayers)
+                }
+            }
+            return
+        }
         if target == "sceneLong" {   // round 14/29: 6 players, a 2-line title and 6 long tasks
             await drive(store, model: model, to: "scene")
             store.changePlayerCount(6)
@@ -558,6 +610,41 @@ enum DemoDriver {
         store.nextScene()
         if target == "scene2" { return }
         while case .scene = store.phase { store.nextScene() }
+    }
+
+    /// 2026-11-21: the one-scene demo targets (see `drive`).
+    @MainActor static func oneScene(_ store: AdventureStore, model: AppModel, to target: String) async {
+        await drive(store, model: model, to: "scene2")   // the setup checklist (scene 1 of the arc is the story)
+        guard store.oneSceneChecklist == .setup, let setup = store.currentChecklist else {
+            rtLog("ONE SCENE demo: not a one-scene game at the setup"); return
+        }
+        if target == "oneSetup" {
+            model.tapCheck(0)
+            if let second = ChecklistScenes.cards(setup).dropFirst().first?.rows.first { model.tapCheck(second) }
+            return
+        }
+        for k in setup.steps.indices { model.tapCheck(k) }
+        if target == "oneSetupDone" { return }
+        model.tapOneSceneButton()
+        try? await Task.sleep(for: .seconds(0.5))   // the scene clock starts (phaseChanged)
+        guard let events = store.currentBeatScene?.beats?.events, let run = model.beatRun else { return }
+        switch target {
+        case "onePlaying": model.debugJumpScene(to: 40)
+        case "onePaused": model.debugJumpScene(to: 40, paused: true)
+        case "oneEvent":
+            let i = events.firstIndex { !$0.isTense } ?? 0
+            model.debugJumpScene(to: run.eventAt(i) + 2)
+        case "oneTense", "oneCalmAgain":
+            let i = events.firstIndex { $0.isTense && $0.roles.count >= 2 } ?? events.firstIndex(where: \.isTense) ?? 0
+            model.debugJumpScene(to: run.eventAt(i) + (target == "oneTense" ? 2 : BeatTimeline.calmAgainAfter + 2))
+        case "oneIdea":   // 2026-11-21 (game plan): the first calm-stretch idea card (low right, no chime)
+            if let t = run.ideaTimes.first { model.debugJumpScene(to: t + 2) } else { rtLog("ONE SCENE demo: no ideas in this scene") }
+        case "oneFinale": model.debugJumpScene(to: run.finaleAt + 1)
+        case "oneCleanup":
+            model.debugJumpScene(to: run.cleanupAt - 0.5)
+            try? await Task.sleep(for: .seconds(1.5))   // the clean-up opens by itself
+        default: break
+        }
     }
 
     /// Round 29: `-PTPlayers N` (1–6) for the demo phases (default 3).

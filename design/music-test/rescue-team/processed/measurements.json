@@ -1,0 +1,164 @@
+{
+ "calm": {
+  "source_lufs": -13.0,
+  "lufs": -15.9,
+  "lra": 2.2,
+  "true_peak_dbtp": -1.9,
+  "limiter_ceiling_db": -1.5,
+  "source": "calm-1.mp3",
+  "start_s": 6.6821,
+  "cut_samples": 1706856,
+  "samples": 1707008,
+  "length_s": 35.5627,
+  "speed_change_pct": -0.0089,
+  "decoded_samples": 1707008,
+  "seam_raw_cut": {
+   "rms_jump_db": 3.29,
+   "mel_dist": 1.028,
+   "rms10_step_db": 1.63,
+   "sample_step": 0.4149,
+   "median_sample_step": 0.0065,
+   "natural_rms_jump_db": 3.23,
+   "natural_mel_dist": 0.886
+  },
+  "seam_processed_m4a": {
+   "rms_jump_db": 3.86,
+   "mel_dist": 0.944,
+   "rms10_step_db": 2.24,
+   "sample_step": 0.0025,
+   "median_sample_step": 0.0049
+  },
+  "bytes": 439834,
+  "bpm": 107.988,
+  "start_beat": 12,
+  "beats": 64
+ },
+ "tense": {
+  "source_lufs": -11.8,
+  "lufs": -15.0,
+  "lra": 0.6,
+  "true_peak_dbtp": -1.8,
+  "limiter_ceiling_db": -1.5,
+  "source": "tense-2.mp3",
+  "start_s": 15.577,
+  "cut_samples": 1280047,
+  "samples": 1280000,
+  "length_s": 26.6667,
+  "speed_change_pct": 0.0037,
+  "decoded_samples": 1280000,
+  "seam_raw_cut": {
+   "rms_jump_db": 2.26,
+   "mel_dist": 0.579,
+   "rms10_step_db": 0.63,
+   "sample_step": 0.0163,
+   "median_sample_step": 0.012,
+   "natural_rms_jump_db": 2.36,
+   "natural_mel_dist": 0.635
+  },
+  "seam_processed_m4a": {
+   "rms_jump_db": 1.39,
+   "mel_dist": 0.627,
+   "rms10_step_db": 2.05,
+   "sample_step": 0.0211,
+   "median_sample_step": 0.0088
+  },
+  "bytes": 328026,
+  "bpm": 107.996,
+  "start_beat": 28,
+  "beats": 48
+ },
+ "win": {
+  "source_lufs": -14.0,
+  "lufs": -15.8,
+  "lra": 4.1,
+  "true_peak_dbtp": -1.2,
+  "limiter_ceiling_db": -2.7,
+  "source": "win-1.mp3",
+  "length_s": 15.0,
+  "samples": 720000,
+  "decoded_samples": 720896,
+  "bytes": 186780
+ },
+ "calm2": {
+  "source_lufs": -12.9,
+  "lufs": -16.0,
+  "lra": 0.5,
+  "true_peak_dbtp": -1.1,
+  "limiter_ceiling_db": -1.5,
+  "source": "calm2-1.mp3",
+  "bpm_measured": 108.0,
+  "bpm_used": 108.0,
+  "beat_grid_resid_ms": 2.0,
+  "downbeat_phase": 3,
+  "start_s": 8.3429,
+  "start_bar": 3,
+  "bars": 20,
+  "body_end_s": 57.5,
+  "length_s": 44.4587,
+  "samples_source": 2133333,
+  "samples": 2134016,
+  "resample_ppm": 320.2,
+  "decoded_samples": 2134016,
+  "loop_candidates_top3": [
+   [
+    0.4143036273385685,
+    3,
+    20,
+    0.326,
+    -0.29
+   ],
+   [
+    0.4209501903962995,
+    0,
+    20,
+    0.291,
+    -0.43
+   ],
+   [
+    0.523231153676672,
+    0,
+    24,
+    0.364,
+    -0.53
+   ]
+  ],
+  "seam_raw_cut": {
+   "rms_jump_db": 4.22,
+   "mel_dist": 0.676,
+   "rms10_step_db": 2.28,
+   "sample_step": 0.3253,
+   "median_sample_step": 0.0062,
+   "natural_rms_jump_db": 3.92,
+   "natural_mel_dist": 0.478
+  },
+  "seam_processed_m4a": {
+   "rms_jump_db": 4.28,
+   "mel_dist": 0.603,
+   "rms10_step_db": 1.07,
+   "sample_step": 0.0767,
+   "median_sample_step": 0.0047,
+   "natural_rms_jump_db": 6.83,
+   "natural_mel_dist": 0.692
+  },
+  "bytes": 549943,
+  "aba": {
+   "file": "design/music-test/rescue-team/processed/loop-test-calm-aba.m4a",
+   "seams_s": [
+    35.56,
+    80.02
+   ],
+   "calm_lufs": -15.9,
+   "calm2_lufs": -16.0,
+   "joins": {
+    "A_to_B": {
+     "rms_jump_db": 2.36,
+     "mel_dist": 0.933
+    },
+    "B_to_A": {
+     "rms_jump_db": 5.77,
+     "mel_dist": 1.569
+    }
+   }
+  }
+ }
+}

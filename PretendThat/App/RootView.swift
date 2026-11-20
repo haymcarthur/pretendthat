@@ -21,6 +21,8 @@ struct RootView: View {
     @State private var kitPreview: PTPreviewTarget?
     /// Close asks first (decisions/2026-11-13-push-to-talk.md).
     @State private var confirmLeave = false
+    /// 2026-11-21 (Haylee): "End scene" asks first (a grown-up's choice).
+    @State private var confirmEndScene = false
     /// Kit-ready confetti, drawn as the topmost overlay (above the chat panel, step rail and control pill).
     @State private var confettiRun = 0
     @State private var confettiOn = false
@@ -139,7 +141,16 @@ struct RootView: View {
                 HStack(spacing: Theme.Space.s) {
                     PTCornerClose(size: LayoutMetrics.phoneClose) { confirmLeave = true }
                     Spacer(minLength: 0)
-                    PTStepRail(current: store.phase.step, reached: store.reachedStep, allDone: store.playFinished) { model.tapStepRail($0) }
+                    if beatScene {
+                        // 2026-11-21 (Haylee): during the one scene, no step rail: the music pill and ⏸ Pause.
+                        if let family = store.currentBeatScene?.beats?.music {
+                            PTMusicPill(family: family, tense: model.beatTense, phone: true, musicOn: model.musicOn) { model.toggleMusic() }
+                        }
+                        Spacer(minLength: 0)
+                        PTPausePill(height: 48) { model.pauseScene() }
+                    } else {
+                        PTStepRail(current: store.phase.step, reached: store.reachedStep, allDone: store.playFinished) { model.tapStepRail($0) }
+                    }
                 }
                 .frame(height: LayoutMetrics.phoneTopBar)
                 .padding(.horizontal, LayoutMetrics.phoneSide)
@@ -149,11 +160,14 @@ struct RootView: View {
                 .ignoresSafeArea(.keyboard)
             }
             if chromeVisible && !metrics.isPhone {
-                PTStepRail(current: store.phase.step, reached: store.reachedStep, allDone: store.playFinished) { model.tapStepRail($0) }
-                    .padding(.leading, Theme.Space.m)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-                    .transition(.move(edge: .leading).combined(with: .opacity))
-                    .ignoresSafeArea(.keyboard)   // round 11: stays put under the keyboard
+                // 2026-11-21 (Haylee): the step rail hides during the one scene (only the ✕ and ⏸ Pause there).
+                if !beatScene {
+                    PTStepRail(current: store.phase.step, reached: store.reachedStep, allDone: store.playFinished) { model.tapStepRail($0) }
+                        .padding(.leading, Theme.Space.m)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                        .transition(.move(edge: .leading).combined(with: .opacity))
+                        .ignoresSafeArea(.keyboard)   // round 11: stays put under the keyboard
+                }
                 // Round 17 (Haylee): the close (X) lives in the top-left corner, below the valance and above the rail.
                 PTCornerClose { confirmLeave = true }
                     .padding(.top, PTCurtain.metrics(screenSize == .zero ? rootSize : screenSize).valance + Theme.Space.s)
@@ -190,6 +204,58 @@ struct RootView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .ignoresSafeArea(.keyboard)
             }
+            // 2026-11-21 (Haylee, one scene): the setup checklist's ▶ Let's play! and the clean-up's ▶ The End, grey until
+            // every playing card is done, then green with a halo (the only button besides the 🔊 and the checks).
+            if let kind = store.oneSceneChecklist, chromeVisible && !(chatOpen && chromeVisible) {
+                PTOneSceneButton(title: kind == .setup ? "Let's play!" : "The End", ready: store.currentSceneDone,
+                                 height: navHeight, width: metrics.isPhone ? navWidth * 1.4 : 340) { model.tapOneSceneButton() }
+                    .accessibilityIdentifier(kind == .setup ? "scene.letsPlay" : "scene.theEnd")
+                    .padding(.bottom, (metrics.isPhone ? 6 : Theme.Space.s) + Theme.edge(navHeight))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .ignoresSafeArea(.keyboard)
+                    .zIndex(6)
+            }
+            // 2026-11-21 (Haylee, one scene): during the scene only the ✕ (left) and the labeled ⏸ Pause (right); the
+            // small music pill at the top; the thin scene bar (a dot per event, a star for the finale) at the bottom.
+            if beatScene && chromeVisible {
+                beatChrome
+            }
+            // 2026-11-20 (Haylee, checklist scenes): ◀ Previous / ▶ Next scene, one centered pair at the bottom of the
+            // stage, the same size and shape (Next green, Previous white; no Previous on the first scene).
+            if checklistScene && store.oneSceneChecklist == nil && chromeVisible && !(chatOpen && chromeVisible) {
+                PTSceneNavPair(height: navHeight, width: navWidth, canGoBack: store.canGoBack,
+                               onPrevious: { model.tapPreviousScene() }, onNext: { model.tapNextScene() })
+                    .padding(.bottom, metrics.isPhone ? 6 : Theme.Space.s)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .ignoresSafeArea(.keyboard)
+                    .zIndex(6)
+            }
+            // 2026-11-20 (Haylee): on a REPLAY's Props and Print, skip straight to the scenes (the app's round icon
+            // button; a new game never shows it: its checklists use the props found and the pages printed).
+            if store.canSkipToScenes && chromeVisible && !(chatOpen && chromeVisible) {
+                PTBigIconButton(kind: .skip, size: metrics.isPhone ? 64 : 76, label: "Skip to the scenes") { model.tapSkipToScenes() }
+                    .accessibilityIdentifier("replay.skipToScenes")
+                    .padding(.trailing, metrics.isPhone ? LayoutMetrics.phoneSide : Theme.Space.xl + Theme.Space.l)
+                    .padding(.bottom, metrics.isPhone ? metrics.pillBottom + metrics.pillHeight + Theme.Space.s : metrics.pillBottom + Theme.Space.s)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                    .transition(.opacity)
+                    .ignoresSafeArea(.keyboard)
+                    .zIndex(6)
+            }
+            // 2026-11-20 (Haylee): the game left mid-play (the app was closed): its picture on the start screen, like the
+            // saved-game offer; a tap continues at the scene it was on, with its checks.
+            if store.phase == .hello, let offer = model.resumeOffer, !model.showingShelf, model.savedPage == nil,
+               model.onboarding == nil, model.kidBlock == nil, !startExiting {
+                PTResumeOffer(offer: offer, cover: model.cover(for: offer.game), phone: metrics.isPhone,
+                              onContinue: { model.continueGame() }, onDismiss: { model.dismissResumeOffer() })
+                    .padding(.top, metrics.isPhone ? max(rootTop, 12) + 4 : PTCurtain.metrics(screenSize == .zero ? rootSize : screenSize).valance + Theme.Space.s)
+                    .padding(.leading, metrics.isPhone ? 14 : Theme.Space.xl)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .transition(.opacity)
+                    .zIndex(7)
+            }
             // 2026-11-17: offline on a replay, a line she never recorded: her words as a caption at the top of the stage
             // (and in the chat); the game carries on (it used to pause on the full-screen Wi-Fi note below).
             if let caption = model.offlineCaption, !(chatOpen && chromeVisible), store.phase != .hello {
@@ -202,6 +268,18 @@ struct RootView: View {
                     .allowsHitTesting(false)
                     .transition(.opacity)
                     .zIndex(17)
+            }
+            // 2026-11-21: ⏸ Pause: the stage dims under the "Paused" card with a big ▶ Resume.
+            if beatScene && model.scenePaused {
+                PTPausedCard(phone: metrics.isPhone) { model.resumeScene() }
+                    .transition(.opacity)
+                    .zIndex(16)
+            }
+            if beatScene && confirmEndScene {
+                PTEndSceneDialog(phone: metrics.isPhone, onKeep: { confirmEndScene = false },
+                                 onEnd: { confirmEndScene = false; model.endSceneEarly() })
+                    .transition(.opacity)
+                    .zIndex(16.5)
             }
             if model.wifiPause.isPaused && store.phase != .hello {
                 PTWiFiNote(note: WiFiPause.note, onLeave: { chatOpen = false; model.leave() })
@@ -266,6 +344,11 @@ struct RootView: View {
         #endif
         .animation(.easeOut(duration: 0.25), value: model.wifiPause.isPaused)
         .animation(.easeOut(duration: 0.25), value: model.offlineCaption)
+        .animation(.easeOut(duration: 0.25), value: model.scenePaused)
+        .animation(.easeOut(duration: 0.2), value: confirmEndScene)
+        .onChange(of: beatScene) { _, on in if !on { confirmEndScene = false } }
+        // 2026-11-21: the one scene's finale: confetti over everything.
+        .onChange(of: model.beatConfetti) { _, _ in celebrate() }
         // Round 10: the panel/rail slide on the same spring as the camera move they cause (one shared animation).
         .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: chatOpen)
         .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: chromeVisible)
@@ -413,6 +496,8 @@ struct RootView: View {
         case .makingKit, .kitReady: return (model.kitBeat == .papers || store.isReplay) ? .print : .none
         case .scene(let i):
             if store.inStory { return .none }
+            if beatScene { return model.beatCardUp ? .scenario : .none }   // 2026-11-21: the event card under her
+            if scenarioMoment { return .scenario }   // 2026-11-20: Nutmeg on the stage above the scenario bubble
             let rows = store.kit?.scenes.indices.contains(i) == true ? store.kit!.scenes[i].steps.count : 3
             return .scene(rows: rows)
         case .end: return .end
@@ -440,6 +525,86 @@ struct RootView: View {
         guard metrics.isPhone, case .scene = phoneContent else { return false }
         return true
     }
+    /// 2026-11-20 (checklist scenes): the scene on screen is a checklist (its cards, or its scenario once done).
+    private var checklistScene: Bool { store.currentChecklist != nil }
+    /// 2026-11-21 (one scene): the scene with music and events is on screen.
+    private var beatScene: Bool { store.currentBeatScene != nil }
+    /// The scene bar's room at the bottom of the stage.
+    private var beatBarRoom: CGFloat { metrics.isPhone ? 44 : 64 }
+
+    /// 2026-11-21 (Haylee, design/mockups/one-scene/): the one scene's chrome. iPad: the music pill top center, ⏸
+    /// Pause top right (both below the valance); iPhone: they're in the top bar (with the ✕). The scene bar at the
+    /// bottom on both.
+    @ViewBuilder private var beatChrome: some View {
+        let screen = screenSize == .zero ? rootSize : screenSize
+        let beats = store.currentBeatScene?.beats
+        let count = beats?.events.count ?? 0
+        if !metrics.isPhone {
+            if let family = beats?.music {
+                // 2026-11-21 (Haylee): a tap turns the music off / on.
+                PTMusicPill(family: family, tense: model.beatTense, musicOn: model.musicOn) { model.toggleMusic() }
+                    .padding(.top, PTCurtain.metrics(screen).valance + Theme.Space.s + 8)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .zIndex(6)
+            }
+            VStack(alignment: .trailing, spacing: Theme.Space.s) {
+                PTPausePill { model.pauseScene() }
+                // 2026-11-21: small, under ⏸ Pause (review: gone once the finale is on, there's nothing to skip).
+                if model.beatDisplay != .finale { PTEndScenePill { confirmEndScene = true } }
+            }
+            .padding(.top, PTCurtain.metrics(screen).valance + Theme.Space.s)
+            .padding(.trailing, Theme.Space.m + Theme.Space.s)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            .transition(.move(edge: .trailing).combined(with: .opacity))
+            .zIndex(6)
+        } else if model.beatDisplay != .finale {
+            // iPhone: ⏸ Pause is in the top bar; "End scene" sits just under it.
+            PTEndScenePill(height: 36) { confirmEndScene = true }
+                .padding(.top, LayoutMetrics.phoneTopInset(screen: screen, safeTop: rootTop) + LayoutMetrics.phoneTopBar + Theme.Space.xs)
+                .padding(.trailing, LayoutMetrics.phoneSide)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                .transition(.opacity)
+                .zIndex(6)
+        }
+        // 2026-11-21 (Haylee, one game plan): the calm-stretch idea card, small and low right, above the scene bar.
+        if let idea = model.beatIdea, !model.scenePaused {
+            PTIdeaCard(model: model, idea: idea, phone: metrics.isPhone)
+                .id("idea-\(idea.line)")
+                .padding(.trailing, metrics.isPhone ? LayoutMetrics.phoneSide : PTCurtain.metrics(screen).visible * 0.55 + Theme.Space.m)
+                .padding(.leading, metrics.isPhone ? LayoutMetrics.phoneSide : 0)
+                .padding(.bottom, beatBarRoom + (metrics.isPhone ? 8 : Theme.Space.m))
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                .transition(.opacity.combined(with: .move(edge: .trailing)))
+                .zIndex(5.5)
+        }
+        PTSceneBar(dots: BeatTimeline.dots(count: count), progress: model.beatProgress, fired: model.beatFiredEvents,
+                   width: metrics.isPhone ? max(200, screen.width - 2 * LayoutMetrics.phoneSide - 24) : min(560, screen.width * 0.42))
+            .padding(.bottom, metrics.isPhone ? 14 : Theme.Space.m)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+            .allowsHitTesting(false)
+            .transition(.opacity)
+            .zIndex(5)
+    }
+    /// Every card is done: the scenario moment (Nutmeg back on the stage, big, in the normal framing).
+    private var scenarioMoment: Bool { checklistScene && store.currentSceneDone && store.currentArc == .play }
+    /// The checklist cards are up: on the iPad she peeks over a card, on the iPhone her head is in the shelf, so the
+    /// stage Nutmeg hides (like the iPhone peek scenes).
+    private var checklistCards: Bool { checklistScene && !scenarioMoment && !(chatOpen && chromeVisible) }
+    /// The stage Nutmeg hides: the iPhone peek over a scene card, or the checklist cards.
+    private var hidesStageNutmeg: Bool { phonePeek || checklistCards }
+    /// The iPad's checklist zone: the whole stage between the rail and the right curtain (the cards in a row).
+    private func checklistBoardRect(_ g: PTStageGeometry) -> CGRect {
+        let x0 = g.free.minX + Theme.Space.s, x1 = g.size.width - curtainInset(g) - Theme.Space.s
+        return CGRect(x: x0, y: g.free.minY + Theme.Space.s, width: max(300, x1 - x0), height: max(200, g.free.height - Theme.Space.s))
+    }
+    /// The ◀ / ▶ pair's size: one centered pair, the same size and shape (Haylee).
+    private var navHeight: CGFloat { metrics.isPhone ? 60 : 76 }
+    private var navWidth: CGFloat {
+        let full = (screenSize == .zero ? rootSize : screenSize).width
+        return metrics.isPhone ? max(140, min(200, (full - 2 * LayoutMetrics.phoneSide - Theme.Space.m) / 2)) : 300
+    }
+    private var navRoom: CGFloat { navHeight + Theme.edge(navHeight) + (metrics.isPhone ? 14 : Theme.Space.m + Theme.Space.s) }
+
     /// The phone's whole free band (under the top bar, above the pill), side-inset: the peek scene's card zone.
     private func phoneBandRect(_ g: PTStageGeometry) -> CGRect {
         let band = metrics.phoneBand(stage: g.size, screen: screenSize == .zero ? g.size : screenSize, safeTop: rootTop, bottom: phoneBottomRoom)
@@ -506,9 +671,11 @@ struct RootView: View {
             NutmegCharacter(state: model.nutmegState, mouthLevel: model.mouthLevel, mouthShape: model.mouthShape,
                             isSpeaking: model.isSpeaking, cue: model.cue, forcedPose: debugPose, showsGround: true,
                             holdsClipboard: model.nutmegHoldsClipboard, writing: model.isWriting)
-                // iPhone play scenes: she's the peek over the card instead (SceneView).
-                .opacity(phonePeek ? 0 : 1)
-                .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: phonePeek)
+                // iPhone play scenes: she's the peek over the card instead (SceneView). 2026-11-20: the checklist cards
+                // too (she peeks over a card on the iPad, her head is in the shelf on the iPhone); she comes back, big,
+                // for the scenario.
+                .opacity(hidesStageNutmeg ? 0 : 1)
+                .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: hidesStageNutmeg)
         } overlay: { g, L in
             if metrics.isPhone {
                 phoneOverlay(g, L)
@@ -557,6 +724,9 @@ struct RootView: View {
         return directorFrame(g)
     }
     private func directorFrame(_ g: PTStageGeometry) -> PTStageFrame {
+        // 2026-11-21 (one scene): centered, whole body while they play; the prop-card framing (her medium shot, the
+        // card zone on her right) while an event or calm-again card is up.
+        if beatScene { return PTStageDirector.frame(model.beatCardUp ? .propCard : .hop, curtainInset: curtainInset(g), g) }
         return PTStageDirector.frame(phase: store.phase, conversation: model.inConversation, conversationShot: shot,
                               cards: stageItems.count, hunt: huntOnStage || replayHuntOnStage, kitBeat: model.kitBeat,
                               curtainInset: curtainInset(g), writing: model.isWriting, story: store.inStory, g)
@@ -735,7 +905,9 @@ struct RootView: View {
         // Round 11: every phase's content sits in the prop-card step's card zone (one framing, one zone).
         // iPhone: the content zone under her.
         let r = phonePeek ? phoneBandRect(g)
-            : metrics.isPhone ? phoneSplit(g).content : PTStageDirector.huntContent(g, nutmeg: L, curtainInset: curtainInset(g))
+            : metrics.isPhone ? phoneSplit(g).content
+            : checklistCards ? checklistBoardRect(g)   // 2026-11-20: the cards in a row across the stage
+            : PTStageDirector.huntContent(g, nutmeg: L, curtainInset: curtainInset(g))
         // Round 14 (Haylee: the cards got smaller): every phase's content draws at its NATURAL size in the shared card
         // zone (`PTStageDirector.cardZoneWidth`); it only scales down on a stage too narrow for ~300 pt.
         let fit = min(1, r.width / Self.minContentWidth)
@@ -783,7 +955,17 @@ struct RootView: View {
         case .makingKit, .kitReady: KitView(model: model, clipboard: clipboard, chatOpen: chatOpen && chromeVisible, preview: $kitPreview,
                                             onCelebrate: { celebrate() })
         // Round 36: the story is Nutmeg alone (the talking close-up), no card.
-        case .scene(let i): if !(chatOpen && chromeVisible) && !store.inStory { SceneView(model: model, index: i, width: width, maxHeight: height, peek: phonePeek) }   // chat open: pinned in the panel
+        case .scene(let i):
+            if !(chatOpen && chromeVisible) && !store.inStory {   // chat open: pinned in the panel
+                // 2026-11-20 (Haylee): a checklist scene (an older saved game keeps its scene card).
+                if store.kit?.scenes.indices.contains(i) == true, store.kit!.scenes[i].isBeatScene {
+                    BeatSceneCard(model: model, index: i, width: width, height: height)   // 2026-11-21: the one scene
+                } else if store.kit?.scenes.indices.contains(i) == true, store.kit!.scenes[i].isChecklist {
+                    ChecklistSceneView(model: model, index: i, width: width, height: height)
+                } else {
+                    SceneView(model: model, index: i, width: width, maxHeight: height, peek: phonePeek)
+                }
+            }
         // iPhone: its buttons sit where the bar was. iPad (2026-11-18, Haylee): under the title, beside Nutmeg.
         case .end: if !(chatOpen && chromeVisible) { EndView(model: model, showsButtons: !metrics.isPhone, buttonSize: 124) }
         }
@@ -822,11 +1004,12 @@ struct RootView: View {
     /// Step rail and control pill show from the first step on (not on Hello).
     private var chromeVisible: Bool { store.phase != .hello || startExiting }
     /// 2026-11-17 (Haylee): Play (setup, scenes, clean-up; the story too) and The End have no control bar.
-    private var playNoBar: Bool { switch store.phase { case .scene, .end: true; default: false } }
+    /// 2026-11-21: tied to `PlayMic` (the mic is never on in Play or The End; NutmegCore tests it).
+    private var playNoBar: Bool { !PlayMic.allowed(store.phase) }
     /// The iPad stage's bottom room: the bar's, a margin in Play, the old framing in The End.
     private var padBottomRoom: CGFloat {
         switch store.phase {
-        case .scene: Theme.Space.m
+        case .scene: checklistScene ? navRoom : (beatScene ? beatBarRoom : Theme.Space.m)   // 2026-11-20: the ◀ / ▶ pair's room
         case .end: PTStageCamera.chromeBottom   // 2026-11-18: the buttons are back under the title (the old framing)
         default: PTStageCamera.chromeBottom
         }
@@ -834,7 +1017,7 @@ struct RootView: View {
     /// The phone stage's bottom room: the bar's, none in Play (the peek and the rows get it), The End's buttons there.
     private var phoneBottomRoom: CGFloat {
         switch store.phase {
-        case .scene: LayoutMetrics.phoneNoBarBottom
+        case .scene: checklistScene ? navRoom : (beatScene ? beatBarRoom : LayoutMetrics.phoneNoBarBottom)   // 2026-11-20: the ◀ / ▶ pair's room
         case .end: LayoutMetrics.phoneEndBottom
         default: metrics.phoneChromeBottom
         }
