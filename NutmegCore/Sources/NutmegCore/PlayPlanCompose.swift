@@ -258,7 +258,7 @@ extension PlayPlans {
             let who = roles.first { $0.id == r }?.roleName ?? "Everyone"
             var line = ideaLine(first.idea, who: who)
             for extra in slot.objects.dropFirst() {
-                line += " Then " + PlayCast.lowerFirst(PlayCast.endSentence(dropLead(extra.idea)))
+                line += " Then " + PlayCast.lowerFirst(exclaim(dropLead(extra.idea)))
             }
             if p > 1 { line = PlayCast.unname(line, roles: roles, players: p) }
             let fallback = ideaLine(appObject(cover.first { $0.id == first.id } ?? CoverItem(id: first.id, label: "it", names: []),

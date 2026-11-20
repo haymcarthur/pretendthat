@@ -37,7 +37,9 @@ import Testing
     private func waitFor(_ cond: () -> Bool) async {
         for _ in 0..<400 where !cond() { try? await Task.sleep(for: .milliseconds(10)) }
     }
-    private func guidePrompts(_ llm: FakeLLM) -> [String] { llm.users.filter { $0.contains("Phase: the play guide") } }
+    private func guidePrompts(_ llm: FakeLLM) -> [String] { llm.users.filter { $0.contains("Phase: the GAME PLAN") } }
+    /// 2026-11-21 (game plan): the ONE props call when the hunt ends.
+    private func propsPrompts(_ llm: FakeLLM) -> [String] { llm.users.filter { $0.contains("Phase: add the household props to the GAME PLAN") } }
     private func weavePrompts(_ llm: FakeLLM) -> [String] { llm.users.filter { $0.contains("Phase: add household props") } }
 
     // MARK: Deterministic substitution (pure)
@@ -116,37 +118,38 @@ import Testing
     // MARK: The store
 
     @Test func theGuideIsWrittenDuringTheHuntAndASkipMakesNoCall() async {
-        let llm = FakeLLM(responses: ["PropWeave": Self.oneWeave])
+        // 2026-11-21 (Haylee, one game plan): the PLAN is written during the hunt (no per-prop weave calls); when the
+        // hunt ends, ONE props call places the props the kids have (a skip is known by then: no regeneration).
+        let llm = FakeLLM()
         let store = AdventureStore(service: PhaseService(llm: llm))
         await hunting(store)
         await waitFor { store.guideWrittenAt != nil }
         #expect(guidePrompts(llm).count == 1 && store.phase == .players)   // still hunting
-        #expect(guidePrompts(llm)[0].contains("use NO household props"))
+        #expect(guidePrompts(llm)[0].contains("Use NO household props") && guidePrompts(llm)[0].contains("AREAS"))
         _ = await store.apply(.showNextProp(.init(itemID: "bowl", becomes: "the snack bowl", forRole: "all")))
         _ = await store.apply(.markFound("bowl"))
         _ = await store.apply(.showNextProp(.init(itemID: "pot", becomes: "the cauldron", forRole: "all")))
-        await waitFor { weavePrompts(llm).count == 2 }
-        try? await Task.sleep(for: .milliseconds(50))
-        let calls = llm.calls
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(weavePrompts(llm).isEmpty)                                   // no weave calls any more
         _ = await store.apply(.skipProp("pot"))
         _ = await store.apply(.finishPlanning)
         await waitFor { store.phase == .kitReady && !store.guidePending }
-        #expect(llm.calls == calls)                                          // no regeneration on the skip
-        #expect(guidePrompts(llm).count == 1 && store.guideCalls == 1)
-        let steps = store.fullKit?.scenes.flatMap(\.steps) ?? []
-        // 2026-11-20: checklist items (the role title the weave wrote is taken off: the card shows the role).
-        #expect(steps.contains { $0.short == "Peek in the pretend cauldron" && $0.picture.kind == .kit })
-        #expect(steps.contains { $0.picture == .prop("bowl") })
-        // Round 29: the playing roles are Captain + the customer counterpart (Passenger); every scene shows both cards.
+        #expect(guidePrompts(llm).count == 1 && store.guideCalls == 1 && propsPrompts(llm).count == 1)
+        #expect(propsPrompts(llm)[0].contains("prop:bowl") && !propsPrompts(llm)[0].contains("prop:pot"))
+        let plan = store.fullKit?.scenes.first?.plan
+        #expect(plan?.object("prop:bowl") != nil && plan?.object("prop:pot") == nil && plan?.propsPlaced == true)
+        #expect(store.fullKit?.scenes.flatMap(\.steps).contains { $0.picture == .prop("bowl") } == true)
         #expect(store.playingRoles.map(\.roleName) == ["Captain", "Passenger"])
-        #expect(store.kit?.playScenes.count == 1)   // 2026-11-21: the one scene (setup and clean-up are checklists)
+        #expect(store.kit?.playScenes.count == 1)
         #expect(store.kit?.scenes.filter(\.isChecklist).allSatisfy { Set($0.steps.map(\.role)) == [.R1, .R2] } == true)
+        let issues = PlayPlans.trace(store.kit!.scenes, kit: store.fullKit!, roles: store.plan!.roles, players: 2, props: store.props?.props ?? [])
+        #expect(issues.isEmpty, "\(issues)")
     }
 
     @Test func aCorrectionRestartsTheGuide() async {
         // Round 28 (Haylee): after the yes the game and theme can't change, so a mid-hunt theme fix is refused and the
         // guide written for this game stays (no new guide call).
-        let llm = FakeLLM(responses: ["PropWeave": Self.oneWeave])
+        let llm = FakeLLM()
         let store = AdventureStore(service: PhaseService(llm: llm))
         await hunting(store)
         await waitFor { store.guideWrittenAt != nil }
@@ -160,8 +163,8 @@ import Testing
     }
 
     @Test func paperGoesAheadAndPlayWaitsForTheGuide() async {
-        let fake = FakeLLM(responses: ["PropWeave": Self.oneWeave])
-        let store = AdventureStore(service: PhaseService(llm: SlowLLM(fake, slow: "OneSceneGuide", delay: .milliseconds(600))))
+        let fake = FakeLLM()
+        let store = AdventureStore(service: PhaseService(llm: SlowLLM(fake, slow: "GamePlanGuide", delay: .milliseconds(600))))
         await hunting(store)
         await waitFor { store.draftItems != nil }
         _ = await store.apply(.showNextProp(.init(itemID: "bowl", becomes: "the snack bowl", forRole: "all")))

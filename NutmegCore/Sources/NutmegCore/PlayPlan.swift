@@ -572,7 +572,9 @@ public enum PlayPlans {
     static func names(_ t: String, _ it: CoverItem) -> Bool {
         guard let p = it.prop else { return Bookends.mentions(t, it) }
         let label = KitDraft.cutoutLabel(becomes: p.becomes)
-        let pretendNames = Bookends.propNames(p).filter { $0.caseInsensitiveCompare(p.householdItem) != .orderedSame }
+        var pretendNames = Bookends.propNames(p).filter { $0.caseInsensitiveCompare(p.householdItem) != .orderedSame }
+        // "the airplane seats" also counts as "an airplane seat".
+        if label.lowercased().hasSuffix("s"), label.count > 3 { pretendNames.append(String(label.dropLast())) }
         return Bookends.mentions(t, name: label) || pretendNames.contains { Bookends.mentions(t, name: $0) }
     }
 
@@ -588,7 +590,7 @@ public enum PlayPlans {
     static func validIdea(_ raw: String, for it: CoverItem, roles: [Role]) -> String? {
         var t = OneScene.clean(raw)
         t = stripRoles(t, roles: roles)
-        t = PlayCast.endSentence(t)
+        t = exclaim(t)
         let n = t.split(whereSeparator: \.isWhitespace).count
         guard n >= 4, n <= maxIdeaWords, names(t, it), !Speakable.sendsToHazard(t), !EventScenario.isGestureOnly(t, roles: roles) else { return nil }
         return Speakable.repair(t, fallback: "")
@@ -626,8 +628,15 @@ public enum PlayPlans {
 
     /// The idea as she says it, with the owner's title in: "While we fly, Captain, write in your log what you saw!" or
     /// "Captain, count the Sky Dollars!".
+    /// An idea ends with "!" (a nudge), unless it already ends a sentence.
+    static func exclaim(_ s: String) -> String {
+        let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let last = t.last else { return t }
+        return ".!?".contains(last) ? t : t + "!"
+    }
+
     public static func ideaLine(_ idea: String, who: String) -> String {
-        let t = PlayCast.endSentence(idea.trimmingCharacters(in: .whitespacesAndNewlines))
+        let t = exclaim(idea)
         guard !t.isEmpty else { return "" }
         if let comma = t.firstIndex(of: ","), let first = t.split(separator: " ").first,
            leadWords.contains(first.lowercased()), t[..<comma].split(separator: " ").count <= 6 {
