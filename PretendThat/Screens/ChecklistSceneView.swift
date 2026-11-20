@@ -84,55 +84,103 @@ struct PTChecklistBoard: View {
     let height: CGFloat
     private var store: AdventureStore { model.store }
 
-    var body: some View {
-        let cards = ChecklistScenes.cards(scene)
-        let n = max(1, cards.count)
-        let columns = n <= 3 ? n : (n == 4 ? 2 : 3)
-        let gap = Theme.Space.m
-        let cardW = min(n == 1 ? 560 : 520, (width - CGFloat(columns - 1) * gap) / CGFloat(columns))
-        let size: PTChecklistSize = n <= 2 ? .padLarge : (n <= 3 ? .padMedium : .padSmall)
-        // Her peek over the top-right card: big when there's room, smaller with two rows of cards.
-        let peekW = min(cardW * (n <= 3 ? 0.42 : 0.34), n <= 3 ? 210 : 150)
-        let above = NutmegPeek.heightAboveEdge(width: peekW)
-        let titleH: CGFloat = 64
-        let topRight = min(columns, n) - 1
-        let rows = stride(from: 0, to: cards.count, by: columns).map { Array(cards[$0..<min($0 + columns, cards.count)]) }
-        let board = VStack(spacing: gap) {
-            HStack {
-                PTChecklistTitle(model: model, text: ChecklistScenes.shownTitle(scene, number: store.playNumber(index)), font: n <= 3 ? 34 : 30)
-                    .padding(.horizontal, Theme.Space.m).padding(.vertical, Theme.Space.xs)
-                    .frame(minHeight: titleH)
-                    .background(Capsule().fill(Theme.white))
-                    .shadow(color: Theme.panelShadow, radius: 8, y: 2)
-                Spacer(minLength: peekW + Theme.Space.s)   // the peek rises beside the title
+    /// The board's numbers for this many cards (review pass: worked out once, outside the view body, so the body
+    /// stays small enough for the type checker).
+    @MainActor private struct BoardLayout {
+        let rows: [[ChecklistScenes.Card]]
+        let gap: CGFloat
+        let cardW: CGFloat
+        let size: PTChecklistSize
+        let peekW: CGFloat
+        let above: CGFloat
+        let titleH: CGFloat
+        let titleFont: CGFloat
+        let topRight: Int
+
+        init(cards: [ChecklistScenes.Card], width: CGFloat) {
+            let n = max(1, cards.count)
+            let columns = n <= 3 ? n : (n == 4 ? 2 : 3)
+            let gap = Theme.Space.m
+            let maxW: CGFloat = n == 1 ? 560 : 520
+            let fitW: CGFloat = (width - CGFloat(columns - 1) * gap) / CGFloat(columns)
+            let cardW = min(maxW, fitW)
+            // Her peek over the top-right card: big when there's room, smaller with two rows of cards.
+            let share: CGFloat = n <= 3 ? 0.42 : 0.34
+            let cap: CGFloat = n <= 3 ? 210 : 150
+            let peekW = min(cardW * share, cap)
+            var rows: [[ChecklistScenes.Card]] = []
+            var i = 0
+            while i < cards.count {
+                rows.append(Array(cards[i..<min(i + columns, cards.count)]))
+                i += columns
             }
-            ForEach(Array(rows.enumerated()), id: \.offset) { r, row in
-                HStack(alignment: .top, spacing: gap) {
-                    ForEach(Array(row.enumerated()), id: \.element.role) { c, card in
-                        let peeks = r == 0 && c == topRight
-                        PTChecklistCard(model: model, scene: scene, card: card, size: size,
-                                        topClearance: peeks ? NutmegPeek.pawClearance(width: peekW) : 0)
-                            .frame(width: cardW)
-                            .background(alignment: .topTrailing) {
-                                if peeks { peekPart(.back).frame(width: peekW, height: above + NutmegPeek.pawOverhang(width: peekW)).offset(x: -Theme.Space.m, y: -above) }
-                            }
-                            .overlay(alignment: .topTrailing) {
-                                if peeks {
-                                    peekPart(.front).frame(width: peekW, height: above + NutmegPeek.pawOverhang(width: peekW)).offset(x: -Theme.Space.m, y: -above)
-                                        .allowsHitTesting(false)
-                                }
-                            }
-                    }
-                }
-            }
+            self.rows = rows
+            self.gap = gap
+            self.cardW = cardW
+            self.size = n <= 2 ? .padLarge : (n <= 3 ? .padMedium : .padSmall)
+            self.peekW = peekW
+            self.above = NutmegPeek.heightAboveEdge(width: peekW)
+            self.titleH = 64
+            self.titleFont = n <= 3 ? 34 : 30
+            self.topRight = min(columns, n) - 1
         }
-        .padding(.top, max(0, above - titleH - gap))
-        .frame(width: width)
+
+        /// The peek's frame height (above the card's edge plus the paws over it).
+        var peekH: CGFloat { above + NutmegPeek.pawOverhang(width: peekW) }
+    }
+
+    var body: some View {
+        let layout = BoardLayout(cards: ChecklistScenes.cards(scene), width: width)
         ViewThatFits(in: .vertical) {
-            board
-            ScrollView(.vertical) { board.padding(.bottom, Theme.Space.m) }.scrollIndicators(.visible).frame(height: height)
+            board(layout)
+            ScrollView(.vertical) { board(layout).padding(.bottom, Theme.Space.m) }.scrollIndicators(.visible).frame(height: height)
         }
         .frame(width: width, height: height, alignment: .top)
+    }
+
+    private func board(_ L: BoardLayout) -> some View {
+        VStack(spacing: L.gap) {
+            titleRow(L)
+            ForEach(Array(L.rows.enumerated()), id: \.offset) { item in
+                cardRow(L, row: item.element, rowIndex: item.offset)
+            }
+        }
+        .padding(.top, max(0, L.above - L.titleH - L.gap))
+        .frame(width: width)
+    }
+
+    private func titleRow(_ L: BoardLayout) -> some View {
+        HStack {
+            PTChecklistTitle(model: model, text: ChecklistScenes.shownTitle(scene, number: store.playNumber(index)), font: L.titleFont)
+                .padding(.horizontal, Theme.Space.m).padding(.vertical, Theme.Space.xs)
+                .frame(minHeight: L.titleH)
+                .background(Capsule().fill(Theme.white))
+                .shadow(color: Theme.panelShadow, radius: 8, y: 2)
+            Spacer(minLength: L.peekW + Theme.Space.s)   // the peek rises beside the title
+        }
+    }
+
+    private func cardRow(_ L: BoardLayout, row: [ChecklistScenes.Card], rowIndex: Int) -> some View {
+        HStack(alignment: .top, spacing: L.gap) {
+            ForEach(Array(row.enumerated()), id: \.element.role) { item in
+                cardView(L, item.element, peeks: rowIndex == 0 && item.offset == L.topRight)
+            }
+        }
+    }
+
+    private func cardView(_ L: BoardLayout, _ card: ChecklistScenes.Card, peeks: Bool) -> some View {
+        PTChecklistCard(model: model, scene: scene, card: card, size: L.size,
+                        topClearance: peeks ? NutmegPeek.pawClearance(width: L.peekW) : 0)
+            .frame(width: L.cardW)
+            .background(alignment: .topTrailing) {
+                if peeks { peekPart(.back).frame(width: L.peekW, height: L.peekH).offset(x: -Theme.Space.m, y: -L.above) }
+            }
+            .overlay(alignment: .topTrailing) {
+                if peeks {
+                    peekPart(.front).frame(width: L.peekW, height: L.peekH).offset(x: -Theme.Space.m, y: -L.above)
+                        .allowsHitTesting(false)
+                }
+            }
     }
 
     private func peekPart(_ part: NutmegPeek.Part) -> some View {

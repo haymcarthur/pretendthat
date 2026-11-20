@@ -42,3 +42,17 @@
 - **Not compiled:** every app file (ChecklistSceneView.swift is new; RootView, AppModel, PlayScreens, PTComponents, DemoDriver, LayoutMetrics, Theme and the button files changed). They were parse-checked with `swiftc -parse` and read over against the existing APIs, but Haylee's Mac build is the first type-check. Run xcodegen first (new file).
 - **Not run:** no simulator, no screenshots (no Xcode here), no live game, no voice, $0.
 - **Demo targets:** `-PTDemo checklist | checklist2 | scenario | cleanupList | replaySkip` (with `-PTPlayers N`); driver taps `#item N`, `#check N`, `#role R2`, `#prev`, `#hear`, `#skip`.
+
+## Review pass (2026-11-20, Claude, no Xcode: a "be the compiler" read of every changed app file)
+Every identifier, initializer, enum case and memberwise init the new app code calls was looked up against its definition (NutmegCore and app); exhaustive switches over the cases that grew (`PhoneContent.scenario`, `PTBigIconButton.Kind.skip`, `UserAction.previousScene/.skipToScenes`, `ToolCall.previousScene`) are covered; iOS 17 APIs used (`Text.foregroundStyle` in a `Text + Text`, `UnevenRoundedRectangle(topLeadingRadius:topTrailingRadius:style:)`, `scrollIndicatorsFlash(onAppear:)`, `sensoryFeedback(_:trigger:condition:)`, `ViewThatFits`) have the signatures used. project.yml globs `PretendThat/`, so the new file is picked up by xcodegen. Nothing in NutmegCore changed in this pass.
+
+**Fixed:**
+- `AppModel.runChecklistReader` (the 🔊 queue): the wait for her line to end was unbounded (`while isSpeaking`), so a speaking flag that never cleared would have held every later tap for good. Now capped at 30 s, and it also waits while a live line is on its way or running (`realtime.voiceBusy`), so a slow live line (over the 4 s start wait) no longer gets the next row sent on top of it. `readChecklist` uses the same busy test.
+- `AppModel.resumeSession`: since a resume may now run while a silent reconnect is running, it cleared the reconnect's `resuming` flag after its ping, which let a second reconnect start beside the first. It now only sets/clears the flag when it owns it.
+- `ChecklistSceneView.PTChecklistBoard`: the body (layout math + nested ForEach + peek overlays in one expression) was split into a `BoardLayout` (computed once, `@MainActor` because `NutmegPeek`'s statics are View-isolated) and small `board` / `titleRow` / `cardRow` / `cardView` functions, to stay clear of "unable to type-check in reasonable time".
+
+**Still uncertain (only a Mac build / device game settles these):**
+- No real type-check yet: Swift 6 strict-concurrency diagnostics in RealtimeSession (Tasks created in MainActor methods, `os.Logger` as a global `let`) and SwiftUI overload resolution were checked by reading, not compiled.
+- Watchdog false positive: any app line with no audio in 4 s closes the main socket (silent reconnect, line said again). A legitimately slow first delta would cost a reconnect; at most one per 20 s.
+- The lines-session reopen count (2, 10, 30 s) is per connection and is not reset by a successful reopen.
+- `voiceBusy` now includes `lineInFlight`; if a lines-session response.done ever went missing on a healthy socket, app lines that wait on `voiceBusy` (bounded loops) would wait their full limits until the socket fails or reconnects.

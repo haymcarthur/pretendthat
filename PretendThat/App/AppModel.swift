@@ -1621,9 +1621,12 @@ final class AppModel {
     private func resumeSession() async {
         guard resumeLoop.request() else { return }   // one is running: it checks again when it ends
         while true {
-            resuming = true   // the mic shows "connecting" while the ping runs (no press into a stopped engine)
+            // Review pass: a silent reconnect may already be running (a resume is allowed while busy now). Then the
+            // flag is the reconnect's (it clears it when it ends); clearing it here would let a second one start beside it.
+            let ownsFlag = !resuming
+            if ownsFlag { resuming = true }   // the mic shows "connecting" while the ping runs (no press into a stopped engine)
             let alive = await realtime.resumeIfAlive()
-            resuming = false
+            if ownsFlag { resuming = false }
             let active = UIApplication.shared.applicationState == .active
             if resumeLoop.ended(stillSuspended: realtime.suspended, appActive: active) {
                 voiceLog("resume: away and back during the resume, resuming again")
@@ -2560,7 +2563,7 @@ extension AppModel {
 
     /// Says an item now, or queues it while she's talking (and starts the queue's watcher).
     private func readChecklist(_ item: ChecklistReader.Item) {
-        let busy = isSpeaking || checklistReaderTask != nil
+        let busy = checklistVoiceBusy || checklistReaderTask != nil
         if let now = checklistReader.tap(item, busy: busy) { sayChecklist(now) }
         if checklistReaderTask == nil { runChecklistReader() }
     }
@@ -2586,7 +2589,12 @@ extension AppModel {
                     if self.isSpeaking { started = true; break }
                     try? await Task.sleep(for: .milliseconds(100))
                 }
-                while !Task.isCancelled && self.isSpeaking { try? await Task.sleep(for: .milliseconds(100)) }
+                // Review pass: bounded, so a speaking / busy flag that never clears (a dropped socket, an engine that
+                // stopped mid-line) can't hold the queue for good; a line is at most ~30 s.
+                var waited = 0
+                while !Task.isCancelled && self.checklistVoiceBusy && waited < Self.checklistMaxWait {
+                    try? await Task.sleep(for: .milliseconds(100)); waited += 1
+                }
                 if !started { try? await Task.sleep(for: .milliseconds(500)) }
                 guard !Task.isCancelled else { return }
                 guard let next = self.checklistReader.finished() else { break }
@@ -2595,6 +2603,11 @@ extension AppModel {
             if !Task.isCancelled { self?.checklistReaderTask = nil }   // a cancelled one never clears its replacement
         }
     }
+
+    /// Her line is playing, or (live) one is on its way or running: the next queued item waits (never two at once).
+    private var checklistVoiceBusy: Bool { isSpeaking || (realtime.isLive && realtime.voiceBusy) }
+    /// The most the queue waits for one line to end, in 100 ms steps (30 s).
+    private static let checklistMaxWait = 300
 
     /// The scene changed (or the game ended): nothing queued, nothing highlighted.
     func stopChecklistReading() {
