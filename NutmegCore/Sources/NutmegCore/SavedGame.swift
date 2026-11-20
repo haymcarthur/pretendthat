@@ -50,7 +50,7 @@ public struct SavedClip: Codable, Equatable, Sendable {
 /// with ONE task per role (R1…R6) plus a solo task. Version 1 games (round 28's hand-off guide) are dropped: the app
 /// wasn't live, so they are never read (they stay off the shelf).
 public struct SavedGame: Codable, Equatable, Sendable, Identifiable {
-    public static let currentSchema = 7
+    public static let currentSchema = 8
     /// Round 36: schema 3 adds the story and the setup / clean-up scenes (`Kit.story`, `.setup`, `.cleanup`). A schema 2
     /// game (round 29 to 35) still opens: it has no arc, so its replay is exactly its 3 play scenes, as first played.
     /// Round 45: schema 4 = a printables-library kit (4 to 6 types, `KitItem.variant` / `.pictures`, picture-only art).
@@ -65,7 +65,10 @@ public struct SavedGame: Codable, Equatable, Sendable, Identifiable {
     /// 2026-11-21 (Haylee, one scene with music): schema 7 = a one-scene guide (`Scene.beats`: the setup checklist,
     /// the scene's event pool, finale and music family; `OneScene`). Schemas 2 to 6 still open and replay exactly as
     /// before (no `beats`, so they keep their own path).
-    public static let readableSchemas: Set<Int> = [2, 3, 4, 5, 6, 7]
+    /// 2026-11-21 (Haylee, one game plan): schema 8 = a game-plan guide (`SceneBeats.plan`: areas and every object's
+    /// life cycle; events with `objects` / `area`). Schemas 2 to 7 still open and replay exactly as before (no plan, so
+    /// a schema 7 game keeps the one-scene setup by owner and no ideas).
+    public static let readableSchemas: Set<Int> = [2, 3, 4, 5, 6, 7, 8]
     public var id: UUID
     public var schemaVersion: Int
     /// Device usage for the shelf order (newest first), not about a kid.

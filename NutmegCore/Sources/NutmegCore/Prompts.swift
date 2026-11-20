@@ -103,7 +103,8 @@ public enum Prompts {
 
     /// Round 45: how to choose and write the printables (the library, this game's shortlist, the art and word rules).
     static func libraryRules(_ picks: PrintPicks) -> String {
-        let library = KitRecipe.allCases.map { "- \($0.rawValue): \(PrintLibrary.guide($0)) (kids \(PrintLibrary.verbs($0)) it)" }.joined(separator: "\n")
+        // 2026-11-21 (Haylee, one game plan): each type's PLAY JOB in the scene, so a page is picked only for a real use.
+        let library = KitRecipe.allCases.map { "- \($0.rawValue): \(PrintLibrary.guide($0)) (kids \(PrintLibrary.verbs($0)) it; in play: \(PrintPlayJobs.job($0).use))" }.joined(separator: "\n")
         let choose: String
         if let g = picks.game {
             choose = "THIS GAME'S SHORTLIST: \(g.types.map(\.rawValue).joined(separator: ", ")). Choose 4 to 6 printables from "

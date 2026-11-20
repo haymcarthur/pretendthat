@@ -37,6 +37,27 @@ public enum Fallback {
         return scenes
     }()
 
+    /// 2026-11-21 (Haylee, one game plan): the bundled airplane game's guide as a GAME PLAN: four areas (the cockpit,
+    /// the passenger cabin, the snack galley, the gate), every page's and prop's life cycle, and the 12 events using
+    /// them (`airplane-gameplan.json`). The app's fallback and demo mode use it.
+    public static let gamePlanScenes: [Scene] = {
+        guard let url = Bundle.module.url(forResource: "airplane-gameplan", withExtension: "json"),
+              let data = try? Data(contentsOf: url),
+              let scenes = try? JSONDecoder().decode([Scene].self, from: data) else {
+            fatalError("airplane-gameplan.json missing or invalid")   // covered by a test
+        }
+        return scenes
+    }()
+
+    /// The fallback game with the game-plan guide (no setup scene; the story and the clean-up title stay).
+    public static func gamePlanAirplane(playerCount: Int) -> Airplane {
+        var a = airplane(playerCount: playerCount)
+        a.kit.scenes = gamePlanScenes
+        a.kit.setup = nil
+        a.kit.cleanup?.goals = nil
+        return a
+    }
+
     /// The fallback game with the one-scene guide (no setup scene; the story and the clean-up jobs stay).
     public static func oneSceneAirplane(playerCount: Int) -> Airplane {
         var a = airplane(playerCount: playerCount)

@@ -118,13 +118,17 @@ public final class PhaseService: Sendable {
         // 2026-11-21 (Haylee, one scene with music): the guide is a setup checklist + ONE scene's event pool (`OneScene`).
         // (The 11-20 checklist-scenes guide, `KitScenesSix.checklistSchema`, is no longer asked for; its saved games
         // still replay.)
-        let made = try await safe({ try await self.ask(OneSceneGuide.self, $0, OneScene.schema(), Self.scenesEffort,
-                                   clean: { g in OneSceneGuide(scene: Sanitizer.clean(Kit(nutmegSays: "", items: [], scenes: [g.scene])).scenes.first ?? g.scene,
+        // 2026-11-21 (Haylee, one game plan): the guide call is now the GAME PLAN call (areas, every page's life cycle,
+        // the events using them; `PlayPlans`). The props are placed into it when the hunt ends (`placeProps`).
+        // (The plain one-scene guide, `OneSceneGuide`, is no longer asked for; its saved games still replay.)
+        let made = try await safe({ try await self.ask(GamePlanGuide.self, $0, PlayPlans.schema(items: items), Self.scenesEffort,
+                                   clean: { g in GamePlanGuide(scene: Sanitizer.clean(Kit(nutmegSays: "", items: [], scenes: [g.scene])).scenes.first ?? g.scene,
                                                                story: g.story, cleanupTitle: g.cleanupTitle) },
                                    problem: { Validate.scenes([$0.scene], roles: roles) }) },
-                                  OneScene.prompt(ctx: c, items: items))
-        // There's time during the hunt: a guide with no setup or no events is written again (RetryOnce).
-        if made.scene.steps.isEmpty || (made.scene.beats?.events.isEmpty ?? true) { throw ClaudeError.decoding("the play guide had no setup or no events") }
+                                  PlayPlans.prompt(ctx: c, items: items))
+        // There's time during the hunt: a plan with no events is written again (RetryOnce). Missing life cycles and
+        // areas are written by the app (`PlayPlans.repairGuide`).
+        if made.scene.beats?.events.isEmpty ?? true { throw ClaudeError.decoding("the game plan had no events") }
         return Bookends.ensure(made.kit(items: items))
         }
     }
@@ -148,6 +152,19 @@ public final class PhaseService: Sendable {
         \(Prompts.contextJSON(ctx))
         """
         return try await safe({ try await self.ask(ItemJobs.self, $0, ItemJobs.schema(ids: ids), .low, clean: { $0 }, problem: { _ in nil }) }, user)
+        }
+    }
+
+    /// 2026-11-21 (Haylee, one game plan): when the hunt ends, ONE small call places every found prop into the plan
+    /// (area, owner, setup, idea, put-away, maybe one event rewritten to use it). It replaces the per-prop weave calls.
+    /// Its texts pass the kid-safety check (else this throws and the app places the props itself).
+    public func placeProps(scene: Scene, props: [Prop], ctx: AdventureContext) async throws -> PlanPropsAnswer {
+        try await ClaudeRouting.$call.withValue(.weave) {
+        let roles = ctx.plan?.roles ?? []
+        return try await safe({ try await self.ask(PlanPropsAnswer.self, $0,
+                                                   PlayPlans.propsSchema(propIDs: props.map { Bookends.propID($0.id) }, events: scene.beats?.events.count ?? 0),
+                                                   .low, clean: { $0 }, problem: { _ in nil }) },
+                              PlayPlans.propsPrompt(scene: scene, props: props, roles: roles, players: ctx.playerCount))
         }
     }
 
@@ -268,7 +285,9 @@ public enum Validate {
         // 2026-11-21: a one-scene guide: one scene, its setup checklist and an event pool (the app repairs any gap;
         // only a pool too small to pick from, or no setup at all, is worth asking again).
         if let one = scenes.first(where: { $0.beats != nil }) {
-            if one.steps.isEmpty { return short("setup items", 0, want: "2 or 3 setup items for each role R1 to R6", fatal: true) }
+            // 2026-11-21: a game plan's setup comes from its objects and its areas are repaired by the app (no second
+            // call for them: only a pool too small to pick from is worth asking again).
+            if one.beats?.plan == nil, one.steps.isEmpty { return short("setup items", 0, want: "2 or 3 setup items for each role R1 to R6", fatal: true) }
             let pool = one.beats?.events.count ?? 0
             if pool < 3 { return short("events", pool, want: "\(OneScene.poolMin) to \(OneScene.poolMax) events calling all 6 roles", fatal: false) }
             return nil

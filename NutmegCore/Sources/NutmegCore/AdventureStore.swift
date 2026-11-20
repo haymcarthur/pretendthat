@@ -366,6 +366,9 @@ public final class AdventureStore {
     /// 2026-11-21 (Haylee, one scene with music): the bundled fallback / demo game plays the one-scene guide (setup
     /// checklist → one scene with events → clean-up). Tests of the 11-20 checklist path turn this off.
     @ObservationIgnored public var useOneSceneFallback = true
+    /// 2026-11-21 (Haylee, one game plan): the bundled fallback / demo game plays the game-plan guide (area setup cards,
+    /// ideas, clean-up by area). Tests of the plain one-scene path turn this off.
+    @ObservationIgnored public var useGamePlanFallback = true
 
     // MARK: The one scene (2026-11-21, Haylee: setup checklist, then one scene with music and events, then clean-up)
 
@@ -1523,7 +1526,8 @@ public final class AdventureStore {
     private func useFallbackGame() {
         // 2026-11-20: the bundled game plays the checklist scenes (demo mode shows the new format with no AI).
         // 2026-11-21: the one-scene guide (the 11-20 checklist scenes and the round 36 shape stay for their tests).
-        let a = useOneSceneFallback ? Fallback.oneSceneAirplane(playerCount: max(1, playerCount))
+        let a = useOneSceneFallback && useGamePlanFallback ? Fallback.gamePlanAirplane(playerCount: max(1, playerCount))
+            : useOneSceneFallback ? Fallback.oneSceneAirplane(playerCount: max(1, playerCount))
             : useChecklistFallback ? Fallback.checklistAirplane(playerCount: max(1, playerCount)) : Fallback.airplane(playerCount: max(1, playerCount))
         usingFallback = true
         lastError = nil
@@ -1573,7 +1577,7 @@ public final class AdventureStore {
             var kit = try? await RetryOnce.run { try await service.earlyGuide(ctx: ctx, items: items) }
             // Round 36: a page whose setup / clean-up job came back missing or unusable is asked for ONCE more, now,
             // while the kids are still hunting (else the app writes it, `Bookends.repair`).
-            if let k = kit {
+            if let k = kit, !k.hasGamePlan {   // 2026-11-21: a game plan carries every page's life cycle (no re-ask)
                 let again = Bookends.toReask(k, props: [])
                 if !again.isEmpty {
                     #if DEBUG
@@ -1598,6 +1602,9 @@ public final class AdventureStore {
     /// is applied at the hunt's end with no call).
     func refreshWeave() {
         guard let service, weaveTask == nil, let guide = guideKit, guideGeneration == draftGeneration else { return }
+        // 2026-11-21 (Haylee, one game plan): no per-prop weave; the props are placed into the plan in ONE call when
+        // the hunt ends (`finishWithPlan`).
+        guard !guide.hasGamePlan else { return }
         let todo = GuideWeave.pending(props, attempted: weaveAttempted)
         guard !todo.isEmpty else { return }
         weaveAttempted.formUnion(todo.map(\.id))
@@ -1650,6 +1657,11 @@ public final class AdventureStore {
     private func finishWithPrefetchedGuide(pages: [KitItem], gen: Int) async {
         let items = KitDraft.finalItems(pages, props: props)
         recordPrintVariants(items)   // round 45: the next kits turn away from these layouts
+        // 2026-11-21 (Haylee, one game plan): the plan written during the hunt gets its props now, in one call.
+        if guideKit?.hasGamePlan == true || (guideKit == nil && useGamePlanFallback) {
+            await finishWithPlan(items: items, gen: gen)
+            return
+        }
         if let scenes = await finalGuideIfReady(items: items), gen == kitGeneration {
             fullKit = withArc(Kit(nutmegSays: guideKit?.nutmegSays ?? "", items: items, scenes: scenes))
             guideFinalAt = Date(); phase = .kitReady
@@ -1687,6 +1699,55 @@ public final class AdventureStore {
         fullKit = made
         guideFinalAt = Date()
         guidePending = false
+        if playQueued, phase == .kitReady { playQueued = false; beginPlay() }
+    }
+
+    /// 2026-11-21 (Haylee, one game plan): the hunt is over. The pages go out now (Paper never waits); the plan
+    /// (written during the hunt, or now if that failed) gets every found prop placed into it by ONE small call (skips
+    /// and swaps are known, so nothing is patched afterwards), and Play starts as soon as it's in. No answer, or one
+    /// that fails the safety check: the app places the props (stand-ins, areas), with no second call.
+    private func finishWithPlan(items: [KitItem], gen: Int) async {
+        guard gen == kitGeneration else { return }
+        fullKit = Kit(nutmegSays: "", items: items, scenes: [])
+        guidePending = true
+        phase = .kitReady
+        if guideKit == nil { _ = await guideTask?.value }
+        guard gen == kitGeneration else { return }
+        var guide: Kit? = guideGeneration == draftGeneration ? guideKit : nil
+        if guide == nil, let service, !usingFallback {
+            guideCalls += 1
+            guide = try? await RetryOnce.run { [ctx = context] in try await service.earlyGuide(ctx: ctx, items: items) }
+            guard gen == kitGeneration else { return }
+        }
+        let roles = plan?.roles ?? []
+        let found = (props?.props ?? []).filter { !$0.isSkipped }
+        var scenes = guide?.scenes ?? Fallback.gamePlanScenes
+        if let i = scenes.firstIndex(where: { $0.beats?.plan != nil }) {
+            var answer: PlanPropsAnswer?
+            if let service, !usingFallback, !found.isEmpty, guide != nil {
+                answer = try? await service.placeProps(scene: scenes[i], props: found, ctx: context)
+                guard gen == kitGeneration else { return }
+            }
+            let base = scenes[i]
+            scenes[i] = PlayPlans.placeProps(answer, into: base, props: props?.props ?? [], items: items, roles: roles)
+            if answer != nil, let service, !(await service.guideIsSafe(scenes)) {
+                #if DEBUG
+                NSLog("[CLAUDE] the props' places failed the kid-safety check: the app places them")
+                #endif
+                scenes[i] = PlayPlans.placeProps(nil, into: base, props: props?.props ?? [], items: items, roles: roles)
+            }
+        }
+        guard gen == kitGeneration else { return }
+        var made = withArc(Kit(nutmegSays: guide?.nutmegSays ?? "", items: items, scenes: scenes))
+        if let g = guide, guideKit == nil || guideGeneration != draftGeneration {   // written late, after the hunt
+            made.story = g.story; made.cleanup = g.cleanup; made = Bookends.ensure(made)
+        }
+        fullKit = made
+        guideFinalAt = Date()
+        guidePending = false
+        #if DEBUG
+        if let k = kit { for issue in PlayPlans.trace(k.scenes, kit: fullKit ?? made, roles: roles, players: playerCount, props: props?.props ?? []) { NSLog("[PLAN] %@", issue) } }
+        #endif
         if playQueued, phase == .kitReady { playQueued = false; beginPlay() }
     }
 

@@ -21,6 +21,7 @@ struct OneSceneTests {
     /// A store on the bundled (one-scene) game, at the setup checklist.
     func storeAtSetup(players: Int = 2) async -> AdventureStore {
         let store = AdventureStore(service: nil)
+        store.useGamePlanFallback = false   // 2026-11-21: the plain one-scene path (the bundled game is a game plan now)
         await store.start()
         await store.chooseGame("Airplane")
         store.setPlayerCount(players)
@@ -366,9 +367,9 @@ struct OneSceneTests {
         let json = try JSONSerialization.jsonObject(with: ResumePoint.encoder().encode(point)) as! [String: Any]
         #expect(Set(json.keys) == ResumePoint.allowedKeys)   // game content only
         let g = try #require(store.savedGame(id: store.gameID, art: [], cover: nil))
-        #expect(g.schemaVersion == 7 && g.kit.isOneScene)
+        #expect(g.schemaVersion == 8 && g.kit.isOneScene)   // 2026-11-21: new saves are schema 8 (a one-scene kit still replays its path)
         let back = try SavedGame.decode(SavedGame.encoder().encode(g))
-        #expect(back.kit == g.kit && back.id == g.id && back.schemaVersion == 7)
+        #expect(back.kit == g.kit && back.id == g.id && back.schemaVersion == 8)
         let again = AdventureStore(service: nil)
         again.resumeReplay(back, at: try ResumePoint.decoder().decode(ResumePoint.self, from: ResumePoint.encoder().encode(point)))
         #expect(again.currentBeatScene != nil && again.beatTime == 222 && again.playerCount == 4)

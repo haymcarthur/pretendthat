@@ -146,12 +146,16 @@ public struct BeatEvent: Codable, Equatable, Sendable {
     public var calmAgain: String?
     /// Written by the app (a pool that couldn't call every role fairly), not the guide.
     public var appWritten: Bool?
+    /// 2026-11-21 (game plan): the plan's objects this event uses (cover item ids, each named in the line) and the
+    /// area where it happens. Nil in older guides.
+    public var objects: [String]?
+    public var area: String?
     public init(mood: BeatMood, roles: [RoleID], line: String, calmAgain: String? = nil, appWritten: Bool? = nil) {
         self.mood = mood; self.roles = roles; self.line = line; self.calmAgain = calmAgain; self.appWritten = appWritten
     }
     public var isTense: Bool { mood == .tense }
     public var isEveryone: Bool { roles.isEmpty }
-    private enum CodingKeys: String, CodingKey { case mood, roles, line, calmAgain, appWritten }
+    private enum CodingKeys: String, CodingKey { case mood, roles, line, calmAgain, appWritten, objects, area }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         mood = (try? c.decodeIfPresent(BeatMood.self, forKey: .mood)) ?? .calm
@@ -162,12 +166,16 @@ public struct BeatEvent: Codable, Equatable, Sendable {
         let again = ((try? c.decodeIfPresent(String.self, forKey: .calmAgain)) ?? nil)?.trimmingCharacters(in: .whitespacesAndNewlines)
         calmAgain = (again?.isEmpty ?? true) ? nil : again
         appWritten = (try? c.decodeIfPresent(Bool.self, forKey: .appWritten)) ?? nil
+        objects = (try? c.decodeIfPresent([String].self, forKey: .objects)) ?? nil
+        area = (try? c.decodeIfPresent(String.self, forKey: .area)) ?? nil
     }
     public func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(mood, forKey: .mood); try c.encode(roles, forKey: .roles); try c.encode(line, forKey: .line)
         try c.encodeIfPresent(calmAgain, forKey: .calmAgain)
         if appWritten == true { try c.encode(true, forKey: .appWritten) }
+        if let objects, !objects.isEmpty { try c.encode(objects, forKey: .objects) }
+        try c.encodeIfPresent(area, forKey: .area)
     }
 }
 
@@ -178,19 +186,35 @@ public struct SceneBeats: Codable, Equatable, Sendable {
     public var events: [BeatEvent]
     public var finale: String
     public var music: MusicFamily
-    public init(opener: String, events: [BeatEvent], finale: String, music: MusicFamily) {
-        self.opener = opener; self.events = events; self.finale = finale; self.music = music
+    /// 2026-11-21 (Haylee, one game plan): the game's plan (areas, every object's life cycle) in the guide's scene;
+    /// nil in older guides (schema 7 and before), which keep their own path.
+    public var plan: PlayPlan?
+    /// 2026-11-21: the calm-stretch ideas of the scene the players see (scheduled in the calm gaps). Nil in the guide.
+    public var ideas: [BeatIdea]?
+    public init(opener: String, events: [BeatEvent], finale: String, music: MusicFamily, plan: PlayPlan? = nil, ideas: [BeatIdea]? = nil) {
+        self.opener = opener; self.events = events; self.finale = finale; self.music = music; self.plan = plan; self.ideas = ideas
     }
-    private enum CodingKeys: String, CodingKey { case opener, events, finale, music }
+    private enum CodingKeys: String, CodingKey { case opener, events, finale, music, plan, ideas }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         opener = ((try? c.decodeIfPresent(String.self, forKey: .opener)) ?? nil) ?? ""
         events = ((try? c.decodeIfPresent([BeatEvent].self, forKey: .events)) ?? nil) ?? []
         finale = ((try? c.decodeIfPresent(String.self, forKey: .finale)) ?? nil) ?? ""
         music = ((try? c.decodeIfPresent(MusicFamily.self, forKey: .music)) ?? nil) ?? .fallback
+        plan = (try? c.decodeIfPresent(PlayPlan.self, forKey: .plan)) ?? nil
+        ideas = (try? c.decodeIfPresent([BeatIdea].self, forKey: .ideas)) ?? nil
     }
-    /// Every text Nutmeg may say in the scene (the kid-safety check).
-    public var texts: [String] { [opener, finale] + events.flatMap { [$0.line] + ($0.calmAgain.map { [$0] } ?? []) } }
+    /// Every text Nutmeg may say in the scene (the kid-safety check), the plan's and the ideas' too.
+    public var texts: [String] {
+        var out: [String] = [opener, finale]
+        for e in events {
+            out.append(e.line)
+            if let c = e.calmAgain { out.append(c) }
+        }
+        out += plan?.texts ?? []
+        out += (ideas ?? []).map(\.line)
+        return out
+    }
 }
 
 extension Kit {
@@ -350,6 +374,9 @@ public enum OneScene {
         s.beats = Speakable.repair(b)
         s.steps = s.steps.map(Speakable.repair)
         s.nutmegSays = s.beats?.opener ?? b.opener
+        // 2026-11-21 (Haylee, one game plan): the plan made whole (areas, every object's life cycle, the events'
+        // references); its setup steps are rebuilt from the objects.
+        if s.beats?.plan != nil { s = PlayPlans.repairGuide(s, roles: roles, props: props, items: items, title: title) }
         return s
     }
 
@@ -452,6 +479,8 @@ public enum OneScene {
         }
         var out = BeatEvent(mood: e.mood, roles: ids, line: line, appWritten: written)
         if e.isTense { out.calmAgain = calmAgain(e.calmAgain, index: line.count) }
+        // 2026-11-21 (game plan): the plan's references come along (`PlayPlans.tie` checks them against the line).
+        out.objects = e.objects; out.area = e.area
         return out
     }
 
@@ -591,6 +620,8 @@ public enum OneScene {
     /// the roles, N and the props.
     public static func compose(_ k: Kit, roles: [Role], players n: Int, props: [Prop]) -> [Scene] {
         guard !roles.isEmpty, let guide = k.scenes.first(where: { $0.beats != nil }), let b = guide.beats else { return k.scenes }
+        // 2026-11-21 (Haylee): a game-plan kit composes from its plan (area cards, ideas, clean-up by area).
+        if b.plan != nil { return PlayPlans.compose(k, guide: guide, roles: roles, players: n, props: props) }
         let p = PlayCast.players(n)
         var out: [Scene] = []
         if let story = k.story?.trimmingCharacters(in: .whitespacesAndNewlines), !story.isEmpty {
@@ -728,6 +759,8 @@ public enum BeatCueKind: Equatable, Hashable, Sendable {
     case event(Int)
     /// Tense event i is over: the soft calm-again card, the calm music returns.
     case calmAgain(Int)
+    /// 2026-11-21 (Haylee, one game plan): calm-stretch idea k (no chime, no duck; the small card low right).
+    case idea(Int)
     /// The finale for everyone: celebrate pose, confetti, the win music.
     case finale
     /// The clean-up checklist opens by itself.
@@ -761,14 +794,58 @@ public enum BeatTimeline {
         return firstEvent + Double(i) * gap
     }
 
+    // MARK: Calm-stretch ideas (2026-11-21, Haylee: one game plan)
+
+    /// How long an idea card stays up (Haylee: about 20 s, or until the next event).
+    public static let ideaShows: TimeInterval = 20
+    /// The least time between two ideas (or an idea and the next event's chime) in a gap.
+    public static let ideaSpacing: TimeInterval = 35
+    /// The opener's own moment before the first gap's idea.
+    public static let openerRoom: TimeInterval = 25
+    /// A calm event's card has the stage at least this long before an idea.
+    public static let eventRoom: TimeInterval = 30
+    /// At most this many ideas in one gap ("not too often").
+    public static let maxIdeasPerGap = 2
+
+    /// Calm gap g (0 = before the first event, g = before event g, events.count = after the last, before the finale):
+    /// its start (after the opener, a calm event's room, or a tense event's calm-again card) and its end (the next
+    /// event or the finale).
+    public static func gap(_ g: Int, events: [BeatEvent], total: TimeInterval = total) -> (start: TimeInterval, end: TimeInterval) {
+        let n = events.count
+        let end = g < n ? eventAt(g, count: n, total: total) : finaleAt(total: total)
+        guard g > 0, events.indices.contains(g - 1) else { return (min(openerRoom, end), end) }
+        let at = eventAt(g - 1, count: n, total: total)
+        let start = at + (events[g - 1].isTense ? calmAgainAfter + BeatRun.calmAgainShows : eventRoom)
+        return (min(start, end), end)
+    }
+
+    /// How many ideas fit in gap g (each needs `ideaSpacing` before the next cue; at most `maxIdeasPerGap`).
+    public static func ideaRoom(_ g: Int, events: [BeatEvent], total: TimeInterval = total) -> Int {
+        let r = gap(g, events: events, total: total)
+        return max(0, min(maxIdeasPerGap, Int((r.end - r.start) / ideaSpacing)))
+    }
+
+    /// When each idea is said: the ideas of a gap spread evenly through it (in list order).
+    public static func ideaTimes(_ ideas: [BeatIdea], events: [BeatEvent], total: TimeInterval = total) -> [TimeInterval] {
+        var out: [TimeInterval] = []
+        for (k, idea) in ideas.enumerated() {
+            let same = ideas.indices.filter { ideas[$0].gap == idea.gap }
+            let slot = same.firstIndex(of: k) ?? 0
+            let r = gap(idea.gap, events: events, total: total)
+            out.append(r.start + (r.end - r.start) * Double(slot + 1) / Double(same.count + 1))
+        }
+        return out
+    }
+
     /// Every cue, in time order.
-    public static func cues(_ events: [BeatEvent], total: TimeInterval = total) -> [BeatCue] {
+    public static func cues(_ events: [BeatEvent], ideas: [BeatIdea] = [], total: TimeInterval = total) -> [BeatCue] {
         var out = [BeatCue(at: 0, kind: .opener)]
         for (i, e) in events.enumerated() {
             let t = eventAt(i, count: events.count, total: total)
             out.append(BeatCue(at: t, kind: .event(i)))
             if e.isTense { out.append(BeatCue(at: t + calmAgainAfter, kind: .calmAgain(i))) }
         }
+        for (k, t) in ideaTimes(ideas, events: events, total: total).enumerated() { out.append(BeatCue(at: t, kind: .idea(k))) }
         let f = finaleAt(total: total)
         out.append(BeatCue(at: f, kind: .finale))
         out.append(BeatCue(at: f + cleanupAfterFinale, kind: .cleanup))
@@ -790,6 +867,8 @@ public enum BeatDisplay: Equatable, Sendable {
     case event(Int)
     /// Tense event i's soft calm-again card.
     case calmAgain(Int)
+    /// 2026-11-21: calm-stretch idea k's small card (about 20 s, or until the next event).
+    case idea(Int)
     /// The finale (until the clean-up opens).
     case finale
 }
@@ -815,15 +894,20 @@ public enum BeatFace: String, Equatable, Sendable {
 /// ticks it with `BeatClock`'s elapsed time).
 public struct BeatRun: Equatable, Sendable {
     public let events: [BeatEvent]
+    /// 2026-11-21 (game plan): the calm-stretch ideas, in gap order.
+    public let ideas: [BeatIdea]
     public let total: TimeInterval
     public let cues: [BeatCue]
+    /// When each idea is said.
+    public let ideaTimes: [TimeInterval]
     public private(set) var fired: Set<Int> = []
     /// How long the calm-again card stays up (2026-11-21: 20 s, room for its 🔊).
     public static let calmAgainShows: TimeInterval = 20
 
-    public init(events: [BeatEvent], total: TimeInterval = BeatTimeline.total) {
-        self.events = events; self.total = total
-        cues = BeatTimeline.cues(events, total: total)
+    public init(events: [BeatEvent], ideas: [BeatIdea] = [], total: TimeInterval = BeatTimeline.total) {
+        self.events = events; self.ideas = ideas; self.total = total
+        cues = BeatTimeline.cues(events, ideas: ideas, total: total)
+        ideaTimes = BeatTimeline.ideaTimes(ideas, events: events, total: total)
     }
 
     /// A resume (pause or relaunch): every cue up to `elapsed` counts as fired (none is said again).
@@ -853,10 +937,21 @@ public struct BeatRun: Equatable, Sendable {
         return finaleAt
     }
 
-    /// When event i's card goes down: its calm-again for a tense event, else the next event (or the finale).
+    /// When event i's card goes down: its calm-again for a tense event, else the next cue (an idea in its gap, the next
+    /// event or the finale).
     public func eventEnds(_ i: Int) -> TimeInterval {
         if events[i].isTense { return eventAt(i) + BeatTimeline.calmAgainAfter }
-        return i + 1 < events.count ? eventAt(i + 1) : finaleAt
+        let next = i + 1 < events.count ? eventAt(i + 1) : finaleAt
+        let idea = ideaTimes.filter { $0 > eventAt(i) && $0 < next }.min()
+        return idea ?? next
+    }
+
+    /// When idea k's card goes down: about 20 s later, or at the next event (or the finale) if that comes first.
+    public func ideaEnds(_ k: Int) -> TimeInterval {
+        let at = ideaTimes[k]
+        let nextEvent = events.indices.map { eventAt($0) }.filter { $0 > at }.min() ?? finaleAt
+        let nextIdea = ideaTimes.filter { $0 > at }.min() ?? .infinity
+        return min(at + BeatTimeline.ideaShows, nextEvent, nextIdea, finaleAt)
     }
 
     public var finaleAt: TimeInterval { BeatTimeline.finaleAt(total: total) }
@@ -868,6 +963,11 @@ public struct BeatRun: Equatable, Sendable {
 
     public func display(at t: TimeInterval) -> BeatDisplay {
         if t >= finaleAt { return .finale }
+        // 2026-11-21: a calm-stretch idea's small card (the latest one said, while it's up).
+        if let k = ideaTimes.indices.last(where: { ideaTimes[$0] <= t }), t < ideaEnds(k),
+           lastEvent(at: t).map({ eventAt($0) <= ideaTimes[k] }) ?? true {
+            return .idea(k)
+        }
         guard let i = lastEvent(at: t) else { return .playing }
         let at = eventAt(i)
         if t < eventEnds(i) { return .event(i) }
@@ -887,7 +987,7 @@ public struct BeatRun: Equatable, Sendable {
 
     public func face(at t: TimeInterval) -> BeatFace {
         switch display(at: t) {
-        case .playing: return .happyBob
+        case .playing, .idea: return .happyBob   // 2026-11-21: an idea is a soft nudge, she keeps grooving
         case .event(let i): return events[i].isTense ? .alarmed : .talkingPerked
         case .calmAgain: return .phew
         case .finale: return .celebrate

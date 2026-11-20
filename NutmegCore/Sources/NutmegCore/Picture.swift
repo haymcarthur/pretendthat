@@ -87,6 +87,10 @@ public enum PictureResolver {
             }
             if tail != nil && role == nil { return nil }   // a badge for a role that isn't in this game
             return .kitItem(itemID: badge.id, recipe: .badges, role: role)
+        // 2026-11-21 (game plan): any printed page by its recipe ("page:log"): the setup row's chip, the idea card.
+        case "page":
+            guard let t = tail, let r = KitRecipe.allCases.first(where: { $0.rawValue.lowercased() == t }), let it = item(r) else { return nil }
+            return .kitItem(itemID: it.id, recipe: r, role: nil)
         case "cutout", "cutouts":
             guard let cut = item(.cutouts), let n = Int(tail ?? "0"), cut.lines.indices.contains(n) else { return nil }
             return .cutout(itemID: cut.id, index: n, label: cut.lines[n])
