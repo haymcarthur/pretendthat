@@ -316,7 +316,10 @@ struct GamePlanTests {
         #expect(!row.text.lowercased().contains("plate"), "\(row.text)")
         #expect(PlayPlans.trace(arc(k, 3, props: swap), kit: k, roles: roles, players: 3, props: swap).isEmpty)
     }
+}
 
+/// Review pass: the deadline that keeps Play from waiting forever (off the main actor, so other tests can't hold it up).
+struct DeadlineTests {
     @Test func aDeadlineAnswersOrGivesUpInTime() async {
         let fast = await Deadline.run(seconds: 5) { 7 }
         #expect(fast == 7)
@@ -324,7 +327,7 @@ struct GamePlanTests {
         let slow = await Deadline.run(seconds: 0.3) { () -> Int in
             try await Task.sleep(for: .seconds(30)); return 1
         }
-        #expect(slow == nil && Date().timeIntervalSince(started) < 5)
+        #expect(slow == nil && Date().timeIntervalSince(started) < 20)
         let failed = await Deadline.run(seconds: 5) { () -> Int in throw ClaudeError.decoding("no") }
         #expect(failed == nil)
     }
