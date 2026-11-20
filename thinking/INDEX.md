@@ -141,6 +141,8 @@ The map. Read this first, then open only what you need.
 
 - [Scenes = per-role checklists (checkbox left, 🔊 right, role picture + name on top, all at once), then a very short "Pretend that…" scenario; no scene intro; more players → fewer scenes; plus voice-stall fix, Previous scene, resume/skip in the same round](decisions/2026-11-20-checklist-then-scenario-scenes.md): Haylee (Claude's proposals noted)
 
+- [Thinner 3D edge on buttons (about 4% of height, 2–4 pt, instead of a fixed 6 pt)](decisions/2026-11-20-thinner-button-depth.md): Haylee (Claude's calls noted)
+
 ## Work queue
 - [Round 34 build: app-written prop lines (first play = replay words, her first-play clips reused, no "Next,"/"still have"), replay hunt = the first play's layout and camera, in-app speech model download (iPadOS 26+, SpeechAnalyzer turn), tasks short on screen + spoken specifics (short/say, GuideRepair), scene opening = setup + cue (~22 s → 5–9 s), whole-row tap + read_job, one-sentence returning greeting (8.8–9.1 s → 5.5–5.7 s)](decisions/2026-11-16-round34.md): Haylee (items), Claude's calls noted
 - [Round 35 prep + onboarding voice fix: onboarding through NutmegSpeaker (one session, output-only until the mic is allowed), system TTS removed, mini voice for scripted lines and Sonnet for guide/weave behind flags (OFF), relay allow-lists, A/B v2 through the real app in design/voice-ab-v2/](decisions/2026-11-16-round35-prep.md): Haylee (items), Claude's calls noted; mini waits for Haylee's ear
