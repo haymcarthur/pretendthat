@@ -158,14 +158,16 @@ final class FakeDefaults: OnboardingDefaults {
 
     @Test func freePreviewCountsNewGamesNotReplays() {
         let d = FakeDefaults(), c = FreePreviewCounter(defaults: d)
-        #expect(c.allowance == 2 && c.remaining == 2 && !c.exhausted)
+        #expect(c.allowance == 3 && c.remaining == 3 && !c.exhausted)   // 2026-11-20: 3 (was 2)
         c.gameStarted(isReplay: true)
         c.gameStarted(isReplay: true)
-        #expect(c.used == 0 && c.remaining == 2)
+        #expect(c.used == 0 && c.remaining == 3)
         c.gameStarted(isReplay: false)
-        #expect(c.used == 1 && c.remaining == 1)
+        #expect(c.used == 1 && c.remaining == 2)
         c.gameStarted(isReplay: true)
         #expect(c.used == 1)
+        c.gameStarted(isReplay: false)
+        #expect(c.used == 2 && c.remaining == 1 && !c.exhausted)
         c.gameStarted(isReplay: false)
         #expect(c.exhausted && c.remaining == 0)
         #expect(NewGameGate.newGame(consent: true, plan: .none, freeRemaining: c.remaining) == .needsPlan)
@@ -174,19 +176,19 @@ final class FakeDefaults: OnboardingDefaults {
         #expect(d.values.values.allSatisfy { $0 is Int })   // an integer only
     }
 
-    @Test func freePreviewResetGivesTwoAgain() {
+    @Test func freePreviewResetGivesAllThreeAgain() {
         let d = FakeDefaults(), c = FreePreviewCounter(defaults: d)
-        c.gameStarted(isReplay: false); c.gameStarted(isReplay: false)
+        for _ in 0..<PlanCatalog.freePreviewShows { c.gameStarted(isReplay: false) }
         #expect(c.exhausted)
         c.reset()
-        #expect(c.used == 0 && c.remaining == 2)
+        #expect(c.used == 0 && c.remaining == 3)
         #expect(NewGameGate.newGame(consent: true, plan: .none, freeRemaining: c.remaining) == .start)
     }
 
     // MARK: Plans
 
     @Test func plansAreConfigWithBilledPriceFirst() {
-        #expect(PlanCatalog.freePreviewShows == 2)
+        #expect(PlanCatalog.freePreviewShows == 3)
         #expect(PlanCatalog.defaultPeriod == .monthly)
         #expect(PlanCatalog.showPass.newShowsPerMonth == 5 && PlanCatalog.seasonPass.newShowsPerMonth == 20)
         // Plans 5/20 (Haylee, 2026-11-17): regular prices only, no intro offers.
@@ -232,8 +234,8 @@ final class FakeDefaults: OnboardingDefaults {
 
     @Test func v3PlansPageSaysGamesAndTheRenewalPricePlainly() {
         // Plans 5/20: the Free Preview reads as one-time ("to try"), never per month.
-        #expect(OnboardingCopy.plansV3Title == "2 free games to try")
-        #expect(OnboardingCopy.freeGamesButton == "Try 2 free games")
+        #expect(OnboardingCopy.plansV3Title == "3 free games to try")
+        #expect(OnboardingCopy.freeGamesButton == "Try 3 free games")
         // The saved game page round: printables are always theirs (no promise of free replays).
         #expect(OnboardingCopy.plansV3Lead == "Each new game is a fresh story and printable kit made just for your kids. Every game saves itself, and its printables are always yours to view and print.")
         #expect(OnboardingCopy.planGames(.showPass) == "5 new games a month")

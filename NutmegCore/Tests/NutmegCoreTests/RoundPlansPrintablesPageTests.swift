@@ -179,7 +179,7 @@ final class FakeImaging: PageImaging, @unchecked Sendable {
 
 @Suite struct PlansFiveTwentyTests {
     @Test func sizesAndPrices() {
-        #expect(PlanTier.freePreview.allowance == 2 && PlanTier.showPass.allowance == 5 && PlanTier.seasonPass.allowance == 20)
+        #expect(PlanTier.freePreview.allowance == 3 && PlanTier.showPass.allowance == 5 && PlanTier.seasonPass.allowance == 20)
         #expect(PlanCatalog.showPass.billedText(.monthly) == "$9.99/month" && PlanCatalog.showPass.billedText(.yearly) == "$99.99/year")
         #expect(PlanCatalog.seasonPass.billedText(.monthly) == "$24.99/month" && PlanCatalog.seasonPass.billedText(.yearly) == "$249.99/year")
         #expect(StoreProducts.storeDescription(StoreProducts.showPassMonthly) == "5 new games a month. Play your saved games again with Nutmeg anytime.")
@@ -196,10 +196,10 @@ final class FakeImaging: PageImaging, @unchecked Sendable {
             let w = l.lowercased()
             #expect(!w.contains("a month") && !w.contains("per month") && !w.contains("monthly") && !w.contains("/mo"), "\(l)")
         }
-        #expect(free.summary == "1 of 2 free games to try left")
+        #expect(free.summary == "2 of 3 free games to try left")
         #expect(free.refillText() == nil)
-        #expect(OnboardingCopy.plansV3Title == "2 free games to try")
-        #expect(OnboardingCopy.plansBody.hasPrefix("2 free games to try."))
+        #expect(OnboardingCopy.plansV3Title == "3 free games to try")
+        #expect(OnboardingCopy.plansBody.hasPrefix("3 free games to try."))
     }
 
     @Test func noCopyPromisesFreeReplays() {

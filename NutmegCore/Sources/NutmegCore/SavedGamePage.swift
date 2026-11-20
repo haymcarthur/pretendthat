@@ -3,7 +3,7 @@ import Foundation
 // Saved game page (Haylee, decisions/2026-11-17-saved-game-page-and-play-bar.md; mockup design/mockups/after-cancel,
 // version A, WITHOUT the player picker). Tapping a saved game on the bookshelf opens its PAGE for everyone: the cover and
 // title, a big "Play with Nutmeg", the printables (Color / Black & white, the kit pages) and Print. Viewing and printing
-// are always free. Playing it again with Nutmeg needs an active pass (Haylee's change, 2026-11-17: the 2 Free Preview
+// are always free. Playing it again with Nutmeg needs an active pass (Haylee's change, 2026-11-17: the Free Preview
 // games too, no exception). Without one, Nutmeg says her ask-a-grown-up line, then the grown-ups gate, then the grown-up
 // card. Kids never see prices. Nothing about kids here: titles and fixed words.
 

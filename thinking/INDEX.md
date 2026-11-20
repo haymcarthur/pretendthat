@@ -199,6 +199,7 @@ The map. Read this first, then open only what you need.
 - [Printables after a lock: calls cut off by the lock are retried on return, color and coloring pages always the same AI picture, no fallback art in live games (a not-ready page shows Try again and isn't printed)](decisions/2026-11-18-printables-after-lock.md): Haylee (no fallback art, show an error); Claude's call on the fix
 - [TestFlight build 1.0 (4): peek v4 body and hands, saved-game offer picture only, Nutmeg looks up while she talks, idle/lock tap and mic fix, printables after a lock](decisions/2026-11-18-build-4.md): Haylee
 - [Demo seeds Moon Crumbs Bakery with its real cover, so the saved-game offer and the shelf book show the same picture](decisions/2026-11-18-demo-seed-real-cover.md): Haylee (how: Claude's call)
+- [Free Preview: 3 free games to try (was 2)](decisions/2026-11-20-free-preview-three.md): Haylee
 - [Saved game page: sheet slides up alone, ✕ on the sheet; shelf names no longer overlap](decisions/2026-11-20-saved-page-sheet-and-shelf-names.md): Haylee
 - [Prop art: openings show through; 10 images fixed (bag, cup and chair regenerated; prompts in design/props-regen)](decisions/2026-11-20-prop-art-openings.md): Haylee
 - [Code Cracker: AI picture + the kit's colors; page names never become "a friend"](decisions/2026-11-20-code-cracker-picture-and-page-names.md): Haylee + Claude's calls

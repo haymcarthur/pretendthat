@@ -17,7 +17,7 @@ public enum PlanTier: String, CaseIterable, Sendable, Codable {
         }
     }
 
-    /// New games: Free Preview 2 to try, ONCE (never per month); Show Pass 5 a month; Season Pass 20 a month (plans 5/20).
+    /// New games: Free Preview 3 to try, ONCE (never per month); Show Pass 5 a month; Season Pass 20 a month (plans 5/20).
     /// Replays never count, and playing a saved game again with Nutmeg needs an active pass.
     public var allowance: Int {
         switch self {
@@ -184,7 +184,7 @@ public final class PlanShowCounter {
 
 // MARK: - The allowance
 
-/// What's left right now: the Free Preview (2 to try, once) or the plan's monthly games.
+/// What's left right now: the Free Preview (3 to try, once) or the plan's monthly games.
 public struct ShowAllowance: Equatable, Sendable {
     public let tier: PlanTier
     public let used: Int
@@ -205,7 +205,7 @@ public struct ShowAllowance: Equatable, Sendable {
         return ShowAllowance(tier: e.tier, used: counter.used(in: w), refillsAt: w.end)
     }
 
-    /// "3 of 5 new games left this month" / "1 of 2 free games to try left" (the Free Preview is once, never a month).
+    /// "3 of 5 new games left this month" / "1 of 3 free games to try left" (the Free Preview is once, never a month).
     public var summary: String {
         tier.isPaid ? "\(remaining) of \(allowance) new games left this month" : "\(remaining) of \(allowance) free games to try left"
     }

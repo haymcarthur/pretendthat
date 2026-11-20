@@ -3,7 +3,7 @@ import NutmegCore
 
 /// Saved game page (Haylee, decisions/2026-11-17-saved-game-page-and-play-bar.md; mockup design/mockups/after-cancel,
 /// version A without the player picker). A bookshelf card opens the game's page for everyone: viewing and printing its
-/// kit are always free; "Play with Nutmeg" needs an active pass (the 2 Free Preview games are no exception, Haylee
+/// kit are always free; "Play with Nutmeg" needs an active pass (the Free Preview games are no exception, Haylee
 /// 2026-11-17). No AI call anywhere on the page except Nutmeg's two short lines (her usual line path: a clip if one
 /// exists, else her live voice once; never the device voice).
 extension AppModel {

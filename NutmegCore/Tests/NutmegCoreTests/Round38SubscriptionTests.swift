@@ -25,7 +25,7 @@ import Testing
     }
 
     @Test func allowancesAndPricesMatchTheDecision() {
-        #expect(PlanTier.freePreview.allowance == 2)
+        #expect(PlanTier.freePreview.allowance == 3)   // 2026-11-20 (Haylee): 3, was 2
         // Plans 5/20 (2026-11-17).
         #expect(PlanTier.showPass.allowance == 5)
         #expect(PlanTier.seasonPass.allowance == 20)
@@ -84,9 +84,9 @@ import Testing
     @Test func gateUsesTheRealAllowance() {
         let d = FakeDefaults(); let c = PlanShowCounter(defaults: d)
         let now = date(2026, 11, 17)
-        // Free Preview: 2 new shows, then the plans.
-        #expect(NewGameGate.newGame(consent: true, allowance: .current(entitlement: nil, freeUsed: 1, counter: c, now: now)) == .start)
-        #expect(NewGameGate.newGame(consent: true, allowance: .current(entitlement: nil, freeUsed: 2, counter: c, now: now)) == .needsPlan)
+        // Free Preview: 3 new shows (2026-11-20, was 2), then the plans.
+        #expect(NewGameGate.newGame(consent: true, allowance: .current(entitlement: nil, freeUsed: 2, counter: c, now: now)) == .start)
+        #expect(NewGameGate.newGame(consent: true, allowance: .current(entitlement: nil, freeUsed: 3, counter: c, now: now)) == .needsPlan)
         #expect(NewGameGate.newGame(consent: false, allowance: .current(entitlement: nil, freeUsed: 0, counter: c, now: now)) == .needsConsent)
         // Show Pass: 5 a month, then out of shows until the window ends.
         let e = PlanEntitlement(productID: StoreProducts.showPassMonthly, tier: .showPass, purchaseDate: date(2026, 11, 3), expirationDate: date(2026, 12, 3))
