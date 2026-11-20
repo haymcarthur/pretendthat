@@ -28,6 +28,20 @@ public enum Sanitizer {
             if library { i.wholePage = true }
             return i
         }
+        // 2026-11-21: a one-scene guide is ONE scene: at most 3 setup items per role and the pool capped (`OneScene`).
+        if let one = k.scenes.first(where: { $0.beats != nil }) {
+            var s = one
+            var seen: [RoleID: Int] = [:]
+            s.steps = s.steps.filter { st in
+                guard let r = st.role.role else { return false }
+                seen[r, default: 0] += 1
+                return seen[r]! <= ChecklistScenes.maxItems
+            }
+            if var b = s.beats { b.events = Array(b.events.prefix(OneScene.poolMax)); s.beats = b }
+            s.owner = .all
+            k.scenes = [s]
+            return k
+        }
         // 2026-11-20: a checklist guide has 4 scenes, 2 to 3 items per role and a scenario (`ChecklistScenes`).
         if k.scenes.contains(where: \.isChecklist) {
             k.scenes = Array(k.scenes.prefix(Limits.checklistScenes)).map { scene in

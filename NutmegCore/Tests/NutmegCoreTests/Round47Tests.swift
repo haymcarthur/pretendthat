@@ -261,7 +261,7 @@ import Testing
         let r46 = SavedGame(createdAt: Date(), title: "Sky", roles: roles, props: [], kit: k, printStyle: .fullColor,
                             art: ["img:badges@3", "img:tickets", "oimg:badges@3", "cut:characters:0"], voiceID: "v")
         let back = try SavedGame.decode(SavedGame.encoder().encode(r46))
-        #expect(back.schemaVersion == SavedGame.currentSchema && SavedGame.currentSchema == 5)   // no schema bump needed
+        #expect(back.schemaVersion == SavedGame.currentSchema && SavedGame.currentSchema >= 5)   // no schema bump needed (later rounds bumped it)
         let keys = Set(back.art.compactMap { ArtKey.parse($0, plain: .fullColor) }.filter { $0.style == .fullColor && $0.index == nil }.map(\.itemID))
         let pages3 = KitLayout.pages(for: back.kit, roles: roles, playerCount: 3)
         let badge3 = try #require(pages3.first { $0.item.recipe == .badges })

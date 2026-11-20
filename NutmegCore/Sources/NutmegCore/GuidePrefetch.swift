@@ -158,13 +158,14 @@ public enum GuideWeave {
         }.joined(separator: "\n")
         let playing = (1...n).map { "R\($0)" }.joined(separator: ", ")
         let last = max(0, scenes.count - 1)
+        // 2026-11-21: a one-scene guide has ONE checklist (the setup), so there's no scene to prefer.
+        let place = scenes.count == 1 ? "in the setup checklist," : "preferably in scene 0 or scene \(last) (every group size plays those),"
         return """
         Phase: add household props to the play checklists. The kids found these props in their home for this game:
         \(list)
         The checklists (sN.M = scene N, item M; [the role it belongs to]):
         \(guide)
-        For EACH prop, pick 1 or 2 checklist items of the playing roles (\(playing)), preferably in scene 0 or scene \(last) \
-        (every group size plays those), spread over the roles (the prop's own role first), and rewrite ONLY those items \
+        For EACH prop, pick 1 or 2 checklist items of the playing roles (\(playing)), \(place) spread over the roles (the prop's own role first), and rewrite ONLY those items \
         so the kid sets up or uses the prop as what it becomes: 2 to 6 words, one simple action, no role title, no end \
         punctuation, no quotes (e.g. Set up the airplane seats, Put on your space helmet). Never pick an item marked \
         (taken), and at most one prop per item. Name the prop by what it becomes, gentle and kid-safe. \

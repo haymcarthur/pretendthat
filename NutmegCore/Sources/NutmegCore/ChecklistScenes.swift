@@ -113,7 +113,8 @@ public enum ChecklistScenes {
 
     /// The title as the card shows it ("Scene 2: Get the rocket ready"; the clean-up scene keeps its own title).
     public static func shownTitle(_ scene: Scene, number: Int) -> String {
-        scene.arc == .cleanup ? scene.title : "Scene \(number): \(scene.title)"
+        // 2026-11-21: the one-scene game's setup checklist keeps its own title too (there are no numbered scenes).
+        scene.arc == .cleanup || scene.arc == .setup ? scene.title : "Scene \(number): \(scene.title)"
     }
 
     /// A role's whole checklist in one line (a tap on the card's picture, or "what do I do?" by voice):
@@ -459,15 +460,19 @@ public struct ResumePoint: Codable, Equatable, Sendable {
     public var scene: Int
     public var progress: ChecklistProgress
     public var savedAt: Date
-    public init(gameID: UUID, players: Int, scene: Int, progress: ChecklistProgress, savedAt: Date) {
+    /// 2026-11-21 (one scene with music): how far into the scene the kids were (scene seconds; the events up to here
+    /// have fired, `BeatRun.restore`). Nil outside the scene and in older resume points.
+    public var sceneTime: TimeInterval?
+    public init(gameID: UUID, players: Int, scene: Int, progress: ChecklistProgress, savedAt: Date, sceneTime: TimeInterval? = nil) {
         self.gameID = gameID; self.players = players; self.scene = scene; self.progress = progress; self.savedAt = savedAt
+        self.sceneTime = sceneTime
     }
     /// An offer older than this is dropped (a game left days ago is a new evening: start from the bookshelf instead).
     public static let maxAge: TimeInterval = 3 * 24 * 3600
     public func isFresh(now: Date = Date()) -> Bool { now.timeIntervalSince(savedAt) < Self.maxAge && now >= savedAt.addingTimeInterval(-60) }
 
     /// The exact JSON keys a resume point may have (a privacy test compares against this; a new field is a decision).
-    public static let allowedKeys: Set<String> = ["gameID", "players", "scene", "progress", "savedAt"]
+    public static let allowedKeys: Set<String> = ["gameID", "players", "scene", "progress", "savedAt", "sceneTime"]
 
     public static func encoder() -> JSONEncoder { SavedGame.encoder() }
     public static func decoder() -> JSONDecoder { SavedGame.decoder() }

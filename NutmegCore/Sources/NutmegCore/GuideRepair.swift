@@ -40,6 +40,11 @@ public enum GuideRepair {
         guard !scenes.isEmpty else { return scenes }
         // 2026-11-20 (Haylee): checklist scenes have their own repair (items, scenario, 4 scenes); the props reach the
         // items through their weave and, for every count, the app's coverage step when the scenes are composed.
+        // 2026-11-21 (Haylee, one scene with music): the guide is ONE scene (setup items + the event pool); its repair
+        // is `OneScene.repair`. Older checklist and ensemble guides keep theirs.
+        if let i = scenes.firstIndex(where: { $0.beats != nil }) {
+            return [OneScene.repair(scenes[i], roles: roles, props: props, title: title, items: items)]
+        }
         if scenes.contains(where: \.isChecklist) {
             return ChecklistScenes.repair(scenes, roles: roles, props: props, title: title, items: items)
         }

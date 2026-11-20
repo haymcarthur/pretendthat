@@ -115,17 +115,17 @@ public final class PhaseService: Sendable {
         try await ClaudeRouting.$call.withValue(.guide) {
         var c = ctx; c.props = nil
         let roles = ctx.plan?.roles.count ?? 0
-        // 2026-11-20 (Haylee): the guide is 4 checklist scenes + a scenario each (`ChecklistScenes`).
-        let made = try await safe({ try await self.ask(KitScenesSix.self, $0, KitScenesSix.checklistSchema(), Self.scenesEffort,
-                                   clean: { s in KitScenesSix(nutmegSays: s.nutmegSays, scenes: Sanitizer.clean(Kit(nutmegSays: "", items: [], scenes: s.scenes)).scenes,
-                                                              story: s.story, setup: s.setup, cleanup: s.cleanup) },
-                                   problem: { Validate.scenes($0.scenes, roles: roles) }) },
-                                  Prompts.checklistScenes(ctx: c, items: items))
-        // There's time during the hunt: a guide still short after its one fix is written again (RetryOnce).
-        if made.scenes.count < KitScenesSix.checklistCount { throw ClaudeError.decoding("the play guide had \(made.scenes.count) scenes") }
-        // Round 36: the story and the setup / clean-up scenes come with it (empty if the answer had none: repaired later).
-        return Bookends.ensure(Kit(nutmegSays: made.nutmegSays, items: items, scenes: made.scenes,
-                                   story: made.story.map { $0.replacingOccurrences(of: "\"", with: "") }, setup: made.setup, cleanup: made.cleanup))
+        // 2026-11-21 (Haylee, one scene with music): the guide is a setup checklist + ONE scene's event pool (`OneScene`).
+        // (The 11-20 checklist-scenes guide, `KitScenesSix.checklistSchema`, is no longer asked for; its saved games
+        // still replay.)
+        let made = try await safe({ try await self.ask(OneSceneGuide.self, $0, OneScene.schema(), Self.scenesEffort,
+                                   clean: { g in OneSceneGuide(scene: Sanitizer.clean(Kit(nutmegSays: "", items: [], scenes: [g.scene])).scenes.first ?? g.scene,
+                                                               story: g.story, cleanupTitle: g.cleanupTitle) },
+                                   problem: { Validate.scenes([$0.scene], roles: roles) }) },
+                                  OneScene.prompt(ctx: c, items: items))
+        // There's time during the hunt: a guide with no setup or no events is written again (RetryOnce).
+        if made.scene.steps.isEmpty || (made.scene.beats?.events.isEmpty ?? true) { throw ClaudeError.decoding("the play guide had no setup or no events") }
+        return Bookends.ensure(made.kit(items: items))
         }
     }
 
@@ -165,7 +165,8 @@ public final class PhaseService: Sendable {
     /// Guide prefetch: the final guide's text (after the hunt's skips and swaps were applied) passes the kid-safety
     /// check before it's shown.
     public func guideIsSafe(_ scenes: [Scene], extra: [String] = []) async -> Bool {
-        await safety.check(scenes.flatMap { [$0.title, $0.nutmegSays] + $0.steps.flatMap { [$0.text] + ($0.short.map { [$0] } ?? []) } } + extra, pretend: true) == nil
+        // 2026-11-21: the one scene's event lines, calm-again lines and finale are checked too (`spokenTexts`).
+        await safety.check(scenes.flatMap(\.spokenTexts) + extra, pretend: true) == nil
     }
 
     /// One call, sanitized. If the answer is under the spec's minimums (e.g. 1 scene), ask once more with a
@@ -264,6 +265,14 @@ public enum Validate {
     /// `roles`: how many ranked roles the game has (round 29: each needs its own ONE task in every scene; 0 = no check).
     public static func scenes(_ scenes: [Scene], roles: Int = 0) -> Problem? {
         let want = scenes.contains(where: \.isChecklist) ? ChecklistScenes.generated : GuideRepair.minScenes
+        // 2026-11-21: a one-scene guide: one scene, its setup checklist and an event pool (the app repairs any gap;
+        // only a pool too small to pick from, or no setup at all, is worth asking again).
+        if let one = scenes.first(where: { $0.beats != nil }) {
+            if one.steps.isEmpty { return short("setup items", 0, want: "2 or 3 setup items for each role R1 to R6", fatal: true) }
+            let pool = one.beats?.events.count ?? 0
+            if pool < 3 { return short("events", pool, want: "\(OneScene.poolMin) to \(OneScene.poolMax) events calling all 6 roles", fatal: false) }
+            return nil
+        }
         if scenes.count < want { return short("scenes", scenes.count, want: "exactly \(want) scenes", fatal: scenes.isEmpty) }
         if let s = scenes.first(where: { GuideRepair.isPlaceholderTitle($0.title) }) {
             return Problem(message: "scene \"\(s.id)\" had no real title", fatal: false)

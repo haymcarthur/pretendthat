@@ -79,6 +79,13 @@ public enum BackNav {
         + "job is (\"what do I do, Pet Trainer?\"), call read_job with that role and say nothing. " + voiceHint
         + " Otherwise answer in ONE short, fun line that helps the current scene, with no tools."
 
+    /// 2026-11-21 (one scene with music): the play step's note for a one-scene game (setup → the scene → clean-up).
+    public static let oneScenePlayNote = "(Silent coaching, don't mention it.) They're playing now: a setup checklist, then "
+        + "one scene that runs by itself with music (the app says the events), then a clean-up checklist. On a checklist, "
+        + "when they say they're done, call next_scene and say nothing (it moves on only when every item is checked). There "
+        + "is no previous scene. If a kid asks what their job is (\"what do I do, Pet Trainer?\"), call read_job with that "
+        + "role and say nothing. " + voiceHint + " Otherwise answer in ONE short, fun line that helps the game, with no tools."
+
     /// The silent note after a TAP on the rail, so the conversation knows where the kids are.
     public static func tapNote(_ step: JourneyStep, line: String? = nil) -> String {
         "(Silent note, don't mention it.) The kids tapped back to the \(step.label) step and you said: \"\(line ?? arrivalLine(step))\". "

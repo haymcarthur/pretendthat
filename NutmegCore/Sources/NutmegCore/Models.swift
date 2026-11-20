@@ -251,11 +251,18 @@ public struct Scene: Codable, Equatable, Sendable, Identifiable {
     /// short "Pretend that…" scenario said once every item is checked (empty in the clean-up checklist). Nil = an older
     /// scene (ensemble tasks, setup / clean-up goal rows), which plays exactly as it did.
     public var checklist: Bool?
+    /// 2026-11-21 (Haylee, one scene with music: decisions/2026-11-21-one-scene-music-beats.md): the ONE play scene's
+    /// beats (the "Pretend that…" opener, the events, the finale, the music family; `OneScene`). In the guide's scene
+    /// (which also holds the setup checklist as its steps) `events` is the pool; in the scene the players see it is the
+    /// picked plan. Nil in every older scene.
+    public var beats: SceneBeats?
     public init(id: String, owner: SceneOwner, title: String, picture: Picture, nutmegSays: String, steps: [Step], kind: SceneKind? = nil,
-                checklist: Bool? = nil) {
+                checklist: Bool? = nil, beats: SceneBeats? = nil) {
         self.id = id; self.owner = owner; self.title = title; self.picture = picture; self.nutmegSays = nutmegSays; self.steps = steps; self.kind = kind
-        self.checklist = checklist
+        self.checklist = checklist; self.beats = beats
     }
+    /// The one scene with events and music (2026-11-21).
+    public var isBeatScene: Bool { beats != nil && arc == .play && !isChecklist }
     /// A checklist scene (see `checklist`).
     public var isChecklist: Bool { checklist == true }
     /// The arc position (a scene without a kind is a play scene).
@@ -268,6 +275,7 @@ public struct Scene: Codable, Equatable, Sendable, Identifiable {
         nutmegSays = try c.decode(String.self, forKey: .nutmegSays); steps = try c.decode([Step].self, forKey: .steps)
         kind = try? c.decodeIfPresent(SceneKind.self, forKey: .kind)
         checklist = (try? c.decodeIfPresent(Bool.self, forKey: .checklist)) ?? nil
+        beats = (try? c.decodeIfPresent(SceneBeats.self, forKey: .beats)) ?? nil
     }
 }
 public struct Kit: Codable, Equatable, Sendable {

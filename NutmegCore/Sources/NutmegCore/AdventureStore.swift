@@ -363,6 +363,28 @@ public final class AdventureStore {
 
     /// The bundled fallback / demo game plays checklist scenes (tests of the older scene path turn this off).
     @ObservationIgnored public var useChecklistFallback = true
+    /// 2026-11-21 (Haylee, one scene with music): the bundled fallback / demo game plays the one-scene guide (setup
+    /// checklist → one scene with events → clean-up). Tests of the 11-20 checklist path turn this off.
+    @ObservationIgnored public var useOneSceneFallback = true
+
+    // MARK: The one scene (2026-11-21, Haylee: setup checklist, then one scene with music and events, then clean-up)
+
+    /// How far into the one scene the kids are (scene seconds). The app's scene clock writes it as it runs; a resume
+    /// point keeps it, so a relaunch opens the scene where it was. Zero when a scene opens.
+    @ObservationIgnored public var beatTime: TimeInterval = 0
+    /// The composed scene on screen, if it is the one scene with events and music.
+    public var currentBeatScene: Scene? {
+        guard case .scene(let i) = phase, let s = kit?.scenes, s.indices.contains(i), s[i].isBeatScene else { return nil }
+        return s[i]
+    }
+    /// This game is a one-scene game (setup → scene → clean-up).
+    public var isOneSceneGame: Bool { fullKit?.isOneScene ?? false }
+    /// The scene on screen is the one-scene game's setup checklist or its clean-up checklist (its big button lights up
+    /// when every card is done: ▶ Let's play! / ▶ The End).
+    public var oneSceneChecklist: SceneKind? {
+        guard isOneSceneGame, let sc = currentChecklist, sc.arc == .setup || sc.arc == .cleanup else { return nil }
+        return sc.arc
+    }
     /// Which checklist items are ticked, per scene (kept when the kids go back a scene; cleared on a count change).
     public private(set) var progress = ChecklistProgress()
 
@@ -434,6 +456,8 @@ public final class AdventureStore {
         // Never back into the story on a resume: the first scene with rows.
         let at = s[k].arc == .story ? (s.indices.first { s[$0].arc != .story } ?? k) : k
         enterScene(at)
+        // 2026-11-21: back into the one scene where it was (the app opens it paused).
+        if s[at].isBeatScene { beatTime = max(0, point.sceneTime ?? 0) }
     }
 
     /// The replay's hunt ends here: every saved prop not answered yet counts as found (skip and resume).
@@ -450,7 +474,8 @@ public final class AdventureStore {
         guard case .scene(let i) = phase, playerCount > 0 else { return nil }
         let id = isReplay ? gameID : (savedAs ?? gameID)
         guard isReplay || savedAs != nil else { return nil }
-        return ResumePoint(gameID: id, players: playerCount, scene: i, progress: progress, savedAt: now)
+        let inScene = kit?.scenes.indices.contains(i) == true && kit!.scenes[i].isBeatScene
+        return ResumePoint(gameID: id, players: playerCount, scene: i, progress: progress, savedAt: now, sceneTime: inScene ? beatTime : nil)
     }
 
     /// Skip (replays only, Haylee): from Pick, Props or Print straight to the scenes. The saved props count as found.
@@ -478,6 +503,10 @@ public final class AdventureStore {
         // Round 36: the story is told as written (no cue: there are no rows); the first scene WITH rows (the setup)
         // says how to move on.
         if s[i].arc == .story { return PlayCast.endSentence(s[i].nutmegSays.trimmingCharacters(in: .whitespacesAndNewlines)) }
+        // 2026-11-21: the one scene says nothing as it opens (the app's scene clock says the opener at 0, so a resume
+        // doesn't say it again); the one-scene setup checklist has its own cue.
+        if s[i].isBeatScene { return nil }
+        if s[i].isChecklist && s[i].arc == .setup { return OneScene.setupCue(s[i]) }
         // 2026-11-20: a checklist scene opens with one short cue ("Scene 2: Get the rocket ready! Tap your picture to
         // hear your jobs."); a finished one (back with ◀) says its scenario again.
         if s[i].isChecklist {
@@ -1095,12 +1124,17 @@ public final class AdventureStore {
             return "Play started. The app runs the scenes now. Say nothing."
         case .nextScene:
             // Round 29: "next scene" / "we're done" in a scene: the same as the green ▶ button.
-            guard case .scene = phase else { return "There's no scene right now. Answer in ONE short line." }
+            guard case .scene(let i) = phase else { return "There's no scene right now. Answer in ONE short line." }
+            // 2026-11-21 (one scene): the scene runs by itself; the setup / clean-up move on only when every card is done
+            // (the same as their big button).
+            if currentBeatScene != nil { return Self.beatSceneToolOutput }
+            if oneSceneChecklist != nil && !sceneDone(i) { return Self.notAllCheckedOutput }
             nextScene()
             return "Next scene: the app moves on and says its line. Say nothing."
         case .previousScene:
             // 2026-11-20: "go back" in a scene: the same as the ◀ Previous scene button.
             guard case .scene = phase else { return "There's no scene right now. Answer in ONE short line." }
+            if isOneSceneGame { return "There's no scene before this one. Answer in ONE short, kind line." }   // 2026-11-21
             guard canGoBack else { return "This is the first scene, there's no scene before it. Answer in ONE short, kind line." }
             previousScene()
             return "Back one scene: the app says its line. Say nothing."
@@ -1133,6 +1167,10 @@ public final class AdventureStore {
 
     /// The go_to_step result at The End when the kids go back to the play step: the app reopens the last scene and
     /// says it, so she says nothing.
+    /// 2026-11-21: next_scene during the one scene (it runs by itself; the kids can only pause it).
+    public nonisolated static let beatSceneToolOutput = "The scene runs by itself: Nutmeg calls out what happens next. Nothing changes. Answer in ONE short, fun line that helps the scene."
+    /// 2026-11-21: next_scene on the one-scene setup or clean-up before every card is done.
+    public nonisolated static let notAllCheckedOutput = "Not yet: every checklist item has to be checked first. Answer in ONE short line: check your list and tap the big button when it lights up."
     public nonisolated static let backToLastSceneOutput = "Back to the last scene: the app sets it up again and reads the tasks. Say nothing."
 
     // MARK: Ranked roles (round C1)
@@ -1457,7 +1495,9 @@ public final class AdventureStore {
 
     private func useFallbackGame() {
         // 2026-11-20: the bundled game plays the checklist scenes (demo mode shows the new format with no AI).
-        let a = useChecklistFallback ? Fallback.checklistAirplane(playerCount: max(1, playerCount)) : Fallback.airplane(playerCount: max(1, playerCount))
+        // 2026-11-21: the one-scene guide (the 11-20 checklist scenes and the round 36 shape stay for their tests).
+        let a = useOneSceneFallback ? Fallback.oneSceneAirplane(playerCount: max(1, playerCount))
+            : useChecklistFallback ? Fallback.checklistAirplane(playerCount: max(1, playerCount)) : Fallback.airplane(playerCount: max(1, playerCount))
         usingFallback = true
         lastError = nil
         retryAction = nil
@@ -1613,7 +1653,8 @@ public final class AdventureStore {
             scenes = late?.scenes
             guard gen == kitGeneration else { return }
         }
-        let final = scenes ?? (useChecklistFallback ? Fallback.checklistScenes : Fallback.airplane(playerCount: max(1, playerCount)).kit.scenes)
+        let final = scenes ?? (useOneSceneFallback ? Fallback.oneScenes
+            : useChecklistFallback ? Fallback.checklistScenes : Fallback.airplane(playerCount: max(1, playerCount)).kit.scenes)
         var made = withArc(Kit(nutmegSays: guideKit?.nutmegSays ?? late?.nutmegSays ?? "", items: items, scenes: final))
         if let late { made.story = late.story; made.cleanup = late.cleanup; made.setup = late.setup; made = Bookends.ensure(made) }
         fullKit = made
@@ -1684,6 +1725,7 @@ public final class AdventureStore {
     /// Round 29 (Haylee): the scene card shows every playing role's row; she sets the scene up and reads each task in
     /// one flowing line (any tap cuts it off).
     private func enterScene(_ i: Int) {
+        beatTime = 0   // 2026-11-21: the one scene starts from its beginning (a resume sets it after this)
         phase = .scene(i)
         if let line = sceneLine(i) { say(line) }
     }

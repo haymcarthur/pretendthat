@@ -105,6 +105,11 @@ public enum PlayCast {
     public static func kit(_ k: Kit, roles: [Role], players n: Int, props: [Prop] = []) -> Kit {
         var out = k
         // 2026-11-20 (Haylee): a checklist kit's scenes (story, the scenes for this count, the clean-up checklist).
+        // 2026-11-21 (Haylee): a one-scene kit's arc (story, setup checklist, the scene's picked events, clean-up).
+        if k.isOneScene {
+            out.scenes = OneScene.compose(k, roles: roles, players: n, props: props)
+            return out
+        }
         if k.isChecklist {
             out.scenes = ChecklistScenes.compose(k, roles: roles, players: n, props: props)
             return out

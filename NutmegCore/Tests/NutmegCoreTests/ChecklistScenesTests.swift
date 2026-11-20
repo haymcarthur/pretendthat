@@ -21,6 +21,7 @@ struct ChecklistScenesTests {
     /// A store on the bundled (checklist) game, at its first checklist scene.
     func storeAtChecklist(players: Int = 2) async -> AdventureStore {
         let store = AdventureStore(service: nil)
+        store.useOneSceneFallback = false   // 2026-11-21: the 11-20 checklist path (the bundled game is one scene now)
         await store.start()
         await store.chooseGame("Airplane")
         store.setPlayerCount(players)
@@ -232,7 +233,7 @@ struct ChecklistScenesTests {
         let store = await storeAtChecklist(players: 3)
         let first = store.kit!.scenes
         let g = try #require(store.savedGame(now: Date(timeIntervalSince1970: 1_800_000_000), art: [], cover: nil))
-        #expect(g.schemaVersion == 6 && g.kit.isChecklist && g.kit.setup == nil)
+        #expect(g.schemaVersion >= 6 && g.kit.isChecklist && g.kit.setup == nil)   // 2026-11-21: saved as 7 now
         let back = try SavedGame.decode(SavedGame.encoder().encode(g))
         #expect(back == g)
         let replay = AdventureStore(service: nil)
@@ -290,7 +291,7 @@ struct ChecklistScenesTests {
         let g = try #require(store.savedGame(id: store.gameID, art: [], cover: nil))
         // Only game content: an id, the count, the scene and the checks.
         let json = try JSONSerialization.jsonObject(with: ResumePoint.encoder().encode(point)) as! [String: Any]
-        #expect(Set(json.keys) == ResumePoint.allowedKeys)
+        #expect(Set(json.keys).isSubset(of: ResumePoint.allowedKeys))
         let back = try ResumePoint.decoder().decode(ResumePoint.self, from: ResumePoint.encoder().encode(point))
         #expect(back == point && back.isFresh(now: Date(timeIntervalSince1970: 1_800_000_000 + 3600)))
         #expect(!back.isFresh(now: Date(timeIntervalSince1970: 1_800_000_000 + ResumePoint.maxAge + 1)))

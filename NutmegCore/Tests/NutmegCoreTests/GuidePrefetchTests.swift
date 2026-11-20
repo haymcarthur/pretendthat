@@ -21,6 +21,13 @@ import Testing
         .init(propID: "pot", scene: 1, step: 3, text: "Passenger, peek in the big oven!"),
     ])
 
+    /// 2026-11-21: the weave for the one-scene guide (ONE guide scene: R1's items are 0…2, R2's 3…5).
+    static let oneWeave = PropWeave(uses: [
+        .init(propID: "bowl", scene: 0, step: 0, text: "Captain, hand out snacks from the snack bowl!"),
+        .init(propID: "bowl", scene: 0, step: 2, text: "Captain, grab a snack from the snack bowl!"),
+        .init(propID: "pot", scene: 0, step: 4, text: "Passenger, peek in the big oven!"),
+    ])
+
     private func hunting(_ store: AdventureStore, title: String = "Airplane to the Beach") async {
         store.beginConversation()
         _ = await store.apply(.setGame("Airplane")); _ = await store.apply(.setTheme(title))
@@ -109,7 +116,7 @@ import Testing
     // MARK: The store
 
     @Test func theGuideIsWrittenDuringTheHuntAndASkipMakesNoCall() async {
-        let llm = FakeLLM(responses: ["PropWeave": Self.weave])
+        let llm = FakeLLM(responses: ["PropWeave": Self.oneWeave])
         let store = AdventureStore(service: PhaseService(llm: llm))
         await hunting(store)
         await waitFor { store.guideWrittenAt != nil }
@@ -132,14 +139,14 @@ import Testing
         #expect(steps.contains { $0.picture == .prop("bowl") })
         // Round 29: the playing roles are Captain + the customer counterpart (Passenger); every scene shows both cards.
         #expect(store.playingRoles.map(\.roleName) == ["Captain", "Passenger"])
-        #expect(store.kit?.playScenes.count == 4)   // 2 kids: all 4 checklist scenes
-        #expect(store.kit?.scenes.filter { $0.arc == .play }.allSatisfy { Set($0.steps.map(\.role)) == [.R1, .R2] } == true)
+        #expect(store.kit?.playScenes.count == 1)   // 2026-11-21: the one scene (setup and clean-up are checklists)
+        #expect(store.kit?.scenes.filter(\.isChecklist).allSatisfy { Set($0.steps.map(\.role)) == [.R1, .R2] } == true)
     }
 
     @Test func aCorrectionRestartsTheGuide() async {
         // Round 28 (Haylee): after the yes the game and theme can't change, so a mid-hunt theme fix is refused and the
         // guide written for this game stays (no new guide call).
-        let llm = FakeLLM(responses: ["PropWeave": Self.weave])
+        let llm = FakeLLM(responses: ["PropWeave": Self.oneWeave])
         let store = AdventureStore(service: PhaseService(llm: llm))
         await hunting(store)
         await waitFor { store.guideWrittenAt != nil }
@@ -149,12 +156,12 @@ import Testing
         _ = await store.apply(.showNextProp(.init(itemID: "bowl", becomes: "the snack bowl", forRole: "all")))
         _ = await store.apply(.finishPlanning)
         await waitFor { store.phase == .kitReady && !store.guidePending }
-        #expect(guidePrompts(llm).count == 1 && (store.fullKit?.scenes.count ?? 0) == 4)
+        #expect(guidePrompts(llm).count == 1 && (store.fullKit?.scenes.count ?? 0) == 1)   // 2026-11-21: one guide scene
     }
 
     @Test func paperGoesAheadAndPlayWaitsForTheGuide() async {
-        let fake = FakeLLM(responses: ["PropWeave": Self.weave])
-        let store = AdventureStore(service: PhaseService(llm: SlowLLM(fake, slow: "KitScenesSix", delay: .milliseconds(600))))
+        let fake = FakeLLM(responses: ["PropWeave": Self.oneWeave])
+        let store = AdventureStore(service: PhaseService(llm: SlowLLM(fake, slow: "OneSceneGuide", delay: .milliseconds(600))))
         await hunting(store)
         await waitFor { store.draftItems != nil }
         _ = await store.apply(.showNextProp(.init(itemID: "bowl", becomes: "the snack bowl", forRole: "all")))
@@ -166,7 +173,7 @@ import Testing
         #expect(await store.apply(.startPlay) == AdventureStore.playQueuedOutput)
         await waitFor { !store.guidePending }
         #expect(store.phase == .scene(0))   // play started by itself
-        #expect(!store.playQueued && (store.kit?.playScenes.count ?? 0) == 4)   // 2026-11-20: 2 kids see the 4 checklist scenes
+        #expect(!store.playQueued && (store.kit?.playScenes.count ?? 0) == 1)   // 2026-11-21: the one scene
         #expect(store.fullKit?.scenes.flatMap(\.steps).contains { $0.picture == .prop("bowl") } == true)
     }
 

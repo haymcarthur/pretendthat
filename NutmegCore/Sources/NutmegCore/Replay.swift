@@ -85,11 +85,11 @@ public enum ReplayLines {
 extension ReplayLines {
     /// The tool-first pass's tools on a replay: Pick takes a count, Props the hunt answers, then the usual after-hunt
     /// tools (the existing session tools only).
-    public static func tools(_ phase: Phase) -> [String]? {
+    public static func tools(_ phase: Phase, oneScene: Bool = false) -> [String]? {
         switch phase {
         case .hello, .pickGame, .players: return ["set_player_count", "go_to_step", "just_talk"]
         case .props: return ["mark_found", "skip_prop", "swap_prop", "go_to_step", "just_talk"]
-        default: return Realtime.afterHuntTools(phase)
+        default: return Realtime.afterHuntTools(phase, oneScene: oneScene)
         }
     }
 }

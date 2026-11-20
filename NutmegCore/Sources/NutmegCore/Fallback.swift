@@ -25,6 +25,27 @@ public enum Fallback {
         return scenes
     }()
 
+    /// 2026-11-21 (Haylee, one scene with music): the bundled airplane game's guide as ONE scene: the setup checklist
+    /// (2 to 3 items per role) and the scene's opener, event pool (12 events across the 6 roles, fair at every count),
+    /// finale and music family (`airplane-onescene.json`). The app's fallback and demo mode use it.
+    public static let oneScenes: [Scene] = {
+        guard let url = Bundle.module.url(forResource: "airplane-onescene", withExtension: "json"),
+              let data = try? Data(contentsOf: url),
+              let scenes = try? JSONDecoder().decode([Scene].self, from: data) else {
+            fatalError("airplane-onescene.json missing or invalid")   // covered by a test
+        }
+        return scenes
+    }()
+
+    /// The fallback game with the one-scene guide (no setup scene; the story and the clean-up jobs stay).
+    public static func oneSceneAirplane(playerCount: Int) -> Airplane {
+        var a = airplane(playerCount: playerCount)
+        a.kit.scenes = oneScenes
+        a.kit.setup = nil
+        a.kit.cleanup?.goals = nil
+        return a
+    }
+
     /// The fallback game with the checklist play guide (no setup scene; the story and the clean-up jobs stay).
     public static func checklistAirplane(playerCount: Int) -> Airplane {
         var a = airplane(playerCount: playerCount)

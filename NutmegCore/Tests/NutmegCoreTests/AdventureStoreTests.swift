@@ -87,7 +87,8 @@ func walk(_ store: AdventureStore) async -> [Phase] {
     #expect(store.usingFallback)
     #expect(store.phase == .kitReady)
     // 2026-11-20: the bundled game plays checklist scenes: 2 kids, 2 cards a scene, nobody else's items.
-    #expect(store.kit?.scenes.filter { $0.arc == .play }.allSatisfy { ChecklistScenes.cards($0).map(\.role) == [.R1, .R2] } == true)
+    // 2026-11-21: one scene now: the setup and clean-up checklists have the 2 cards.
+    #expect(store.kit?.scenes.filter(\.isChecklist).allSatisfy { ChecklistScenes.cards($0).map(\.role) == [.R1, .R2] } == true)
 }
 
 @Test @MainActor func newGameClearsEverything() async {
