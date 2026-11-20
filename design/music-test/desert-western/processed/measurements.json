@@ -137,5 +137,87 @@
   "decoded_samples": 720896,
   "bytes": 186150,
   "trimmed_lead_s": 0.0
+ },
+ "calm2": {
+  "source_lufs": -13.5,
+  "lufs": -16.0,
+  "lra": 1.2,
+  "true_peak_dbtp": -3.0,
+  "limiter_ceiling_db": -1.5,
+  "source": "calm2-2.mp3",
+  "bpm_measured": 100.0,
+  "bpm_used": 100.0,
+  "beat_grid_resid_ms": 1.4,
+  "downbeat_phase": 0,
+  "start_s": 4.8137,
+  "start_bar": 2,
+  "bars": 20,
+  "body_end_s": 57.5,
+  "length_s": 48.0,
+  "samples_source": 2304000,
+  "samples": 2304000,
+  "resample_ppm": 0.0,
+  "decoded_samples": 2304000,
+  "loop_candidates_top3": [
+   [
+    0.6917090108143438,
+    2,
+    20,
+    0.547,
+    0.48
+   ],
+   [
+    0.9088955780578145,
+    0,
+    20,
+    0.793,
+    -0.39
+   ],
+   [
+    0.910719424830815,
+    2,
+    16,
+    0.712,
+    0.66
+   ]
+  ],
+  "seam_raw_cut": {
+   "rms_jump_db": 9.82,
+   "mel_dist": 1.014,
+   "rms10_step_db": 10.44,
+   "sample_step": 0.2117,
+   "median_sample_step": 0.006,
+   "natural_rms_jump_db": 10.31,
+   "natural_mel_dist": 1.158
+  },
+  "seam_processed_m4a": {
+   "rms_jump_db": 9.13,
+   "mel_dist": 1.183,
+   "rms10_step_db": 4.7,
+   "sample_step": 0.0096,
+   "median_sample_step": 0.0046,
+   "natural_rms_jump_db": 12.76,
+   "natural_mel_dist": 0.961
+  },
+  "bytes": 588672,
+  "aba": {
+   "file": "design/music-test/desert-western/processed/loop-test-calm-aba.m4a",
+   "seams_s": [
+    48.0,
+    96.0
+   ],
+   "calm_lufs": -16.0,
+   "calm2_lufs": -16.0,
+   "joins": {
+    "A_to_B": {
+     "rms_jump_db": 0.21,
+     "mel_dist": 1.186
+    },
+    "B_to_A": {
+     "rms_jump_db": 2.3,
+     "mel_dist": 0.847
+    }
+   }
+  }
  }
 }

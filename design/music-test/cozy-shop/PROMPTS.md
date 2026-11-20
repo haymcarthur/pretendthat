@@ -27,3 +27,9 @@ out, so these dip at each seam. The processed loops are in `processed/` (see PIC
 ## Win ending (15 s)
 
 > Triumphant kids' cozy shop finale in G major at 104 BPM: ukulele, piano, upright bass, brushed drums and clarinet joined by a bright cheerful fanfare of horns, building to a big happy celebration and ending on one clear, final major chord.
+
+## Calm B loop (calm2, 60 s, 2026-11-20)
+
+ElevenLabs flow **"PretendThat calm B loops"** `dSxe4hBC3cnsB5nMN5GN` (one node per family, run once with 2 takes, 900 credits a take). Model `eleven_music_v2_5`, `{"duration_seconds": 60, "lyrics_type": "instrumental", "instrumental": true}`. Files: calm2-1..2.mp3; generation ids `PvuyuBxE35WnXQ96N0iU`, `SFhMrerW5ipRZ1jG0Dsc`. In calm A's measured key and tempo (PICKS.md).
+
+> A second, gentle variation of the same theme: playful, gentle kids' cozy shop instrumental in G major at 104 BPM, with ukulele strums, light piano, upright bass, brushed drums and warm clarinet, playing a different melody and arrangement. Friendly, bouncy and homey, like a little corner shop on a sunny morning. Keep the energy even and steady the whole time, with no big intro, build-up or ending, so it can loop as background music under a voice.

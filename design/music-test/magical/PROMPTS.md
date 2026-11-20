@@ -27,3 +27,9 @@ out, so these dip at each seam. The processed loops are in `processed/` (see PIC
 ## Win ending (15 s)
 
 > Triumphant kids' magic kingdom finale in F major at 90 BPM: celesta, harp, flute and strings joined by a bright cheerful fanfare of brass and sparkling chimes, building to a big happy celebration and ending on one clear, final major chord.
+
+## Calm B loop (calm2, 60 s, 2026-11-20)
+
+ElevenLabs flow **"PretendThat calm B loops"** `dSxe4hBC3cnsB5nMN5GN` (one node per family, run once with 2 takes, 900 credits a take). Model `eleven_music_v2_5`, `{"duration_seconds": 60, "lyrics_type": "instrumental", "instrumental": true}`. Files: calm2-1.mp3; generation ids `qRwqx5BctaaKLY4NorHM` (take 2 `A0KecFB3oa6h7XXJGKzj` failed). In calm A's measured key and tempo (PICKS.md).
+
+> A second, gentle variation of the same theme: playful, gentle kids' magic kingdom fairy-tale instrumental in F major at 90 BPM, with celesta, harp arpeggios, flute, light strings and soft chimes, playing a different melody and arrangement. Sparkly, wondering and warm, like a friendly enchanted castle. Keep the energy even and steady the whole time, with no big intro, build-up or ending, so it can loop as background music under a voice.

@@ -59,3 +59,18 @@ change start→end of the body; grid = beat-grid residual (a big number means th
 | tense | +5.5 dB | +3.4 dB | 0.72 dB (1.79) | 0.768 (1.037) |
 
 Listen check: `processed/loop-test-calm-x3.m4a` (seams at 42.7 s and 85.3 s) and `processed/loop-test-tense-x3.m4a` (seams at 32.0 s and 64.0 s). Full numbers: `processed/measurements.json`. Prompts: PROMPTS.md.
+
+## Calm B loop (calm2, 2026-11-20, Claude's call by analysis)
+
+A second calm loop that the app alternates with calm A (calm-2) so a 10-minute scene repeats less. Prompted in calm A's measured key and tempo with the same instruments ("a second, gentle variation of the same theme... a different melody and arrangement"); flow `dSxe4hBC3cnsB5nMN5GN`, 2 takes, 900 credits each. Prompt: PROMPTS.md. Script: `tools/process_music_calm2.py`.
+
+**Pick: calm2-1.** **The only take** (the second generation failed on ElevenLabs' side and was not re-run). It is 90.0 BPM with the same instruments, but it centres on **C major** (0.96), the dominant of calm A's F major (chroma vs A 0.895), so it may sound like a lift to a new key when it follows calm A. **Needs Haylee's ear;** if it jars, delete `magical/calm2.m4a` and the app keeps looping calm A.
+
+| take | LUFS | LRA | BPM (fit) | grid ms | key | A's key corr. | spread dB | drift dB | chroma vs A |
+|---|---|---|---|---|---|---|---|---|---|
+| calm-2 (calm A) | -13.6 | 1.7 | 89.999 | 3.5 | F maj (0.97) | 0.97 | 1.39 | -0.2 | — |
+| **calm2-1** | -13.5 | 2.5 | 90.002 | 1.4 | C maj (0.96) | 0.69 | 1.4 | 1.8 | 0.895 |
+
+Processed: calm2-1.mp3 at 90.0 BPM (fit 90.002), from 6.6833 s, **16 bars = 42.67 s**; `calm2.m4a` -16.0 LUFS, -3.7 dBTP, 524 KB. Seam (decoded loop): RMS jump 2.01 dB, mel 1.366 (the source's own bar line there: 7.22 dB, 1.265).
+
+Listen check: `processed/loop-test-calm2-x3.m4a` and `processed/loop-test-calm-aba.m4a` (calm, calm2, calm; joins at 42.67 s and 85.33 s; calm -16.1 / calm2 -16.0 LUFS; join A→B RMS +2.39 dB, mel 1.839; B→A +4.16 dB, mel 1.418). Both loops start on a downbeat at the same tempo, so a switch at a loop end lands on a bar line.

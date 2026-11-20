@@ -27,3 +27,9 @@ out, so these dip at each seam. The processed loops are in `processed/` (see PIC
 ## Win ending (15 s)
 
 > Triumphant kids' underwater ocean adventure finale in A major at 92 BPM: vibraphone, harp, marimba and bubbly synth joined by a bright cheerful fanfare of brass and strings, building to a big happy celebration and ending on one clear, final major chord.
+
+## Calm B loop (calm2, 60 s, 2026-11-20)
+
+ElevenLabs flow **"PretendThat calm B loops"** `dSxe4hBC3cnsB5nMN5GN` (one node per family, run once with 2 takes, 900 credits a take). Model `eleven_music_v2_5`, `{"duration_seconds": 60, "lyrics_type": "instrumental", "instrumental": true}`. Files: calm2-1..2.mp3; generation ids `LZMr3jLlVIBOFBXf7YfA`, `QGVXcIL9z4kHkylXVGiV`. In calm A's measured key and tempo (PICKS.md).
+
+> A second, gentle variation of the same theme: playful, gentle kids' underwater ocean adventure instrumental in C major at 92 BPM, with vibraphone, harp glissandos, bubbly soft synth, gentle marimba and warm bass, playing a different melody and arrangement. Floaty, calm and full of wonder, like swimming with friendly fish past a sunny coral reef. Keep the energy even and steady the whole time, with no big intro, build-up or ending, so it can loop as background music under a voice.

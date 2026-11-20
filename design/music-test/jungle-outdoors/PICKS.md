@@ -59,3 +59,19 @@ change start→end of the body; grid = beat-grid residual (a big number means th
 | tense | +9.3 dB | +8.1 dB | 4.65 dB (3.79) | 1.149 (1.263) |
 
 Listen check: `processed/loop-test-calm-x3.m4a` (seams at 40.0 s and 80.0 s) and `processed/loop-test-tense-x3.m4a` (seams at 40.0 s and 80.0 s). Full numbers: `processed/measurements.json`. Prompts: PROMPTS.md.
+
+## Calm B loop (calm2, 2026-11-20, Claude's call by analysis)
+
+A second calm loop that the app alternates with calm A (calm-4) so a 10-minute scene repeats less. Prompted in calm A's measured key and tempo with the same instruments ("a second, gentle variation of the same theme... a different melody and arrangement"); flow `dSxe4hBC3cnsB5nMN5GN`, 2 takes, 900 credits each. Prompt: PROMPTS.md. Script: `tools/process_music_calm2.py`.
+
+**Pick: calm2-1.** D major (0.92), the closest chroma to calm A (0.987), 96.0 BPM. calm2-2 swells 4.3 dB over the take.
+
+| take | LUFS | LRA | BPM (fit) | grid ms | key | A's key corr. | spread dB | drift dB | chroma vs A |
+|---|---|---|---|---|---|---|---|---|---|
+| calm-4 (calm A) | -12.8 | 2.1 | 96.0 | 2.2 | D maj (0.96) | 0.96 | 1.11 | 1.6 | — |
+| **calm2-1** | -13.9 | 2.5 | 95.996 | 1.9 | D maj (0.92) | 0.92 | 1.53 | 2.6 | 0.987 |
+| calm2-2 | -14.1 | 4.2 | 95.996 | 2.8 | D maj (0.86) | 0.86 | 1.74 | 4.3 | 0.95 |
+
+Processed: calm2-1.mp3 at 96.0 BPM (fit 95.996), from 1.8899 s, **20 bars = 50.01 s**, resampled 107 ppm to a whole number of AAC frames; `calm2.m4a` -16.0 LUFS, -1.6 dBTP, 613 KB. Seam (decoded loop): RMS jump -5.46 dB, mel 1.155 (the source's own bar line there: 0.46 dB, 0.805).
+
+Listen check: `processed/loop-test-calm2-x3.m4a` and `processed/loop-test-calm-aba.m4a` (calm, calm2, calm; joins at 40.0 s and 90.01 s; calm -16.0 / calm2 -16.0 LUFS; join A→B RMS -2.39 dB, mel 1.534; B→A +0.9 dB, mel 1.242). Both loops start on a downbeat at the same tempo, so a switch at a loop end lands on a bar line.

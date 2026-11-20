@@ -68,15 +68,98 @@
   "beats": 64
  },
  "win": {
-  "source_lufs": -13.2,
+  "source_lufs": -12.2,
   "lufs": -15.9,
-  "lra": 1.4,
-  "true_peak_dbtp": -2.8,
+  "lra": 14.8,
+  "true_peak_dbtp": -3.5,
   "limiter_ceiling_db": -1.5,
-  "source": "win-1.mp3",
+  "source": "win-redo-1.mp3",
   "length_s": 15.0,
   "samples": 720000,
   "decoded_samples": 720896,
-  "bytes": 187469
+  "bytes": 186222,
+  "trimmed_lead_s": 0.0
+ },
+ "calm2": {
+  "source_lufs": -12.4,
+  "lufs": -16.0,
+  "lra": 2.3,
+  "true_peak_dbtp": -2.9,
+  "limiter_ceiling_db": -1.5,
+  "source": "calm2-1.mp3",
+  "bpm_measured": 111.999,
+  "bpm_used": 112.0,
+  "beat_grid_resid_ms": 2.4,
+  "downbeat_phase": 3,
+  "start_s": 8.0572,
+  "start_bar": 3,
+  "bars": 20,
+  "body_end_s": 57.5,
+  "length_s": 42.8587,
+  "samples_source": 2057143,
+  "samples": 2057216,
+  "resample_ppm": 35.5,
+  "decoded_samples": 2057216,
+  "loop_candidates_top3": [
+   [
+    1.0053692678096922,
+    3,
+    20,
+    0.464,
+    1.81
+   ],
+   [
+    1.0054912696701181,
+    0,
+    20,
+    0.451,
+    1.85
+   ],
+   [
+    1.0348783485674993,
+    1,
+    20,
+    0.467,
+    1.89
+   ]
+  ],
+  "seam_raw_cut": {
+   "rms_jump_db": 2.04,
+   "mel_dist": 0.711,
+   "rms10_step_db": 1.49,
+   "sample_step": 0.6116,
+   "median_sample_step": 0.0112,
+   "natural_rms_jump_db": 3.87,
+   "natural_mel_dist": 0.718
+  },
+  "seam_processed_m4a": {
+   "rms_jump_db": 1.83,
+   "mel_dist": 0.492,
+   "rms10_step_db": 1.24,
+   "sample_step": 0.0999,
+   "median_sample_step": 0.0079,
+   "natural_rms_jump_db": 7.19,
+   "natural_mel_dist": 1.302
+  },
+  "bytes": 525669,
+  "aba": {
+   "file": "design/music-test/superhero-city/processed/loop-test-calm-aba.m4a",
+   "seams_s": [
+    42.86,
+    85.72
+   ],
+   "calm_lufs": -16.0,
+   "calm2_lufs": -16.0,
+   "joins": {
+    "A_to_B": {
+     "rms_jump_db": 1.81,
+     "mel_dist": 1.024
+    },
+    "B_to_A": {
+     "rms_jump_db": 2.53,
+     "mel_dist": 1.185
+    }
+   }
+  }
  }
 }

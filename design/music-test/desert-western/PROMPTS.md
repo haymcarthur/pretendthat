@@ -27,3 +27,9 @@ out, so these dip at each seam. The processed loops are in `processed/` (see PIC
 ## Win ending (15 s)
 
 > Triumphant kids' wild west finale in E major at 100 BPM: acoustic guitar, harmonica, fiddle and clip-clop woodblock joined by a bright cheerful fanfare of brass, building to a big happy celebration and ending on one clear, final major chord.
+
+## Calm B loop (calm2, 60 s, 2026-11-20)
+
+ElevenLabs flow **"PretendThat calm B loops"** `dSxe4hBC3cnsB5nMN5GN` (one node per family, run once with 2 takes, 900 credits a take). Model `eleven_music_v2_5`, `{"duration_seconds": 60, "lyrics_type": "instrumental", "instrumental": true}`. Files: calm2-1..2.mp3; generation ids `m5mbTQnAcDL6OmK92KNT`, `8blQnFpFGvNDrXMOA2xD`. In calm A's measured key and tempo (PICKS.md).
+
+> A second, gentle variation of the same theme: playful, gentle kids' wild west cowboy instrumental in E major at 100 BPM, with acoustic guitar strum, harmonica, clip-clop woodblock like a trotting pony and upright bass, playing a different melody and arrangement. Sunny, easygoing and friendly, like riding across a wide open desert ranch. Keep the energy even and steady the whole time, with no big intro, build-up or ending, so it can loop as background music under a voice.

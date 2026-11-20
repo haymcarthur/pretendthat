@@ -137,5 +137,87 @@
   "decoded_samples": 720896,
   "bytes": 186584,
   "trimmed_lead_s": 0.0
+ },
+ "calm2": {
+  "source_lufs": -13.1,
+  "lufs": -16.1,
+  "lra": 2.3,
+  "true_peak_dbtp": -4.2,
+  "limiter_ceiling_db": -1.5,
+  "source": "calm2-1.mp3",
+  "bpm_measured": 91.988,
+  "bpm_used": 92.0,
+  "beat_grid_resid_ms": 2.1,
+  "downbeat_phase": 0,
+  "start_s": 7.8364,
+  "start_bar": 3,
+  "bars": 16,
+  "body_end_s": 57.5,
+  "length_s": 41.7493,
+  "samples_source": 2003478,
+  "samples": 2003968,
+  "resample_ppm": 244.6,
+  "decoded_samples": 2003968,
+  "loop_candidates_top3": [
+   [
+    1.4330889841293069,
+    3,
+    16,
+    1.351,
+    -0.27
+   ],
+   [
+    2.2542701307692683,
+    2,
+    16,
+    2.105,
+    0.5
+   ],
+   [
+    2.5876387205555673,
+    1,
+    16,
+    2.135,
+    1.51
+   ]
+  ],
+  "seam_raw_cut": {
+   "rms_jump_db": 8.21,
+   "mel_dist": 0.867,
+   "rms10_step_db": 2.37,
+   "sample_step": 0.0926,
+   "median_sample_step": 0.0045,
+   "natural_rms_jump_db": 7.85,
+   "natural_mel_dist": 1.198
+  },
+  "seam_processed_m4a": {
+   "rms_jump_db": 8.03,
+   "mel_dist": 1.085,
+   "rms10_step_db": 1.43,
+   "sample_step": 0.0248,
+   "median_sample_step": 0.0032,
+   "natural_rms_jump_db": 10.78,
+   "natural_mel_dist": 1.462
+  },
+  "bytes": 512766,
+  "aba": {
+   "file": "design/music-test/under-the-sea/processed/loop-test-calm-aba.m4a",
+   "seams_s": [
+    41.75,
+    83.5
+   ],
+   "calm_lufs": -16.0,
+   "calm2_lufs": -16.1,
+   "joins": {
+    "A_to_B": {
+     "rms_jump_db": 7.38,
+     "mel_dist": 1.23
+    },
+    "B_to_A": {
+     "rms_jump_db": 7.82,
+     "mel_dist": 1.298
+    }
+   }
+  }
  }
 }

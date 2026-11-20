@@ -55,3 +55,19 @@ The calm seam's HF sits 0.3 dB above the loudest other bar start (no level step,
 the downbeat; worth one listen). Listen: `processed/loop-test-calm-x3.m4a` (seams 0:27.7, 0:55.4),
 `processed/loop-test-tense-x3.m4a` (same). The loops are short (27.7 s): if they feel repetitive in a family test,
 a 72-beat calm-1 loop (41.5 s from 5.5 s) is the next-best seam (score 0.64 vs 0.48).
+
+## Calm B loop (calm2, 2026-11-20, Claude's call by analysis)
+
+A second calm loop that the app alternates with calm A (calm-1) so a 10-minute scene repeats less. Prompted in calm A's measured key and tempo with the same instruments ("a second, gentle variation of the same theme... a different melody and arrangement"); flow `dSxe4hBC3cnsB5nMN5GN`, 2 takes, 900 credits each. Prompt: PROMPTS.md. Script: `tools/process_music_calm2.py`.
+
+**Pick: calm2-2.** D major (0.88) like calm A, the steadiest (spread 0.50 dB), chroma 0.949. Loops are whole 12-bar (48-beat) units as for calm A (the 6-beat drum groove over 4-beat chords); 12 bars snap to 104 BPM and need a 0.07 % resample (1.2 cents, inaudible) to whole AAC frames.
+
+| take | LUFS | LRA | BPM (fit) | grid ms | key | A's key corr. | spread dB | drift dB | chroma vs A |
+|---|---|---|---|---|---|---|---|---|---|
+| calm-1 (calm A) | -12.8 | 1.9 | 104.0 | 2.9 | D maj (0.86) | 0.86 | 0.81 | -1.9 | — |
+| calm2-1 | -12.8 | 1.4 | 104.003 | 2.8 | D maj (0.81) | 0.81 | 0.82 | 1.4 | 0.934 |
+| **calm2-2** | -13.2 | 1.0 | 103.994 | 2.4 | D maj (0.88) | 0.88 | 0.5 | 0.5 | 0.949 |
+
+Processed: calm2-2.mp3 at 104.0 BPM (fit 103.994), from 8.959 s, **12 bars = 27.71 s**, resampled 711 ppm to a whole number of AAC frames; `calm2.m4a` -16.1 LUFS, -3.2 dBTP, 339 KB. Seam (decoded loop): RMS jump 1.97 dB, mel 1.419 (the source's own bar line there: 3.83 dB, 0.835).
+
+Listen check: `processed/loop-test-calm2-x3.m4a` and `processed/loop-test-calm-aba.m4a` (calm, calm2, calm; joins at 27.69 s and 55.4 s; calm -16.0 / calm2 -16.1 LUFS; join A→B RMS +0.65 dB, mel 2.046; B→A +1.22 dB, mel 1.193). Both loops start on a downbeat at the same tempo, so a switch at a loop end lands on a bar line.

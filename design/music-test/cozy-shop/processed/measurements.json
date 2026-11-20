@@ -130,5 +130,87 @@
   "decoded_samples": 720896,
   "bytes": 186365,
   "trimmed_lead_s": 0.0
+ },
+ "calm2": {
+  "source_lufs": -14.5,
+  "lufs": -16.1,
+  "lra": 3.9,
+  "true_peak_dbtp": -2.3,
+  "limiter_ceiling_db": -1.5,
+  "source": "calm2-2.mp3",
+  "bpm_measured": 104.002,
+  "bpm_used": 104.0,
+  "beat_grid_resid_ms": 7.2,
+  "downbeat_phase": 3,
+  "start_s": 1.7436,
+  "start_bar": 0,
+  "bars": 16,
+  "body_end_s": 56.0,
+  "length_s": 36.928,
+  "samples_source": 1772308,
+  "samples": 1772544,
+  "resample_ppm": 133.2,
+  "decoded_samples": 1772544,
+  "loop_candidates_top3": [
+   [
+    0.48756572110820096,
+    0,
+    16,
+    0.423,
+    0.21
+   ],
+   [
+    0.5589062714419546,
+    1,
+    16,
+    0.453,
+    0.35
+   ],
+   [
+    0.7483102423635879,
+    3,
+    16,
+    0.629,
+    0.4
+   ]
+  ],
+  "seam_raw_cut": {
+   "rms_jump_db": -1.8,
+   "mel_dist": 0.568,
+   "rms10_step_db": 1.77,
+   "sample_step": 0.5975,
+   "median_sample_step": 0.0038,
+   "natural_rms_jump_db": -1.62,
+   "natural_mel_dist": 0.593
+  },
+  "seam_processed_m4a": {
+   "rms_jump_db": -2.08,
+   "mel_dist": 0.602,
+   "rms10_step_db": 2.78,
+   "sample_step": 0.0143,
+   "median_sample_step": 0.0032,
+   "natural_rms_jump_db": -0.11,
+   "natural_mel_dist": 0.714
+  },
+  "bytes": 453007,
+  "aba": {
+   "file": "design/music-test/cozy-shop/processed/loop-test-calm-aba.m4a",
+   "seams_s": [
+    36.93,
+    73.86
+   ],
+   "calm_lufs": -16.0,
+   "calm2_lufs": -16.1,
+   "joins": {
+    "A_to_B": {
+     "rms_jump_db": 3.34,
+     "mel_dist": 0.999
+    },
+    "B_to_A": {
+     "rms_jump_db": -0.34,
+     "mel_dist": 0.766
+    }
+   }
+  }
  }
 }

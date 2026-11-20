@@ -27,3 +27,9 @@ out, so these dip at each seam. The processed loops are in `processed/` (see PIC
 ## Win ending (15 s)
 
 > Triumphant kids' silly spooky finale in E major at 108 BPM: bassoon, pizzicato strings, harpsichord, xylophone and bouncy tuba joined by a bright cheerful fanfare, building to a big happy celebration and ending on one clear, final major chord.
+
+## Calm B loop (calm2, 60 s, 2026-11-20)
+
+ElevenLabs flow **"PretendThat calm B loops"** `dSxe4hBC3cnsB5nMN5GN` (one node per family, run once with 2 takes, 900 credits a take). Model `eleven_music_v2_5`, `{"duration_seconds": 60, "lyrics_type": "instrumental", "instrumental": true}`. Files: calm2-1..2.mp3; generation ids `yV3g7WnOY9IWGlT4w3Li`, `8RyLCeeDmddpbiLaVY03`. In calm A's measured key and tempo (PICKS.md).
+
+> A second, gentle variation of the same theme: playful, goofy kids' silly spooky instrumental in E minor at 108 BPM, with bassoon, pizzicato strings, harpsichord, a wobbly synth and finger snaps, playing a different melody and arrangement. Silly-mysterious and light, tiptoeing like cartoon friends sneaking through a funny haunted house, never scary. Keep the energy even and steady the whole time, with no big intro, build-up or ending, so it can loop as background music under a voice.

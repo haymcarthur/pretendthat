@@ -52,3 +52,19 @@ Chroma similarity: calm-1↔tense-2 0.978, calm-1↔win-1 0.986, tense-2↔win-1
 
 The seams look like ordinary bar lines (no HF spike, level jumps within ~0.7 dB of the music's own). Listen:
 `processed/loop-test-calm-x3.m4a` (seams 0:35.6, 1:11.1), `processed/loop-test-tense-x3.m4a` (0:26.7, 0:53.3).
+
+## Calm B loop (calm2, 2026-11-20, Claude's call by analysis)
+
+A second calm loop that the app alternates with calm A (calm-1) so a 10-minute scene repeats less. Prompted in calm A's measured key and tempo with the same instruments ("a second, gentle variation of the same theme... a different melody and arrangement"); flow `dSxe4hBC3cnsB5nMN5GN`, 2 takes, 900 credits each. Prompt: PROMPTS.md. Script: `tools/process_music_calm2.py`.
+
+**Pick: calm2-1.** G major (0.93), the closest chroma to calm A (0.994) and very steady (LRA 0.5, spread 0.54 dB).
+
+| take | LUFS | LRA | BPM (fit) | grid ms | key | A's key corr. | spread dB | drift dB | chroma vs A |
+|---|---|---|---|---|---|---|---|---|---|
+| calm-1 (calm A) | -12.6 | 2.1 | 107.998 | 1.9 | G maj (0.71) | 0.71 | 0.95 | 0.0 | — |
+| **calm2-1** | -13.0 | 0.5 | 108.0 | 2.0 | G maj (0.93) | 0.93 | 0.54 | -0.3 | 0.994 |
+| calm2-2 | -12.9 | 1.3 | 107.994 | 2.4 | G maj (0.72) | 0.72 | 0.69 | 0.2 | 0.979 |
+
+Processed: calm2-1.mp3 at 108.0 BPM (fit 108.0), from 8.3429 s, **20 bars = 44.46 s**, resampled 320 ppm to a whole number of AAC frames; `calm2.m4a` -16.0 LUFS, -1.1 dBTP, 549 KB. Seam (decoded loop): RMS jump 4.28 dB, mel 0.603 (the source's own bar line there: 6.83 dB, 0.692).
+
+Listen check: `processed/loop-test-calm2-x3.m4a` and `processed/loop-test-calm-aba.m4a` (calm, calm2, calm; joins at 35.56 s and 80.02 s; calm -15.9 / calm2 -16.0 LUFS; join A→B RMS +2.36 dB, mel 0.933; B→A +5.77 dB, mel 1.569). Both loops start on a downbeat at the same tempo, so a switch at a loop end lands on a bar line.
