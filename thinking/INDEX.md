@@ -199,7 +199,7 @@ The map. Read this first, then open only what you need.
 - [Printables after a lock: calls cut off by the lock are retried on return, color and coloring pages always the same AI picture, no fallback art in live games (a not-ready page shows Try again and isn't printed)](decisions/2026-11-18-printables-after-lock.md): Haylee (no fallback art, show an error); Claude's call on the fix
 - [TestFlight build 1.0 (4): peek v4 body and hands, saved-game offer picture only, Nutmeg looks up while she talks, idle/lock tap and mic fix, printables after a lock](decisions/2026-11-18-build-4.md): Haylee
 - [Demo seeds Moon Crumbs Bakery with its real cover, so the saved-game offer and the shelf book show the same picture](decisions/2026-11-18-demo-seed-real-cover.md): Haylee (how: Claude's call)
-- [Prop art: openings show through; 7 props fixed, bag/cup/chair to redo (prompts in design/props-regen)](decisions/2026-11-20-prop-art-openings.md): Haylee
+- [Prop art: openings show through; 10 images fixed (bag, cup and chair regenerated; prompts in design/props-regen)](decisions/2026-11-20-prop-art-openings.md): Haylee
 - [Code Cracker: AI picture + the kit's colors; page names never become "a friend"](decisions/2026-11-20-code-cracker-picture-and-page-names.md): Haylee + Claude's calls
 - [The voice comes back after a drop in the foreground (60-minute limit); no "1 of 3" on cards](decisions/2026-11-20-voice-reconnect-after-drop.md): Claude's call / Haylee
 - [Live game fixes: prop name, card header 🔊 with the role's job, opener sends them to play their role, duck under ideas, clean-up timing, paper picture](decisions/2026-11-20-live-game-fixes.md): Haylee + Claude's calls
