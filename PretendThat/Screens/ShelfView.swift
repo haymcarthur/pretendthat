@@ -290,7 +290,7 @@ struct PTShelfArrow: View {
             Image(systemName: symbol).font(.system(size: size * 0.4, weight: .heavy, design: .rounded)).foregroundStyle(Theme.ink)
                 .frame(width: size, height: size)
                 .background(Circle().fill(Theme.yellow))
-                .background(Circle().fill(Theme.yellowShade).offset(y: Theme.depth))
+                .background(Circle().fill(Theme.yellowShade).offset(y: Theme.edge(size)))
         }
         .buttonStyle(TileButtonStyle())
         .accessibilityLabel(label)

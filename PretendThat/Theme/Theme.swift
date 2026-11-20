@@ -108,9 +108,18 @@ enum Theme {
     /// Soft border on white cards and quiet buttons (no thick dark outlines).
     static let borderWidth: CGFloat = 3
     static let outlineWidth: CGFloat = borderWidth
-    /// The chunky "3D" bottom edge on buttons and cards; presses push the face down by this much.
-    static let depth: CGFloat = 6
-    static let cardDepth: CGFloat = 5
+    /// The "3D" bottom edge on buttons and cards; presses push the face down by this much.
+    /// 2026-11-20 (Haylee, decisions/2026-11-20-thinner-button-depth.md): a slim lip, not a chunky base. A button's
+    /// edge scales with its height (`edge(_:)`: about 4%, 2 to 4 pt); `depth` is the most any button has, kept as the
+    /// layout room reserved under a button. Cards and rows keep a small fixed edge.
+    static let depth: CGFloat = 4
+    static let cardDepth: CGFloat = 3
+    /// The depth edge (and press travel) of a button `height` points tall: about 4% of it, between 2 and 4 pt
+    /// (88 pt → 3.5 pt, 44 pt → 2 pt). Every button with a depth edge uses this.
+    static func edge(_ height: CGFloat) -> CGFloat {
+        let e = (height * 0.04 * 2).rounded() / 2   // to the half point
+        return min(4, max(2, e))
+    }
 
     enum Space {
         static let xs: CGFloat = 6

@@ -251,6 +251,15 @@ enum DemoDriver {
             }
             if turn == "#next" { model.realtime.beginTrace("next scene tap"); model.tapNextScene(); continue }
             if turn.hasPrefix("#task "), let n = Int(turn.dropFirst(6)) { model.readTask(n); continue }
+            // 2026-11-20 (checklist scenes): "#item N" (row N's 🔊, queued while she talks), "#check N" (row N's
+            // check), "#role R2" (a card's picture), "#prev" (◀ Previous scene), "#hear" (the scenario again),
+            // "#skip" (a replay's skip to the scenes).
+            if turn.hasPrefix("#item "), let n = Int(turn.dropFirst(6)) { model.tapChecklistRow(n); continue }
+            if turn.hasPrefix("#check "), let n = Int(turn.dropFirst(7)) { model.tapCheck(n); continue }
+            if turn.hasPrefix("#role "), let r = RoleID(rawValue: String(turn.dropFirst(6))) { model.readRole(r); continue }
+            if turn == "#prev" { model.tapPreviousScene(); continue }
+            if turn == "#hear" { model.hearScenario(); continue }
+            if turn == "#skip" { model.tapSkipToScenes(); continue }
             if turn == "#scene" {   // round 29: the current scene's rows (text only, for the log)
                 if case .scene(let i) = model.store.phase, let sc = model.store.kit?.scenes[i] {
                     rtLog("SCENE \(i + 1) \"\(sc.title)\": \(sc.nutmegSays)")
@@ -512,6 +521,35 @@ enum DemoDriver {
             await drive(store, model: model, to: "scene2")
             store.nextScene()
             if target == "cleanup" { while case .scene(let i) = store.phase, store.currentArc != .cleanup, i < 10 { store.nextScene() } }
+            return
+        }
+        // 2026-11-20 (checklist scenes): `-PTDemo checklist` = the first checklist scene with a couple of items checked;
+        // `scenario` = every item checked (the scenario moment); `cleanupList` = the clean-up checklist; `checklist2`
+        // = the second scene (◀ Previous showing). With `-PTPlayers N` for the card layouts (2 and 6 on the iPad).
+        if target == "checklist" || target == "scenario" || target == "checklist2" || target == "cleanupList" {
+            await drive(store, model: model, to: "scene2")   // the first checklist scene (scene 1 of the arc is the story)
+            if target == "checklist2" { store.nextScene(); return }
+            if target == "cleanupList" { while case .scene(let i) = store.phase, store.currentArc != .cleanup, i < 10 { store.nextScene() }; return }
+            guard let sc = store.currentChecklist else { return }
+            if target == "checklist" {
+                model.tapCheck(0)
+                if let second = ChecklistScenes.cards(sc).dropFirst().first?.rows.first { model.tapCheck(second) }
+            } else {
+                for k in sc.steps.indices { model.tapCheck(k) }
+            }
+            return
+        }
+        // 2026-11-20: `-PTDemo replaySkip`: a saved game's replay at Props, the skip button showing.
+        if target == "replaySkip" {
+            await drive(store, model: model, to: "end")
+            if let g = store.savedGame(now: Date(), art: [], cover: nil) {
+                try? model.savedGames.save(g, art: [:], cover: nil)
+                model.leave(); model.refreshShelf()
+                if let saved = model.shelfGames.first(where: { $0.id == g.id }) {
+                    await model.startReplay(saved)
+                    store.replayPick(demoPlayers)
+                }
+            }
             return
         }
         if target == "sceneLong" {   // round 14/29: 6 players, a 2-line title and 6 long tasks

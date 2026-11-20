@@ -270,20 +270,68 @@ struct PTNextSceneButton: View {
             .padding(.horizontal, Theme.Space.l)
             .frame(minHeight: height)
         }
-        .buttonStyle(PTNextSceneButton.Style())
+        .buttonStyle(PTNextSceneButton.Style(edge: Theme.edge(height)))
         .accessibilityLabel("Next scene")
     }
     struct Style: ButtonStyle {
+        /// 2026-11-20: the slim edge for this height (`Theme.edge`); presses travel the same amount.
+        var edge: CGFloat = Theme.depth
+        var face: Color = Theme.lime
+        var shade: Color = Theme.limeShade
+        var outlined = false
         func makeBody(configuration: Configuration) -> some View {
-            let down = configuration.isPressed ? Theme.depth : 0
+            let down = configuration.isPressed ? edge : 0
             configuration.label
-                .background(Capsule().fill(Theme.lime))
+                .background(Capsule().fill(face))
+                .overlay(Capsule().strokeBorder(outlined ? Theme.line : .clear, lineWidth: 1.5))
                 .offset(y: down)
-                .background(Capsule().fill(Theme.limeShade).offset(y: Theme.depth))
+                .background(Capsule().fill(shade).offset(y: edge))
                 .contentShape(Capsule())
                 .animation(Theme.press, value: configuration.isPressed)
                 .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.7), trigger: configuration.isPressed) { _, new in new }
         }
+    }
+}
+
+/// 2026-11-20 (Haylee, checklist scenes): ◀ Previous scene and ▶ Next scene, ONE centered pair, the same size and
+/// shape (the first mockup's mismatched pair looked broken): Next green, Previous white. On the first scene there is no
+/// scene before, so Previous isn't shown and Next sits alone in the middle.
+struct PTSceneNavPair: View {
+    var height: CGFloat = 76
+    /// Each button's width (both the same).
+    var width: CGFloat = 300
+    var canGoBack: Bool
+    let onPrevious: () -> Void
+    let onNext: () -> Void
+    var body: some View {
+        HStack(spacing: Theme.Space.m) {
+            if canGoBack {
+                navButton("Previous scene", symbol: "play.fill", flip: true,
+                          style: PTNextSceneButton.Style(edge: Theme.edge(height), face: Theme.white, shade: Theme.lavenderShade, outlined: true),
+                          action: onPrevious)
+                    .accessibilityIdentifier("scene.previous")
+                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
+            }
+            navButton("Next scene", symbol: "play.fill", flip: false, style: PTNextSceneButton.Style(edge: Theme.edge(height)), action: onNext)
+                .accessibilityIdentifier("scene.next")
+        }
+        .padding(.bottom, Theme.edge(height))
+        .animation(Theme.press, value: canGoBack)
+    }
+
+    private func navButton(_ title: String, symbol: String, flip: Bool, style: PTNextSceneButton.Style, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: Theme.Space.s) {
+                Image(systemName: symbol).font(.system(size: height * 0.32, weight: .heavy, design: .rounded))
+                    .scaleEffect(x: flip ? -1 : 1, y: 1)
+                Text(title).font(Theme.headlineFont(height * 0.32)).lineLimit(1).minimumScaleFactor(0.6)
+            }
+            .foregroundStyle(Theme.ink)
+            .padding(.horizontal, Theme.Space.m)
+            .frame(width: width, height: height)
+        }
+        .buttonStyle(style)
+        .accessibilityLabel(title)
     }
 }
 
@@ -668,29 +716,31 @@ struct PTBigIconButton: View {
     enum Kind {
         /// Round 39: `again` = Play it again (The End), a round arrow; `fresh` = make a new game (sparkles).
         case check, cross, print, play, star, home, again, fresh
+        /// 2026-11-20: on a replay's Props and Print, skip straight to the scenes (⏭).
+        case skip
         var symbol: String {
             switch self {
             case .check: "checkmark"; case .cross: "xmark"; case .print: "printer.fill"
             case .play: "play.fill"; case .star: "star.fill"; case .home: "house.fill"
-            case .again: "arrow.counterclockwise"; case .fresh: "sparkles"
+            case .again: "arrow.counterclockwise"; case .fresh: "sparkles"; case .skip: "forward.end.fill"
             }
         }
         var face: Color {
             switch self {
-            case .check, .play, .again: Theme.lime; case .print: Theme.cta; case .cross, .star, .home: Theme.white
+            case .check, .play, .again: Theme.lime; case .print: Theme.cta; case .cross, .star, .home, .skip: Theme.white
             case .fresh: Theme.yellow
             }
         }
         var shade: Color {
             switch self {
             case .check, .play, .again: Theme.limeShade; case .print: Color.black; case .star, .fresh: Theme.yellowShade
-            case .cross: Theme.line; case .home: Theme.lavenderShade
+            case .cross: Theme.line; case .home, .skip: Theme.lavenderShade
             }
         }
         var ink: Color {
             switch self {
             case .check, .play, .again, .fresh: Theme.ink; case .print: Theme.white; case .star: Theme.yellow
-            case .cross: Theme.coralStrong; case .home: Theme.purple
+            case .cross: Theme.coralStrong; case .home, .skip: Theme.purple
             }
         }
     }
@@ -707,19 +757,21 @@ struct PTBigIconButton: View {
                 .offset(x: kind == .play ? size * 0.04 : 0)   // ▶ looks centered when nudged right
                 .frame(width: size, height: size)
         }
-        .buttonStyle(Style(face: kind.face, shade: kind.shade, outlined: kind.face == Theme.white))
+        .buttonStyle(Style(face: kind.face, shade: kind.shade, outlined: kind.face == Theme.white, edge: Theme.edge(size)))
         .accessibilityLabel(label)
     }
 
     private struct Style: ButtonStyle {
         let face: Color, shade: Color, outlined: Bool
+        /// 2026-11-20: the slim edge for this size (`Theme.edge`); presses travel the same amount.
+        let edge: CGFloat
         func makeBody(configuration: Configuration) -> some View {
-            let down = configuration.isPressed ? Theme.depth : 0
+            let down = configuration.isPressed ? edge : 0
             configuration.label
                 .background(Circle().fill(face))
                 .overlay(Circle().strokeBorder(outlined ? Theme.line : .clear, lineWidth: 1.5))
                 .offset(y: down)
-                .background(Circle().fill(shade).offset(y: Theme.depth))
+                .background(Circle().fill(shade).offset(y: edge))
                 .contentShape(Circle())
                 .animation(Theme.press, value: configuration.isPressed)
                 .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.7), trigger: configuration.isPressed) { _, new in new }

@@ -190,6 +190,41 @@ struct RootView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .ignoresSafeArea(.keyboard)
             }
+            // 2026-11-20 (Haylee, checklist scenes): ◀ Previous / ▶ Next scene, one centered pair at the bottom of the
+            // stage, the same size and shape (Next green, Previous white; no Previous on the first scene).
+            if checklistScene && chromeVisible && !(chatOpen && chromeVisible) {
+                PTSceneNavPair(height: navHeight, width: navWidth, canGoBack: store.canGoBack,
+                               onPrevious: { model.tapPreviousScene() }, onNext: { model.tapNextScene() })
+                    .padding(.bottom, metrics.isPhone ? 6 : Theme.Space.s)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .ignoresSafeArea(.keyboard)
+                    .zIndex(6)
+            }
+            // 2026-11-20 (Haylee): on a REPLAY's Props and Print, skip straight to the scenes (the app's round icon
+            // button; a new game never shows it: its checklists use the props found and the pages printed).
+            if store.canSkipToScenes && chromeVisible && !(chatOpen && chromeVisible) {
+                PTBigIconButton(kind: .skip, size: metrics.isPhone ? 64 : 76, label: "Skip to the scenes") { model.tapSkipToScenes() }
+                    .accessibilityIdentifier("replay.skipToScenes")
+                    .padding(.trailing, metrics.isPhone ? LayoutMetrics.phoneSide : Theme.Space.xl + Theme.Space.l)
+                    .padding(.bottom, metrics.isPhone ? metrics.pillBottom + metrics.pillHeight + Theme.Space.s : metrics.pillBottom + Theme.Space.s)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                    .transition(.opacity)
+                    .ignoresSafeArea(.keyboard)
+                    .zIndex(6)
+            }
+            // 2026-11-20 (Haylee): the game left mid-play (the app was closed): its picture on the start screen, like the
+            // saved-game offer; a tap continues at the scene it was on, with its checks.
+            if store.phase == .hello, let offer = model.resumeOffer, !model.showingShelf, model.savedPage == nil,
+               model.onboarding == nil, model.kidBlock == nil, !startExiting {
+                PTResumeOffer(offer: offer, cover: model.cover(for: offer.game), phone: metrics.isPhone,
+                              onContinue: { model.continueGame() }, onDismiss: { model.dismissResumeOffer() })
+                    .padding(.top, metrics.isPhone ? max(rootTop, 12) + 4 : PTCurtain.metrics(screenSize == .zero ? rootSize : screenSize).valance + Theme.Space.s)
+                    .padding(.leading, metrics.isPhone ? 14 : Theme.Space.xl)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .transition(.opacity)
+                    .zIndex(7)
+            }
             // 2026-11-17: offline on a replay, a line she never recorded: her words as a caption at the top of the stage
             // (and in the chat); the game carries on (it used to pause on the full-screen Wi-Fi note below).
             if let caption = model.offlineCaption, !(chatOpen && chromeVisible), store.phase != .hello {
@@ -413,6 +448,7 @@ struct RootView: View {
         case .makingKit, .kitReady: return (model.kitBeat == .papers || store.isReplay) ? .print : .none
         case .scene(let i):
             if store.inStory { return .none }
+            if scenarioMoment { return .scenario }   // 2026-11-20: Nutmeg on the stage above the scenario bubble
             let rows = store.kit?.scenes.indices.contains(i) == true ? store.kit!.scenes[i].steps.count : 3
             return .scene(rows: rows)
         case .end: return .end
@@ -440,6 +476,28 @@ struct RootView: View {
         guard metrics.isPhone, case .scene = phoneContent else { return false }
         return true
     }
+    /// 2026-11-20 (checklist scenes): the scene on screen is a checklist (its cards, or its scenario once done).
+    private var checklistScene: Bool { store.currentChecklist != nil }
+    /// Every card is done: the scenario moment (Nutmeg back on the stage, big, in the normal framing).
+    private var scenarioMoment: Bool { checklistScene && store.currentSceneDone && store.currentArc == .play }
+    /// The checklist cards are up: on the iPad she peeks over a card, on the iPhone her head is in the shelf, so the
+    /// stage Nutmeg hides (like the iPhone peek scenes).
+    private var checklistCards: Bool { checklistScene && !scenarioMoment && !(chatOpen && chromeVisible) }
+    /// The stage Nutmeg hides: the iPhone peek over a scene card, or the checklist cards.
+    private var hidesStageNutmeg: Bool { phonePeek || checklistCards }
+    /// The iPad's checklist zone: the whole stage between the rail and the right curtain (the cards in a row).
+    private func checklistBoardRect(_ g: PTStageGeometry) -> CGRect {
+        let x0 = g.free.minX + Theme.Space.s, x1 = g.size.width - curtainInset(g) - Theme.Space.s
+        return CGRect(x: x0, y: g.free.minY + Theme.Space.s, width: max(300, x1 - x0), height: max(200, g.free.height - Theme.Space.s))
+    }
+    /// The ◀ / ▶ pair's size: one centered pair, the same size and shape (Haylee).
+    private var navHeight: CGFloat { metrics.isPhone ? 60 : 76 }
+    private var navWidth: CGFloat {
+        let full = (screenSize == .zero ? rootSize : screenSize).width
+        return metrics.isPhone ? max(140, min(200, (full - 2 * LayoutMetrics.phoneSide - Theme.Space.m) / 2)) : 300
+    }
+    private var navRoom: CGFloat { navHeight + Theme.edge(navHeight) + (metrics.isPhone ? 14 : Theme.Space.m + Theme.Space.s) }
+
     /// The phone's whole free band (under the top bar, above the pill), side-inset: the peek scene's card zone.
     private func phoneBandRect(_ g: PTStageGeometry) -> CGRect {
         let band = metrics.phoneBand(stage: g.size, screen: screenSize == .zero ? g.size : screenSize, safeTop: rootTop, bottom: phoneBottomRoom)
@@ -506,9 +564,11 @@ struct RootView: View {
             NutmegCharacter(state: model.nutmegState, mouthLevel: model.mouthLevel, mouthShape: model.mouthShape,
                             isSpeaking: model.isSpeaking, cue: model.cue, forcedPose: debugPose, showsGround: true,
                             holdsClipboard: model.nutmegHoldsClipboard, writing: model.isWriting)
-                // iPhone play scenes: she's the peek over the card instead (SceneView).
-                .opacity(phonePeek ? 0 : 1)
-                .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: phonePeek)
+                // iPhone play scenes: she's the peek over the card instead (SceneView). 2026-11-20: the checklist cards
+                // too (she peeks over a card on the iPad, her head is in the shelf on the iPhone); she comes back, big,
+                // for the scenario.
+                .opacity(hidesStageNutmeg ? 0 : 1)
+                .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: hidesStageNutmeg)
         } overlay: { g, L in
             if metrics.isPhone {
                 phoneOverlay(g, L)
@@ -735,7 +795,9 @@ struct RootView: View {
         // Round 11: every phase's content sits in the prop-card step's card zone (one framing, one zone).
         // iPhone: the content zone under her.
         let r = phonePeek ? phoneBandRect(g)
-            : metrics.isPhone ? phoneSplit(g).content : PTStageDirector.huntContent(g, nutmeg: L, curtainInset: curtainInset(g))
+            : metrics.isPhone ? phoneSplit(g).content
+            : checklistCards ? checklistBoardRect(g)   // 2026-11-20: the cards in a row across the stage
+            : PTStageDirector.huntContent(g, nutmeg: L, curtainInset: curtainInset(g))
         // Round 14 (Haylee: the cards got smaller): every phase's content draws at its NATURAL size in the shared card
         // zone (`PTStageDirector.cardZoneWidth`); it only scales down on a stage too narrow for ~300 pt.
         let fit = min(1, r.width / Self.minContentWidth)
@@ -783,7 +845,15 @@ struct RootView: View {
         case .makingKit, .kitReady: KitView(model: model, clipboard: clipboard, chatOpen: chatOpen && chromeVisible, preview: $kitPreview,
                                             onCelebrate: { celebrate() })
         // Round 36: the story is Nutmeg alone (the talking close-up), no card.
-        case .scene(let i): if !(chatOpen && chromeVisible) && !store.inStory { SceneView(model: model, index: i, width: width, maxHeight: height, peek: phonePeek) }   // chat open: pinned in the panel
+        case .scene(let i):
+            if !(chatOpen && chromeVisible) && !store.inStory {   // chat open: pinned in the panel
+                // 2026-11-20 (Haylee): a checklist scene (an older saved game keeps its scene card).
+                if store.kit?.scenes.indices.contains(i) == true, store.kit!.scenes[i].isChecklist {
+                    ChecklistSceneView(model: model, index: i, width: width, height: height)
+                } else {
+                    SceneView(model: model, index: i, width: width, maxHeight: height, peek: phonePeek)
+                }
+            }
         // iPhone: its buttons sit where the bar was. iPad (2026-11-18, Haylee): under the title, beside Nutmeg.
         case .end: if !(chatOpen && chromeVisible) { EndView(model: model, showsButtons: !metrics.isPhone, buttonSize: 124) }
         }
@@ -826,7 +896,7 @@ struct RootView: View {
     /// The iPad stage's bottom room: the bar's, a margin in Play, the old framing in The End.
     private var padBottomRoom: CGFloat {
         switch store.phase {
-        case .scene: Theme.Space.m
+        case .scene: checklistScene ? navRoom : Theme.Space.m   // 2026-11-20: the ◀ / ▶ pair's room
         case .end: PTStageCamera.chromeBottom   // 2026-11-18: the buttons are back under the title (the old framing)
         default: PTStageCamera.chromeBottom
         }
@@ -834,7 +904,7 @@ struct RootView: View {
     /// The phone stage's bottom room: the bar's, none in Play (the peek and the rows get it), The End's buttons there.
     private var phoneBottomRoom: CGFloat {
         switch store.phase {
-        case .scene: LayoutMetrics.phoneNoBarBottom
+        case .scene: checklistScene ? navRoom : LayoutMetrics.phoneNoBarBottom   // 2026-11-20: the ◀ / ▶ pair's room
         case .end: LayoutMetrics.phoneEndBottom
         default: metrics.phoneChromeBottom
         }

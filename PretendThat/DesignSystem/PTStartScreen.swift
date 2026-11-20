@@ -398,17 +398,19 @@ struct PTStartButton: View {
             .foregroundStyle(Theme.ink)
             .frame(width: width, height: height)
         }
-        .buttonStyle(StartButtonStyle())
+        .buttonStyle(StartButtonStyle(edge: Theme.edge(height)))
         .accessibilityLabel(title)
     }
 
     private struct StartButtonStyle: ButtonStyle {
+        /// 2026-11-20: the slim edge for this height (`Theme.edge`); presses travel the same amount.
+        let edge: CGFloat
         func makeBody(configuration: Configuration) -> some View {
-            let down = configuration.isPressed ? Theme.depth : 0
+            let down = configuration.isPressed ? edge : 0
             configuration.label
                 .background(Capsule().fill(Theme.yellow))
                 .offset(y: down)
-                .background(Capsule().fill(Theme.yellowShade).offset(y: Theme.depth))
+                .background(Capsule().fill(Theme.yellowShade).offset(y: edge))
                 .animation(Theme.press, value: configuration.isPressed)
                 .sensoryFeedback(.impact(flexibility: .soft), trigger: configuration.isPressed)
         }
@@ -432,18 +434,19 @@ struct PTMyGamesButton: View {
             }
             .frame(width: width, height: height)
         }
-        .buttonStyle(MyGamesStyle())
+        .buttonStyle(MyGamesStyle(edge: Theme.edge(height)))
         .accessibilityLabel("Saved games")
     }
 
     private struct MyGamesStyle: ButtonStyle {
+        let edge: CGFloat
         func makeBody(configuration: Configuration) -> some View {
-            let down = configuration.isPressed ? Theme.depth : 0
+            let down = configuration.isPressed ? edge : 0
             configuration.label
                 .background(Capsule().fill(Theme.white))
                 .overlay(Capsule().strokeBorder(Theme.line, lineWidth: 1.5))
                 .offset(y: down)
-                .background(Capsule().fill(Theme.lavenderShade).offset(y: Theme.depth))
+                .background(Capsule().fill(Theme.lavenderShade).offset(y: edge))
                 .animation(Theme.press, value: configuration.isPressed)
                 .sensoryFeedback(.impact(flexibility: .soft), trigger: configuration.isPressed)
         }
