@@ -22,15 +22,15 @@ extension AppModel {
         guard !left.isEmpty else { store.nextScene(); return }
         oneSceneFinishing = true
         Task { @MainActor [weak self] in
+            // Review: always cleared, even when the game was left mid check-off (else the button stayed dead).
+            defer { self?.oneSceneFinishing = false }
             for k in left {
                 guard let self, case .scene(i) = self.store.phase else { return }
                 if !self.store.isChecked(k) { _ = self.store.toggleCheck(k) }
                 try? await Task.sleep(for: .milliseconds(140))
             }
             try? await Task.sleep(for: .milliseconds(350))   // the last check lands before the scene changes
-            guard let self else { return }
-            self.oneSceneFinishing = false
-            guard case .scene(i) = self.store.phase else { return }
+            guard let self, case .scene(i) = self.store.phase else { return }
             self.store.nextScene()
         }
     }
@@ -198,8 +198,9 @@ extension AppModel {
     /// the clean-up 20 s later, the same as the scheduled finale. The scene time jumps to the finale's, so a relaunch
     /// lands there too.
     func endSceneEarly() {
-        guard store.currentBeatScene != nil, var run = beatRun else { return }
         let now = CACurrentMediaTime()
+        // Review: at or past the finale it does nothing (it used to cut off her finale line).
+        guard store.currentBeatScene != nil, var run = beatRun, beatClock.elapsed(now: now) < run.finaleAt else { return }
         let t = run.endEarly(at: beatClock.elapsed(now: now))
         beatRun = run
         beatLineTask?.cancel(); beatLineTask = nil

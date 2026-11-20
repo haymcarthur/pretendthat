@@ -549,14 +549,15 @@ struct RootView: View {
             }
             VStack(alignment: .trailing, spacing: Theme.Space.s) {
                 PTPausePill { model.pauseScene() }
-                PTEndScenePill { confirmEndScene = true }   // 2026-11-21: small, under ⏸ Pause
+                // 2026-11-21: small, under ⏸ Pause (review: gone once the finale is on, there's nothing to skip).
+                if model.beatDisplay != .finale { PTEndScenePill { confirmEndScene = true } }
             }
             .padding(.top, PTCurtain.metrics(screen).valance + Theme.Space.s)
             .padding(.trailing, Theme.Space.m + Theme.Space.s)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
             .transition(.move(edge: .trailing).combined(with: .opacity))
             .zIndex(6)
-        } else {
+        } else if model.beatDisplay != .finale {
             // iPhone: ⏸ Pause is in the top bar; "End scene" sits just under it.
             PTEndScenePill(height: 36) { confirmEndScene = true }
                 .padding(.top, LayoutMetrics.phoneTopInset(screen: screen, safeTop: rootTop) + LayoutMetrics.phoneTopBar + Theme.Space.xs)
