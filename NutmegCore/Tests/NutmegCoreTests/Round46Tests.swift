@@ -74,8 +74,10 @@ import Testing
             }
         }
         #expect(covered == Set(KitRecipe.allCases).subtracting([.decoder]))
-        // The decoder stays app-drawn (its symbols must be exact); an older kit's item never gets a page prompt.
-        #expect(KitPagePrompt.prompt(for: page(.decoder, title: "Secret Code", lines: ["GOLD"]), ctx: ctx, style: .fullColor) == nil)
+        // The decoder stays app-drawn (its symbols must be exact). 2026-11-20 (Haylee): the AI draws a picture for it,
+        // with no words or symbols at all; an older kit's item never gets a page prompt.
+        let dec = KitPagePrompt.prompt(for: page(.decoder, title: "Secret Code", lines: ["GOLD"]), ctx: ctx, style: .fullColor)
+        #expect(dec?.words == [] && dec?.prompt.contains("NO words, letters, numbers, symbols") == true && dec?.prompt.contains("GOLD") == false)
         var old = page(.sign, title: "Cafe"); old.wholePage = nil
         #expect(KitPagePrompt.prompt(for: old, ctx: ctx, style: .fullColor) == nil)
     }

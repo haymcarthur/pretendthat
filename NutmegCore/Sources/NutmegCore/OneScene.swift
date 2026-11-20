@@ -700,7 +700,7 @@ public enum OneScene {
                 }
                 shown = Speakable.repair(shown, fallback: "Tidy up your spot")
                 text = Speakable.repair(text, fallback: "\(role.roleName), tidy up your spot!")
-                if p > 1 { shown = PlayCast.unname(shown, roles: roles, players: p); text = PlayCast.unname(text, roles: roles, players: p) }
+                if p > 1 { shown = PlayCast.unname(shown, roles: roles, players: p, keep: kit.items.map(\.title)); text = PlayCast.unname(text, roles: roles, players: p, keep: kit.items.map(\.title)) }
                 steps.append(Step(picture: id == printMessID ? printMessPicture : .prop(byID[id]?.prop?.libraryID ?? byID[id]?.prop?.id ?? "point"),
                                   text: text, role: SceneOwner(role.id), short: shown))
             }

@@ -38,7 +38,7 @@ struct LibraryPageView: View {
         case .map?: MapPage(item: item, picture: art, look: look, size: inner).offset(x: Self.margin, y: Self.margin)
         case .log?: LogPage(item: item, picture: art, look: look, size: inner).offset(x: Self.margin, y: Self.margin)
         case .passport?: PassportPage(item: item, picture: art, look: look, size: inner).offset(x: Self.margin, y: Self.margin)
-        case .decoder?: DecoderPage(item: item, look: look, size: inner).offset(x: Self.margin, y: Self.margin)
+        case .decoder?: DecoderPage(item: item, look: look, size: inner, picture: art).offset(x: Self.margin, y: Self.margin)
         case .controlPanel?: ControlPanelPage(item: item, picture: art, look: look, size: inner).offset(x: Self.margin, y: Self.margin)
         default: cards
         }
@@ -1001,34 +1001,47 @@ struct PassportPage: View {
 
 struct DecoderPage: View {
     let item: KitItem; var look: PrintLook; var size: CGSize
+    /// 2026-11-20 (Haylee: "add some AI elements and make the colors match"): the AI's picture for this page (no words
+    /// or symbols), printed under the code key; nil = the page as before.
+    var picture: UIImage? = nil
+
+    /// The color set uses the kit's AI palette (the page style every AI page is drawn in: coral, sunny yellow, lime,
+    /// sky blue, deep purple, cream, dark purple outlines) instead of the app's pastel print tints; the coloring set
+    /// stays black on white.
+    private var colored: Bool { look.colored }
+    private var line: Color { colored ? Theme.purple : Theme.printInk }
+    private static let keyFills: [Color] = [Theme.yellow, Theme.coral, Theme.lime, Color(hex: 0x7CC8EA)].map { $0.opacity(0.45) }
+    private func keyFill(_ i: Int) -> Color { colored ? Self.keyFills[i % Self.keyFills.count] : Theme.printPaper }
+
     var body: some View {
         let messages = Array(item.lines.prefix(3))
         let letters = Decoder.letters(messages)
         let cols = Array(repeating: GridItem(.flexible(), spacing: 6), count: min(7, max(1, letters.count)))
-        return VStack(spacing: 18) {
-            Ribbon(text: item.title, look: look, fontSize: 38).padding(.horizontal, 40).padding(.top, 10)
+        let art = picture.flatMap(PictureTrim.trimmed)
+        return VStack(spacing: art == nil ? 18 : 12) {
+            title
             PrintText(text: "THE CODE KEY", size: 22)
             LazyVGrid(columns: cols, spacing: 8) {
-                ForEach(letters, id: \.self) { l in
+                ForEach(Array(letters.enumerated()), id: \.element) { i, l in
                     VStack(spacing: 2) {
                         Image(systemName: Decoder.symbol(l)).font(.system(size: 30, weight: .regular)).foregroundStyle(Theme.printInk).frame(height: 36)
                         PrintText(text: String(l), size: 24)
                     }
                     .frame(maxWidth: .infinity).padding(.vertical, 6)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(look.tint(1))).overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.printInk, lineWidth: 1.5))
+                    .background(RoundedRectangle(cornerRadius: 8).fill(keyFill(i))).overlay(RoundedRectangle(cornerRadius: 8).stroke(line, lineWidth: colored ? 2.5 : 1.5))
                 }
             }
             .padding(.horizontal, 20)
             PrintText(text: "SECRET MESSAGES", size: 22).padding(.top, 6)
             ForEach(Array(messages.enumerated()), id: \.offset) { i, m in
                 HStack(spacing: 6) {
-                    NumberDot(text: "\(i + 1)", side: 34, look: look)
+                    numberDot(i)
                     ForEach(Array(m.enumerated()), id: \.offset) { _, ch in
                         if ch == " " { Color.clear.frame(width: 14) }
                         else {
                             VStack(spacing: 4) {
                                 Image(systemName: Decoder.symbol(ch)).font(.system(size: 22)).foregroundStyle(Theme.printInk).frame(height: 26)
-                                RoundedRectangle(cornerRadius: 4).stroke(Theme.printInk, lineWidth: 1.5).frame(width: 30, height: 32)
+                                RoundedRectangle(cornerRadius: 4).stroke(line, lineWidth: colored ? 2 : 1.5).frame(width: 30, height: 32)
                             }
                         }
                     }
@@ -1036,10 +1049,67 @@ struct DecoderPage: View {
                 }
                 .padding(.horizontal, 20)
             }
-            Spacer(minLength: 0)
+            if let art {
+                // The AI picture fills the room left under the messages (whole, never cropped).
+                Image(uiImage: art).resizable().scaledToFit()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding(.horizontal, 16).padding(.bottom, 12)
+            } else {
+                Spacer(minLength: 0)
+            }
         }
         .frame(width: size.width, height: size.height)
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Theme.printInk, lineWidth: 4))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(line, lineWidth: 4))
+    }
+
+    @ViewBuilder private var title: some View {
+        if colored {
+            PrintText(text: item.title, size: 38)
+                .padding(.horizontal, 38 * 1.1).padding(.vertical, 38 * 0.2)
+                .frame(maxWidth: .infinity)
+                .background(RibbonShape().fill(Theme.yellow))
+                .overlay(RibbonShape().stroke(line, lineWidth: 3))
+                .padding(.horizontal, 40).padding(.top, 10)
+        } else {
+            Ribbon(text: item.title, look: look, fontSize: 38).padding(.horizontal, 40).padding(.top, 10)
+        }
+    }
+
+    @ViewBuilder private func numberDot(_ i: Int) -> some View {
+        if colored {
+            PrintText(text: "\(i + 1)", size: 20)
+                .frame(width: 34, height: 34)
+                .background(Circle().fill(Self.keyFills[(i + 1) % Self.keyFills.count]))
+                .overlay(Circle().stroke(line, lineWidth: 2.5))
+        } else {
+            NumberDot(text: "\(i + 1)", side: 34, look: look)
+        }
+    }
+}
+
+/// 2026-11-20: an AI picture drawn in the middle of a white page, cut down to the drawing (the white paper around it
+/// trimmed off), so the app can place it in its own space.
+enum PictureTrim {
+    static func trimmed(_ image: UIImage) -> UIImage? {
+        guard let cg = image.cgImage else { return image }
+        let w = 96, h = max(1, Int(Double(cg.height) / Double(cg.width) * 96))
+        var px = [UInt8](repeating: 0, count: w * h * 4)
+        guard let ctx = CGContext(data: &px, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                                  space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return image }
+        ctx.setFillColor(UIColor.white.cgColor); ctx.fill(CGRect(x: 0, y: 0, width: w, height: h))
+        ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
+        var minX = w, minY = h, maxX = -1, maxY = -1
+        for y in 0..<h { for x in 0..<w {
+            let i = (y * w + x) * 4
+            if min(px[i], px[i + 1], px[i + 2]) < 235 { minX = min(minX, x); maxX = max(maxX, x); minY = min(minY, y); maxY = max(maxY, y) }
+        } }
+        guard maxX >= minX, maxY >= minY else { return nil }   // a blank picture: print the page without it
+        let sx = Double(cg.width) / Double(w), sy = Double(cg.height) / Double(h)
+        // CGContext rows run bottom-up; the crop rect runs top-down.
+        let rect = CGRect(x: Double(max(0, minX - 1)) * sx, y: Double(max(0, h - 1 - maxY - 1)) * sy,
+                          width: Double(min(w, maxX - minX + 3)) * sx, height: Double(min(h, maxY - minY + 3)) * sy).integral
+        guard let crop = cg.cropping(to: rect) else { return image }
+        return UIImage(cgImage: crop, scale: image.scale, orientation: image.imageOrientation)
     }
 }
 

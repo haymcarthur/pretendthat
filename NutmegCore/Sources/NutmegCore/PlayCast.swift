@@ -165,9 +165,12 @@ public enum PlayCast {
     }
 
     /// Roles that aren't playing become "a friend" ("Hand the map to the Lookout" → "Hand the map to a friend").
-    public static func unname(_ text: String, roles: [Role], players n: Int, title: Bool = false) -> String {
+    /// `keep`: names that are NOT the role here (2026-11-20, Haylee: the page "Code Cracker" shared its name with the
+    /// absent Code Cracker role, and "Put the Code Cracker in the corner" became "Put a friend in the corner").
+    public static func unname(_ text: String, roles: [Role], players n: Int, title: Bool = false, keep: [String] = []) -> String {
         let away = roles.filter { $0.id.rank > players(n) }.map(\.roleName).filter { !$0.isEmpty }
             .filter { a in !RoleCast.playing(roles, kids: n).contains { $0.roleName.caseInsensitiveCompare(a) == .orderedSame } }
+            .filter { a in !keep.contains { $0.caseInsensitiveCompare(a) == .orderedSame } }
             .sorted { $0.count > $1.count }
         guard !away.isEmpty else { return text }
         var s = text
@@ -179,6 +182,11 @@ public enum PlayCast {
             s = s.replacingOccurrences(of: "(?i)" + wordPattern(name), with: friend, options: .regularExpression)
         }
         return title ? s : capitalizeSentences(s)
+    }
+
+    /// The kit's page titles ("Code Cracker"), as `unname`'s `keep` (a page may share a role's name).
+    public static func pageTitles(_ cover: [CoverItem]) -> [String] {
+        cover.filter { $0.recipe != nil }.map { $0.label.replacingOccurrences(of: #"(?i)^the\s+"#, with: "", options: .regularExpression) }
     }
 
     /// A scene's intro line: sentences naming a role that isn't playing are dropped (the "Pretend that" sentence

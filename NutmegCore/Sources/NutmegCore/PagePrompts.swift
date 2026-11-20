@@ -106,7 +106,7 @@ public enum KitPagePrompt {
         case .passport: return passport(item, h)
         case .labels: return labels(item, h)
         case .controlPanel: return controlPanel(item, h)
-        case .decoder: return nil
+        case .decoder: return decoderPicture(ctx, h)
         }
     }
 
@@ -116,6 +116,20 @@ public enum KitPagePrompt {
         let m = unique(missing).map { "\"\($0)\"" }.joined(separator: ", ")
         return PagePrompt(prompt: p.prompt + " Check the spelling of every word before finishing, letter by letter, "
                           + "especially \(m): each one must be written exactly as quoted and be easy to read.", words: p.words)
+    }
+
+    // MARK: The decoder's picture (2026-11-20, Haylee: "add some AI elements and make the colors match")
+
+    /// The code decoder stays app-drawn (its symbols must be exact); the AI draws only a picture for it, which the app
+    /// prints under the code key. No words, letters, numbers or symbols, so nothing can clash with the code.
+    static func decoderPicture(_ ctx: KitArtContext, _ h: String) -> PagePrompt {
+        let body = " Draw ONE wide cheerful picture for this game's secret-code puzzle: the game's characters huddled "
+            + "together cracking a secret code, with a magnifying glass, a lantern or a treasure map, in the game's world. "
+            + "The picture spans the full width of the page and is about one third of the page tall, centered "
+            + "vertically; everything above and below it is plain white paper with nothing drawn. No frame, no border, "
+            + "no banner, no box around it. ABSOLUTELY NO words, letters, numbers, symbols, icons, codes or writing "
+            + "anywhere, not even on signs, papers or screens in the picture."
+        return PagePrompt(prompt: h + body + safe, words: [])
     }
 
     // MARK: 1. Badges (lanyard / round pin / ID card), drawn for all 6 ranked roles

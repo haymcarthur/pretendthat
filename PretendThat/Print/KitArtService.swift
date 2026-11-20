@@ -185,6 +185,7 @@ final class KitArtService {
     /// This item's art hasn't landed yet (a page with nothing to draw, like the decoder, never waits).
     func isMissing(_ item: KitItem) -> Bool {
         guard item.aiPage else { return false }   // older kits are only replayed: their art is all there
+        if item.recipe == .decoder { return false }   // 2026-11-20: its picture is a bonus; the page never waits for it
         let keys = KitArtPlan.keys(items: [item], ctx: context ?? KitArtContext(title: ""))
         return keys.contains { images[$0] == nil && !failed.contains($0) }
     }

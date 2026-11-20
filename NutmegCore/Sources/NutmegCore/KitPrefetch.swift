@@ -129,9 +129,11 @@ public enum KitArtPlan {
         return item.recipe == .badges ? "\(item.id)@\(min(max(players, 1), RoleCast.count))" : item.id
     }
 
-    /// The pages (parts) an AI item has: the cut-outs have 2 when skipped props were added; the decoder none.
+    /// The pages (parts) an AI item has: the cut-outs have 2 when skipped props were added. 2026-11-20 (Haylee): the
+    /// decoder has one too, a PICTURE only (no words or symbols) the app prints under its exact code key; the page never
+    /// waits for it.
     public static func parts(_ item: KitItem) -> [Int] {
-        guard item.aiPage, item.recipe != .decoder else { return [] }
+        guard item.aiPage else { return [] }
         if item.recipe == .cutouts, let n = item.pageLines, n < item.lines.count { return [0, 1] }
         return [0]
     }

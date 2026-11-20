@@ -22,6 +22,9 @@ struct KitPageView: View {
     @ViewBuilder var body: some View {
         if blank {
             Theme.printPaper.frame(width: Self.size.width, height: Self.size.height)
+        } else if page.item.recipe == .decoder {
+            // 2026-11-20 (Haylee): the decoder is app-drawn (exact symbols) with its AI picture, when it came, under the key.
+            LibraryPageView(page: page, art: art, pictures: cutouts, style: style)
         } else if page.item.aiPage, let pieces, !pieces.images.isEmpty {
             // Round 47: only the pieces for the kids playing, as the AI drew them, laid on the paper at the page's scale.
             AIPiecesPageView(pieces: pieces)

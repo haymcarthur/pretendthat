@@ -74,6 +74,12 @@ struct ScenariosOwnershipTests {
         #expect(EventScenario.actionOpener("Pretend that the shop is open!") == "Pretend that the shop is open! \(s)")
         let once = EventScenario.actionOpener("Pretend that the shop is open! Get ready!")
         #expect(EventScenario.actionOpener(once) == once)
+        // 2026-11-20 (Haylee): a page that shares an absent role's name keeps it ("Put a friend in the corner" bug).
+        let spies = [Role(id: .R1, roleName: "Lead Spy", emoji: "", symbol: "", job: ""), Role(id: .R2, roleName: "Secret Client", emoji: "", symbol: "", job: ""),
+                     Role(id: .R3, roleName: "Clue Finder", emoji: "", symbol: "", job: ""), Role(id: .R4, roleName: "Gadget Tester", emoji: "", symbol: "", job: ""),
+                     Role(id: .R5, roleName: "Code Cracker", emoji: "", symbol: "", job: "")]
+        #expect(PlayCast.unname("Put the Code Cracker in the corner", roles: spies, players: 3, keep: ["Code Cracker"]) == "Put the Code Cracker in the corner")
+        #expect(PlayCast.unname("Put the Code Cracker in the corner", roles: spies, players: 3) == "Put a friend in the corner")
     }
 
     // MARK: 2. No automatic repeat; the card stays up; End scene

@@ -73,7 +73,7 @@ enum KitPageGallery {
                 let kit = Kit(nutmegSays: "", items: [item], scenes: [])
                 guard let page = KitLayout.pages(for: kit, roles: roles, playerCount: item.recipe == .badges ? 6 : 4).first else { continue }
                 let outline = style == .colorIn
-                let art: UIImage? = PrintLibrary.art(item) == .none ? nil : fixture(n, outline: outline)
+                let art: UIImage? = PrintLibrary.art(item) == .none && item.recipe != .decoder ? nil : fixture(n, outline: outline)   // 2026-11-20: the decoder has a picture too
                 // The fallback pages (round 45's layout, used when an AI page never comes): fixture pictures per entry.
                 let count: Int
                 switch item.recipe {

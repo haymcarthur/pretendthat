@@ -97,7 +97,7 @@ extension PlayPlans {
         let rawOpener = EventScenario.isGenericOpener(b.opener) ? EventScenario.opener(story: k.story, title: guide.title) : b.opener
         // 2026-11-20 (Haylee): the opener ends in something everyone does (never just "take your places").
         let opener = EventScenario.actionOpener(PlayCast.sceneLine(rawOpener, roles: roles, players: p))
-        let finale = PlayCast.unname(b.finale, roles: roles, players: p)
+        let finale = PlayCast.unname(b.finale, roles: roles, players: p, keep: PlayCast.pageTitles(cover))
         let beats = Speakable.repair(SceneBeats(opener: opener, events: events, finale: finale, music: b.music, ideas: ideas))
         out.append(Scene(id: "play", owner: .all, title: guide.title, picture: .point, nutmegSays: beats.opener, steps: [], beats: beats))
         out.append(cleanupScene(k.cleanup ?? Bookend(title: "", nutmegSays: ""), plan: plan, cast: cast, cover: cover, roles: roles,
@@ -159,12 +159,12 @@ extension PlayPlans {
             }
             for row in rows {
                 var shown = Speakable.repair(PropWording.clean(row.shown, props: props), fallback: Speakable.safeItem)
-                if p > 1 { shown = PlayCast.unname(shown, roles: roles, players: p) }
+                if p > 1 { shown = PlayCast.unname(shown, roles: roles, players: p, keep: PlayCast.pageTitles(cover)) }
                 steps.append(Step(picture: row.picture, text: ChecklistScenes.say(shown, role: role), role: SceneOwner(role.id),
                                   short: shown, objects: row.objects))
             }
             var job = Speakable.repair(areaJob(for: role.id, plan: plan, cast: cast, title: guide.title), fallback: "Get ready to play")
-            if p > 1 { job = PlayCast.unname(job, roles: roles, players: p) }
+            if p > 1 { job = PlayCast.unname(job, roles: roles, players: p, keep: PlayCast.pageTitles(cover)) }
             jobs[role.id.rawValue] = job
         }
         return Scene(id: "setup", owner: .all, title: PlayCast.unname(guide.title, roles: roles, players: p, title: true), picture: .point,
@@ -215,7 +215,7 @@ extension PlayPlans {
             }
             for row in rows {
                 var shown = Speakable.repair(PropWording.clean(row.shown, props: props), fallback: "Tidy up your spot")
-                if p > 1 { shown = PlayCast.unname(shown, roles: roles, players: p) }
+                if p > 1 { shown = PlayCast.unname(shown, roles: roles, players: p, keep: PlayCast.pageTitles(cover)) }
                 steps.append(Step(picture: row.picture, text: ChecklistScenes.say(shown, role: role), role: SceneOwner(role.id),
                                   short: shown, objects: row.objects))
             }
@@ -223,7 +223,7 @@ extension PlayPlans {
                 ?? ids.first.flatMap { plan.object($0) }.flatMap { plan.area($0.area) }
             var job = area.map { "Tidy up \($0.name)" } ?? "Help tidy up"
             job = Speakable.repair(job, fallback: "Help tidy up")
-            if p > 1 { job = PlayCast.unname(job, roles: roles, players: p) }
+            if p > 1 { job = PlayCast.unname(job, roles: roles, players: p, keep: PlayCast.pageTitles(cover)) }
             jobs[role.id.rawValue] = job
         }
         let title = bookend.title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -286,7 +286,7 @@ extension PlayPlans {
             for extra in slot.objects.dropFirst() {
                 line += " Then " + PlayCast.lowerFirst(exclaim(dropLead(extra.idea)))
             }
-            if p > 1 { line = PlayCast.unname(line, roles: roles, players: p) }
+            if p > 1 { line = PlayCast.unname(line, roles: roles, players: p, keep: PlayCast.pageTitles(cover)) }
             let fallback = ideaLine(appObject(cover.first { $0.id == first.id } ?? CoverItem(id: first.id, label: "it", names: []),
                                               plan: plan, roles: roles, area: first.area).idea, who: who)
             line = Speakable.repair(line, fallback: fallback)
