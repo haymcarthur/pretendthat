@@ -566,6 +566,17 @@ struct RootView: View {
                 .transition(.opacity)
                 .zIndex(6)
         }
+        // 2026-11-21 (Haylee, one game plan): the calm-stretch idea card, small and low right, above the scene bar.
+        if let idea = model.beatIdea, !model.scenePaused {
+            PTIdeaCard(model: model, idea: idea, phone: metrics.isPhone)
+                .id("idea-\(idea.line)")
+                .padding(.trailing, metrics.isPhone ? LayoutMetrics.phoneSide : PTCurtain.metrics(screen).visible * 0.55 + Theme.Space.m)
+                .padding(.leading, metrics.isPhone ? LayoutMetrics.phoneSide : 0)
+                .padding(.bottom, beatBarRoom + (metrics.isPhone ? 8 : Theme.Space.m))
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                .transition(.opacity.combined(with: .move(edge: .trailing)))
+                .zIndex(5.5)
+        }
         PTSceneBar(dots: BeatTimeline.dots(count: count), progress: model.beatProgress, fired: model.beatFiredEvents,
                    width: metrics.isPhone ? max(200, screen.width - 2 * LayoutMetrics.phoneSide - 24) : min(560, screen.width * 0.42))
             .padding(.bottom, metrics.isPhone ? 14 : Theme.Space.m)

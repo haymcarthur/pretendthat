@@ -161,6 +161,41 @@ struct PTCalmAgainCard: View {
     }
 }
 
+/// 2026-11-21 (Haylee, one game plan; design/mockups/area-setup/screen-5): a calm-stretch idea. Small, soft and
+/// translucent, low right on the stage: the printout's thumbnail (or the prop's art), the line, and a 🔊 hear-again. No
+/// chime and no music duck; it stays about 20 s or until the next event (`BeatRun.ideaEnds`). Nutmeg stays where she is.
+struct PTIdeaCard: View {
+    let model: AppModel
+    let idea: BeatIdea
+    var phone = false
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: phone ? 22 : 30, style: .continuous)
+        let thumb: CGFloat = phone ? 52 : 84
+        HStack(spacing: phone ? Theme.Space.s : Theme.Space.m) {
+            if idea.picture != .point {
+                model.pictureTile(idea.picture, size: thumb)
+                    .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Theme.white))
+            }
+            Text(idea.line)
+                .font(Theme.headlineFont(phone ? 17 : 23))
+                .foregroundStyle(Theme.ink)
+                .multilineTextAlignment(.leading)
+                .minimumScaleFactor(0.7)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            PTSpeakerButton(size: phone ? 44 : 52, tint: Theme.purple, label: "Hear it again") { model.hearBeatAgain() }
+                .accessibilityIdentifier("scene.hearIdea")
+        }
+        .padding(phone ? Theme.Space.s : Theme.Space.m)
+        .frame(maxWidth: phone ? .infinity : 520, alignment: .leading)
+        .background(shape.fill(Theme.white.opacity(0.82)))
+        .overlay(shape.strokeBorder(Theme.white.opacity(0.9), lineWidth: 1.5))
+        .shadow(color: Theme.panelShadow.opacity(0.6), radius: 8, y: 2)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(idea.line)
+    }
+}
+
 // MARK: - Chrome: the music pill, ⏸ Pause, the scene bar
 
 /// The small music pill at the top ("♫ ılıl Space adventure"; "· uh-oh!" in coral while it's tense). 2026-11-21

@@ -97,9 +97,10 @@ struct PTChecklistBoard: View {
         let titleFont: CGFloat
         let topRight: Int
 
-        init(cards: [ChecklistScenes.Card], width: CGFloat) {
+        init(cards: [ChecklistScenes.Card], width: CGFloat, areas: Bool = false) {
             let n = max(1, cards.count)
-            let columns = n <= 3 ? n : (n == 4 ? 2 : 3)
+            // 2026-11-21 (Haylee, area cards): 3 kids = two cards on top, one centered below.
+            let columns = n <= 3 ? (areas && n == 3 ? 2 : n) : (n == 4 ? 2 : 3)
             let gap = Theme.Space.m
             let maxW: CGFloat = n == 1 ? 560 : 520
             let fitW: CGFloat = (width - CGFloat(columns - 1) * gap) / CGFloat(columns)
@@ -117,7 +118,7 @@ struct PTChecklistBoard: View {
             self.rows = rows
             self.gap = gap
             self.cardW = cardW
-            self.size = n <= 2 ? .padLarge : (n <= 3 ? .padMedium : .padSmall)
+            self.size = n <= 2 ? .padLarge : (n <= 3 && !areas ? .padMedium : (n <= 4 && areas ? .padMedium : .padSmall))
             self.peekW = peekW
             self.above = NutmegPeek.heightAboveEdge(width: peekW)
             self.titleH = 64
@@ -130,7 +131,7 @@ struct PTChecklistBoard: View {
     }
 
     var body: some View {
-        let layout = BoardLayout(cards: ChecklistScenes.cards(scene), width: width)
+        let layout = BoardLayout(cards: ChecklistScenes.cards(scene), width: width, areas: scene.areaJobs != nil)
         ViewThatFits(in: .vertical) {
             board(layout)
             ScrollView(.vertical) { board(layout).padding(.bottom, Theme.Space.m) }.scrollIndicators(.visible).frame(height: height)
@@ -254,17 +255,9 @@ struct PTChecklistCard: View {
                 Button { model.readRole(card.role) } label: {
                     HStack(spacing: Theme.Space.s) {
                         PTCharacterPicture(role: role, image: model.characterPicture(role), size: size.picture, ring: true)
-                        Text(role.roleName).font(Theme.headlineFont(size.name)).foregroundStyle(tint)
-                            .lineLimit(1).minimumScaleFactor(0.6)
+                        titles(role: role, tint: tint)
                         Spacer(minLength: 4)
-                        if finished {
-                            Image(systemName: "checkmark.circle.fill").font(.system(size: size.name * 1.1, weight: .bold))
-                                .foregroundStyle(Theme.limeShade)
-                                .accessibilityLabel("Done")
-                        } else {
-                            Text("\(done) of \(card.rows.count)").font(Theme.headlineFont(size.font * 0.95)).foregroundStyle(Theme.inkMuted)
-                                .monospacedDigit()
-                        }
+                        progressMark(done: done, finished: finished)
                     }
                     .frame(minHeight: max(44, size.picture))
                     .contentShape(Rectangle())
@@ -276,7 +269,8 @@ struct PTChecklistCard: View {
                     if scene.steps.indices.contains(k) {
                         PTChecklistRow(model: model, text: scene.steps[k].short ?? scene.steps[k].text, step: k, tint: tint,
                                        checked: store.progress.isChecked(scene: scene.id, step: k),
-                                       reading: model.checklistReader.highlighted == k, size: size)
+                                       reading: model.checklistReader.highlighted == k, size: size,
+                                       picture: scene.areaJobs == nil ? nil : scene.steps[k].picture)
                     }
                 }
             }
@@ -291,6 +285,37 @@ struct PTChecklistCard: View {
     }
 }
 
+extension PTChecklistCard {
+    /// The role's name; on an area card (2026-11-21, Haylee: design/mockups/area-setup/) the name is small above the
+    /// area job in big text ("Captain" / "Build the cockpit").
+    @ViewBuilder func titles(role: Role, tint: Color) -> some View {
+        if let job = scene.areaJob(role.id) {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(role.roleName).font(Theme.headlineFont(size.font * 0.85)).foregroundStyle(tint)
+                    .lineLimit(1).minimumScaleFactor(0.6)
+                Text(job).font(Theme.displayFont(size.name)).foregroundStyle(Theme.ink)
+                    .lineLimit(2).minimumScaleFactor(0.6).fixedSize(horizontal: false, vertical: true)
+                    .multilineTextAlignment(.leading)
+            }
+        } else {
+            Text(role.roleName).font(Theme.headlineFont(size.name)).foregroundStyle(tint)
+                .lineLimit(1).minimumScaleFactor(0.6)
+        }
+    }
+
+    /// "1 of 3", or a green check once the card is done.
+    @ViewBuilder func progressMark(done: Int, finished: Bool) -> some View {
+        if finished {
+            Image(systemName: "checkmark.circle.fill").font(.system(size: size.name * 1.1, weight: .bold))
+                .foregroundStyle(Theme.limeShade)
+                .accessibilityLabel("Done")
+        } else {
+            Text("\(done) of \(card.rows.count)").font(Theme.headlineFont(size.font * 0.95)).foregroundStyle(Theme.inkMuted)
+                .monospacedDigit()
+        }
+    }
+}
+
 /// One checklist item: the round check on the LEFT (a kid ticks it), the item, the 🔊 on the RIGHT (reads it). The
 /// text is a tap target too (reads it). The row being read is highlighted; a ticked row turns green.
 struct PTChecklistRow: View {
@@ -301,6 +326,9 @@ struct PTChecklistRow: View {
     let checked: Bool
     let reading: Bool
     let size: PTChecklistSize
+    /// 2026-11-21 (area cards): the small picture chip of the object the item places (prop art or the kit page);
+    /// nil or `.point` = none.
+    var picture: Picture? = nil
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: size.rowHeight / 2.6, style: .continuous)
@@ -308,6 +336,11 @@ struct PTChecklistRow: View {
         HStack(spacing: Theme.Space.s) {
             PTRoundCheck(checked: checked, size: size.button) { model.tapCheck(step) }
                 .accessibilityLabel(checked ? "Checked: \(text)" : "Check: \(text)")
+            if let picture, picture != .point {
+                model.pictureTile(picture, size: size.button)
+                    .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Theme.white))
+                    .opacity(checked ? 0.6 : 1)
+            }
             Button { model.tapChecklistRow(step) } label: {
                 Text(text).font(Theme.bodyFont(size.font)).foregroundStyle(checked ? Theme.inkMuted : Theme.ink)
                     .multilineTextAlignment(.leading).lineLimit(2).minimumScaleFactor(0.8)

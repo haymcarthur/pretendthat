@@ -58,7 +58,7 @@ extension AppModel {
     /// the family starts it again when they're ready).
     func startBeatScene() {
         guard let b = store.currentBeatScene?.beats else { return }
-        var run = BeatRun(events: b.events)
+        var run = BeatRun(events: b.events, ideas: b.ideas ?? [])   // 2026-11-21: + the calm-stretch ideas
         let at = max(0, store.beatTime)
         if at > 0 { run.restore(elapsed: at) }
         beatRun = run
@@ -114,7 +114,8 @@ extension AppModel {
             publishBeat(run, at: t)
             if now - beatSavedAt > 5 { beatSavedAt = now; saveResumePoint() }   // a relaunch resumes about here
         }
-        music.setDucked(isSpeaking || now < beatChimeUntil)
+        // 2026-11-21 (Haylee): a calm-stretch idea is said over the music (no duck, no chime).
+        music.setDucked((isSpeaking && !beatIdeaUp) || now < beatChimeUntil)
     }
 
     /// The screen's numbers, set only when they change (so the stage doesn't redraw 4 times a second for nothing).
@@ -143,6 +144,11 @@ extension AppModel {
         case .calmAgain(let i):
             guard run.events.indices.contains(i), let line = run.events[i].calmAgain else { return }
             sayBeat(line, after: 0.3, waitForQuiet: true)
+        case .idea(let k):
+            // 2026-11-21 (Haylee, one game plan): a calm-stretch idea: no chime, no duck, the small card low right.
+            guard run.ideas.indices.contains(k) else { return }
+            rtLog("one scene: idea \(k + 1)/\(run.ideas.count) (\(run.ideas[k].objects.joined(separator: "+")))")
+            sayBeat(run.ideas[k].line, after: 0.3, waitForQuiet: true)
         case .finale:
             rtLog("one scene: finale")
             gesture(.celebrate)
@@ -182,9 +188,19 @@ extension AppModel {
         switch beatDisplay {
         case .event(let i): return events.indices.contains(i) ? events[i].line : nil
         case .calmAgain(let i): return events.indices.contains(i) ? events[i].calmAgain : nil
+        case .idea: return beatIdea?.line
         case .playing, .finale: return nil
         }
     }
+
+    /// 2026-11-21 (Haylee, one game plan): the calm-stretch idea whose small card is up now, if any.
+    var beatIdea: BeatIdea? {
+        guard case .idea(let k) = beatDisplay, let ideas = store.currentBeatScene?.beats?.ideas, ideas.indices.contains(k) else { return nil }
+        return ideas[k]
+    }
+
+    /// An idea's card is up (her line then plays over the music, with no duck).
+    var beatIdeaUp: Bool { beatIdea != nil }
 
     /// 🔊 on the event / calm-again card: the same line again, so it plays this game's take (no new call). Nothing
     /// while she's already talking.
@@ -258,7 +274,7 @@ extension AppModel {
         guard store.currentBeatScene != nil, !scenePaused else { return false }
         switch beatDisplay {
         case .event, .calmAgain: return true
-        case .playing, .finale: return false
+        case .playing, .idea, .finale: return false   // 2026-11-21: the idea card is small, low right; she stays
         }
     }
 
@@ -275,7 +291,7 @@ extension AppModel {
         guard let scene = store.currentBeatScene else { return nil }
         if scenePaused { return .idle }
         switch beatDisplay {
-        case .playing: return .grooving
+        case .playing, .idea: return .grooving   // 2026-11-21: an idea is a soft nudge, she keeps grooving
         case .event(let i):
             let events = scene.beats?.events ?? []
             return events.indices.contains(i) && events[i].isTense ? .alarmed : .calling

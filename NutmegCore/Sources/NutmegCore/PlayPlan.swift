@@ -563,9 +563,17 @@ public enum PlayPlans {
         var t = item(raw, roles: roles)
         if let p = it.prop { t = item(PropStandIns.itemText(PropWording.clean(t, props: props + [p]), prop: p), roles: roles) }
         let n = t.split(whereSeparator: \.isWhitespace).count
-        guard n >= 2, n <= maxItemWords, Bookends.mentions(t, it) || it.prop.map({ Bookends.mentions(t, name: KitDraft.cutoutLabel(becomes: $0.becomes)) }) == true,
-              Speakable.isSpeakable(Speakable.repair(t)), !Speakable.sendsToHazard(t) else { return nil }
+        guard n >= 2, n <= maxItemWords, names(t, it), Speakable.isSpeakable(Speakable.repair(t)), !Speakable.sendsToHazard(t) else { return nil }
         return Speakable.repair(t, fallback: Speakable.safeItem)
+    }
+
+    /// The text names the object: a page by any of its names, a prop by its PRETEND name (never only the household
+    /// word: "Load the tray" isn't the snack cart).
+    static func names(_ t: String, _ it: CoverItem) -> Bool {
+        guard let p = it.prop else { return Bookends.mentions(t, it) }
+        let label = KitDraft.cutoutLabel(becomes: p.becomes)
+        let pretendNames = Bookends.propNames(p).filter { $0.caseInsensitiveCompare(p.householdItem) != .orderedSame }
+        return Bookends.mentions(t, name: label) || pretendNames.contains { Bookends.mentions(t, name: $0) }
     }
 
     static func validPutAway(_ raw: String, roles: [Role]) -> String? {
@@ -582,8 +590,7 @@ public enum PlayPlans {
         t = stripRoles(t, roles: roles)
         t = PlayCast.endSentence(t)
         let n = t.split(whereSeparator: \.isWhitespace).count
-        let names = Bookends.mentions(t, it) || it.prop.map { Bookends.mentions(t, name: KitDraft.cutoutLabel(becomes: $0.becomes)) } == true
-        guard n >= 4, n <= maxIdeaWords, names, !Speakable.sendsToHazard(t), !EventScenario.isGestureOnly(t, roles: roles) else { return nil }
+        guard n >= 4, n <= maxIdeaWords, names(t, it), !Speakable.sendsToHazard(t), !EventScenario.isGestureOnly(t, roles: roles) else { return nil }
         return Speakable.repair(t, fallback: "")
     }
 
@@ -591,8 +598,7 @@ public enum PlayPlans {
     static func validEventLine(_ raw: String, replacing e: BeatEvent, uses it: CoverItem, roles: [Role]) -> String? {
         let t = PlayCast.endSentence(OneScene.capWords(OneScene.clean(raw), max: OneScene.maxLineWords))
         let n = t.split(whereSeparator: \.isWhitespace).count
-        let names = Bookends.mentions(t, it) || it.prop.map { Bookends.mentions(t, name: KitDraft.cutoutLabel(becomes: $0.becomes)) } == true
-        guard n >= 6, names, OneScene.named(t, roles: roles) == e.roles, !e.isEveryone || OneScene.named(t, roles: roles).isEmpty,
+        guard n >= 6, names(t, it), OneScene.named(t, roles: roles) == e.roles, !e.isEveryone || OneScene.named(t, roles: roles).isEmpty,
               !EventScenario.isGestureOnly(t, roles: roles), !Speakable.sendsToHazard(t), Speakable.isSpeakable(Speakable.repair(t)) else { return nil }
         return Speakable.repair(t)
     }

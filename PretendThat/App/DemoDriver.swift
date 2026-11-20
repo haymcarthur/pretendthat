@@ -531,6 +531,8 @@ enum DemoDriver {
         // play! lights up); `onePlaying` = the scene, calm play; `oneEvent` = a calm event's card; `oneTense` = a tense
         // event (one calling two roles when the count has one); `oneCalmAgain` = its calm-again card; `oneFinale`;
         // `oneCleanup` = the clean-up checklist; `onePaused` = the Paused card.
+        // 2026-11-21 (game plan): the bundled game is a game plan, so `oneSetup` with `-PTPlayers 2 | 3 | 4` shows the
+        // AREA cards (3 kids: two on top, one centered below); `oneIdea` = the first calm-stretch idea card.
         if target.hasPrefix("one") {
             await oneScene(store, model: model, to: target)
             return
@@ -635,6 +637,8 @@ enum DemoDriver {
         case "oneTense", "oneCalmAgain":
             let i = events.firstIndex { $0.isTense && $0.roles.count >= 2 } ?? events.firstIndex(where: \.isTense) ?? 0
             model.debugJumpScene(to: run.eventAt(i) + (target == "oneTense" ? 2 : BeatTimeline.calmAgainAfter + 2))
+        case "oneIdea":   // 2026-11-21 (game plan): the first calm-stretch idea card (low right, no chime)
+            if let t = run.ideaTimes.first { model.debugJumpScene(to: t + 2) } else { rtLog("ONE SCENE demo: no ideas in this scene") }
         case "oneFinale": model.debugJumpScene(to: run.finaleAt + 1)
         case "oneCleanup":
             model.debugJumpScene(to: run.cleanupAt - 0.5)
