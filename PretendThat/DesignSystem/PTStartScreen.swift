@@ -678,6 +678,9 @@ struct PTToyChestScene<Nutmeg: View>: View {
             sky(L, e: e)
             chest(t: t, e: e, L, origin: origin)
                 .position(x: L.cx, y: L.chestTop + L.chestH / 2)
+                // 2026-11-20 (Haylee): from the tap on, Nutmeg (in the chest) is in front of the curtains, as the game
+                // stage draws her; behind them, the zoom showed her under the curtain and then she jumped in front.
+                .zIndex(e >= 0 ? 1 : 0)
             ZStack {
                 ForEach(Array(toys.prefix(L.phone ? 2 : 6).enumerated()), id: \.offset) { i, name in
                     toyView(name, i: i, t: t, e: e, L).zIndex(Double(L.spot(i).y))   // nearer toys in front
