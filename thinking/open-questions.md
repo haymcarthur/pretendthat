@@ -5,7 +5,7 @@
 - ~~**Names in image prompts?** Sending kids' first names to OpenAI so the art includes them is simpler, but weakens the "names never leave the iPad" pitch. **Built default:** art is generated with a blank name banner and the app overlays the names, so names are never sent to OpenAI. Haylee can still overrule.~~ Resolved by [roles-not-names](decisions/roles-not-names.md): we never ask for names.
 - **OpenAI API key and cost:** Haylee will paste keys into the git-ignored `Secrets.xcconfig`. gpt-image costs per image; a kit of ≤ 6 pages is ≤ 6 images per game.
 - **Relay ready?** Built and tested 2026-11-15 ([relay-for-shared-builds](decisions/2026-11-15-relay-for-shared-builds.md)); waiting on Haylee's Cloudflare account, deploy and spend caps (relay/README.md).
-- ~~**GitHub repo name**~~: `haymcarthur/pretendthat` (private).
+- ~~**GitHub repo name**~~: `mcartha/pretendthat` (public; moved from `haymcarthur/pretendthat` on 2026-11-20).
 - **Domain:** `pretendthat.app` looked free; the `.com` is parked. Register?
 - **Font:** SF Rounded until a heavy rounded brand font is chosen.
 - ~~**Names without a mic:** if speech is unavailable (denied, or the simulator), players stay "Player 1…". Add a grown-up keyboard entry behind the parent gate?~~ Resolved by [roles-not-names](decisions/roles-not-names.md): we never ask for names.

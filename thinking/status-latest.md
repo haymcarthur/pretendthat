@@ -8,6 +8,7 @@ Start here in a new session, after CLAUDE.md. The decision files have the detail
   - Saved-game offer is just the picture. On iPad it sits beside Nutmeg, on iPhone above the bar, and in the chat (both devices) when the chat is open. Tapping the picture plays the game. ([saved-offer-picture-only](decisions/2026-11-18-saved-offer-picture-only.md)).
   - Nutmeg looks up at the kids while she talks during Play. The idle/lock fix: the voice reconnects with retries, a keepalive ping, and the speaker restarts. ([device-testing-fixes](decisions/2026-11-18-device-testing-fixes.md)).
   - Printables after a lock: art requests cut off by the lock are retried on return, and the color and coloring pages always come from the same AI picture. Live games show **no fallback art** (Haylee): a page that still fails shows a "Try again" tile and won't print until it loads. ([printables-after-lock](decisions/2026-11-18-printables-after-lock.md)).
+- **Repos moved (2026-11-20):** now github.com/mcartha/pretendthat and github.com/mcartha/pretendthat-site ([repos-moved-to-mcartha](decisions/2026-11-20-repos-moved-to-mcartha.md)). Update the Mac remotes and check Pages.
 - Build 3 was submitted for beta review earlier (may be moot now that internal testers have 4).
 - NutmegCore: 751 tests pass.
 

@@ -186,6 +186,7 @@ The map. Read this first, then open only what you need.
 - [Printables after a lock: calls cut off by the lock are retried on return, color and coloring pages always the same AI picture, no fallback art in live games (a not-ready page shows Try again and isn't printed)](decisions/2026-11-18-printables-after-lock.md): Haylee (no fallback art, show an error); Claude's call on the fix
 - [TestFlight build 1.0 (4): peek v4 body and hands, saved-game offer picture only, Nutmeg looks up while she talks, idle/lock tap and mic fix, printables after a lock](decisions/2026-11-18-build-4.md): Haylee
 - [Demo seeds Moon Crumbs Bakery with its real cover, so the saved-game offer and the shelf book show the same picture](decisions/2026-11-18-demo-seed-real-cover.md): Haylee (how: Claude's call)
+- [Repos moved from haymcarthur to mcartha (app + site); notes updated, remotes and Pages to check on the Mac](decisions/2026-11-20-repos-moved-to-mcartha.md): Haylee
 - [Queue: next app rounds](queue-next-app-round.md): status: rounds 1–32 (31: on-device speech + instant mic; 32: Grown-ups menu) + C1 + D1 + D2 + D3a + D3b done (round 27's mockups separate); next: D4 iCloud
 
 - [Libraries and services list](team-profile-libraries.md): what the app uses (Code Camp is finished; no team-profile task)
