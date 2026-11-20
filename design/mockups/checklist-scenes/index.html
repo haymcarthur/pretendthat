@@ -84,6 +84,7 @@ body{background:#ECEAE6;font-family:"SF Pro Rounded",ui-rounded,"Nunito",system-
 .tspk svg{width:44%;height:44%}
 
 /* checklist card */
+.card.pinned{box-shadow:none!important;border:1.5px solid var(--line)}
 .card{position:absolute;z-index:10;background:#fff;border-radius:26px;box-shadow:0 3px 10px rgba(0,0,0,.07),0 0 0 1px rgba(232,226,240,.7)}
 .ch{display:flex;align-items:center}
 .ch .pic{border-radius:50%;background:#fff;flex:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--tint)}
@@ -115,6 +116,7 @@ body{background:#ECEAE6;font-family:"SF Pro Rounded",ui-rounded,"Nunito",system-
 .btn svg{flex:none}
 .btn.next{background:var(--lime);box-shadow:0 6px 0 var(--lime-shade)}
 .btn.prev{background:#fff;box-shadow:0 6px 0 #DCD3EC,inset 0 0 0 2px var(--line);color:var(--ink)}
+.phone .btn.glow{box-shadow:0 6px 0 var(--lime-shade),0 0 0 3px rgba(255,255,255,.9),0 0 0 6px rgba(139,211,70,.45)}
 .btn.glow{box-shadow:0 6px 0 var(--lime-shade),0 0 0 6px rgba(255,255,255,.9),0 0 0 10px rgba(139,211,70,.45)}
 
 /* peek */
@@ -181,40 +183,30 @@ body{background:#ECEAE6;font-family:"SF Pro Rounded",ui-rounded,"Nunito",system-
   <div class="grid">
     <div class="col" id="c1"><div class="ipad" id="s1"><div class="screen"></div></div>
       <div class="num">Screen 1 · iPad · 2 kids · setup</div>
-      <div class="cap"><h2>One checklist per role, side by side</h2>
-      <p>The scene title (with its 🔊) sits on top; the two role cards share the stage. Each item has a checkbox on the left and a 🔊 on the right (44 pt or more). Pilot's "Set up the control panel" is being read (filled 🔊, a solid outline in the role color); Engineer's "Hang the sign" was tapped while she talked, so it's queued (dashed). Nutmeg peeks over the top-right corner of the card area with her focus eyes on the rows. ◀ Previous scene is a white secondary pill beside the green ▶ Next scene.</p></div></div>
+      <div class="cap"><h2>One checklist per role, Nutmeg on a card</h2>
+      <p>The scene title (with its 🔊) sits top-left; the two role cards share the stage. Each item: checkbox left, 🔊 right (44 pt or more). Pilot's "Set up the control panel" is being read (filled 🔊, solid outline); Engineer's "Hang the sign" was tapped while she talked, so it's queued (dashed NEXT). Nutmeg peeks over the top edge of the right-hand card, paws on it, focus eyes on the rows. ◀ Previous scene and ▶ Next scene are one centered pair, same size and shape.</p></div></div>
     <div class="col" id="c2"><div class="ipad" id="s2"><div class="screen"></div></div>
       <div class="num">Screen 2 · iPad · 6 kids · setup</div>
-      <div class="cap"><h2>Two rows of three, same corner for Nutmeg</h2>
-      <p>The cards get the denser size (picture 48, text 18, rows 52 pt, checkbox and 🔊 still 44 pt). Nutmeg's peek fits in the top-right corner at a smaller size, on the top edge of the third card, under the valance. The ▶ / ◀ buttons move into the bottom-right corner below the grid. Alien's card is finished: its header shows the green check.</p></div></div>
+      <div class="cap"><h2>Two rows of three, Nutmeg on the top-right card</h2>
+      <p>Cards shrink to 290 pt so the grid clears the right curtain (picture 46, text 17, rows 52 pt, checkbox and 🔊 still 44 pt). Nutmeg sits on the top-right card (Mission Control): the only top-row card with no title above it, and her head fits under the valance. The centered button pair sits under the grid. Alien's card is finished: its header shows the green check.</p></div></div>
   </div>
   <div class="grid">
     <div class="col" id="c3"><div class="ipad" id="s3"><div class="screen"></div></div>
       <div class="num">Screen 3 · iPad · scenario moment</div>
       <div class="cap"><h2>Every box ticked: Nutmeg takes center stage</h2>
-      <p>The cards fold into a strip of role pictures with green checks ("All done!"). Nutmeg comes out whole and big, standing on the floor in the middle, and says the short "Pretend that…" line, shown beside her in a speech card with the hear-again button (the control bar's icon). The ▶ Next scene button gets a soft halo because now it's time to act it out and move on.</p></div></div>
-    <div class="col alt" id="c7"><div class="ipad" id="s7"><div class="screen"></div></div>
-      <div class="num">Alternate A · iPad · 6 kids · Nutmeg bottom-left</div>
-      <div class="cap"><h2>Option: she peeks up over the stage edge, under the rail</h2>
-      <p>Instead of the top-right corner, Nutmeg peeks up from below the front of the stage in the empty corner under the step rail, like a prompter. She never sits on a card or near the valance, but the corner under the rail is short (the rail ends at 655 pt), so she stays small (about 110 pt), she's far from the cards on the right, and she looks up instead of down at the rows.</p></div></div>
-  </div>
-  <div class="grid">
+      <p>The cards fold into a strip of role pictures with green checks ("All done!"). Nutmeg hops off the card and comes out whole and big on the floor, saying the short "Pretend that…" line, shown in a speech card with the hear-again button. The same centered button pair; ▶ Next scene gets a soft halo.</p></div></div>
     <div class="col phonecol" id="c4"><div class="phone" id="s4"><div class="screen"></div></div>
-      <div class="num">Screen 4 · iPhone · 2 kids</div>
-      <div class="cap"><h2>Cards stacked, Nutmeg on the top edge</h2>
-      <p>The title wraps to two lines on the left; Nutmeg peeks over the top edge of the card area on the right (the same corner as the iPad). Two cards fit without scrolling. ◀ is a 56 pt circle, ▶ Next scene the green pill.</p></div></div>
+      <div class="num">Screen 4 · iPhone · 2 kids · setup</div>
+      <div class="cap"><h2>Setup: the checklists live in a shelf</h2>
+      <p>Like the chat shelf (round 40): edge to edge, attached to the bottom, top corners rounded, white. Nutmeg peeks over the shelf's top edge (her live head, so no face avatar in the header). Header: the scene title and its 🔊. The role cards (pinned-card style: white with a hairline) fill the shelf; two fit without scrolling. The Prev / Next pair is pinned to the shelf's bottom.</p></div></div>
     <div class="col phonecol" id="c5"><div class="phone" id="s5"><div class="screen"></div></div>
       <div class="num">Screen 5 · iPhone · 6 kids (scrolled)</div>
-      <div class="cap"><h2>The list scrolls under her paws</h2>
-      <p>Nutmeg is pinned to the top edge of the scroll area; the cards slide under her paws. Here it's scrolled to Mission Control / Astronaut; the scroll bar and the cut-off card show there's more. Title and buttons stay put.</p></div></div>
+      <div class="cap"><h2>6 kids: the cards scroll inside the shelf</h2>
+      <p>The shelf, Nutmeg, the title and the buttons stay put; only the card list scrolls (scroll bar, soft fades at both ends, a cut-off card). Here it's scrolled to Mission Control / Astronaut.</p></div></div>
     <div class="col phonecol" id="c6"><div class="phone" id="s6"><div class="screen"></div></div>
       <div class="num">Screen 6 · iPhone · scenario</div>
-      <div class="cap"><h2>Big Nutmeg, short line, done strip</h2>
-      <p>The stage grows: Nutmeg fills the top, the line card with 🔊 sits under her, the finished roles collapse into a strip, and ▶ Next scene glows.</p></div></div>
-    <div class="col phonecol alt" id="c8"><div class="phone" id="s8"><div class="screen"></div></div>
-      <div class="num">Alternate B · iPhone · 6 kids</div>
-      <div class="cap"><h2>Option: she peeks up from the bottom bar</h2>
-      <p>Nutmeg sits in the bottom-left corner beside ◀ / ▶, looking up; the cards scroll behind her head. The title gets the full width (one line), but her head covers the start of the rows as they scroll past, so this costs more than it saves.</p></div></div>
+      <div class="cap"><h2>Scenario: the shelf slides away</h2>
+      <p>Transition: when the last box is ticked the shelf slides down off the screen and Nutmeg grows from her peek back to her whole body on the stage (one stageMove spring). The line card with 🔊 sits under her, the roles collapse into a done strip, and the same button pair glows. ▶ Next scene: the shelf slides back up with the next scene's cards and she drops back to her peek.</p></div></div>
   </div>
 </div>
 
@@ -242,7 +234,8 @@ function pale(c,t){const [r,g,b]=hex(c);return `rgb(${[r,g,b].map(v=>Math.round(
 // sizes: L = iPad 2 kids, M = iPad 6 kids, S = iPhone
 const SZ = {
   L:{w:400,pad:18,pic:72,name:28,hgap:16,row:70,chk:50,spk:50,tx:22,gap:12,rpad:9,ig:14},
-  M:{w:316,pad:12,pic:48,name:21,hgap:12,row:52,chk:44,spk:44,tx:18,gap:7,rpad:4,ig:10},
+  M:{w:290,pad:12,pic:46,name:20,hgap:10,row:52,chk:44,spk:44,tx:17,gap:7,rpad:4,ig:9},
+  P:{w:369,pad:10,pic:34,name:19,hgap:6,row:44,chk:44,spk:44,tx:17,gap:2,rpad:0,ig:10},
   S:{w:369,pad:12,pic:40,name:20,hgap:10,row:48,chk:44,spk:44,tx:17.5,gap:3,rpad:2,ig:10},
 };
 function card(id,size,x,y,opt={}){
@@ -254,7 +247,7 @@ function card(id,size,x,y,opt={}){
      <span class="chk" style="width:${s.chk}px;height:${s.chk}px"><svg viewBox="0 0 24 24"><use href="#i-check-ink"/></svg></span>
      <span class="tx" style="font-size:${s.tx}px">${t}</span>
      <span class="spk" style="width:${s.spk}px;height:${s.spk}px"><svg viewBox="0 0 24 24"><use href="#spk"/></svg></span></div>`).join('');
-  return `<div class="card" style="left:${x}px;top:${y}px;width:${s.w}px;padding:${s.pad}px;--tint:${r.c};--pale:${pale(r.c,.12)};--pale2:${pale(r.c,.32)};--pale3:${pale(r.c,.22)}${opt.h?`;height:${opt.h}px`:''}">
+  return `<div class="card ${opt.cls||''}" style="left:${x}px;top:${y}px;width:${s.w}px;padding:${s.pad}px;--tint:${r.c};--pale:${pale(r.c,.12)};--pale2:${pale(r.c,.32)};--pale3:${pale(r.c,.22)}${opt.h?`;height:${opt.h}px`:''}">
     <div class="ch" style="gap:${s.hgap}px;margin-bottom:${s.hgap}px"><img class="pic" src="${IMG+r.img}" style="width:${s.pic}px;height:${s.pic}px"><b style="font-size:${s.name}px">${r.name}</b>
     ${all?`<span class="alldone" style="width:${s.pic*0.62}px;height:${s.pic*0.62}px"><svg viewBox="0 0 24 24"><use href="#i-check-ink"/></svg></span>`:`<span class="count" style="font-size:${s.tx-2}px">${n} of ${items.length}</span>`}</div>
     <div class="items" style="gap:${s.gap+3}px">${rows}</div></div>`;
@@ -279,15 +272,18 @@ function rail(dir,style){
     const now=i===3; return `${i?'<div class="conn"></div>':''}<div class="rstep ${now?'now':'done'}"><div class="rdot"><svg viewBox="0 0 24 24"><use href="#${ic}"/></svg>${now?'':'<span class="redo"><svg viewBox="0 0 12 12"><use href="#i-redo"/></svg></span>'}</div><b>${l}</b></div>`}).join('')}</div>`;
 }
 function spk(size){return `<span class="tspk" style="width:${size}px;height:${size}px"><svg viewBox="0 0 24 24"><use href="#spk"/></svg></span>`}
-function btnNext(x,y,h,glow,w){return `<div class="btn next ${glow?'glow':''}" style="left:${x}px;top:${y}px;height:${h}px;${w?`width:${w}px;`:`padding:0 ${h*0.42}px;`}font-size:${h*0.34}px"><svg viewBox="0 0 24 24" style="width:${h*0.36}px;height:${h*0.36}px"><use href="#i-play-ink"/></svg>Next scene</div>`}
-function btnPrev(x,y,h,label,w){return `<div class="btn prev" style="left:${x}px;top:${y}px;height:${h}px;${label?`padding:0 ${h*0.36}px;`:`width:${h}px;`}font-size:${h*0.3}px"><svg viewBox="0 0 24 24" style="width:${h*0.32}px;height:${h*0.32}px"><use href="#i-prev-ink"/></svg>${label||''}</div>`}
+// Prev / Next: one centered pair, same size and shape (Next green, Previous white).
+function navPair(sw,y,w,h,gap,glow){
+  const x0=(sw-(2*w+gap))/2, fs=h*0.32, ic=h*0.32;
+  const b=(cls,x,icon,label)=>`<div class="btn ${cls}" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;font-size:${fs}px;gap:${h*0.16}px"><svg viewBox="0 0 24 24" style="width:${ic}px;height:${ic}px"><use href="#${icon}"/></svg>${label}</div>`;
+  return b('prev',x0,'i-prev-ink','Previous scene') + b('next'+(glow?' glow':''),x0+w+gap,'i-play-ink','Next scene');
+}
 
 // ---------- iPad stage ----------
 function ipadStage(){
   const V=61.5;
   return `<div class="floor" style="left:-80px;width:1340px;top:700px;height:260px"></div>
-    <svg class="spark" style="left:210px;top:110px;width:20px;height:20px"><use href="#sparkle"/></svg>
-    <svg class="spark" style="left:960px;top:640px;width:24px;height:24px"><use href="#sparkle"/></svg>
+    <svg class="spark" style="left:690px;top:96px;width:20px;height:20px"><use href="#sparkle"/></svg>
     <svg class="curtain" style="left:0;width:150px;height:820px" viewBox="0 0 150 820" preserveAspectRatio="none"><use href="#curtain-pad"/></svg>
     <svg class="curtain r" style="right:0;width:150px;height:820px" viewBox="0 0 150 820" preserveAspectRatio="none"><use href="#curtain-pad"/></svg>
     <img class="tie" src="${IMG}tieback-left.svg" style="left:-6px;top:330px;width:96px">
@@ -296,8 +292,8 @@ function ipadStage(){
     <div class="xbtn" style="left:40px;top:${V+12}px;width:56px;height:56px"><svg viewBox="0 0 24 24"><use href="#i-x"/></svg></div>
     ${rail('v','left:20px;top:226px')}`;
 }
-function ipadTitle(cx,y,text,fs=30){
-  return `<div class="title" id="t" style="left:${cx}px;top:${y}px;transform:translateX(-50%);padding:7px 7px 7px 26px;font-size:${fs}px"><span class="t">${text}</span>${spk(48)}</div>`;
+function ipadTitle(x,y,text,fs=30,center=false){
+  return `<div class="title" style="left:${x}px;top:${y}px;${center?'transform:translateX(-50%);':''}padding:7px 7px 7px 26px;font-size:${fs}px"><span class="t">${text}</span>${spk(48)}</div>`;
 }
 
 // ---------- iPhone stage ----------
@@ -315,61 +311,60 @@ function phoneStage(){
 const $=id=>document.querySelector('#'+id+' .screen');
 const TITLE='Scene 2: Get the rocket ready';
 
-// 1. iPad, 2 kids
-$('s1').innerHTML = ipadStage() + ipadTitle(648,80,TITLE)
-  + card('pilot','L',224,182) + card('engineer','L',648,182)
-  + peek(918,182,122,{turn:-9})
-  + btnPrev(560,676,64,'Previous scene') + btnNext(834,670,76);
+// 1. iPad, 2 kids: Nutmeg on the Engineer card (right)
+$('s1').innerHTML = ipadStage() + ipadTitle(224,84,TITLE)
+  + card('pilot','L',224,206) + card('engineer','L',648,206)
+  + peek(866,206,138,{turn:-9})
+  + navPair(1180,676,264,68,18);
 
-// 2. iPad, 6 kids
+// 2. iPad, 6 kids: Nutmeg on the top-right card (Mission Control)
 {
-  const xs=[160,494,828], y1=148, y2=420, h=260;
-  $('s2').innerHTML = ipadStage() + ipadTitle(600,72,TITLE,28)
+  const xs=[150,452,754], y1=154, y2=424, h=258;
+  $('s2').innerHTML = ipadStage() + ipadTitle(150,74,TITLE,28)
     + card('pilot','M',xs[0],y1,{h}) + card('engineer','M',xs[1],y1,{h}) + card('mission','M',xs[2],y1,{h})
     + card('astro','M',xs[0],y2,{h}) + card('alien','M',xs[1],y2,{h}) + card('rover','M',xs[2],y2,{h})
-    + peek(1040,y1,100,{turn:-9})
-    + btnPrev(620,694,58,'Previous scene') + btnNext(886,690,66);
+    + peek(906,y1,104,{turn:-9})
+    + navPair(1180,700,250,62,18);
 }
 
 // 3. iPad scenario
 {
   const ids=['pilot','engineer','mission','astro','alien','rover'];
-  $('s3').innerHTML = ipadStage() + ipadTitle(648,80,TITLE)
-    + `<div style="position:absolute;left:250px;top:688px;width:420px;height:44px;border-radius:50%;background:rgba(217,169,123,.75);z-index:5"></div>`
-    + `<img class="nut" src="${IMG}nutmeg-idle-talking.png" style="left:270px;top:168px;height:540px">`
-    + `<div class="line" style="left:700px;top:196px;width:420px;padding:28px 30px 26px">
+  $('s3').innerHTML = ipadStage() + ipadTitle(224,84,TITLE)
+    + `<div style="position:absolute;left:268px;top:630px;width:380px;height:40px;border-radius:50%;background:rgba(217,169,123,.75);z-index:5"></div>`
+    + `<img class="nut" src="${IMG}nutmeg-idle-talking.png" style="left:288px;top:166px;height:486px">`
+    + `<div class="line" style="left:690px;top:180px;width:430px;padding:26px 30px 24px">
          <div class="tail" style="left:-12px;top:120px"></div>
-         <p style="font-size:27px;position:relative">Pretend that the rocket is blasting off… uh-oh, the control panel is beeping! <em>Everyone, do your job to get the rocket safely into space!</em></p>
-         <div style="display:flex;align-items:center;gap:14px;margin-top:20px;position:relative"><span class="hear" style="width:64px;height:64px"><img src="${IMG}icon-hear-again.svg"></span><span style="font-size:18px;font-weight:800;color:var(--ink-muted)">Hear it again</span></div></div>`
-    + `<div class="done-strip" style="left:700px;top:572px;width:420px;justify-content:center;padding:10px 14px;gap:11px">
+         <p style="font-size:26px;position:relative">Pretend that the rocket is blasting off… uh-oh, the control panel is beeping! <em>Everyone, do your job to get the rocket safely into space!</em></p>
+         <div style="display:flex;align-items:center;gap:14px;margin-top:18px;position:relative"><span class="hear" style="width:64px;height:64px"><img src="${IMG}icon-hear-again.svg"></span><span style="font-size:18px;font-weight:800;color:var(--ink-muted)">Hear it again</span></div></div>`
+    + `<div class="done-strip" style="left:690px;top:556px;width:430px;justify-content:center;padding:10px 14px;gap:11px">
          <span class="lab" style="font-size:18px"><svg viewBox="0 0 24 24" style="width:22px;height:22px"><path d="M5 12.5 L10 17.5 L19.5 6.5" stroke="#67A82A" stroke-width="3.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>All done!</span>
          ${ids.map(i=>`<span class="mini" style="--tint:${ROLES[i].c};width:38px;height:38px"><img src="${IMG+ROLES[i].img}"><i><svg viewBox="0 0 24 24"><use href="#i-check-ink"/></svg></i></span>`).join('')}</div>`
-    + btnPrev(560,676,64,'Previous scene') + btnNext(834,670,76,true);
+    + navPair(1180,690,264,68,18,true);
 }
 
-// 4. iPhone, 2 kids
-function phoneTitle(top,right){
-  return `<div class="title wrap" style="left:12px;top:${top}px;width:${right-12}px;padding:8px 8px 8px 16px;font-size:21px"><span class="t">${TITLE}</span>${spk(44)}</div>`;
+// iPhone: the checklist shelf (like the chat shelf: edge to edge, top corners rounded, under the top bar),
+// Nutmeg's peek on its top edge, the cards scroll inside, the Prev/Next pair pinned at its bottom.
+const SHELF=262;
+function shelf(inner,scrolled){
+  const top=SHELF, listTop=top+64, listBottom=752;
+  return `<div style="position:absolute;left:0;right:0;top:${top}px;bottom:0;background:#fff;border-radius:28px 28px 0 0;box-shadow:0 -3px 10px rgba(0,0,0,.07);z-index:10"></div>
+    <div class="title" style="left:16px;top:${top+12}px;width:262px;padding:0;box-shadow:none;background:none;white-space:normal;font-size:19px;gap:8px;z-index:20"><span class="t" style="flex:1">${TITLE}</span>${spk(44)}</div>
+    <div style="position:absolute;left:0;top:${listTop}px;width:393px;height:${listBottom-listTop}px;overflow:hidden;z-index:11"><div style="position:relative">${inner}</div></div>
+    ${scrolled?`<div class="scrollbar" style="right:4px;top:${listTop+120}px;height:110px"></div>
+      <div class="fade" style="left:0;right:0;top:${listTop}px;height:14px;background:linear-gradient(#fff,rgba(255,255,255,0))"></div>`:''}
+    <div class="fade" style="left:0;right:0;top:${listBottom-16}px;height:16px;background:linear-gradient(rgba(255,255,255,0),#fff)"></div>
+    ${peek(268,top,112,{turn:-9,zb:9,zf:21})}`;
 }
-$('s4').innerHTML = phoneStage() + phoneTitle(168,258)
-  + card('pilot','S',12,252) + card('engineer','S',12,498)
-  + peek(272,252,104,{turn:-9})
-  + btnPrev(12,756,56) + btnNext(80,756,56,false,301);
+const pin={cls:'pinned'};
+$('s4').innerHTML = phoneStage()
+  + shelf(card('pilot','P',12,0,pin)+card('engineer','P',12,213,pin),false)
+  + `<div style="position:absolute;inset:0;z-index:22;pointer-events:none">${navPair(393,762,176,54,12)}</div>`;
+$('s5').innerHTML = phoneStage()
+  + shelf(card('engineer','P',12,-120,pin)+card('mission','P',12,93,pin)+card('astro','P',12,306,pin),true)
+  + `<div style="position:absolute;inset:0;z-index:22;pointer-events:none">${navPair(393,762,176,54,12)}</div>`;
 
-// 5. iPhone, 6 kids, scrolled
-{
-  const top=252, bottom=742;
-  $('s5').innerHTML = phoneStage() + phoneTitle(168,258)
-    + `<div style="position:absolute;left:0;top:${top}px;width:393px;height:${bottom-top}px;overflow:hidden;z-index:10">
-         <div style="position:relative">
-           ${card('engineer','S',12,-170)}${card('mission','S',12,72)}${card('astro','S',12,314)}
-         </div></div>`
-    + `<div class="scrollbar" style="right:4px;top:${top+150}px;height:120px"></div>`
-    + peek(272,top,104,{turn:-9,zb:9,zf:12})
-    + btnPrev(12,756,56) + btnNext(80,756,56,false,301);
-}
-
-// 6. iPhone scenario
+// 6. iPhone scenario (the shelf has slid away; Nutmeg grows back onto the stage)
 {
   $('s6').innerHTML = phoneStage()
     + `<div class="title wrap" style="left:12px;top:168px;width:369px;padding:8px 8px 8px 16px;font-size:19px;z-index:21"><span class="t" style="flex:1">${TITLE}</span>${spk(44)}</div>`
@@ -383,31 +378,7 @@ $('s4').innerHTML = phoneStage() + phoneTitle(168,258)
     + `<div class="done-strip" style="left:50%;transform:translateX(-50%);top:694px;padding:6px 16px;gap:12px">
          <span class="lab" style="font-size:16px"><svg viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M5 12.5 L10 17.5 L19.5 6.5" stroke="#67A82A" stroke-width="3.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>All done!</span>
          ${['pilot','engineer'].map(i=>`<span class="mini" style="--tint:${ROLES[i].c};width:30px;height:30px"><img src="${IMG+ROLES[i].img}"><i><svg viewBox="0 0 24 24"><use href="#i-check-ink"/></svg></i></span>`).join('')}</div>`
-    + btnPrev(12,756,56) + btnNext(80,756,56,true,301);
-}
-
-// 7. Alternate A: iPad 6 kids, Nutmeg bottom-left
-{
-  const xs=[184,516,848], y1=144, y2=414, h=260;
-  $('s7').innerHTML = ipadStage() + ipadTitle(660,74,TITLE,28)
-    + `<div style="position:absolute;left:0;top:750px;width:1180px;height:70px;background:var(--floor);box-shadow:inset 0 6px 0 var(--floor-edge);z-index:13"></div>`
-    + card('pilot','M',xs[0],y1,{h}) + card('engineer','M',xs[1],y1,{h}) + card('mission','M',xs[2],y1,{h})
-    + card('astro','M',xs[0],y2,{h}) + card('alien','M',xs[1],y2,{h}) + card('rover','M',xs[2],y2,{h})
-    + peek(8,752,112,{face:'talking',turn:3,zb:12,zf:14})
-    + btnPrev(640,688,56,'Previous scene') + btnNext(906,684,62);
-}
-
-// 8. Alternate B: iPhone 6 kids, Nutmeg bottom-left over the bottom bar
-{
-  const top=228, bottom=744;
-  $('s8').innerHTML = phoneStage()
-    + `<div class="title wrap" style="left:12px;top:168px;width:369px;padding:8px 8px 8px 16px;font-size:19px"><span class="t" style="flex:1">${TITLE}</span>${spk(44)}</div>`
-    + `<div style="position:absolute;left:0;top:${top}px;width:393px;height:${bottom-top}px;overflow:hidden;z-index:10">
-         <div style="position:relative">${card('engineer','S',12,-120)}${card('mission','S',12,122)}${card('astro','S',12,364)}</div></div>`
-    + `<div class="scrollbar" style="right:4px;top:${top+150}px;height:110px"></div>`
-    + `<div style="position:absolute;left:0;top:742px;width:393px;height:110px;background:var(--floor);box-shadow:inset 0 6px 0 var(--floor-edge);z-index:13"></div>`
-    + peek(4,744,118,{face:'talking',turn:3,zb:12,zf:14})
-    + btnPrev(130,762,56) + btnNext(198,762,56,false,183);
+    + navPair(393,762,176,54,12,true);
 }
 </script>
 </body>
