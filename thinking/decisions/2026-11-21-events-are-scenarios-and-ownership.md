@@ -20,5 +20,5 @@ From Haylee's first real test of the one-scene flow (space game, 4 kids).
 - **Checklist buttons are never blocked:** ▶ Let's play! and ▶ The End always work. Pressing one early checks every remaining item, then continues.
 - **Shown text must be speakable:** the print-mess item mentioned scissors, and the voice refused to read it ("not safe for me to say it like that"). Claude's call: app-written items never mention sharp or unsafe tools, and one shared "speakable" check runs on every line shown or read aloud, so the card and the voice always match. Read-aloud uses the exact words.
 - **Music on/off (Haylee):** kids can turn the background music on and off during the scene (the music pill is the toggle). Nutmeg's voice and the chime still play.
-- **Pause stops the music (Haylee, bug):** in her test the music kept playing while paused.
+- **Pause stops the music:** Haylee wasn't sure it failed (maybe not a bug). Verify only; fix only a real gap.
 - **Nutmeg's face drifts during zoom (Haylee, bug):** when the stage zooms in or out, her layers don't move together and the face slides off the head. Claude's call: one transform on one container for the whole character; layers only animate their expressions.
