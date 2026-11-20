@@ -13,6 +13,7 @@
 **Claude's proposals (Haylee answered the scenario length, checkboxes and card layout; the rest go ahead unless she objects):**
 - A one-line cue when a scene opens ("Scene 2: Get the rocket ready! Tap your picture to hear your jobs").
 - The scenario is a few seconds long (one "Pretend that…" line plus a hint of what might happen), with a 🔊 to hear it again.
+- **Update (Haylee, 2026-11-20):** the scenario never ends on just a problem. It ends with an action for everyone, e.g. "…uh-oh, the control panel is beeping! Everyone, do your job to get the rocket safely into space!"
 - Taps while she's talking queue up, and the row being read is highlighted.
 - Items can be actions too ("put on your helmet"), but no busywork.
 - Scenes by count: 1–2 kids → 4, 3–4 → 3, 5–6 → 2. Generate 4 in one call and drop scenes for bigger groups, so a count change still needs no AI call. 2–3 items per role per scene.
