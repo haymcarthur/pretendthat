@@ -14,3 +14,8 @@ From Haylee's first real test of the one-scene flow (space game, 4 kids).
 - **Item wording uses the pretend name** ("Hold up the planet"), not "your sock pretend planet".
 - **Event card lifetime:** from its chime until the next cue (the calm-again line for a tense event, otherwise the next event); hear-again replays the same take (no new call).
 - Add the three new music families (superhero-city, pirate-adventure, rescue-team) to the theme list.
+
+**More from the same test (Haylee):**
+- **End the scene early:** a way to be done that leaves the music part and goes to the finale and then clean-up.
+- **Checklist buttons are never blocked:** ▶ Let's play! and ▶ The End always work. Pressing one early checks every remaining item, then continues.
+- **Shown text must be speakable:** the print-mess item mentioned scissors, and the voice refused to read it ("not safe for me to say it like that"). Claude's call: app-written items never mention sharp or unsafe tools, and one shared "speakable" check runs on every line shown or read aloud, so the card and the voice always match. Read-aloud uses the exact words.
