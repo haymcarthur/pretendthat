@@ -30,7 +30,7 @@ struct BeatSceneCard: View {
                         .id("event\(i)")
                         .transition(.scale(scale: 0.9).combined(with: .opacity))
                 case .calmAgain(let i) where events.indices.contains(i):
-                    PTCalmAgainCard(text: events[i].calmAgain ?? "", phone: metrics.isPhone)
+                    PTCalmAgainCard(text: events[i].calmAgain ?? "", phone: metrics.isPhone) { model.hearBeatAgain() }
                         .id("calm\(i)")
                         .transition(.opacity)
                 default:
@@ -44,7 +44,8 @@ struct BeatSceneCard: View {
 }
 
 /// One event, readable from across the room: the role picture(s) and name(s) on top, the line below. A tense event is
-/// the warmer style (coral border, a yellow "!" badge, a gently pulsing halo). Display only (no buttons: Haylee).
+/// the warmer style (coral border, a yellow "!" badge, a gently pulsing halo). 2026-11-21 (Haylee): it stays up until
+/// the next cue, with a 🔊 hear-again (the same take, no new call); not a check button.
 struct PTBeatEventCard: View {
     let model: AppModel
     let event: BeatEvent
@@ -64,12 +65,19 @@ struct PTBeatEventCard: View {
         let shape = RoundedRectangle(cornerRadius: phone ? 26 : 34, style: .continuous)
         VStack(alignment: .leading, spacing: phone ? Theme.Space.s : Theme.Space.m) {
             header(tense: tense)
-            Text(event.line)
-                .font(Theme.headlineFont(phone ? 21 : 30))
-                .foregroundStyle(Theme.ink)
-                .multilineTextAlignment(.leading)
-                .minimumScaleFactor(0.6)
-                .fixedSize(horizontal: false, vertical: true)
+            HStack(alignment: .bottom, spacing: Theme.Space.s) {
+                Text(event.line)
+                    .font(Theme.headlineFont(phone ? 21 : 30))
+                    .foregroundStyle(Theme.ink)
+                    .multilineTextAlignment(.leading)
+                    .minimumScaleFactor(0.6)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                PTSpeakerButton(size: phone ? 48 : 60, tint: tense ? Theme.coralStrong : Theme.purple, label: "Hear it again") {
+                    model.hearBeatAgain()
+                }
+                .accessibilityIdentifier("scene.hearAgain")
+            }
         }
         .padding(phone ? Theme.Space.m : Theme.Space.l)
         .frame(maxWidth: phone ? .infinity : 560, alignment: .leading)
@@ -78,7 +86,7 @@ struct PTBeatEventCard: View {
         .overlay(alignment: .topTrailing) { if tense { alertBadge.offset(x: 14, y: -14) } }
         .background { if tense { PTTenseHalo(shape: shape, reduceMotion: reduceMotion) } }
         .shadow(color: Theme.panelShadow, radius: 12, y: 4)
-        .accessibilityElement(children: .ignore)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel(event.line)
     }
 
@@ -128,6 +136,8 @@ struct PTTenseHalo: View {
 struct PTCalmAgainCard: View {
     let text: String
     var phone = false
+    /// 2026-11-21: its 🔊 hear-again (the same take).
+    var onHear: () -> Void = {}
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: phone ? 26 : 34, style: .continuous)
         HStack(spacing: Theme.Space.s) {
@@ -138,38 +148,109 @@ struct PTCalmAgainCard: View {
                 .multilineTextAlignment(.leading)
                 .minimumScaleFactor(0.6)
                 .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            PTSpeakerButton(size: phone ? 44 : 52, tint: Theme.limeShade, label: "Hear it again", action: onHear)
+                .accessibilityIdentifier("scene.hearCalmAgain")
         }
         .padding(phone ? Theme.Space.m : Theme.Space.l)
         .frame(maxWidth: phone ? .infinity : 520, alignment: .leading)
         .background(shape.fill(Theme.lime.paleTint(0.22)))
         .overlay(shape.strokeBorder(Theme.lime.paleTint(0.5), lineWidth: 2))
         .shadow(color: Theme.panelShadow, radius: 10, y: 3)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
     }
 }
 
 // MARK: - Chrome: the music pill, ⏸ Pause, the scene bar
 
-/// The small music pill at the top ("♫ ılıl Space adventure"; "· uh-oh!" in coral while it's tense).
+/// The small music pill at the top ("♫ ılıl Space adventure"; "· uh-oh!" in coral while it's tense). 2026-11-21
+/// (Haylee): a tap turns the background music off / on (a crossed-out note and "Music off"); her voice and the chime
+/// still play. Thin edge, at least 44 pt tall.
 struct PTMusicPill: View {
     let family: MusicFamily
     var tense = false
     var phone = false
+    var musicOn = true
+    var onToggle: () -> Void = {}
     var body: some View {
-        let tint = tense ? Theme.coralStrong : Theme.purple
-        HStack(spacing: phone ? 6 : Theme.Space.xs) {
-            Image(systemName: "music.note").font(.system(size: phone ? 15 : 20, weight: .bold))
-            Image(systemName: "chart.bar.fill").font(.system(size: phone ? 13 : 17, weight: .bold))
-            Text(tense ? "\(family.label) · uh-oh!" : family.label)
-                .font(Theme.headlineFont(phone ? 15 : 20)).lineLimit(1).minimumScaleFactor(0.7)
+        let tint = !musicOn ? Theme.inkMuted : (tense ? Theme.coralStrong : Theme.purple)
+        let h: CGFloat = phone ? 44 : 48
+        Button(action: onToggle) {
+            HStack(spacing: phone ? 6 : Theme.Space.xs) {
+                Image(systemName: musicOn ? "music.note" : "speaker.slash.fill").font(.system(size: phone ? 15 : 20, weight: .bold))
+                if musicOn { Image(systemName: "chart.bar.fill").font(.system(size: phone ? 13 : 17, weight: .bold)) }
+                Text(!musicOn ? "Music off" : (tense ? "\(family.label) · uh-oh!" : family.label))
+                    .font(Theme.headlineFont(phone ? 15 : 20)).lineLimit(1).minimumScaleFactor(0.7)
+            }
+            .foregroundStyle(tint)
+            .padding(.horizontal, phone ? 12 : Theme.Space.m)
+            .frame(minHeight: h)
         }
-        .foregroundStyle(tint)
-        .padding(.horizontal, phone ? 12 : Theme.Space.m).padding(.vertical, phone ? 6 : 9)
-        .background(Capsule().fill(tense ? Theme.coral.paleTint(0.2) : Theme.white.opacity(0.92)))
-        .shadow(color: Theme.panelShadow, radius: 6, y: 2)
+        .buttonStyle(PTNextSceneButton.Style(edge: Theme.edge(h), face: tense && musicOn ? Theme.coral.paleTint(0.2) : Theme.white,
+                                             shade: Theme.lavenderShade, outlined: true))
         .animation(.easeInOut(duration: 0.3), value: tense)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Music: \(family.label)")
+        .animation(.easeInOut(duration: 0.2), value: musicOn)
+        .accessibilityLabel(musicOn ? "Music: \(family.label)" : "Music off")
+        .accessibilityHint(musicOn ? "Turns the music off" : "Turns the music on")
+        .accessibilityIdentifier("scene.music")
+    }
+}
+
+/// 2026-11-21 (Haylee): "End scene", small and clear but not tempting for kids (a plain text pill next to ⏸ Pause; it
+/// asks first): straight to the finale, then the clean-up.
+struct PTEndScenePill: View {
+    var height: CGFloat = 44
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: "flag.checkered").font(.system(size: height * 0.3, weight: .bold))
+                Text("End scene").font(Theme.bodyFont(height * 0.36))
+            }
+            .foregroundStyle(Theme.inkMuted)
+            .padding(.horizontal, height * 0.32)
+            .frame(minHeight: max(44, height))
+        }
+        .buttonStyle(PTNextSceneButton.Style(edge: Theme.edge(height), face: Theme.white.opacity(0.9), shade: Theme.line, outlined: true))
+        .accessibilityLabel("End scene")
+        .accessibilityHint("Goes to the big finish, then clean-up")
+        .accessibilityIdentifier("scene.end")
+    }
+}
+
+/// "End the scene now?" (a grown-up's choice; kids who tap it by accident just keep playing).
+struct PTEndSceneDialog: View {
+    var phone = false
+    let onKeep: () -> Void
+    let onEnd: () -> Void
+    var body: some View {
+        ZStack {
+            Theme.scrim.ignoresSafeArea().onTapGesture(perform: onKeep)
+            VStack(spacing: phone ? Theme.Space.m : Theme.Space.l) {
+                Text("End the scene now?").font(Theme.displayFont(phone ? 30 : 42)).foregroundStyle(Theme.ink)
+                    .multilineTextAlignment(.center)
+                Text("Nutmeg jumps to the big finish, then clean-up.")
+                    .font(Theme.bodyFont(phone ? 18 : 22)).foregroundStyle(Theme.inkMuted).multilineTextAlignment(.center)
+                HStack(spacing: Theme.Space.m) {
+                    Button(action: onKeep) {
+                        Text("Keep playing").font(Theme.headlineFont(phone ? 18 : 22)).foregroundStyle(Theme.ink)
+                            .padding(.horizontal, Theme.Space.m).frame(minHeight: phone ? 52 : 60)
+                    }
+                    .buttonStyle(PTNextSceneButton.Style(edge: Theme.edge(56), face: Theme.lime, shade: Theme.limeShade))
+                    .accessibilityIdentifier("scene.keepPlaying")
+                    Button(action: onEnd) {
+                        Text("End scene").font(Theme.headlineFont(phone ? 18 : 22)).foregroundStyle(Theme.ink)
+                            .padding(.horizontal, Theme.Space.m).frame(minHeight: phone ? 52 : 60)
+                    }
+                    .buttonStyle(PTNextSceneButton.Style(edge: Theme.edge(56), face: Theme.white, shade: Theme.lavenderShade, outlined: true))
+                    .accessibilityIdentifier("scene.endConfirm")
+                }
+            }
+            .padding(phone ? Theme.Space.l : Theme.Space.xl)
+            .background(RoundedRectangle(cornerRadius: 36, style: .continuous).fill(Theme.white))
+            .shadow(color: Theme.panelShadow, radius: 16, y: 6)
+            .padding(.horizontal, Theme.Space.m)
+        }
     }
 }
 
@@ -252,8 +333,8 @@ struct PTPausedCard: View {
 
 // MARK: - The big button of the setup / clean-up checklist (and Resume)
 
-/// ▶ Let's play! / ▶ The End / ▶ Resume: grey (and inert) until `ready`, then green with a soft halo (Haylee: the only
-/// button on the setup checklist besides the 🔊 and the checks).
+/// ▶ Let's play! / ▶ The End / ▶ Resume. 2026-11-21 (Haylee): always green and always works (pressed early, the app
+/// checks what's left first); the soft halo shows once everything is checked (`ready`).
 struct PTOneSceneButton: View {
     let title: String
     let ready: Bool
@@ -266,22 +347,19 @@ struct PTOneSceneButton: View {
                 Image(systemName: "play.fill").font(.system(size: height * 0.32, weight: .heavy, design: .rounded))
                 Text(title).font(Theme.headlineFont(height * 0.36)).lineLimit(1).minimumScaleFactor(0.6)
             }
-            .foregroundStyle(ready ? Theme.ink : Theme.disabledInk)
+            .foregroundStyle(Theme.ink)
             .padding(.horizontal, Theme.Space.m)
             .frame(width: width, height: height)
         }
-        .buttonStyle(PTNextSceneButton.Style(edge: Theme.edge(height), face: ready ? Theme.lime : Theme.disabled,
-                                             shade: ready ? Theme.limeShade : Theme.line))
+        .buttonStyle(PTNextSceneButton.Style(edge: Theme.edge(height), face: Theme.lime, shade: Theme.limeShade))
         .background {
             if ready {
                 Capsule().fill(Theme.lime.opacity(0.3)).padding(-10)
                     .transition(.opacity.combined(with: .scale(scale: 0.9)))
             }
         }
-        .disabled(!ready)
         .animation(.spring(response: 0.4, dampingFraction: 0.7), value: ready)
         .sensoryFeedback(.success, trigger: ready) { _, new in new }
         .accessibilityLabel(title)
-        .accessibilityValue(ready ? "" : "Check every item first")
     }
 }

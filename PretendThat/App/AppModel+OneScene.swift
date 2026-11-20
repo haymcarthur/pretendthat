@@ -11,13 +11,28 @@ import NutmegCore
 extension AppModel {
     // MARK: The setup / clean-up big button
 
-    /// ▶ Let's play! (setup) / ▶ The End (clean-up): it works only once every playing card is done (it's grey before).
+    /// ▶ Let's play! (setup) / ▶ The End (clean-up). 2026-11-21 (Haylee): never grey. Pressed before everything is
+    /// checked, the rows still unchecked are ticked one by one (a brief visual check-off), then it goes on.
     func tapOneSceneButton() {
-        guard let kind = store.oneSceneChecklist, store.currentSceneDone else { return }
+        guard let kind = store.oneSceneChecklist, !oneSceneFinishing, case .scene(let i) = store.phase else { return }
         userAction(.nextScene)
         stopChecklistReading()
-        rtLog("one scene: \(kind == .setup ? "Let's play!" : "The End") (tap)")
-        store.nextScene()
+        let left = store.uncheckedRows
+        rtLog("one scene: \(kind == .setup ? "Let's play!" : "The End") (tap\(left.isEmpty ? "" : ", checks the \(left.count) left"))")
+        guard !left.isEmpty else { store.nextScene(); return }
+        oneSceneFinishing = true
+        Task { @MainActor [weak self] in
+            for k in left {
+                guard let self, case .scene(i) = self.store.phase else { return }
+                if !self.store.isChecked(k) { _ = self.store.toggleCheck(k) }
+                try? await Task.sleep(for: .milliseconds(140))
+            }
+            try? await Task.sleep(for: .milliseconds(350))   // the last check lands before the scene changes
+            guard let self else { return }
+            self.oneSceneFinishing = false
+            guard case .scene(i) = self.store.phase else { return }
+            self.store.nextScene()
+        }
     }
 
     // MARK: The scene clock
@@ -50,6 +65,7 @@ extension AppModel {
         beatClock = BeatClock(elapsed: at, speed: Self.beatSpeed)
         beatSavedAt = CACurrentMediaTime()
         music.prepare(b.music)
+        music.setMuted(!musicOn)
         if at > 0 {
             scenePaused = true
         } else {
@@ -124,10 +140,6 @@ extension AppModel {
             beatChimeUntil = CACurrentMediaTime() + 2.5
             rtLog("one scene: event \(i + 1)/\(run.events.count) (\(run.events[i].mood.rawValue), \(run.events[i].roles.map(\.rawValue).joined(separator: "+")))")
             sayBeat(run.events[i].line, after: 0.9)
-        case .repeatEvent(let i):
-            // Once more by herself: the same text, so it plays this game's take (no new call).
-            guard run.events.indices.contains(i) else { return }
-            sayBeat(run.events[i].line, waitForQuiet: true)
         case .calmAgain(let i):
             guard run.events.indices.contains(i), let line = run.events[i].calmAgain else { return }
             sayBeat(line, after: 0.3, waitForQuiet: true)
@@ -160,6 +172,55 @@ extension AppModel {
             guard let self, !Task.isCancelled, !self.scenePaused, self.store.phase == phase else { return }
             self.speak(line)
         }
+    }
+
+    // MARK: Hear again, End scene, music on/off (2026-11-21, Haylee)
+
+    /// The line on the card up now (the event's, or the calm-again's), if any.
+    var beatCardLine: String? {
+        guard let events = store.currentBeatScene?.beats?.events else { return nil }
+        switch beatDisplay {
+        case .event(let i): return events.indices.contains(i) ? events[i].line : nil
+        case .calmAgain(let i): return events.indices.contains(i) ? events[i].calmAgain : nil
+        case .playing, .finale: return nil
+        }
+    }
+
+    /// 🔊 on the event / calm-again card: the same line again, so it plays this game's take (no new call). Nothing
+    /// while she's already talking.
+    func hearBeatAgain() {
+        guard !scenePaused, !isSpeaking, let line = beatCardLine else { return }
+        rtLog("one scene: hear again")
+        speak(line)
+    }
+
+    /// "End scene" (the grown-up or the kids are done early): straight to the finale (celebrate, the win music), then
+    /// the clean-up 20 s later, the same as the scheduled finale. The scene time jumps to the finale's, so a relaunch
+    /// lands there too.
+    func endSceneEarly() {
+        guard store.currentBeatScene != nil, var run = beatRun else { return }
+        let now = CACurrentMediaTime()
+        let t = run.endEarly(at: beatClock.elapsed(now: now))
+        beatRun = run
+        beatLineTask?.cancel(); beatLineTask = nil
+        userAction(.pauseScene)   // her current line stops (the finale line follows)
+        beatClock = BeatClock(elapsed: t, speed: Self.beatSpeed)
+        store.beatTime = t
+        if scenePaused { scenePaused = false; music.resume() }
+        beatClock.start(now: now)
+        saveResumePoint()
+        updateIdleTimer()
+        rtLog("one scene: End scene (jumps to the finale at \(Int(t)) s)")
+        beatTick()
+    }
+
+    /// The music pill's toggle: the background music off or on (her voice and the chime still play). A per-device
+    /// choice, so the rest of this game, a resume and the next game keep it (not kid data).
+    func toggleMusic() {
+        musicOn.toggle()
+        UserDefaults.standard.set(musicOn, forKey: MusicMix.musicOnKey)
+        music.setMuted(!musicOn)
+        rtLog("one scene: music \(musicOn ? "on" : "off")")
     }
 
     // MARK: Pause (Haylee: kids may want to pause; nothing to confirm a task)

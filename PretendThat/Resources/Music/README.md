@@ -23,8 +23,11 @@ Families (the guide picks one; `MusicFamily` in NutmegCore/OneScene.swift):
 | `magical` | Magic kingdom | castles, fairies, wizards, dragons, unicorns, knights |
 | `cozy-shop` | Cozy shop | bakery, restaurant, shop, vet, doctor, school (the default) |
 | `spooky-silly` | Silly spooky | silly ghosts, monsters, haunted houses, mystery (never scary) |
-| `under-the-sea` | Under the sea | ocean, pirates, mermaids, submarines, beach |
+| `under-the-sea` | Under the sea | ocean, mermaids, submarines, beach, sea animals |
 | `desert-western` | Wild west | cowboys, ranch, desert, horses, sheriffs |
+| `superhero-city` | Superhero city | superheroes, capes, saving the city, sidekicks, silly villains |
+| `pirate-adventure` | Pirate adventure | pirates, treasure hunts, pirate ships, parrots, treasure maps |
+| `rescue-team` | Rescue team | firefighters, police, paramedics, lifeguards, rescue missions |
 
 ## Rules
 

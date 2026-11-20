@@ -103,6 +103,10 @@ final class AppModel {
     @ObservationIgnored var beatLineTask: Task<Void, Never>?
     @ObservationIgnored var beatChimeUntil: TimeInterval = 0
     @ObservationIgnored var beatSavedAt: TimeInterval = 0
+    /// 2026-11-21 (Haylee): the scene's music on/off (the music pill's toggle), a per-device preference.
+    var musicOn: Bool = UserDefaults.standard.object(forKey: MusicMix.musicOnKey) as? Bool ?? true
+    /// 2026-11-21: ▶ Let's play! / ▶ The End is ticking off the rows left before it goes on.
+    var oneSceneFinishing = false
     /// The scene's music (calm / tense loops, the win ending, the event chime); silent when the files aren't bundled.
     @ObservationIgnored let music = MusicPlayer()
     /// Round D2: the Grown-ups sheet (gate, then Saved games + About saved games).

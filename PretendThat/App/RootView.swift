@@ -21,6 +21,8 @@ struct RootView: View {
     @State private var kitPreview: PTPreviewTarget?
     /// Close asks first (decisions/2026-11-13-push-to-talk.md).
     @State private var confirmLeave = false
+    /// 2026-11-21 (Haylee): "End scene" asks first (a grown-up's choice).
+    @State private var confirmEndScene = false
     /// Kit-ready confetti, drawn as the topmost overlay (above the chat panel, step rail and control pill).
     @State private var confettiRun = 0
     @State private var confettiOn = false
@@ -141,7 +143,9 @@ struct RootView: View {
                     Spacer(minLength: 0)
                     if beatScene {
                         // 2026-11-21 (Haylee): during the one scene, no step rail: the music pill and ⏸ Pause.
-                        if let family = store.currentBeatScene?.beats?.music { PTMusicPill(family: family, tense: model.beatTense, phone: true) }
+                        if let family = store.currentBeatScene?.beats?.music {
+                            PTMusicPill(family: family, tense: model.beatTense, phone: true, musicOn: model.musicOn) { model.toggleMusic() }
+                        }
                         Spacer(minLength: 0)
                         PTPausePill(height: 48) { model.pauseScene() }
                     } else {
@@ -271,6 +275,12 @@ struct RootView: View {
                     .transition(.opacity)
                     .zIndex(16)
             }
+            if beatScene && confirmEndScene {
+                PTEndSceneDialog(phone: metrics.isPhone, onKeep: { confirmEndScene = false },
+                                 onEnd: { confirmEndScene = false; model.endSceneEarly() })
+                    .transition(.opacity)
+                    .zIndex(16.5)
+            }
             if model.wifiPause.isPaused && store.phase != .hello {
                 PTWiFiNote(note: WiFiPause.note, onLeave: { chatOpen = false; model.leave() })
                     .transition(.opacity)
@@ -335,6 +345,8 @@ struct RootView: View {
         .animation(.easeOut(duration: 0.25), value: model.wifiPause.isPaused)
         .animation(.easeOut(duration: 0.25), value: model.offlineCaption)
         .animation(.easeOut(duration: 0.25), value: model.scenePaused)
+        .animation(.easeOut(duration: 0.2), value: confirmEndScene)
+        .onChange(of: beatScene) { _, on in if !on { confirmEndScene = false } }
         // 2026-11-21: the one scene's finale: confetti over everything.
         .onChange(of: model.beatConfetti) { _, _ in celebrate() }
         // Round 10: the panel/rail slide on the same spring as the camera move they cause (one shared animation).
@@ -529,17 +541,28 @@ struct RootView: View {
         let count = beats?.events.count ?? 0
         if !metrics.isPhone {
             if let family = beats?.music {
-                PTMusicPill(family: family, tense: model.beatTense)
+                // 2026-11-21 (Haylee): a tap turns the music off / on.
+                PTMusicPill(family: family, tense: model.beatTense, musicOn: model.musicOn) { model.toggleMusic() }
                     .padding(.top, PTCurtain.metrics(screen).valance + Theme.Space.s + 8)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                    .allowsHitTesting(false)
                     .zIndex(6)
             }
-            PTPausePill { model.pauseScene() }
-                .padding(.top, PTCurtain.metrics(screen).valance + Theme.Space.s)
-                .padding(.trailing, Theme.Space.m + Theme.Space.s)
+            VStack(alignment: .trailing, spacing: Theme.Space.s) {
+                PTPausePill { model.pauseScene() }
+                PTEndScenePill { confirmEndScene = true }   // 2026-11-21: small, under ⏸ Pause
+            }
+            .padding(.top, PTCurtain.metrics(screen).valance + Theme.Space.s)
+            .padding(.trailing, Theme.Space.m + Theme.Space.s)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            .transition(.move(edge: .trailing).combined(with: .opacity))
+            .zIndex(6)
+        } else {
+            // iPhone: ⏸ Pause is in the top bar; "End scene" sits just under it.
+            PTEndScenePill(height: 36) { confirmEndScene = true }
+                .padding(.top, LayoutMetrics.phoneTopInset(screen: screen, safeTop: rootTop) + LayoutMetrics.phoneTopBar + Theme.Space.xs)
+                .padding(.trailing, LayoutMetrics.phoneSide)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                .transition(.move(edge: .trailing).combined(with: .opacity))
+                .transition(.opacity)
                 .zIndex(6)
         }
         PTSceneBar(dots: BeatTimeline.dots(count: count), progress: model.beatProgress, fired: model.beatFiredEvents,

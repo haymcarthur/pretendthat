@@ -21,6 +21,9 @@ final class MusicPlayer {
     /// The segment that should be playing (silent when none is).
     private(set) var segment: BeatMusic = .silent
     private var ducked = false
+    /// 2026-11-21 (Haylee): the music pill's off switch. The loops keep running silently (so turning it back on picks
+    /// up the right segment in place); the chime is a separate player and still plays.
+    private var muted = false
     private var paused = false
     /// The segment's player was sounding when ⏸ Pause came (a win ending that already finished isn't replayed).
     private var wasPlaying = false
@@ -59,7 +62,14 @@ final class MusicPlayer {
     }
 
     /// The level for the playing segment now (ducked under her voice or the chime).
-    private var level: Float { MusicMix.gain(speaking: ducked, chime: false) }
+    private var level: Float { MusicMix.gain(speaking: ducked, chime: false, muted: muted) }
+
+    /// Music off / on (a short ramp).
+    func setMuted(_ on: Bool) {
+        guard on != muted else { return }
+        muted = on
+        if !paused { players[segment]?.setVolume(level, fadeDuration: MusicMix.duckRamp) }
+    }
 
     /// Switches to `seg` with a crossfade (the win ending starts from its beginning; a loop keeps its place).
     func play(_ seg: BeatMusic) {

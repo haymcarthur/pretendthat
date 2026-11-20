@@ -149,16 +149,20 @@ struct NutmegCharacter: View {
             .frame(width: w, height: h)
             .scaleEffect(x: 1 - (m.breathe - 1) * 0.42, y: m.breathe, anchor: .bottom)
             head(look: l, motion: m)
-                .scaleEffect(pose.headScale, anchor: pose.neckAnchor)
                 .frame(width: w, height: h)
                 // Pose rotation/offset change in the SAME transaction as the body swap (no separate spring, so the
                 // head never trails the body). Only the small intentional state tilt eases, scoped to the rotation.
                 .animation(reduceMotion ? nil : .easeOut(duration: 0.25)) { $0.rotationEffect(.degrees(m.stateTilt), anchor: pose.neckAnchor) }
-                .rotationEffect(.degrees(pose.headRotation + m.headTilt), anchor: pose.neckAnchor)
-                .offset(x: pose.headOffset.width * px,
-                        // The head rides the breathing neck with at most ~2 pt of follow, plus the talking nod.
-                        y: pose.headOffset.height * px + max(pose.headBobsUp ? -2 : 0, min(2, (1 - m.breathe) * h * 0.41))
+                // 2026-11-21 (face drift on zoom): the per-frame motion (talk tilt, breathing follow, nod) and the pose's
+                // layout values are SEPARATE modifiers. Mixed in one, every 30 fps tick re-set the head's offset with no
+                // animation, so the head jumped to its end place while the body was still easing.
+                .rotationEffect(.degrees(m.headTilt), anchor: pose.neckAnchor)
+                .offset(y: max(pose.headBobsUp ? -2 : 0, min(2, (1 - m.breathe) * h * 0.41))   // ≤ ~2 pt neck follow + the nod
                             + (pose.headBobsUp ? m.nod : max(0, m.nod)))
+                .transaction { $0.animation = nil }   // per-frame motion never animates
+                .scaleEffect(pose.headScale, anchor: pose.neckAnchor)
+                .rotationEffect(.degrees(pose.headRotation), anchor: pose.neckAnchor)
+                .offset(x: pose.headOffset.width * px, y: pose.headOffset.height * px)
             // In front of the head: the crayon (behind the clipboard, so only its top end shows above the edge), then
             // the clipboard and her gripping paws (clipboardBoth layer split, round 5). They breathe with the body.
             ZStack(alignment: .topLeading) {
