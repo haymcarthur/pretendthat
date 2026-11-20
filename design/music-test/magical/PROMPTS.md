@@ -33,3 +33,9 @@ out, so these dip at each seam. The processed loops are in `processed/` (see PIC
 ElevenLabs flow **"PretendThat calm B loops"** `dSxe4hBC3cnsB5nMN5GN` (one node per family, run once with 2 takes, 900 credits a take). Model `eleven_music_v2_5`, `{"duration_seconds": 60, "lyrics_type": "instrumental", "instrumental": true}`. Files: calm2-1.mp3; generation ids `qRwqx5BctaaKLY4NorHM` (take 2 `A0KecFB3oa6h7XXJGKzj` failed). In calm A's measured key and tempo (PICKS.md).
 
 > A second, gentle variation of the same theme: playful, gentle kids' magic kingdom fairy-tale instrumental in F major at 90 BPM, with celesta, harp arpeggios, flute, light strings and soft chimes, playing a different melody and arrangement. Sparkly, wondering and warm, like a friendly enchanted castle. Keep the energy even and steady the whole time, with no big intro, build-up or ending, so it can loop as background music under a voice.
+
+## Win redo (15 s, 2026-11-20)
+
+ElevenLabs flow **"PretendThat win redos"** `0E0ZhST9V8YYLYwyDEyQ`, node `12Y2QdhYVNh0gxE7cD2X`, run once with 2 takes (225 credits a take). Files: `win-redo-1.mp3`, `win-redo-2.mp3`; generation ids `fsZrDslRePVvG68PxUOP`, `JnyOYJudLVAUaCsfUIiG`. Brighter and stronger than the first win, in F major.
+
+> Triumphant kids' magic kingdom finale in F major at 90 BPM: a bright, bold brass fanfare with timpani and a cymbal swell, soaring strings, harp glissandos and sparkling celesta and chimes. Loud, joyful and strong, building to a big happy celebration and ending on one clear, final F major chord that rings out.

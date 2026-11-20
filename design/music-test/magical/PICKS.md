@@ -74,3 +74,15 @@ A second calm loop that the app alternates with calm A (calm-2) so a 10-minute s
 Processed: calm2-1.mp3 at 90.0 BPM (fit 90.002), from 6.6833 s, **16 bars = 42.67 s**; `calm2.m4a` -16.0 LUFS, -3.7 dBTP, 524 KB. Seam (decoded loop): RMS jump 2.01 dB, mel 1.366 (the source's own bar line there: 7.22 dB, 1.265).
 
 Listen check: `processed/loop-test-calm2-x3.m4a` and `processed/loop-test-calm-aba.m4a` (calm, calm2, calm; joins at 42.67 s and 85.33 s; calm -16.1 / calm2 -16.0 LUFS; join A→B RMS +2.39 dB, mel 1.839; B→A +4.16 dB, mel 1.418). Both loops start on a downbeat at the same tempo, so a switch at a loop end lands on a bar line.
+
+## Win redo (2026-11-20, Claude's call by analysis): **replaced** with win-redo-1
+
+The old win-1 was the only take in F but soft (−26.3 LUFS raw, a gentle celesta-and-harp finale). Two new takes (flow `0E0ZhST9V8YYLYwyDEyQ`, 225 credits each), prompted brighter and stronger in F major at 90 BPM, "ending on one clear, final F major chord that rings out" (PROMPTS.md).
+
+| take | LUFS | LRA | TP | key (corr.) | per-second level, last 7 s (dB vs loudest) | sounding at the end |
+|---|---|---|---|---|---|---|
+| win-1 (old) | −26.3 | 5.3 | −9.5 | C maj / F maj (0.85 / 0.83) | — (fades from ~12 s: −7, −13, −28) | F3 C4 F4 C5 F5 C6 F6 (no A until the last second) |
+| **win-redo-1** | −12.0 | 14.3 | −0.2 | **F maj (0.85)** | −10, −12, −15, −25, −36, −47, −65 | **F major**: F3 C4 F4 C5 F5 A5 C6 F6 A6; F major 0.81–0.88 from 6 s to 14 s |
+| win-redo-2 | −12.5 | 5.1 | −1.3 | F maj (0.84) | −1, −1, −5, −24, −52 (and a dip to −16 dB at 6–8 s) | F major with a strong E (Fmaj7 colour) all through |
+
+**Pick: win-redo-1.** Strong (−12 LUFS raw, 14 dB louder than the old take), clearly in F, with a full F major chord (F, A, C) at ~8 s and a long, smooth natural ring-out to −65 dB. win-redo-2 is louder for longer but sits on F major 7 (a bright but unresolved colour), has a mid-take break and fades faster. It opens with a ~2 s cymbal-and-strings swell out of silence (0.46 s of silence trimmed). Processed with the same method (`python3 tools/process_music_calm2.py win magical win-redo-1`): `win.m4a` −15.9 LUFS, −2.6 dBTP, 14.54 s, 181 KB. **Listen check:** the swell means the fanfare proper starts ~2 s in.

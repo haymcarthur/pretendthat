@@ -72,3 +72,15 @@ A second calm loop that the app alternates with calm A (calm-1) so a 10-minute s
 Processed: calm2-1.mp3 at 112.0 BPM (fit 111.999), from 8.0572 s, **20 bars = 42.86 s**, resampled 36 ppm to a whole number of AAC frames; `calm2.m4a` -16.0 LUFS, -2.9 dBTP, 525 KB. Seam (decoded loop): RMS jump 1.83 dB, mel 0.492 (the source's own bar line there: 7.19 dB, 1.302).
 
 Listen check: `processed/loop-test-calm2-x3.m4a` and `processed/loop-test-calm-aba.m4a` (calm, calm2, calm; joins at 42.86 s and 85.72 s; calm -16.0 / calm2 -16.0 LUFS; join A→B RMS +1.81 dB, mel 1.024; B→A +2.53 dB, mel 1.185). Both loops start on a downbeat at the same tempo, so a switch at a loop end lands on a bar line.
+
+## Win redo (2026-11-20, Claude's call by analysis): **replaced** with win-redo-1
+
+The old win-1 ends on C/G but its last chords mix C minor colour (Eb, C#) and it cuts from −5 to −26 dB in its last second. Two new takes (flow `0E0ZhST9V8YYLYwyDEyQ`, 225 credits each), prompted in C major at the family's measured 112 BPM, "ending clearly on one strong, final C major chord that rings out" (PROMPTS.md).
+
+| take | LUFS | LRA | BPM | key (corr.) | per-second level, last 6 s (dB vs loudest) | sounding at the end |
+|---|---|---|---|---|---|---|
+| win-1 (old) | −13.2 | 1.4 | 112.00 | C min / C maj (0.81 / 0.79) | −3, −1, −3, 0, −5, −26 | C4 C5 G5 C6 F6 A6 (last second: B, C, C#, Bb in the chroma) |
+| **win-redo-1** | −12.2 | 14.5 | 112.02 | E min / C maj (0.65 / 0.55) over the whole take | −8, −17, −25, −33, −43, −56 | **C major triad**: C4 E4 G4 C5 G5; G-major bar (V) at 8–9 s, then C major 0.83–0.86 for the whole ring-out |
+| win-redo-2 | −13.7 | 10.3 | 111.97 | F maj / C maj (0.67 / 0.54) | −7, −10, −11, −13, −25, −54 | open C fifth (G3 C4 G4), a held chord then a faster fade |
+
+**Pick: win-redo-1.** A clear V→I cadence into a C major triad at ~8.5 s, then a smooth natural ring-out (about 8–10 dB a second) to −86 dB: the cleanest, most "finished" ending of the three. Processed with the same method (`python3 tools/process_music_calm2.py win superhero-city win-redo-1`): `win.m4a` −15.9 LUFS, −3.5 dBTP, 15.0 s, 186 KB. Its LRA is high because a third of the take is the ring-out. **Listen check:** the body before the cadence is short (~8.5 s of fanfare).
