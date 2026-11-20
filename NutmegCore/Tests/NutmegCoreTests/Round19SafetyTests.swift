@@ -120,7 +120,7 @@ struct Round19SafetyTests {
         let store = AdventureStore(service: PhaseService(llm: FakeLLM(responses: ["Kit": bad])))
         store.setPlayerCount(1)
         await store.makeKit()
-        #expect(store.usingFallback && store.fullKit == Fallback.oneSceneAirplane(playerCount: 1).kit)
+        #expect(store.usingFallback && store.fullKit == Fallback.gamePlanAirplane(playerCount: 1).kit)   // 2026-11-21: the bundled game plan
     }
 
     @Test func imagePromptsCarryTheSafetySuffixAndModeration() throws {

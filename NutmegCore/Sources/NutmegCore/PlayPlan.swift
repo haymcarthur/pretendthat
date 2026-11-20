@@ -36,6 +36,8 @@ public struct PlanArea: Codable, Equatable, Sendable {
     public init(id: String, name: String, owner: RoleID, job: String) {
         self.id = id; self.name = name; self.owner = owner; self.job = job
     }
+    /// Stored as "place" (a saved game never has a "name" key: the privacy test guards it).
+    private enum CodingKeys: String, CodingKey { case id, name = "place", owner, job }
 }
 
 /// One object's life cycle: a printed page ("page:log") or a found prop ("prop:box").

@@ -199,25 +199,25 @@
     "areas": [
      {
       "id": "A1",
-      "name": "the cockpit",
+      "place": "the cockpit",
       "owner": "R1",
       "job": "Build the cockpit"
      },
      {
       "id": "A2",
-      "name": "the passenger cabin",
+      "place": "the passenger cabin",
       "owner": "R2",
       "job": "Set up the passenger cabin"
      },
      {
       "id": "A3",
-      "name": "the snack galley",
+      "place": "the snack galley",
       "owner": "R3",
       "job": "Set up the snack galley"
      },
      {
       "id": "A4",
-      "name": "the gate",
+      "place": "the gate",
       "owner": "R4",
       "job": "Get the gate ready"
      }
