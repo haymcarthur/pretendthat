@@ -74,4 +74,4 @@
 - (2026-11-18) **Not-ready printable:** should Nutmeg say something when a page shows "Try again"? (needs a recorded clip; decisions/2026-11-18-printables-after-lock.md)
 - (2026-11-18) **Build 4 device checks** (Haylee): idle/lock mic + taps; printables after a lock match with no built-in art.
 
-- (2026-11-20) **Where does Nutmeg go when up to 6 checklists fill the scene screen?** Claude's proposal: she shrinks to a small peek in a corner during setup, then comes back big for the scenario. (decisions/2026-11-20-checklist-then-scenario-scenes.md)
+- (2026-11-20) ~~Where does Nutmeg go with many checklists?~~ Answered: on a card (iPad), over a checklist shelf (iPhone).

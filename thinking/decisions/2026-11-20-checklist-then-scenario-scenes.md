@@ -23,3 +23,8 @@
 **Same round:** the scene voice stall fix (lines socket failure goes unnoticed, cancel bookkeeping), a ◀ Previous scene button, resume at the scene after a relaunch, and skip from Props/Print to the scenes.
 
 **Supersedes:** the ensemble-scenes task rows (2026-11-16-ensemble-scenes.md), the round 29 bigger tasks, and the round 36 setup scene and per-scene opening.
+
+**Layout (Haylee, 2026-11-20, after the first mockups in design/mockups/checklist-scenes/):**
+- **iPad:** Nutmeg sits on one of the checklist cards (peeking over a card), not on the stage.
+- **iPhone:** setup opens a shelf like the chat shelf, holding all the checklists, and Nutmeg peeks over the shelf.
+- **◀ Previous / ▶ Next scene:** centered on the screen as a pair, both the same size (the first mockup's mismatched pair looked broken).
