@@ -51,7 +51,9 @@ struct RootView: View {
 
     private var store: AdventureStore { model.store }
 
-    var body: some View {
+    /// The stage's layers. Split out of `body` (2026-11-20, MacBook Air): as one expression with the modifier chain
+    /// below, Xcode 26's compiler gave up type-checking it.
+    private var stageLayers: some View {
         // Layout (layout-toycad-style.md, style revised): light canvas, Nutmeg centered as the hero, a white step rail
         // on the left, a white control pill at the bottom, and a chat panel that slides in from the right.
         ZStack {
@@ -320,6 +322,11 @@ struct RootView: View {
                     .accessibilityHidden(true)
             }
         }
+    }
+
+    /// `body`'s modifier chain, part 1 of 5 (split for the Xcode 26 type checker; same modifiers, same order).
+    private var stageAnimated: some View {
+        stageLayers
         .background {
             Color.clear.ignoresSafeArea(.keyboard)
                 // Round 21: in a windowed iPad app the keyboard RESIZES the window (782 → 814 → 406 pt tall here,
@@ -358,6 +365,11 @@ struct RootView: View {
         .animation(reduceMotion ? Theme.stageMoveReduced : Theme.stageMove, value: model.inConversation)   // round 11: one move
         .environment(\.speak, SpeakAction { model.speak($0) })
         .environment(\.ptCelebrate, model.celebrations)
+    }
+
+    /// `body`'s modifier chain, part 2 of 5 (split for the Xcode 26 type checker; same modifiers, same order).
+    private var stageObserved: some View {
+        stageAnimated
         .onChange(of: store.nutmegLine) { _, line in model.speak(line) }
         .onChange(of: store.phase) { _, phase in
             model.phaseChanged()
@@ -370,7 +382,15 @@ struct RootView: View {
         }
         .onChange(of: scenePhase) { _, phase in model.scenePhaseChanged(phase) }
         // Round 13: pre-connect the voice session while the start screen shows.
-        .task(id: store.phase == .hello && model.aiConsent && model.onboarding == nil) { if store.phase == .hello { model.preconnect() } }
+        .task(id: preconnectKey) { if store.phase == .hello { model.preconnect() } }
+    }
+
+    /// Round 13's pre-connect key (named so the type checker doesn't have to infer it inside the chain).
+    private var preconnectKey: Bool { store.phase == .hello && model.aiConsent && model.onboarding == nil }
+
+    /// `body`'s modifier chain, part 3 of 5 (split for the Xcode 26 type checker; same modifiers, same order).
+    private var stageObservedMore: some View {
+        stageObserved
         .onChange(of: store.phase) { _, _ in model.updateIdleTimer() }
         .onChange(of: PTChatTabState.cardKey(for: stepTab, phase: store.phase), initial: true) { _, key in
             chatTabs.show(cardKey: key)
@@ -391,6 +411,11 @@ struct RootView: View {
         .onChange(of: model.inConversation) { _, live in
             if live { scheduleShot(arrival: true) } else { shotTask?.cancel(); cameraShot = .wide; lastShotChange = .distantPast }
         }
+    }
+
+    /// `body`'s modifier chain, part 4 of 5 (split for the Xcode 26 type checker; same modifiers, same order).
+    private var stageKitObserved: some View {
+        stageObservedMore
         .onChange(of: store.kit) { _, _ in model.kitChanged() }
         .onChange(of: store.playerCount) { _, _ in model.playerCountChanged() }   // round 46: the badge page
         .onChange(of: store.guidePending) { _, pending in model.guidePendingChanged(pending) }
@@ -407,6 +432,10 @@ struct RootView: View {
         }
         .onChange(of: model.isSpeaking) { _, talking in if model.writingOnScreen { model.scribble.setPlaying(true, ducked: talking) } }
         .onChange(of: presentedSubjects) { _, _ in requestStickers() }
+    }
+
+    var body: some View {
+        stageKitObserved
         .task {
             model.refreshShelf()   // round D1: the start screen shows My games once a game is saved
             #if DEBUG
