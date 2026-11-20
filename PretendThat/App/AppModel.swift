@@ -101,6 +101,8 @@ final class AppModel {
     @ObservationIgnored var beatClock = BeatClock()
     @ObservationIgnored var beatTask: Task<Void, Never>?
     @ObservationIgnored var beatLineTask: Task<Void, Never>?
+    /// 2026-11-20 (Haylee): opens the clean-up once her finale line is done (the 20 s timer stays as the backstop).
+    @ObservationIgnored var beatCleanupTask: Task<Void, Never>?
     @ObservationIgnored var beatChimeUntil: TimeInterval = 0
     @ObservationIgnored var beatSavedAt: TimeInterval = 0
     /// 2026-11-21 (Haylee): the scene's music on/off (the music pill's toggle), a per-device preference.

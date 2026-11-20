@@ -265,6 +265,7 @@ final class RealtimeSession {
         guard !suspended else { voiceLog("foreground: back in the background during the ping, still suspended"); return false }
         guard alive, status == .live else {
             rtLog("foreground: socket gone (dropped=\(socketDropped)), reconnect needed")
+            if status == .live { status = .failed("socket gone after the app was away") }   // 2026-11-20: so the reconnect runs
             return false
         }
         do { try startAudio(echoCancel: echoCancel) } catch { rtLog("foreground: audio restart failed: \(error.localizedDescription)"); return false }
@@ -389,6 +390,19 @@ final class RealtimeSession {
         await openLineSocket(auth: auth, config: config, instructions: instructions)   // round 35 prep: flag, default off
         updateGate()
         startKeepalive()
+        #if DEBUG
+        // 2026-11-20: `-PTDropAfter N`: the main socket closes N s after each connect (rehearses a foreground drop, like
+        // OpenAI's 60-minute session limit), so the silent reconnect can be checked without waiting an hour.
+        let args = ProcessInfo.processInfo.arguments
+        if let k = args.firstIndex(of: "-PTDropAfter"), args.indices.contains(k + 1), let n = Double(args[k + 1]) {
+            Task { [weak self, weak socket] in
+                try? await Task.sleep(for: .seconds(n))
+                guard let self, let socket, socket === self.socket else { return }
+                rtLog("DEBUG -PTDropAfter: closing the voice socket")
+                socket.close()
+            }
+        }
+        #endif
         if suspended {
             // 2026-11-20: the app went to the background while this connect ran: the socket stays, the audio stops,
             // and the foreground resumes it (`ForegroundRecovery` → resume).
@@ -726,6 +740,10 @@ final class RealtimeSession {
             rtLog("socket closed in background (\(reason)): reconnect on return")
             return
         }
+        // 2026-11-20 (Haylee: the speakers did nothing after the voice hit OpenAI's 60-minute session limit): the status
+        // leaves .live BEFORE the reconnect starts. Left on .live, the reconnect saw "came back meanwhile" and never
+        // tried, the keepalive kept pinging the dead socket, and taps never asked for a reconnect.
+        status = .failed(reason)
         if onDropped?() == true {
             rtLog("socket closed (\(reason)): silent reconnect")
             return

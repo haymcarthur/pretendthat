@@ -640,6 +640,8 @@ enum DemoDriver {
         case "oneIdea":   // 2026-11-21 (game plan): the first calm-stretch idea card (low right, no chime)
             if let t = run.ideaTimes.first { model.debugJumpScene(to: t + 2) } else { rtLog("ONE SCENE demo: no ideas in this scene") }
         case "oneFinale": model.debugJumpScene(to: run.finaleAt + 1)
+        // 2026-11-20: 2 s before the finale, so its cue fires and the clean-up opens after her line (not the timer).
+        case "oneBeforeFinale": model.debugJumpScene(to: run.finaleAt - 2)
         case "oneCleanup":
             model.debugJumpScene(to: run.cleanupAt - 0.5)
             try? await Task.sleep(for: .seconds(1.5))   // the clean-up opens by itself

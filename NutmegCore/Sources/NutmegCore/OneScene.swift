@@ -275,7 +275,7 @@ public enum OneScene {
         props["story"] = ["type": "string", "description": "The story Nutmeg tells right after printing: 3 or 4 short sentences, about 40 to 55 words (15 seconds): where we are, who the kids are (the R1 role and the crew; name no other role), and what is about to happen. Kid words, exciting, no quotes."]
         props["setupTitle"] = ["type": "string", "description": "2 to 5 words: what the kids get ready for (e.g. Get the rocket ready)."]
         props["setup"] = Schemas.obj(setup)
-        props["opener"] = ["type": "string", "description": "The scene's opener: ONE short line, 12 to 25 words, that starts with \"Pretend that\" and starts the adventure (e.g. Pretend that the rocket is blasting off to the Moon! Everyone, take your places!)."]
+        props["opener"] = ["type": "string", "description": "The scene's opener: ONE short line, 12 to 25 words, that starts with \"Pretend that\" and starts the adventure that sets the scene in ONE sentence (e.g. Pretend that our rocket just blasted off to the Moon!); the app adds what everyone does next."]
         props["events"] = ["type": "array", "items": event,
                            "description": "\(poolMin) to \(poolMax) events, about half calm and half tense, calling all 6 roles (see the rules)."]
         props["finale"] = ["type": "string", "description": "The big ending for everyone, ONE short line (e.g. We made it to the Moon! Everyone, celebrate!)."]
@@ -327,7 +327,7 @@ public enum OneScene {
         + "events have an empty calmAgain. THE POOL MUST WORK FOR EVERY GROUP SIZE: at least 3 events (one of them tense) "
         + "call ONLY R1; at least 2 call R2 (alone or with R1); then every role R3, R4, R5 and R6 is called by at least 2 "
         + "events, which may also call roles ranked above it (a lower R number); include a few events that call 2 or 3 "
-        + "roles together. opener = \"Pretend that…\" plus WHERE we are and what's happening (e.g. Pretend that our rocket is blasting off to the Moon! Everyone, take your places!), never a generic get ready. finale = the big ending for everyone (\"We made it to the Moon! Everyone, celebrate!\"). "
+        + "roles together. opener = \"Pretend that…\" plus WHERE we are and what's happening in ONE sentence (e.g. Pretend that our rocket just blasted off to the Moon!), never a generic get ready; the app adds the line that sends everyone to play their role, so the opener tells no one what to do. finale = the big ending for everyone (\"We made it to the Moon! Everyone, celebrate!\"). "
         + "EVERYTHING IN THE PLAY WORLD IS PRETEND, made from the props and the printed pages: never send the kids to a "
         + "real stove, oven, microwave, toaster, sink, bath, water tap, outlet, cord, fireplace, candle, window, stairs, "
         + "the car, outside, medicine, cleaning products or knives, and never ask them to climb; an appliance or place "
@@ -632,7 +632,7 @@ public enum OneScene {
         let plan = pick(pool: b.events, roles: roles, players: p)
         // A generic opener (an older guide) gets a real "Pretend that…" from the story.
         let rawOpener = EventScenario.isGenericOpener(b.opener) ? EventScenario.opener(story: k.story, title: guide.title) : b.opener
-        let opener = PlayCast.sceneLine(rawOpener, roles: roles, players: p)
+        let opener = EventScenario.actionOpener(PlayCast.sceneLine(rawOpener, roles: roles, players: p))   // 2026-11-20: ends in an action
         let finale = PlayCast.unname(b.finale, roles: roles, players: p)
         let beats = Speakable.repair(SceneBeats(opener: opener, events: plan, finale: finale, music: b.music))
         out.append(Scene(id: "play", owner: .all, title: guide.title, picture: .point, nutmegSays: beats.opener, steps: [],
@@ -646,6 +646,8 @@ public enum OneScene {
     public static let printMessShort = "Pick up the paper scraps and crayons"
     public static let printMessSay = "pick up the paper scraps and crayons"
     public static let printMessID = "print-mess"
+    /// 2026-11-20 (Haylee): the print-mess row shows the paper sheet art (`prop-paper`).
+    public static let printMessPicture: Picture = .prop("paper")
 
     /// The clean-up checklist (Haylee): one item for EVERY prop the kids got out (found or swapped; a skipped prop is
     /// a printed cut-out) and exactly one for the print mess, spread fairly over the playing roles: each item goes to
@@ -699,7 +701,7 @@ public enum OneScene {
                 shown = Speakable.repair(shown, fallback: "Tidy up your spot")
                 text = Speakable.repair(text, fallback: "\(role.roleName), tidy up your spot!")
                 if p > 1 { shown = PlayCast.unname(shown, roles: roles, players: p); text = PlayCast.unname(text, roles: roles, players: p) }
-                steps.append(Step(picture: id == printMessID ? .point : .prop(byID[id]?.prop?.libraryID ?? byID[id]?.prop?.id ?? "point"),
+                steps.append(Step(picture: id == printMessID ? printMessPicture : .prop(byID[id]?.prop?.libraryID ?? byID[id]?.prop?.id ?? "point"),
                                   text: text, role: SceneOwner(role.id), short: shown))
             }
         }

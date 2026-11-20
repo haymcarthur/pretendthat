@@ -134,6 +134,11 @@ public enum PropStandIns {
     public static func settle(itemID: String, becomes: String, avoiding: Set<String>, avoidingUses: Set<String> = [],
                               allowed: (String) -> Bool = { _ in true }) -> (itemID: String, becomes: String)? {
         guard byID[itemID] != nil, match(itemID, becomes) == nil else { return nil }
+        // 2026-11-20 (Haylee, live game): a creature the game names stays when the item fits a creature (a stuffed
+        // animal as "a baby sea friend"); swapping it for a listed use ("the patient") lost the game's story. Only
+        // creatures: any animal or character works the same way, while a thing's shape still has to match its list
+        // (a sock is never the planet).
+        if PropFit.need(for: becomes)?.name == "creature", PropFit.fitsKnown(itemID: itemID, becomes: becomes) { return nil }
         if let better = betterProps(for: becomes).first(where: { !avoiding.contains($0) && $0 != itemID && allowed($0) }) {
             return (better, becomes)
         }

@@ -179,6 +179,10 @@ struct GamePlanTests {
         // 4 kids: each owns its area. 2 kids: the cockpit + the snack galley / the cabin + the gate (merged).
         let four = arc(k, 4).first { $0.arc == .setup }!
         #expect(four.areaJob(.R1) == "Build the cockpit" && four.areaJob(.R4) == "Get the gate ready")
+        // 2026-11-20 (Haylee): the card's header 🔊 says the role's area job and how to hear the items (not the list).
+        #expect(ChecklistScenes.roleLine(four, role: .R1, roles: roles)
+                == "\(roles[0].roleName), your job is to build the cockpit! Tap each item to hear what to set up.")
+        #expect(!OneScene.setupCue(four).contains("build the cockpit"))
         let two = arc(k, 2).first { $0.arc == .setup }!
         #expect(two.areaJob(.R1)?.hasPrefix("Set up the cockpit and") == true, "\(two.areaJobs ?? [:])")
         // 6 kids: the two roles with no area help where their objects live.

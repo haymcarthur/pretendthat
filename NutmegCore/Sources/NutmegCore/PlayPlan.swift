@@ -248,7 +248,7 @@ public enum PlayPlans {
         props["setupTitle"] = ["type": "string", "description": "2 to 5 words: what the kids get ready for (e.g. Get the spaceship ready)."]
         props["areas"] = ["type": "array", "items": area, "description": "\(minAreas) to \(maxAreas) areas of the play space."]
         props["objects"] = ["type": "array", "items": object, "description": "EVERY printed page in the list (except the badges), each exactly once."]
-        props["opener"] = ["type": "string", "description": "The scene's opener: ONE short line, 12 to 25 words, that starts with \"Pretend that\" and starts the adventure (e.g. Pretend that the rocket is blasting off to the Moon! Everyone, take your places!)."]
+        props["opener"] = ["type": "string", "description": "The scene's opener: ONE short line, 12 to 25 words, that starts with \"Pretend that\" and starts the adventure that sets the scene in ONE sentence (e.g. Pretend that our rocket just blasted off to the Moon!); the app adds what everyone does next."]
         props["events"] = ["type": "array", "items": event,
                            "description": "\(OneScene.poolMin) to \(OneScene.poolMax) events, about half calm and half tense, calling all 6 roles (see the rules)."]
         props["finale"] = ["type": "string", "description": "The big ending for everyone, ONE short line (e.g. We made it to the Moon! Everyone, celebrate!)."]
@@ -293,8 +293,9 @@ public enum PlayPlans {
         + "empty calmAgain. THE POOL MUST WORK FOR EVERY GROUP SIZE: at least 3 events (one of them tense) call ONLY R1; "
         + "at least 2 call R2 (alone or with R1); then every role R3, R4, R5 and R6 is called by at least 2 events, which "
         + "may also call roles ranked above it (a lower R number); include a few events that call 2 or 3 roles together. "
-        + "opener = \"Pretend that…\" plus WHERE we are and what's happening (e.g. Pretend that our rocket is blasting off "
-        + "to the Moon! Everyone, take your places!), never a generic get ready. finale = the big ending for everyone "
+        + "opener = \"Pretend that…\" plus WHERE we are and what's happening in ONE sentence (e.g. Pretend that our rocket "
+        + "just blasted off to the Moon!), never a generic get ready; the app adds the line that sends everyone to play "
+        + "their role, so the opener tells no one what to do. finale = the big ending for everyone "
         + "(\"We made it to the Moon! Everyone, celebrate!\"). "
         + "EVERYTHING IN THE PLAY WORLD IS PRETEND, made from the props and the printed pages: an area is a pretend place "
         + "(the pretend kitchen, never the real one); never send the kids to a real stove, oven, microwave, toaster, sink, "

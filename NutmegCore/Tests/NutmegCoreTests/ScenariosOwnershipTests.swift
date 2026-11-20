@@ -59,14 +59,21 @@ struct ScenariosOwnershipTests {
         }
         #expect(!EventScenario.isGenericOpener("Pretend that the plane is taking off over the big blue ocean!"))
         #expect(EventScenario.opener(story: "Welcome to Sky Airlines, the friendliest airline! You are the crew.", title: "x")
-                == "Pretend that we're at Sky Airlines! Everyone, take your places!")
-        #expect(EventScenario.opener(story: nil, title: "Moon Bakery") == "Pretend that we're at the Moon Bakery! Everyone, take your places!")
+                == "Pretend that we're at Sky Airlines! \(EventScenario.startAction)")
+        #expect(EventScenario.opener(story: nil, title: "Moon Bakery") == "Pretend that we're at the Moon Bakery! \(EventScenario.startAction)")
         // The repair makes a generic opener a real one (from the game title), idempotently.
         var sc = a.kit.scenes[0]
         sc.beats?.opener = "Get ready, everyone!"
         let fixed = OneScene.repair(sc, roles: roles, props: props, title: "Sky Airlines", items: a.kit.items)
-        #expect(fixed.beats?.opener == "Pretend that we're at the Sky Airlines! Everyone, take your places!")
+        #expect(fixed.beats?.opener == "Pretend that we're at the Sky Airlines! \(EventScenario.startAction)")
         #expect(OneScene.repair(fixed, roles: roles, props: props, title: "Sky Airlines", items: a.kit.items) == fixed)
+        // 2026-11-20 (Haylee): the opener is its scene sentence plus the app's "go play your role" line.
+        let s = EventScenario.startAction
+        #expect(EventScenario.actionOpener("Pretend that we're at the baby sea nursery! Everyone, take your places!") == "Pretend that we're at the baby sea nursery! \(s)")
+        #expect(EventScenario.actionOpener("Pretend that the rocket is launching! Everyone, count down from ten and blast off!") == "Pretend that the rocket is launching! \(s)")
+        #expect(EventScenario.actionOpener("Pretend that the shop is open!") == "Pretend that the shop is open! \(s)")
+        let once = EventScenario.actionOpener("Pretend that the shop is open! Get ready!")
+        #expect(EventScenario.actionOpener(once) == once)
     }
 
     // MARK: 2. No automatic repeat; the card stays up; End scene
@@ -185,6 +192,8 @@ struct ScenariosOwnershipTests {
         #expect(PropStandIns.settle(itemID: "sock", becomes: "the planet", avoiding: ["ball"])?.itemID == "paper-plate")   // the next prop that lists it
         #expect(own?.itemID == "sock" && own.map { PropStandIns.allows("sock", $0.becomes) } == true)
         #expect(PropStandIns.settle(itemID: "sock", becomes: "the sock puppet", avoiding: []) == nil)
+        // 2026-11-20 (live game): the game's own name for a creature stays (it was swapped for "the patient").
+        #expect(PropStandIns.settle(itemID: "stuffed-animal", becomes: "a baby sea friend", avoiding: []) == nil)
         #expect(PropStandIns.settle(itemID: "free-text-thing", becomes: "the planet", avoiding: []) == nil)
         // The guide's item: "Hold up the planet" for a sock puppet becomes the prop's own pretend name.
         let sock = Prop(id: "sock", householdItem: "Sock", becomes: "the sock puppet", forRole: .R1, safetyOK: true, libraryID: "sock")

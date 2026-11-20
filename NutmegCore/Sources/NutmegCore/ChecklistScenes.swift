@@ -122,7 +122,20 @@ public enum ChecklistScenes {
     public static func roleLine(_ scene: Scene, role: RoleID, roles: [Role]) -> String? {
         let mine = scene.steps.filter { $0.role.role == role }.map { PlayCast.lowerFirst(Bookends.trimEnd($0.short ?? $0.text)) }
         guard !mine.isEmpty, let r = roles.first(where: { $0.id == role }) else { return nil }
-        return "\(r.roleName), \(Bookends.list(mine).replacingOccurrences(of: ", and ", with: " and "))!"
+        let list = Bookends.list(mine).replacingOccurrences(of: ", and ", with: " and ")
+        // 2026-11-20 (Haylee): an area card's header 🔊 says the role's area job and how to hear the items, not the
+        // whole list (each item has its own 🔊): "Captain, your job is to build the cockpit! Tap each item to hear
+        // what to set up."
+        if let job = areaJobLine(scene, role: role, roleName: r.roleName) { return job }
+        return "\(r.roleName), \(list)!"
+    }
+
+    /// An area card's header line (2026-11-20, Haylee), or nil when the scene has no area jobs.
+    public static func areaJobLine(_ scene: Scene, role: RoleID, roleName: String) -> String? {
+        guard let job = scene.areaJob(role).map({ Bookends.trimEnd($0.trimmingCharacters(in: .whitespacesAndNewlines)) }),
+              !job.isEmpty else { return nil }
+        let hint = scene.arc == .cleanup ? "Tap each item to hear what to put away." : "Tap each item to hear what to set up."
+        return "\(roleName), your job is to \(PlayCast.lowerFirst(job))! \(hint)"
     }
 
     // MARK: Cards (one per playing role)

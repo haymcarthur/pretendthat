@@ -199,6 +199,8 @@ The map. Read this first, then open only what you need.
 - [Printables after a lock: calls cut off by the lock are retried on return, color and coloring pages always the same AI picture, no fallback art in live games (a not-ready page shows Try again and isn't printed)](decisions/2026-11-18-printables-after-lock.md): Haylee (no fallback art, show an error); Claude's call on the fix
 - [TestFlight build 1.0 (4): peek v4 body and hands, saved-game offer picture only, Nutmeg looks up while she talks, idle/lock tap and mic fix, printables after a lock](decisions/2026-11-18-build-4.md): Haylee
 - [Demo seeds Moon Crumbs Bakery with its real cover, so the saved-game offer and the shelf book show the same picture](decisions/2026-11-18-demo-seed-real-cover.md): Haylee (how: Claude's call)
+- [The voice comes back after a drop in the foreground (60-minute limit); no "1 of 3" on cards](decisions/2026-11-20-voice-reconnect-after-drop.md): Claude's call / Haylee
+- [Live game fixes: prop name, card header 🔊 with the role's job, opener sends them to play their role, duck under ideas, clean-up timing, paper picture](decisions/2026-11-20-live-game-fixes.md): Haylee + Claude's calls
 - [Start screen exit: Nutmeg in front of the curtains from the tap on](decisions/2026-11-20-nutmeg-in-front-on-start.md): Haylee
 - [iPhone checklist in the chat's bottom sheet; rows wrap instead of "…"](decisions/2026-11-20-iphone-checklist-sheet.md): Haylee
 - [First Mac build of the overnight rounds: two compiler fixes, demo checks, 3-kid card clipping fixed](decisions/2026-11-20-first-mac-build-of-overnight-work.md): Claude's calls

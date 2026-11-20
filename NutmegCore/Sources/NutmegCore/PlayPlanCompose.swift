@@ -95,7 +95,8 @@ extension PlayPlans {
         let events = OneScene.pick(pool: pool, roles: roles, players: p)
         let ideas = scheduleIdeas(plan: plan, events: events, cover: cover, cast: cast, roles: roles, players: p)
         let rawOpener = EventScenario.isGenericOpener(b.opener) ? EventScenario.opener(story: k.story, title: guide.title) : b.opener
-        let opener = PlayCast.sceneLine(rawOpener, roles: roles, players: p)
+        // 2026-11-20 (Haylee): the opener ends in something everyone does (never just "take your places").
+        let opener = EventScenario.actionOpener(PlayCast.sceneLine(rawOpener, roles: roles, players: p))
         let finale = PlayCast.unname(b.finale, roles: roles, players: p)
         let beats = Speakable.repair(SceneBeats(opener: opener, events: events, finale: finale, music: b.music, ideas: ideas))
         out.append(Scene(id: "play", owner: .all, title: guide.title, picture: .point, nutmegSays: beats.opener, steps: [], beats: beats))
@@ -207,7 +208,7 @@ extension PlayPlans {
                 }
                 rows.append((shown, picture(first.id, cover: cover), group))
             }
-            if mess[role.id] == true { rows.append((OneScene.printMessShort, .point, [OneScene.printMessID])) }
+            if mess[role.id] == true { rows.append((OneScene.printMessShort, OneScene.printMessPicture, [OneScene.printMessID])) }
             if rows.isEmpty {
                 steps.append(Step(picture: .point, text: "\(role.roleName), give everyone a big high five for a great game!",
                                   role: SceneOwner(role.id), short: "Give high fives"))

@@ -3,7 +3,7 @@
   "id": "s1",
   "title": "Get the Plane Ready",
   "checklist": true,
-  "nutmegSays": "Pretend that the plane is taking off over the big blue ocean! Everyone, take your places!",
+  "nutmegSays": "Pretend that the plane is taking off over the big blue ocean! Everyone, go to the spot you set up and do what your role would do!",
   "steps": [
    {
     "role": "R4",
@@ -52,7 +52,7 @@
    }
   ],
   "beats": {
-   "opener": "Pretend that the plane is taking off over the big blue ocean! Everyone, take your places!",
+   "opener": "Pretend that the plane is taking off over the big blue ocean! Everyone, go to the spot you set up and do what your role would do!",
    "music": "space-adventure",
    "finale": "We landed safely by the beach! Everyone, cheer and give a big wave!",
    "events": [

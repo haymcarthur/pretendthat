@@ -88,6 +88,7 @@ extension AppModel {
     func endBeatScene() {
         beatTask?.cancel(); beatTask = nil
         beatLineTask?.cancel(); beatLineTask = nil
+        beatCleanupTask?.cancel(); beatCleanupTask = nil
         beatRun = nil
         music.stop()
         scenePaused = false
@@ -114,8 +115,9 @@ extension AppModel {
             publishBeat(run, at: t)
             if now - beatSavedAt > 5 { beatSavedAt = now; saveResumePoint() }   // a relaunch resumes about here
         }
-        // 2026-11-21 (Haylee): a calm-stretch idea is said over the music (no duck, no chime).
-        music.setDucked((isSpeaking && !beatIdeaUp) || now < beatChimeUntil)
+        // 2026-11-20 (Haylee, live game: the music didn't fade while she talked): the music ducks under EVERY line
+        // she says, the calm-stretch ideas included (they still have no chime).
+        music.setDucked(isSpeaking || now < beatChimeUntil)
     }
 
     /// The screen's numbers, set only when they change (so the stage doesn't redraw 4 times a second for nothing).
@@ -145,7 +147,7 @@ extension AppModel {
             guard run.events.indices.contains(i), let line = run.events[i].calmAgain else { return }
             sayBeat(line, after: 0.3, waitForQuiet: true)
         case .idea(let k):
-            // 2026-11-21 (Haylee, one game plan): a calm-stretch idea: no chime, no duck, the small card low right.
+            // 2026-11-21 (Haylee, one game plan): a calm-stretch idea: no chime, the small card low right (2026-11-20: it ducks).
             guard run.ideas.indices.contains(k) else { return }
             rtLog("one scene: idea \(k + 1)/\(run.ideas.count) (\(run.ideas[k].objects.joined(separator: "+")))")
             sayBeat(run.ideas[k].line, after: 0.3, waitForQuiet: true)
@@ -155,10 +157,36 @@ extension AppModel {
             celebrations += 1
             beatConfetti += 1
             sayBeat(b.finale, after: 0.6)
+            openCleanupAfterFinaleLine()
         case .cleanup:
-            rtLog("one scene: the clean-up opens")
-            stopChecklistReading()
-            store.nextScene()
+            openBeatCleanup()
+        }
+    }
+
+    private func openBeatCleanup() {
+        beatCleanupTask?.cancel(); beatCleanupTask = nil
+        guard store.currentBeatScene != nil else { return }
+        rtLog("one scene: the clean-up opens")
+        stopChecklistReading()
+        store.nextScene()
+    }
+
+    /// 2026-11-20 (Haylee, live game: "quite a long pause before showing the cleanup tasks"): the clean-up opens a
+    /// moment after her finale line ends, not on the fixed 20 s timer (that cue stays as the backstop). Paused
+    /// meanwhile: it waits for the scene timer instead.
+    private func openCleanupAfterFinaleLine() {
+        beatCleanupTask?.cancel()
+        let phase = store.phase
+        beatCleanupTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(2))   // her line starts (0.6 s, longer for a live line)
+            var waited = 0
+            while let s = self, s.isSpeaking, waited < 200, !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(100)); waited += 1
+            }
+            try? await Task.sleep(for: .seconds(2.5))   // the cheer lands before the cards come up
+            guard let self, !Task.isCancelled, !self.scenePaused, self.store.phase == phase,
+                  self.beatDisplay == .finale else { return }
+            self.openBeatCleanup()
         }
     }
 
@@ -199,7 +227,7 @@ extension AppModel {
         return ideas[k]
     }
 
-    /// An idea's card is up (her line then plays over the music, with no duck).
+    /// An idea's card is up.
     var beatIdeaUp: Bool { beatIdea != nil }
 
     /// 🔊 on the event / calm-again card: the same line again, so it plays this game's take (no new call). Nothing

@@ -1,0 +1,12 @@
+# Live game fixes (Haylee's full run, "babies under the sea")
+
+**Date:** 2026-11-20 · **Who decided:** Haylee reported each one; the fixes are Claude's calls unless noted
+
+1. **A prop kept the game's pretend name.** The plan named the stuffed animal "a baby sea friend"; the stand-in rule swapped it for its first listed use, "the patient", which made no sense before the story. Now a creature the game names stays when the item fits a creature (`PropStandIns.settle`: `PropFit.need == creature` and `fitsKnown`). Only creatures: a sock is still never the planet.
+2. **Each area card has a 🔊 at the top that says the role's job** (no checkbox; Haylee, after a first try that put the job in front of every spoken list and named every role's job in the setup cue: too long). It says "Captain, your job is to set up the cockpit! Tap each item to hear what to set up." (clean-up: "…what to put away."); tapping the role's picture says the same (`ChecklistScenes.areaJobLine`). Each item keeps its own 🔊. The setup cue is short again. The job title wraps to 3 lines instead of shrinking.
+3. **The opener ends with the kids playing their role** (Haylee: not "take your places", and not a one-time action like a countdown: once it's done they stand around again). The opener is now its scene sentence ("Pretend that…", one sentence; the plan prompts ask for exactly that) plus the app's line, always: "Everyone, go to the spot you set up and do what your role would do!" (`EventScenario.actionOpener`, both compose paths; the bundled airplane games too).
+4. **The music ducks under every line in the scene, the calm-stretch ideas included** (they still have no chime). The first line Haylee heard mid-scene was an idea card, which the 2026-11-21 design said over the music with no duck. Haylee: the music should fade while Nutmeg talks.
+5. **The clean-up opens right after the finale line** (her line, then 2.5 s), not on the fixed 20 s timer; the timer stays as the backstop (a pause, a relaunch). Demo check: 4.7 s after the finale (no voice). DEBUG demo target `-PTDemo oneBeforeFinale` (2 s before the finale).
+6. **The "Pick up the paper scraps and crayons" row shows the paper sheet art** (`prop-paper`, `OneScene.printMessPicture`), Haylee's ask.
+
+**Checked:** NutmegCore tests (new expectations for 1–3), app builds, demo shots (iPhone and iPad setup cards with the header 🔊 at 3 and 6 kids, clean-up row picture, finale → clean-up timing). Not checked live: the new opener and header line in a real game, and the duck by ear.

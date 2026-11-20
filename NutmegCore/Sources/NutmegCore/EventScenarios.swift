@@ -93,7 +93,22 @@ public enum EventScenario {
     /// your places!".
     public static func opener(story: String?, title: String) -> String {
         let place = setting(story: story, title: title)
-        return "Pretend that \(place)! Everyone, take your places!"
+        return "Pretend that \(place)! \(startAction)"
+    }
+
+    // MARK: The opener's ending (2026-11-20, Haylee: it ends in their ongoing job, never "take your places" or a
+    // one-time action like a countdown that's over in five seconds)
+
+    /// The opener's last line, always the app's: the kids built their areas in the setup, so they go there and play
+    /// their role until the first event.
+    public static let startAction = "Everyone, go to the spot you set up and do what your role would do!"
+
+    /// The opener as said: its scene-setting first sentence ("Pretend that…") plus `startAction`. Anything else the
+    /// model wrote after it ("Everyone, take your places!", "Count down from ten!") is dropped. Idempotent.
+    public static func actionOpener(_ line: String) -> String {
+        let t = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let first = PlayCast.sentences(t).first, first != startAction else { return t.isEmpty ? t : startAction }
+        return first + " " + startAction
     }
 
     static func setting(story: String?, title: String) -> String {

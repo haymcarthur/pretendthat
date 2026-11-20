@@ -260,19 +260,27 @@ struct PTChecklistCard: View {
             let finished = done == card.rows.count
             VStack(alignment: .leading, spacing: size.rowGap) {
                 // The header: a tap on the picture or the name reads the whole checklist (the cue: "Tap your picture").
-                Button { model.readRole(card.role) } label: {
-                    HStack(spacing: Theme.Space.s) {
-                        PTCharacterPicture(role: role, image: model.characterPicture(role), size: size.picture, ring: true)
-                        titles(role: role, tint: tint)
-                        Spacer(minLength: 4)
-                        progressMark(done: done, finished: finished)
+                // 2026-11-20 (Haylee): an area card also has a 🔊 at the top (no checkbox) that says the role's job:
+                // "Captain, your job is to build the cockpit! Tap each item to hear what to set up."
+                HStack(spacing: Theme.Space.s) {
+                    Button { model.readRole(card.role) } label: {
+                        HStack(spacing: Theme.Space.s) {
+                            PTCharacterPicture(role: role, image: model.characterPicture(role), size: size.picture, ring: true)
+                            titles(role: role, tint: tint)
+                            Spacer(minLength: 4)
+                            progressMark(done: done, finished: finished)
+                        }
+                        .frame(minHeight: max(44, size.picture))
+                        .contentShape(Rectangle())
                     }
-                    .frame(minHeight: max(44, size.picture))
-                    .contentShape(Rectangle())
+                    .buttonStyle(PTRowPressStyle(tint: tint))
+                    .accessibilityLabel(SceneRowTap.accessibilityLabel(roleName: role.roleName))
+                    .accessibilityValue(finished ? "Done" : "\(done) of \(card.rows.count)")
+                    if scene.areaJob(card.role) != nil {
+                        PTSpeakerButton(size: size.button, tint: tint, label: "Hear \(role.roleName)'s job") { model.readRole(card.role) }
+                            .accessibilityIdentifier("checklist.roleSpeaker")
+                    }
                 }
-                .buttonStyle(PTRowPressStyle(tint: tint))
-                .accessibilityLabel(SceneRowTap.accessibilityLabel(roleName: role.roleName))
-                .accessibilityValue(finished ? "Done" : "\(done) of \(card.rows.count)")
                 ForEach(card.rows, id: \.self) { k in
                     if scene.steps.indices.contains(k) {
                         PTChecklistRow(model: model, text: scene.steps[k].short ?? scene.steps[k].text, step: k, tint: tint,
@@ -301,8 +309,9 @@ extension PTChecklistCard {
             VStack(alignment: .leading, spacing: 0) {
                 Text(role.roleName).font(Theme.headlineFont(size.font * 0.85)).foregroundStyle(tint)
                     .lineLimit(1).minimumScaleFactor(0.6)
+                // 2026-11-20: wraps to a third line rather than shrinking (the header 🔊 takes some width).
                 Text(job).font(Theme.displayFont(size.name)).foregroundStyle(Theme.ink)
-                    .lineLimit(2).minimumScaleFactor(0.6).fixedSize(horizontal: false, vertical: true)
+                    .lineLimit(3).minimumScaleFactor(0.85).fixedSize(horizontal: false, vertical: true)
                     .multilineTextAlignment(.leading)
             }
         } else {
@@ -311,15 +320,13 @@ extension PTChecklistCard {
         }
     }
 
-    /// "1 of 3", or a green check once the card is done.
+    /// A green check once the card is done. 2026-11-20 (Haylee): no "1 of 3" count (it took room and the short list is
+    /// easy to see; VoiceOver still reads the count from the header's value).
     @ViewBuilder func progressMark(done: Int, finished: Bool) -> some View {
         if finished {
             Image(systemName: "checkmark.circle.fill").font(.system(size: size.name * 1.1, weight: .bold))
                 .foregroundStyle(Theme.limeShade)
                 .accessibilityLabel("Done")
-        } else {
-            Text("\(done) of \(card.rows.count)").font(Theme.headlineFont(size.font * 0.95)).foregroundStyle(Theme.inkMuted)
-                .monospacedDigit()
         }
     }
 }
