@@ -236,6 +236,8 @@ The map. Read this first, then open only what you need.
 - [Try the mini voice for her whole conversation](ideas/2026-11-17-mini-voice-full-conversation.md): low priority test, biggest cost lever (Haylee)
 - [Voice-light replays for families without a plan](ideas/2026-11-17-replay-cost-cap.md): only if cancelled-plan replay costs get out of hand (Haylee)
 
+- [Setup builds areas (cockpit, kitchen…) with an owner each; every printout gets a play job used in the scene; calm-stretch ideas](ideas/2026-11-21-areas-and-printable-uses.md): Haylee's idea, Claude's take, not built
+
 ## Open
 - [Open questions](open-questions.md): keys/credits, relay, domain, font, shared-simulator testing, wave art leftovers
 
