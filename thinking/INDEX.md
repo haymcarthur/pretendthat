@@ -144,6 +144,7 @@ The map. Read this first, then open only what you need.
 - [Thinner 3D edge on buttons (about 4% of height, 2–4 pt, instead of a fixed 6 pt)](decisions/2026-11-20-thinner-button-depth.md): Haylee (Claude's calls noted)
 
 - [One 10-min scene with music + Nutmeg's events (setup checklist → ▶ → events by beat → finale → clean-up checklist); AI music; supersedes the 11-20 checklist scenes](decisions/2026-11-21-one-scene-music-beats.md): Haylee (Claude's calls noted)
+- [Round build: one scene with music (guide = setup checklist + event pool + finale + music family; fair event picks counted in code; 10-min timeline + pause/resume; music engine with ducking + PLACEHOLDER tones; clean-up = every prop + one print-mess item; alarmed/phew faces; schema 7; demo one* targets + fast clock)](decisions/2026-11-21-round-one-scene-build.md): Haylee (the design); Claude's calls noted (app files not compiled here)
 
 ## Work queue
 - [Round 34 build: app-written prop lines (first play = replay words, her first-play clips reused, no "Next,"/"still have"), replay hunt = the first play's layout and camera, in-app speech model download (iPadOS 26+, SpeechAnalyzer turn), tasks short on screen + spoken specifics (short/say, GuideRepair), scene opening = setup + cue (~22 s → 5–9 s), whole-row tap + read_job, one-sentence returning greeting (8.8–9.1 s → 5.5–5.7 s)](decisions/2026-11-16-round34.md): Haylee (items), Claude's calls noted

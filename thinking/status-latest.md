@@ -1,30 +1,30 @@
-# Where things stand (handoff, 2026-11-20)
+# Where things stand (handoff, 2026-11-21)
 
-Start here in a new session, after CLAUDE.md. The 2026-11-18 handoff is below (still true unless this section says otherwise).
+Start here in a new session, after CLAUDE.md. The 2026-11-18 handoff is below (still true unless this section says otherwise). The 2026-11-20 round (voice-stall fix, checklist scenes) is in [round-checklist-scenes-build](decisions/2026-11-20-round-checklist-scenes-build.md) and [voice-stall-fix](decisions/2026-11-20-voice-stall-fix.md); its checklist scenes are replaced for new games by the one scene below (their saved games still replay).
 
-## 2026-11-20: shipped to the branch (claude/optimistic-allen-mifsgp), not in a build yet
-- **Voice stall fix** ([voice-stall-fix](decisions/2026-11-20-voice-stall-fix.md)): repeat row taps play this game's own take, the lines session is health-checked and falls back to the main session, per-request cancel tags, suspended can't stick, a 4 s line watchdog, Release voice logs.
-- **Checklist scenes round** ([round-checklist-scenes-build](decisions/2026-11-20-round-checklist-scenes-build.md), design: [checklist-then-scenario-scenes](decisions/2026-11-20-checklist-then-scenario-scenes.md)):
-  - The guide writes 4 scenes: a short title, 2–3 short checklist items per role, one "Pretend that…" scenario ending in an action for everyone. 1–2 kids see 4 scenes, 3–4 see 3, 5–6 see 2. No setup scene; every page and prop is in an item the kids see at every count (the app adds any that's missing). Clean-up is a final checklist, then The End. Estimated guide cost ≈ −3¢ per new game.
-  - Cards for every playing role at once (check on the left, 🔊 on the right, "1 of 3"), taps while she talks queue, the row being read is highlighted, a cue line when a scene opens, the scenario + "All done!" strip when every card is done, ◀ Previous / ▶ Next as one centered pair. iPad: cards in a row with Nutmeg peeking over the top-right card. iPhone: a shelf of cards with her head beside the title. New `previous_scene` voice tool.
-  - Replays can skip Props/Print (⏭ button). After a relaunch the start screen offers the game left mid-play (its picture with ▶) and opens it at that scene with its checks.
-  - Thinner button edges: `Theme.edge(height)` (≈4%, 2–4 pt) on every button with a depth edge; cards/rows 3 pt.
-  - Saved games are schema 6; schemas 2–5 still load and replay the old way. Demo mode plays the new format.
-- **Compiled/tested here:** NutmegCore only (Linux toolchain): 16 new tests pass; the same 10 environment-only failures as before. **The app files were not compiled** (no Xcode here), and nothing was run on a simulator. No live calls, $0.
+## 2026-11-21: shipped to the branch (claude/optimistic-allen-mifsgp), not in a build yet
+- **One scene with music** ([round-one-scene-build](decisions/2026-11-21-round-one-scene-build.md), design: [one-scene-music-beats](decisions/2026-11-21-one-scene-music-beats.md), layout: design/mockups/one-scene/):
+  - The guide writes a setup checklist (2–3 items per role), a "Pretend that…" opener, a pool of 8–12 calm/tense events (each names its roles and one thing to do; tense ones have a calm-again line that never credits the kids), a finale and a music family. Estimated ≈ 4.3–4.6¢, about today's ~4.5¢.
+  - The app picks 3 / 4 / 5 events for 1–2 / 3–4 / 5–6 kids, calm → tense → calm…, with **fair calls counted in code** (max difference 1, everyone at least once; app-written events repair a pool that can't be fair).
+  - Flow: setup cards → ▶ Let's play! (grey until every card is done) → 10-minute scene (only ✕ and ⏸ Pause; music pill; scene bar with dots + finale star; event cards, calm-again cards, the finale's confetti) → the clean-up opens by itself → ▶ The End lights up when everything is checked. Pause stops music, clock and speech; background pauses; a relaunch resumes the scene paused at its time.
+  - Music: calm/tense loops + win ending per family + one chime, ducked −12 dB under her voice, on the app's current audio session (never touches her speaker engine or the mic). Resources/Music/ holds PLACEHOLDER tones (a parallel session was processing a real space-adventure take into it: check before shipping). Missing files = silence.
+  - Clean-up: one item per prop the kids got out + one print-mess item, spread fairly.
+  - Nutmeg grooves to the music, alarmed at tense events, phew at calm-again (both faces are in the catalog), yay + celebrate at the finale.
+  - The mic stays off for all of Play (`PlayMic`, tested). Saved games are schema 7; 2–6 still replay.
+- **Compiled/tested here:** NutmegCore only (Linux): 737 tests, all pass except the 10 known environment-only failures. **The app files were not compiled** (no Xcode here) and nothing ran on a simulator. No live calls, no music generation, $0.
 
 ## Haylee's Mac checklist
-1. Run `xcodegen` (new file: PretendThat/Screens/ChecklistSceneView.swift), then build Release. The app files changed in both rounds are uncompiled: expect a few type-check fixes.
-2. `swift test` in NutmegCore (about 781 tests: 765 + 16 new).
-3. Demo mode (no keys), iPad and iPhone simulators (`-PTNoAI -PTAnalyticsOff -PTSkipAuth`):
-   - `-PTDemo checklist -PTPlayers 2` and `-PTPlayers 6` on the iPad: cards in a row, Nutmeg peeking over the top-right card, nothing clipped; the same on the iPhone (the shelf scrolls, her head beside the title, items not squished).
-   - Rapid taps on several rows' 🔊 and the title 🔊: nothing overlaps, the read row is highlighted, no stuck state.
-   - Check every item (or `-PTDemo scenario`): the scenario bubble with "Hear it again", the "All done!" strip, Nutmeg back big on the stage.
-   - ▶ Next, then ◀ Previous: the checks are as they were; no Previous on the first scene; the pair is centered and the same size.
-   - `-PTDemo cleanupList`: check everything → The End by itself.
-   - `-PTDemo replaySkip`: the ⏭ on a replay's Props skips to the scenes; a new game never shows it.
-   - Resume: play into scene 2, tick a couple of items, kill the app, relaunch: the picture with ▶ on the start screen opens scene 2 with those ticks; ✕ forgets it.
-   - Button edges: start, Saved games, The End's buttons, the hunt ✓/✗, the pair, the round checks and 🔊s look slim, not chunky.
-4. One live game (the round's one live game): check the AI's checklists (short, kid-doable, every page and prop used) and scenarios (short, end with "Everyone, …"), the cue lines, and one voice "what do I do?" / "go back".
+1. `xcodegen` (new files: App/AppModel+OneScene.swift, Screens/BeatSceneView.swift, Voice/MusicPlayer.swift; Resources/Music is now a folder reference), then build **Release**. Expect a few type-check fixes in the uncompiled app files (riskiest spots listed in the decision file).
+2. `swift test` in NutmegCore (about 795 tests: the earlier ~781 + 14 new).
+3. Demo mode (no keys), iPad and iPhone simulators (`-PTNoAI -PTAnalyticsOff -PTSkipAuth`, `-PTPlayers 2` and `-PTPlayers 6`):
+   - `-PTDemo oneSetup`: setup cards, titled "Get the Plane Ready", ▶ Let's play! grey; `oneSetupDone`: green with a halo.
+   - `-PTDemo onePlaying`: no step rail, only ✕ + ⏸ Pause, the music pill on top, the scene bar at the bottom, Nutmeg centered and gently bobbing.
+   - `oneEvent` (calm card), `oneTense` with `-PTPlayers 4` (two pictures "Co-Pilot + Flight Attendant", coral style, pulsing halo, alarmed face), `oneCalmAgain` (soft card, phew face), `oneFinale` (celebrate + confetti), `oneCleanup` (clean-up cards; ▶ The End lights up once all checked → The End), `onePaused` (dimmed stage, Paused card, ▶ Resume).
+   - **Fast clock, a whole scene:** `-PTDemo onePlaying -PTFastScene` (or tap through from `oneSetupDone` with `-PTFastScene`): about a minute: chime + cards at each event, calm-again cards, the finale, then the clean-up opens by itself.
+   - **Pause/resume:** ⏸ mid-scene: the music and the bar stop; ▶ Resume continues from the same spot. Lock the device mid-scene: it comes back Paused.
+   - **Relaunch resume:** kill the app mid-scene, relaunch: the start screen's picture with ▶ opens the scene paused at its time (no event said again); the same from the setup and the clean-up keeps the checks.
+   - **Music missing = silent:** delete Resources/Music (or rename the family folder) and run `onePlaying -PTFastScene`: no music, everything else runs.
+4. **One live game** (the round's one live game): check the AI's setup items, the event pool (short lines, roles named, tense ones resolved without "you fixed it", fair at your count), the music family, the opener/finale, and that the repeats replay the same take (Console "voice": take kept, no new live line).
 
 # Earlier handoff (end of 2026-11-18 session)
 
