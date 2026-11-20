@@ -1,3 +1,28 @@
+# MORNING SUMMARY (for Haylee, 2026-11-21 morning)
+
+Everything below was built overnight on the branch `claude/optimistic-allen-mifsgp` (pushed). Nothing was compiled as an app here (no Xcode): NutmegCore compiles and its tests pass on Linux; the app files were read line by line against NutmegCore and pass `swiftc -parse`. No API keys, no live calls, $0.
+
+## Built overnight
+- **Scenarios + ownership round** ([build](decisions/2026-11-21-round-scenarios-ownership-build.md)): events are real scenarios (a gesture-only line becomes an app scenario); the opener sets the scene; event and calm-again cards stay up with a 🔊 hear-again (no automatic repeat); every page and prop has ONE owner (2–3 rows a card, badges said once); prop stand-ins (10–15 believable uses per prop, approved); End scene; ▶ buttons never grey; music on/off pill; the face no longer drifts on zoom.
+- **Safety rule:** everything in play is pretend; a line that points kids at a real hazard (stove, oven, sink, outlet, stairs, climbing, outside) is rewritten in the stored guide and again on load.
+- **Music code:** four more families (snowy north, robot lab, circus & carnival, race day; 14 in all) and calm → calm2 → calm loops on the audio clock (`CalmLoop`), with pause, mute, duck and the tense crossfade still working.
+- **One game plan** ([build](decisions/2026-11-21-round-game-plan-build.md), your design: [one-game-plan](decisions/2026-11-21-one-game-plan.md)): one plan call writes the areas, every page's life cycle (area, owner, setup, a use in play, put-away) and events that use them; ONE props call at the end of the hunt places the found props (the per-prop weave calls are gone); setup cards by AREA (role small, "Build the cockpit" big, picture chips, 3 kids = 2 + 1); clean-up by the same owners; calm-stretch idea cards (low right, 🔊, no chime, no duck); a traceability check in code; saved games schema 8 (2–7 still replay).
+- **Final review pass** (this morning's notes in the round file's "Review pass"): the app files needed no edits. Three fixes in NutmegCore: Play can no longer wait forever for the plan or props call (60 s / 60 s / 25 s, then the app composes the game); on a replay, a prop skipped this time is "the pretend …" in event lines; a swapped prop's put-away names the new household item.
+
+## Needs your ear / eye
+- **5 music clips:** magical calm A→B→A (`design/music-test/magical/processed/loop-test-calm-aba.m4a`; calm2 is in another key, delete it if it jars), the new magical win, the new superhero win, the race-day win, the circus tense. The stand-ins file (design/prop-stand-ins.md) is approved.
+
+## Your Mac checklist
+1. `git pull` on `claude/optimistic-allen-mifsgp`, then `xcodegen` (new: NutmegCore PlayPlan.swift, PlayPlanCompose.swift, PrintPlayJobs.swift, Resources/airplane-gameplan.json; the Music folder reference picks up the new families).
+2. Build (Release). Most likely spots if the compiler complains: ChecklistSceneView `PTChecklistCard.titles/progressMark`, RootView `beatChrome`'s idea card, KitPrefetch `Deadline`. Optional: `swift test` in NutmegCore.
+3. Demo mode, no keys (`-PTNoAI -PTAnalyticsOff -PTSkipAuth`), iPad and iPhone:
+   - `-PTDemo oneSetup` with `-PTPlayers 2`, `3`, `4`: area cards (role small, the area job big, picture chips, max 3 items); 3 kids = two on top, one centered below; ▶ Let's play! always works.
+   - `-PTDemo oneIdea`: the small idea card low right, no chime, the music does NOT duck, Nutmeg keeps grooving; 🔊 says the same line.
+   - `-PTDemo onePlaying -PTFastScene`: a whole scene in about a minute (ideas between events, never during a tense event); End scene (asks first → finale → clean-up); the music pill off/on.
+   - `-PTDemo onePlaying` without the fast clock for ~2 minutes in a couple of families: calm hands over to calm2 and back with no gap or click.
+   - `-PTDemo oneCleanup`: "Tidy up the cockpit" cards, each prop put away once.
+4. **ONE live game**, watching: does the plan flow (areas, pages named in events, ideas that make sense)? Are the printouts actually used? Console token lines for the plan call and the ONE props call (cost; no "weave" calls), `[PLAN]` lines (expect none), and the hunt's "PROP stand-in" lines.
+
 # Where things stand (handoff, 2026-11-21)
 
 Start here in a new session, after CLAUDE.md. The 2026-11-18 handoff is below (still true unless this section says otherwise). The 2026-11-20 round (voice-stall fix, checklist scenes) is in [round-checklist-scenes-build](decisions/2026-11-20-round-checklist-scenes-build.md) and [voice-stall-fix](decisions/2026-11-20-voice-stall-fix.md); its checklist scenes are replaced for new games by the one scene below (their saved games still replay).
