@@ -8,3 +8,14 @@
 - Good direction: longer free play, fewer screen taps, and Nutmeg becomes a real game master. Reuses the setup/clean-up checklist UI, the voice fix, resume and the buttons from the 11-20 rounds. Replaces the per-scene checklists + scenarios.
 - Music: themed tracks, each made of the same beat SEGMENTS (calm loop, tense loop, relief/win sting, short "event" chime). The app loops calm as long as it wants and switches at an event, so the music follows the game, not a fixed timeline. The same chime before every event teaches kids "Nutmeg's about to say something". Start with a small set of theme families; the guide picks a music tag from a fixed list.
 - Watch-outs: duck the music + chime before she speaks (kids are loud); every role must get an event (scale events with player count or name 2 roles per event); events don't need a tap to finish; an optional pause/"more time" button; licensing for commercial music; app size.
+
+## Decided (Haylee, 2026-11-21)
+- **Go straight to this.** The checklist-scenes version (11-20 round) won't ship as is. Its setup/clean-up checklist cards, voice fix, resume and thinner buttons carry over.
+- **The scene is about 10 minutes.**
+- **Music is AI-generated** so we can get exactly what we want. Claude researches the services and their commercial licenses.
+
+## Claude's calls (defaults; change after a family test)
+- Flow: setup checklist (per-role cards, check + 🔊) → ▶ Play → short "Pretend that…" opener → ~10 min of music with events → finale for everyone → clean-up checklist → The End.
+- Events: every playing role is named at least once. About 3 events for 1–2 kids, 4 for 3–4, 5 for 5–6 (an event can call two roles), plus the finale. Spaced ~1.5–3 min apart. Beats like calm → calm event → tense event → relief → calm event → tense event → win finale.
+- Every event: chime, music ducks, Nutmeg names the role first, then one short thing to do. No tap to finish. Grown-up controls: pause and "more time".
+- Music: themed tracks from a fixed list of families, each made of the same segments (calm loop, tense loop, relief/win ending, shared event chime). The guide picks the family.

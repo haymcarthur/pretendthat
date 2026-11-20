@@ -143,6 +143,8 @@ The map. Read this first, then open only what you need.
 
 - [Thinner 3D edge on buttons (about 4% of height, 2–4 pt, instead of a fixed 6 pt)](decisions/2026-11-20-thinner-button-depth.md): Haylee (Claude's calls noted)
 
+- [One 10-min scene with music + Nutmeg's events (setup checklist → ▶ → events by beat → finale → clean-up checklist); AI music; supersedes the 11-20 checklist scenes](decisions/2026-11-21-one-scene-music-beats.md): Haylee (Claude's calls noted)
+
 ## Work queue
 - [Round 34 build: app-written prop lines (first play = replay words, her first-play clips reused, no "Next,"/"still have"), replay hunt = the first play's layout and camera, in-app speech model download (iPadOS 26+, SpeechAnalyzer turn), tasks short on screen + spoken specifics (short/say, GuideRepair), scene opening = setup + cue (~22 s → 5–9 s), whole-row tap + read_job, one-sentence returning greeting (8.8–9.1 s → 5.5–5.7 s)](decisions/2026-11-16-round34.md): Haylee (items), Claude's calls noted
 - [Round 35 prep + onboarding voice fix: onboarding through NutmegSpeaker (one session, output-only until the mic is allowed), system TTS removed, mini voice for scripted lines and Sonnet for guide/weave behind flags (OFF), relay allow-lists, A/B v2 through the real app in design/voice-ab-v2/](decisions/2026-11-16-round35-prep.md): Haylee (items), Claude's calls noted; mini waits for Haylee's ear
@@ -229,8 +231,6 @@ The map. Read this first, then open only what you need.
 - [Save the current game to disk](ideas/save-game-to-disk.md): stretch, only if time (Haylee)
 - [Try the mini voice for her whole conversation](ideas/2026-11-17-mini-voice-full-conversation.md): low priority test, biggest cost lever (Haylee)
 - [Voice-light replays for families without a plan](ideas/2026-11-17-replay-cost-cap.md): only if cancelled-plan replay costs get out of hand (Haylee)
-
-- [One scene with music and Nutmeg's beats (setup checklist → one long scene with timed events → clean-up)](ideas/2026-11-21-one-scene-music-beats.md): Haylee's idea, discussing
 
 ## Open
 - [Open questions](open-questions.md): keys/credits, relay, domain, font, shared-simulator testing, wave art leftovers
