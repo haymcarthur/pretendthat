@@ -155,6 +155,7 @@ public enum GuideWeave {
                 : "- id \(p.id): several \(p.itemWords) that become \(p.becomes) (always plural, never a number)")
                 + (p.forRole.role.map { r in r.rank <= n ? " (for the \(roles.first { $0.id == r }?.roleName ?? r.rawValue))" : "" } ?? "")
                 + (p.isSkipped ? " (pretend: they don't have it, they'll use a printed cut-out)" : "")
+                + PropStandIns.promptNote(p)   // 2026-11-21 (Haylee): only believable pretend uses
         }.joined(separator: "\n")
         let playing = (1...n).map { "R\($0)" }.joined(separator: ", ")
         let last = max(0, scenes.count - 1)
@@ -168,8 +169,10 @@ public enum GuideWeave {
         For EACH prop, pick 1 or 2 checklist items of the playing roles (\(playing)), \(place) spread over the roles (the prop's own role first), and rewrite ONLY those items \
         so the kid sets up or uses the prop as what it becomes: 2 to 6 words, one simple action, no role title, no end \
         punctuation, no quotes (e.g. Set up the airplane seats, Put on your space helmet). Never pick an item marked \
-        (taken), and at most one prop per item. Name the prop by what it becomes, gentle and kid-safe. \
-        ALSO, for EACH prop, its clean-up job (one entry per prop, item = the prop id): cleanupSay = how they put the \
+        (taken), and at most one prop per item, and never an item of a role that already has another prop's or page's job \
+        (each object has ONE owner). Name the prop ONLY by what it becomes (Hold up the planet), never the household \
+        item and never the word pretend (not "your sock pretend planet"), and only as one of its allowed pretend uses. \
+        Gentle and kid-safe. ALSO, for EACH prop, its clean-up job (one entry per prop, item = the prop id): cleanupSay = how they put the \
         household item back at the end, framed in the story, starting with a verb (e.g. put the box back in the closet \
         so the ship can rest); role = the playing role it suits best. Return PropWeave (scene and step are the numbers above).
         """
@@ -192,7 +195,8 @@ public enum GuideWeave {
             let checklist = out[u.scene].isChecklist
             guard words >= 2, words <= (checklist ? ChecklistScenes.maxItemWords + 2 : maxWords) else { continue }
             if checklist {
-                text = ChecklistScenes.cleanItem(text, roles: roles)
+                // 2026-11-21: the pretend name only, and only one of the prop's stand-ins.
+                text = ChecklistScenes.cleanItem(PropStandIns.itemText(PropWording.clean(text, props: props), prop: p), roles: roles)
                 out[u.scene].steps[u.step].short = text
             }
             out[u.scene].steps[u.step].text = text

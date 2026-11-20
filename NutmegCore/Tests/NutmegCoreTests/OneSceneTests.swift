@@ -60,21 +60,21 @@ struct OneSceneTests {
         #expect(g.safetyTexts.contains("We made it to the Moon! Everyone, celebrate!") && g.safetyTexts.contains("Phew, the rocks are behind us."))
         // A tolerant music tag (and a guess when it's unknown).
         #expect(MusicFamily.parse("Under the sea") == .underTheSea && MusicFamily.parse("SPOOKY_SILLY") == .spookySilly)
-        #expect(MusicFamily.guess("Pirate Ship Treasure Hunt") == .underTheSea && MusicFamily.guess("Moon Crumbs Bakery") == .spaceAdventure)
-        #expect(MusicFamily.guess("Sunny Bakery") == .cozyShop && MusicFamily.allCases.count == 7)
+        #expect(MusicFamily.guess("Pirate Ship Treasure Hunt") == .pirateAdventure && MusicFamily.guess("Moon Crumbs Bakery") == .spaceAdventure)
+        #expect(MusicFamily.guess("Sunny Bakery") == .cozyShop && MusicFamily.allCases.count == 10)
         let bad = try JSONDecoder().decode(SceneBeats.self, from: Data(#"{"opener":"x","events":[],"finale":"y","music":"polka"}"#.utf8))
         #expect(bad.music == MusicFamily.fallback)
         // The schema: story, setup (R1–R6), opener, the event pool, finale, music (a fixed list), clean-up title.
         let schema = OneScene.schema()
         #expect((schema["required"] as? [String])?.sorted() == ["cleanupTitle", "events", "finale", "music", "opener", "setup", "setupTitle", "story"])
         let p = schema["properties"] as? [String: Any]
-        #expect(((p?["music"] as? [String: Any])?["enum"] as? [String])?.count == 7)
+        #expect(((p?["music"] as? [String: Any])?["enum"] as? [String])?.count == 10)
         let ev = ((p?["events"] as? [String: Any])?["items"] as? [String: Any])?["required"] as? [String]
         #expect(ev?.sorted() == ["calmAgain", "line", "mood", "roles"])
         // The prompt: the pool works for every group size, calm-again never credits the kids, no household props yet.
         let prompt = OneScene.prompt(ctx: AdventureContext(gameTitle: "Rocket", playerCount: 2), items: a.kit.items)
         #expect(prompt.contains("call ONLY R1") && prompt.contains("WITHOUT saying the kids fixed it") && prompt.contains("no household things"))
-        #expect(prompt.contains("space-adventure") && prompt.contains("Put on your badge") && !prompt.contains("scene4"))
+        #expect(prompt.contains("space-adventure") && prompt.contains("EVERY OBJECT HAS ONE OWNER") && prompt.contains("Make a silly wobbly face") && !prompt.contains("scene4"))
         #expect(Validate.scenes([g.scene], roles: 6) == nil)
         var none = g.scene; none.beats?.events = []
         #expect(Validate.scenes([none], roles: 6)?.fatal == false)
@@ -105,7 +105,7 @@ struct OneSceneTests {
         #expect(fb.opener.hasPrefix("Pretend that") && fixed.nutmegSays == fb.opener)
         #expect(fb.finale.lowercased().contains("everyone"))
         #expect(fb.events.count == 4)
-        #expect(fb.events[0].roles == [.R1])
+        #expect(fb.events[0].roles == [.R1] && fb.events[0].appWritten == true && fb.events[0].line.hasPrefix("Captain, "))   // a wave is no scenario
         #expect(fb.events[1].roles == [.R3] && fb.events[1].line.hasPrefix("Flight Attendant, "))
         #expect(OneScene.calmAgainLines.contains(fb.events[1].calmAgain ?? ""))   // never "you fixed it"
         #expect(fb.events[2].isEveryone && fb.events[2].line.hasPrefix("Everyone, "))
@@ -182,10 +182,14 @@ struct OneSceneTests {
                 let setup = scenes[1], play = scenes[2]
                 #expect(setup.isChecklist && setup.nutmegSays.isEmpty && !play.isChecklist && play.isBeatScene)
                 #expect(ChecklistScenes.cards(setup).map(\.role) == Array(RoleID.allCases.prefix(n)))
-                // Every printed page and every prop the kids have is in a setup item the playing kids see.
+                // 2026-11-21: every printed page and every prop the kids have is in EXACTLY one setup item the playing
+                // kids see (one owner per object); 2 to 3 items per card (a solo kid may need more rows).
                 let items = Bookends.coverItems(items: k.items, props: list)
-                #expect(OneSceneCoverage.missing(scenes, items: items).isEmpty, "count \(n)")
-                #expect(RoleID.allCases.prefix(n).allSatisfy { r in setup.steps.contains { $0.role.role == r && ($0.short ?? "").lowercased().contains("badge") } })
+                #expect(OneSceneCoverage.exactlyOnce(scenes, items: items),
+                        "count \(n): missing \(OneSceneCoverage.missing(scenes, items: items)) repeated \(OneSceneCoverage.repeated(scenes, items: items)) \(setup.steps.map { "\($0.role.rawValue): \($0.short ?? "")" })")
+                for card in ChecklistScenes.cards(setup) {
+                    #expect(card.rows.count >= 2 && (card.rows.count <= 3 || n == 1), "count \(n) \(card.role): \(card.rows.count)")
+                }
                 // The scene: the picked events (fair), no role that isn't playing named anywhere.
                 let b = play.beats!
                 #expect(b.events == OneScene.pick(pool: k.scenes[0].beats!.events, roles: roles, players: n))
@@ -238,7 +242,7 @@ struct OneSceneTests {
             #expect(times[0] >= 60)
             for (i, e) in events.enumerated() {
                 let t = BeatTimeline.eventAt(i, count: count)
-                #expect(cues.contains { $0.kind == .repeatEvent(i) && $0.at == t + 15 })
+                #expect(cues.contains { $0.kind == .event(i) && $0.at == t })
                 if e.isTense {
                     let calm = try! #require(cues.first { $0.kind == .calmAgain(i) })
                     #expect((30...60).contains(calm.at - t))
@@ -260,15 +264,17 @@ struct OneSceneTests {
         #expect(run.due(at: 1).isEmpty)
         let e1 = run.eventAt(1)
         #expect(run.due(at: run.eventAt(0)).map(\.kind) == [.event(0)])
-        #expect(run.due(at: run.eventAt(0) + 15).map(\.kind) == [.repeatEvent(0)])
+        #expect(run.due(at: run.eventAt(0) + 15).isEmpty)   // 2026-11-21: no automatic repeat
         #expect(run.due(at: e1 + 1).map(\.kind) == [.event(1)])
         #expect(run.display(at: e1 + 1) == .event(1) && run.music(at: e1 + 1) == .tense && run.face(at: e1 + 1) == .alarmed)
         #expect(run.display(at: e1 + 46) == .calmAgain(1) && run.music(at: e1 + 46) == .calm && run.face(at: e1 + 46) == .phew)
+        #expect(run.display(at: e1 + 44) == .event(1))   // the tense card stays up until its calm-again
         #expect(run.display(at: e1 + 70) == .playing && run.face(at: e1 + 70) == .happyBob)
+        #expect(run.display(at: e1 - 1) == .event(0))   // a calm card stays up until the next event
         #expect(run.display(at: run.eventAt(0) + 2) == .event(0) && run.face(at: run.eventAt(0) + 2) == .talkingPerked)
         #expect(run.music(at: 10) == .calm && run.display(at: 10) == .playing)
         #expect(run.display(at: run.finaleAt) == .finale && run.music(at: run.finaleAt) == .win && run.face(at: run.finaleAt) == .celebrate)
-        // A hold-up: the stale repeat is dropped when the next event is due too.
+        // A hold-up: both events fire (no repeats any more).
         var late = BeatRun(events: events)
         _ = late.due(at: 0)
         let burst = late.due(at: e1 + 1).map(\.kind)
@@ -326,11 +332,13 @@ struct OneSceneTests {
         #expect(store.isOneSceneGame && store.currentArc == .setup && store.oneSceneChecklist == .setup)
         #expect(store.nutmegLine.hasSuffix(ChecklistScenes.tapHint) && store.nutmegLine.hasPrefix("Get the Plane Ready!"))
         // Voice "we're ready" before every card is done: not yet (the button is grey too).
-        #expect((await store.apply(.nextScene)) == AdventureStore.notAllCheckedOutput && store.currentArc == .setup)
+        #expect(store.nutmegLine.contains(OneScene.badgeCue))   // the badges: everyone, once, in the cue
+        // 2026-11-21 (Haylee): the big button is never blocked: what's left gets checked, then it goes on.
         let setup = store.currentChecklist!
-        var finished = false
-        for k in setup.steps.indices { finished = store.toggleCheck(k) }
-        #expect(finished && store.currentSceneDone && store.scenarioLine(1) == nil)   // no scenario on the setup
+        _ = store.toggleCheck(0)
+        #expect(store.uncheckedRows == Array(setup.steps.indices.dropFirst()))
+        store.checkAllRemaining()
+        #expect(store.uncheckedRows.isEmpty && store.currentSceneDone && store.scenarioLine(1) == nil)   // no scenario on the setup
         store.nextScene()
         #expect(store.currentBeatScene != nil && store.currentChecklist == nil && store.beatTime == 0)
         #expect(store.sceneLine({ if case .scene(let i) = store.phase { return i } else { return 0 } }()) == nil)   // the clock says the opener
@@ -341,10 +349,9 @@ struct OneSceneTests {
         #expect(ReplayLines.tools(store.phase, oneScene: true) == Realtime.afterHuntTools(store.phase, oneScene: true))
         store.nextScene()   // the finale's end opens the clean-up
         #expect(store.currentArc == .cleanup && store.oneSceneChecklist == .cleanup && store.nutmegLine.hasPrefix("Clean-up time"))
-        let clean = store.currentChecklist!
-        for k in clean.steps.indices { _ = store.toggleCheck(k) }
-        #expect(store.currentSceneDone)
-        store.nextScene()
+        // Voice "we're done" with nothing checked: the same as ▶ The End (it checks what's left and goes on).
+        #expect(!store.currentSceneDone)
+        _ = await store.apply(.nextScene)
         #expect(store.phase == .end)
     }
 

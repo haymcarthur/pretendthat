@@ -416,6 +416,17 @@ public final class AdventureStore {
         progress.toggle(scene: sc.id, step: step)
         return !was && sceneDone(i)
     }
+    /// 2026-11-21 (Haylee): ▶ Let's play! / ▶ The End are never grey. The rows of the checklist on screen that aren't
+    /// checked yet (the app ticks them one by one, a brief visual check-off, then goes on).
+    public var uncheckedRows: [Int] {
+        guard let sc = currentChecklist else { return [] }
+        return sc.steps.indices.filter { !progress.isChecked(scene: sc.id, step: $0) }
+    }
+    /// Checks every row still unchecked on the checklist on screen (voice "we're ready", or the button's end state).
+    public func checkAllRemaining() {
+        for k in uncheckedRows { _ = toggleCheck(k) }
+    }
+
     /// The scenario line of scene `i` (nil when it has none: the clean-up, an older scene).
     public func scenarioLine(_ i: Int) -> String? {
         guard let s = kit?.scenes, s.indices.contains(i), s[i].isChecklist, s[i].arc == .play else { return nil }
@@ -506,7 +517,9 @@ public final class AdventureStore {
         // 2026-11-21: the one scene says nothing as it opens (the app's scene clock says the opener at 0, so a resume
         // doesn't say it again); the one-scene setup checklist has its own cue.
         if s[i].isBeatScene { return nil }
-        if s[i].isChecklist && s[i].arc == .setup { return OneScene.setupCue(s[i]) }
+        if s[i].isChecklist && s[i].arc == .setup {
+            return OneScene.setupCue(s[i], badges: fullKit?.items.contains { $0.recipe == .badges } ?? true)
+        }
         // 2026-11-20: a checklist scene opens with one short cue ("Scene 2: Get the rocket ready! Tap your picture to
         // hear your jobs."); a finished one (back with ◀) says its scenario again.
         if s[i].isChecklist {
@@ -1008,6 +1021,18 @@ public final class AdventureStore {
                 d.reason = PropFit.reason(itemID: alt, becomes: d.becomes)
                 freshNote += "(The app picked a \(PropFit.itemName(alt)) as \(d.becomes): an everyday thing for the first prop. Use THIS item.) "
             }
+            // 2026-11-21 (Haylee: "a sock as a planet" must stop): the prop may only become one of its stand-ins
+            // (`PropStandIns`). Otherwise a prop whose stand-ins include the use takes its place, else it becomes its
+            // own closest stand-in. No extra AI call.
+            if let fix = PropStandIns.settle(itemID: d.itemID, becomes: d.becomes, avoiding: used, avoidingUses: usedUses,
+                                             allowed: { self.onShortlist($0) && PropFit.fits(itemID: $0, becomes: d.becomes) }),
+               printedClash(fix.becomes) == nil {
+                propLog?("PROP stand-in: \(d.itemID) → \(d.becomes) became \(fix.itemID) → \(fix.becomes)")
+                d.alternates = d.alternates.filter { $0 != fix.itemID && PropStandIns.allows($0, fix.becomes) }
+                d.itemID = fix.itemID; d.becomes = fix.becomes
+                d.reason = PropFit.reason(itemID: d.itemID, becomes: d.becomes)
+                freshNote += "(The app made it a \(PropFit.itemName(d.itemID)) as \(d.becomes), a better fit: use THIS item and use.) "
+            }
             if PropFit.check(itemID: d.itemID, becomes: d.becomes).unknown { propLog?("PROP unknown use: \(d.itemID) → \(d.becomes)") }
             if props == nil { foundProps = [] }
             let owner = plan?.roles.first { $0.roleName.localizedCaseInsensitiveCompare(d.forRole) == .orderedSame }
@@ -1128,7 +1153,8 @@ public final class AdventureStore {
             // 2026-11-21 (one scene): the scene runs by itself; the setup / clean-up move on only when every card is done
             // (the same as their big button).
             if currentBeatScene != nil { return Self.beatSceneToolOutput }
-            if oneSceneChecklist != nil && !sceneDone(i) { return Self.notAllCheckedOutput }
+            // 2026-11-21 (Haylee): the big button is never blocked; "we're ready" checks what's left, like the button.
+            if oneSceneChecklist != nil && !sceneDone(i) { checkAllRemaining() }
             nextScene()
             return "Next scene: the app moves on and says its line. Say nothing."
         case .previousScene:
@@ -1170,6 +1196,7 @@ public final class AdventureStore {
     /// 2026-11-21: next_scene during the one scene (it runs by itself; the kids can only pause it).
     public nonisolated static let beatSceneToolOutput = "The scene runs by itself: Nutmeg calls out what happens next. Nothing changes. Answer in ONE short, fun line that helps the scene."
     /// 2026-11-21: next_scene on the one-scene setup or clean-up before every card is done.
+    /// (2026-11-21: no longer used by the one-scene checklists, whose button and voice check what's left.)
     public nonisolated static let notAllCheckedOutput = "Not yet: every checklist item has to be checked first. Answer in ONE short line: check your list and tap the big button when it lights up."
     public nonisolated static let backToLastSceneOutput = "Back to the last scene: the app sets it up again and reads the tasks. Say nothing."
 

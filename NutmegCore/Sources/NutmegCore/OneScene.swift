@@ -33,6 +33,10 @@ public enum MusicFamily: String, Codable, Sendable, CaseIterable {
     case spookySilly = "spooky-silly"
     case underTheSea = "under-the-sea"
     case desertWestern = "desert-western"
+    // 2026-11-21 (Haylee): three more families (their music is in Resources/Music/<family>/).
+    case superheroCity = "superhero-city"
+    case pirateAdventure = "pirate-adventure"
+    case rescueTeam = "rescue-team"
 
     /// The small music pill's words ("Space adventure").
     public var label: String {
@@ -44,6 +48,9 @@ public enum MusicFamily: String, Codable, Sendable, CaseIterable {
         case .spookySilly: "Silly spooky"
         case .underTheSea: "Under the sea"
         case .desertWestern: "Wild west"
+        case .superheroCity: "Superhero city"
+        case .pirateAdventure: "Pirate adventure"
+        case .rescueTeam: "Rescue team"
         }
     }
 
@@ -55,8 +62,11 @@ public enum MusicFamily: String, Codable, Sendable, CaseIterable {
         case .magical: "castles, fairies, wizards, dragons, unicorns, knights"
         case .cozyShop: "bakery, restaurant, shop, vet, doctor, school, salon, post office, anything everyday"
         case .spookySilly: "silly ghosts, monsters, haunted houses, mystery (never scary)"
-        case .underTheSea: "ocean, pirates, mermaids, submarines, beach, islands"
+        case .underTheSea: "ocean, mermaids, submarines, beach, islands, sea animals"
         case .desertWestern: "cowboys, ranch, desert, horses, sheriffs, gold mines"
+        case .superheroCity: "superheroes, capes, saving the city, sidekicks, silly villains"
+        case .pirateAdventure: "pirates, treasure hunts, pirate ships, parrots, treasure maps"
+        case .rescueTeam: "firefighters, police, paramedics, lifeguards, rescue missions, emergency helpers"
         }
     }
 
@@ -71,7 +81,11 @@ public enum MusicFamily: String, Codable, Sendable, CaseIterable {
 
     static let keywords: [(MusicFamily, [String])] = [
         (.spaceAdventure, ["space", "rocket", "moon", "planet", "astronaut", "alien", "galaxy", "robot", "star base"]),
-        (.underTheSea, ["sea", "ocean", "pirate", "mermaid", "submarine", "beach", "island", "fish", "shark", "boat"]),
+        // 2026-11-21: the three new families come before Under the sea ("pirate" moved to Pirate adventure).
+        (.superheroCity, ["superhero", "hero", "cape", "villain", "sidekick"]),
+        (.pirateAdventure, ["pirate", "treasure", "parrot", "ship"]),
+        (.rescueTeam, ["rescue", "firefighter", "fire truck", "police", "ambulance", "paramedic", "lifeguard"]),
+        (.underTheSea, ["sea", "ocean", "mermaid", "submarine", "beach", "island", "fish", "shark", "boat"]),
         (.spookySilly, ["spooky", "ghost", "haunted", "monster", "halloween", "witch", "vampire", "mystery", "detective"]),
         (.magical, ["magic", "fairy", "castle", "wizard", "dragon", "princess", "unicorn", "knight", "royal", "kingdom"]),
         (.desertWestern, ["west", "cowboy", "cowgirl", "desert", "ranch", "horse", "sheriff", "rodeo", "gold"]),
@@ -203,13 +217,13 @@ public enum OneScene {
         var setup: [String: Any] = [:]
         for r in RoleID.allCases {
             setup[r.rawValue] = ["type": "array", "items": ["type": "string"],
-                                 "description": "The \(r.rawValue) role's setup checklist: 2 or 3 items, each 2 to 6 words, one simple action, no role title, no end punctuation (e.g. Put on your badge)."]
+                                 "description": "The \(r.rawValue) role's setup checklist: 2 or 3 items, each 2 to 6 words, one simple action with ITS OWN printed page or thing (never one another role has), no role title, no end punctuation, no badges (e.g. Hang the Moon Base sign)."]
         }
         let event: [String: Any] = Schemas.obj([
             "mood": ["type": "string", "enum": BeatMood.allCases.map(\.rawValue), "description": "calm = a fun job; tense = a small, silly problem (never scary)."],
             "roles": ["type": "array", "items": ["type": "string", "enum": Schemas.roleIDs],
                       "description": "The 1 to 3 roles this event calls (every role it names)."],
-            "line": ["type": "string", "description": "ONE short line, 10 to 25 words, that names the role or roles by their titles and gives each ONE short thing to do (e.g. There's a big lunch rush! Quick, Waiter, take the new people to their seats, and Cook, get ready to make more food!)."],
+            "line": ["type": "string", "description": "ONE short line, 10 to 25 words: a SITUATION plus a general direction the named role or roles act out for a minute or two, often with a printed page or a prop, never a single gesture or face (e.g. A space cloud is in the way! Navigator, use the map to help the Captain find a new path.)."],
             "calmAgain": ["type": "string", "description": "tense events: the line said about 45 seconds later that says things are calm again WITHOUT saying the kids fixed it (e.g. Phew, the rush has died down.). calm events: an empty string."],
         ])
         var props: [String: Any] = [:]
@@ -240,6 +254,14 @@ public enum OneScene {
     static var musicList: String { MusicFamily.allCases.map { "\($0.rawValue) (\($0.fits))" }.joined(separator: "; ") }
 
     /// The rules (Haylee's one-scene design; the event pool is what makes every group size work).
+    /// 2026-11-21 (Haylee): events are scenarios, with clear good and bad examples.
+    static let eventExamples = "GOOD events (a situation + something to act out for a while): \"A space cloud is in the way! "
+        + "Navigator, use the map to help the Captain find a new path.\" \"The ship is wobbly! Everyone, make everything "
+        + "secure!\" \"There's a big lunch rush! Quick, Waiter, take the new people to their seats, and Cook, get ready to make "
+        + "more food!\" BAD events (one gesture or face, over in a second; never write these): \"Point your hand forward and "
+        + "zoom the ship\", \"Make a silly wobbly face\", \"Wiggle your finger to draw a path\", \"Wave to everyone\", \"Clap "
+        + "your hands\". "
+
     static var rules: String {
         "Write the STORY, a SETUP checklist, ONE PLAY SCENE and the clean-up title, all in this one answer. Kids ages 4 "
         + "to 8 play together, the iPad on the side: the app plays music for about 10 minutes and Nutmeg, the director, "
@@ -247,19 +269,20 @@ public enum OneScene {
         + "kids only R1 to RN play. "
         + "SETUP: setupTitle (2 to 5 words, e.g. Get the rocket ready); for EACH role R1 to R6 a checklist of 2 or 3 SHORT "
         + "items, each 2 to 6 words, ONE simple action a 4-year-old can do alone, no role title, no end punctuation: put on "
-        + "or set up a printed page, or get a spot ready (e.g. Put on your badge, Hang the Moon Base sign, Line up the "
-        + "seats). Every role's list starts with Put on your badge; spread the other printed pages over the roles, naming "
-        + "each by its kind or title, so every page is used. "
+        + "or set up a printed page, or get a spot ready (e.g. Hang the Moon Base sign, Stack the Moon Money, Get your "
+        + "spot ready). EVERY OBJECT HAS ONE OWNER: each printed page belongs to exactly ONE role's list, named by its kind "
+        + "or title, and no two roles ever get the same job or the same page (kids fight over who does what). No badges in "
+        + "the lists: Nutmeg tells everyone to put on their badge. "
         + "THE SCENE: opener = ONE short line starting with \"Pretend that\". events = \(poolMin) to \(poolMax) events. Each "
         + "event: mood calm (a fun job) or tense (a small, silly problem, never scary or sad), the roles it calls (1 to 3) "
-        + "and ONE short line, 10 to 25 words, that calls each of those roles by its title and gives each ONE short thing "
-        + "to do (e.g. \"There's a big lunch rush! Quick, Waiter, take the new people to their seats, and Cook, get ready to "
-        + "make more food!\"). An event may name ONLY the roles in its roles list. Every tense event has calmAgain: what "
+        + "and ONE short line, 10 to 25 words, that calls each of those roles by its title: a SCENARIO, meaning a situation "
+        + "plus a general direction they act out together for a minute or two, often using a printed page (later also "
+        + "their props). Never a single gesture or face. " + eventExamples + "An event may name ONLY the roles in its roles list. Every tense event has calmAgain: what "
         + "Nutmeg says later when it's over, WITHOUT saying the kids fixed it (e.g. \"Phew, the rush has died down.\"); calm "
         + "events have an empty calmAgain. THE POOL MUST WORK FOR EVERY GROUP SIZE: at least 3 events (one of them tense) "
         + "call ONLY R1; at least 2 call R2 (alone or with R1); then every role R3, R4, R5 and R6 is called by at least 2 "
         + "events, which may also call roles ranked above it (a lower R number); include a few events that call 2 or 3 "
-        + "roles together. finale = the big ending for everyone (\"We made it to the Moon! Everyone, celebrate!\"). "
+        + "roles together. opener = \"Pretend that…\" plus WHERE we are and what's happening (e.g. Pretend that our rocket is blasting off to the Moon! Everyone, take your places!), never a generic get ready. finale = the big ending for everyone (\"We made it to the Moon! Everyone, celebrate!\"). "
         + "Lines are pretend actions with the kids' bodies, voices and the printed pages: use NO household props and no "
         + "household things (the kids are still hunting for props), no scripted words to repeat, no quotes. Only the opener, finale and story name no "
         + "role except R1. music = one of: \(musicList). "
@@ -292,13 +315,16 @@ public enum OneScene {
             return st
         }
         var b = s.beats ?? SceneBeats(opener: s.nutmegSays, events: [], finale: "", music: .guess(title))
-        b.opener = opener(b.opener.isEmpty ? s.nutmegSays : b.opener)
+        // 2026-11-21 (Haylee): the opener sets the scene; a generic "get ready" gets a real "Pretend that…" from the title.
+        let raw = b.opener.isEmpty ? s.nutmegSays : b.opener
+        b.opener = opener(EventScenario.isGenericOpener(raw) ? EventScenario.opener(story: nil, title: title) : raw)
         b.finale = finale(b.finale, title: title)
         var seen = Set<String>()
         b.events = b.events.compactMap { repairEvent($0, roles: roles) }.filter { seen.insert($0.line.lowercased()).inserted }
         b.events = Array(b.events.prefix(poolMax))
-        s.beats = b
-        s.nutmegSays = b.opener
+        s.beats = Speakable.repair(b)
+        s.steps = s.steps.map(Speakable.repair)
+        s.nutmegSays = s.beats?.opener ?? b.opener
         return s
     }
 
@@ -392,7 +418,14 @@ public enum OneScene {
             }
         }
         guard ids.count <= maxRolesPerEvent else { return nil }
-        var out = BeatEvent(mood: e.mood, roles: ids, line: line, appWritten: e.appWritten)
+        // 2026-11-21 (Haylee): an event is a scenario, never a single gesture: a gesture-only line becomes the app's
+        // scenario event for the same role(s).
+        var written = e.appWritten
+        if EventScenario.isGestureOnly(line, roles: roles) {
+            line = EventScenario.appLine(mood: e.mood, who: names(ids, roles: roles), index: ids.first?.rank ?? 0)
+            written = true
+        }
+        var out = BeatEvent(mood: e.mood, roles: ids, line: line, appWritten: written)
         if e.isTense { out.calmAgain = calmAgain(e.calmAgain, index: line.count) }
         return out
     }
@@ -518,17 +551,10 @@ public enum OneScene {
         return groups.enumerated().map { k, g in appEvent(mood: cad[k], roles: g, all: roles, index: k) }
     }
 
-    static let calmTemplates = ["take a look around and make sure everything is ready!",
-                                "it's your turn to shine! Show everyone your best move!",
-                                "give the whole crew a big thumbs-up and keep up the good work!"]
-    static let tenseTemplates = ["uh-oh, something is beeping! Quick, go check it out!",
-                                 "oh no, it's getting really busy! Quick, lend a hand!"]
-
     /// An app-written event (the pool couldn't call every role fairly): the role titles first, one short thing to do.
     static func appEvent(mood: BeatMood, roles ids: [RoleID], all roles: [Role], index: Int) -> BeatEvent {
-        let who = names(ids, roles: roles)
-        let pool = mood == .tense ? tenseTemplates : calmTemplates
-        let line = "\(who), " + pool[((index % pool.count) + pool.count) % pool.count]
+        // 2026-11-21: app events are scenarios too (`EventScenario`).
+        let line = EventScenario.appLine(mood: mood, who: names(ids, roles: roles), index: index)
         return BeatEvent(mood: mood, roles: ids, line: line,
                          calmAgain: mood == .tense ? calmAgainLines[index % calmAgainLines.count] : nil, appWritten: true)
     }
@@ -545,25 +571,24 @@ public enum OneScene {
         if let story = k.story?.trimmingCharacters(in: .whitespacesAndNewlines), !story.isEmpty {
             out.append(Scene(id: "story", owner: .all, title: guide.title, picture: .point, nutmegSays: story, steps: [], kind: .story))
         }
-        var setup = ChecklistScenes.playerScene(Scene(id: "setup", owner: .all, title: guide.title, picture: .point, nutmegSays: "",
-                                                      steps: guide.steps, checklist: true), roles: roles, players: p)
-        setup.kind = .setup
-        setup.nutmegSays = ""
-        var list = [setup]
-        ChecklistScenes.cover(&list, items: Bookends.coverItems(items: k.items, props: props), roles: roles, players: p)
-        out.append(list[0])
+        // 2026-11-21 (Haylee): one owner per object (`ObjectOwners`): every page and prop in exactly one visible card.
+        out.append(setupScene(guide, kit: k, roles: roles, players: p, props: props))
         let plan = pick(pool: b.events, roles: roles, players: p)
-        let opener = PlayCast.sceneLine(b.opener, roles: roles, players: p)
+        // A generic opener (an older guide) gets a real "Pretend that…" from the story.
+        let rawOpener = EventScenario.isGenericOpener(b.opener) ? EventScenario.opener(story: k.story, title: guide.title) : b.opener
+        let opener = PlayCast.sceneLine(rawOpener, roles: roles, players: p)
         let finale = PlayCast.unname(b.finale, roles: roles, players: p)
-        out.append(Scene(id: "play", owner: .all, title: guide.title, picture: .point, nutmegSays: opener, steps: [],
-                         beats: SceneBeats(opener: opener, events: plan, finale: finale, music: b.music)))
+        let beats = Speakable.repair(SceneBeats(opener: opener, events: plan, finale: finale, music: b.music))
+        out.append(Scene(id: "play", owner: .all, title: guide.title, picture: .point, nutmegSays: beats.opener, steps: [],
+                         beats: beats))
         out.append(cleanupScene(k.cleanup ?? Bookend(title: "", nutmegSays: ""), kit: k, roles: roles, players: p, props: props))
         return out
     }
 
-    /// The print-mess item (Haylee: exactly one, whatever was printed).
-    public static let printMessShort = "Pick up paper scraps, crayons and scissors"
-    public static let printMessSay = "pick up the paper scraps, crayons and scissors"
+    /// The print-mess item (Haylee: exactly one, whatever was printed). 2026-11-21: never "scissors" (the live voice
+    /// refused to say it; Claude's call: scissors are left out entirely, a grown-up puts them away).
+    public static let printMessShort = "Pick up the paper scraps and crayons"
+    public static let printMessSay = "pick up the paper scraps and crayons"
     public static let printMessID = "print-mess"
 
     /// The clean-up checklist (Haylee): one item for EVERY prop the kids got out (found or swapped; a skipped prop is
@@ -588,7 +613,13 @@ public enum OneScene {
             guard let r = free.first(where: { $0.id == prefers }) ?? free.first else { return }
             load[r.id, default: []].append(id)
         }
-        for it in items { assign(it.id, prefers: jobs[it.id]?.role) }
+        // 2026-11-21 (Haylee, one owner per object): each prop is put away by its setup owner (the owners are spread
+        // fairly over the props, so this stays fair), then the one print-mess item goes to a least busy role.
+        let owners = ObjectOwners.assign(Bookends.coverItems(items: kit.items, props: props),
+                                         guideSteps: kit.scenes.first { $0.beats != nil }?.steps ?? [], roles: roles, players: p)
+        for it in items {
+            if let r = owners[it.id] { load[r, default: []].append(it.id) } else { assign(it.id, prefers: jobs[it.id]?.role) }
+        }
         assign(printMessID, prefers: nil)
         let byID = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
         var steps: [Step] = []
@@ -606,9 +637,10 @@ public enum OneScene {
                     text = "\(role.roleName), \(printMessSay)!"
                 } else {
                     guard let job = jobs[id], let item = byID[id] else { continue }
-                    shown = Bookends.rowShort([job], items: [item], verb: "Put away", cleanup: true)
-                    text = "\(role.roleName), \(PlayCast.lowerFirst(Bookends.trimEnd(job.say)))!"
+                    shown = PropWording.clean(Bookends.rowShort([job], items: [item], verb: "Put away", cleanup: true), props: props)
+                    text = "\(role.roleName), \(PlayCast.lowerFirst(Bookends.trimEnd(PropWording.clean(job.say, props: props))))!"
                 }
+                shown = Speakable.repair(shown); text = Speakable.repair(text)
                 if p > 1 { shown = PlayCast.unname(shown, roles: roles, players: p); text = PlayCast.unname(text, roles: roles, players: p) }
                 steps.append(Step(picture: id == printMessID ? .point : .prop(byID[id]?.prop?.libraryID ?? byID[id]?.prop?.id ?? "point"),
                                   text: text, role: SceneOwner(role.id), short: shown))
@@ -620,10 +652,13 @@ public enum OneScene {
     }
 
     /// The cue when the setup checklist opens (app-written: recorded on the first play, replayed from the clip).
-    public static func setupCue(_ scene: Scene) -> String {
+    /// 2026-11-21: the badges are personal (each kid puts on their own), so the cue says it once to everyone; the
+    /// cards hold each object's one owner.
+    public static func setupCue(_ scene: Scene, badges: Bool = true) -> String {
         let title = Bookends.trimEnd(scene.title.trimmingCharacters(in: .whitespacesAndNewlines))
-        return (title.isEmpty ? "Let's get ready!" : "\(title)!") + " " + ChecklistScenes.tapHint
+        return (title.isEmpty ? "Let's get ready!" : "\(title)!") + (badges ? " " + badgeCue : "") + " " + ChecklistScenes.tapHint
     }
+    public static let badgeCue = "Everyone, put on your badge."
 
     /// The setup card's title.
     public static func setupTitle(_ scene: Scene) -> String { scene.title }
@@ -632,10 +667,27 @@ public enum OneScene {
 // MARK: - Coverage of the setup (every page and prop in a setup item, at every count)
 
 public enum OneSceneCoverage {
-    /// The cover items no setup item names (empty = the rule holds). `scenes` = the composed arc for N.
+    /// 2026-11-21 (Haylee, one owner per object): how many setup items name each object (the badges aside: each kid
+    /// puts on their own, said in the setup cue). The rule: exactly once.
+    public static func counts(_ scenes: [Scene], items: [CoverItem]) -> [String: Int] {
+        let steps = scenes.filter { $0.arc == .setup && $0.isChecklist }.flatMap(\.steps)
+        var out: [String: Int] = [:]
+        for it in ObjectOwners.objects(items) { out[it.id] = steps.filter { Bookends.mentions($0.short ?? $0.text, it) }.count }
+        return out
+    }
+    /// The objects no setup item names (empty = the rule holds). `scenes` = the composed arc for N.
     public static func missing(_ scenes: [Scene], items: [CoverItem]) -> [String] {
-        let setup = scenes.filter { $0.arc == .setup && $0.isChecklist }
-        return items.filter { it in !setup.contains { $0.steps.contains { Bookends.mentions($0.short ?? $0.text, it) } } }.map(\.id)
+        let c = counts(scenes, items: items)
+        return ObjectOwners.objects(items).filter { c[$0.id] == 0 }.map(\.id)
+    }
+    /// The objects named in more than one setup item (empty = the rule holds).
+    public static func repeated(_ scenes: [Scene], items: [CoverItem]) -> [String] {
+        let c = counts(scenes, items: items)
+        return ObjectOwners.objects(items).filter { (c[$0.id] ?? 0) > 1 }.map(\.id)
+    }
+    /// Exactly once: every object in exactly one setup item.
+    public static func exactlyOnce(_ scenes: [Scene], items: [CoverItem]) -> Bool {
+        missing(scenes, items: items).isEmpty && repeated(scenes, items: items).isEmpty
     }
 }
 
@@ -645,10 +697,9 @@ public enum OneSceneCoverage {
 public enum BeatCueKind: Equatable, Hashable, Sendable {
     /// The "Pretend that…" opener (at 0).
     case opener
-    /// Event i: the chime, the music ducks, Nutmeg says the line, the event card shows.
+    /// Event i: the chime, the music ducks, Nutmeg says the line, the event card shows (and stays up until the next
+    /// cue; 2026-11-21, Haylee: no automatic repeat, the card's 🔊 says it again).
     case event(Int)
-    /// Event i's line once more, by herself (the same take, no new call).
-    case repeatEvent(Int)
     /// Tense event i is over: the soft calm-again card, the calm music returns.
     case calmAgain(Int)
     /// The finale for everyone: celebrate pose, confetti, the win music.
@@ -672,8 +723,6 @@ public enum BeatTimeline {
     public static let finaleBeforeEnd: TimeInterval = 45
     /// A tense event's calm-again line (30 to 60 s).
     public static let calmAgainAfter: TimeInterval = 45
-    /// Nutmeg says each event line once more by herself.
-    public static let repeatAfter: TimeInterval = 15
     /// The clean-up checklist opens this long after the finale.
     public static let cleanupAfterFinale: TimeInterval = 20
 
@@ -692,7 +741,6 @@ public enum BeatTimeline {
         for (i, e) in events.enumerated() {
             let t = eventAt(i, count: events.count, total: total)
             out.append(BeatCue(at: t, kind: .event(i)))
-            out.append(BeatCue(at: t + repeatAfter, kind: .repeatEvent(i)))
             if e.isTense { out.append(BeatCue(at: t + calmAgainAfter, kind: .calmAgain(i))) }
         }
         let f = finaleAt(total: total)
@@ -711,7 +759,8 @@ public enum BeatTimeline {
 public enum BeatDisplay: Equatable, Sendable {
     /// Calm play: Nutmeg happy, gently bobbing to the music.
     case playing
-    /// Event i's big card (from its line until a little after the repeat).
+    /// Event i's big card (from its chime until the next cue: its calm-again for a tense event, else the next event
+    /// or the finale).
     case event(Int)
     /// Tense event i's soft calm-again card.
     case calmAgain(Int)
@@ -743,10 +792,8 @@ public struct BeatRun: Equatable, Sendable {
     public let total: TimeInterval
     public let cues: [BeatCue]
     public private(set) var fired: Set<Int> = []
-    /// How long an event's card stays up (past its repeat).
-    public static let eventShows: TimeInterval = 30
-    /// How long the calm-again card stays up.
-    public static let calmAgainShows: TimeInterval = 12
+    /// How long the calm-again card stays up (2026-11-21: 20 s, room for its 🔊).
+    public static let calmAgainShows: TimeInterval = 20
 
     public init(events: [BeatEvent], total: TimeInterval = BeatTimeline.total) {
         self.events = events; self.total = total
@@ -758,19 +805,32 @@ public struct BeatRun: Equatable, Sendable {
         fired = Set(cues.indices.filter { cues[$0].at <= elapsed })
     }
 
-    /// The cues due by `elapsed` that haven't fired, in order (each fires once). A repeat whose next event is also due
-    /// (the app was held up) is dropped, so two lines never pile up; so is an opener once an event is due.
+    /// The cues due by `elapsed` that haven't fired, in order (each fires once). An opener is dropped once an event is
+    /// due too (the app was held up), so two lines never pile up.
     public mutating func due(at elapsed: TimeInterval) -> [BeatCue] {
         let now = cues.indices.filter { !fired.contains($0) && cues[$0].at <= elapsed }
         fired.formUnion(now)
         let list = now.map { cues[$0] }
         return list.filter { c in
-            switch c.kind {
-            case .repeatEvent(let i): return !list.contains { if case .event(let j) = $0.kind { return j > i } else { return $0.kind == .finale } }
-            case .opener: return !list.contains { if case .event = $0.kind { return true } else { return false } }
-            default: return true
-            }
+            if c.kind == .opener { return !list.contains { if case .event = $0.kind { return true } else { return false } } }
+            return true
         }
+    }
+
+    /// 2026-11-21 (Haylee): "End scene" (the grown-up or the kids are done early): every cue before the finale counts
+    /// as fired (nothing more is said) and the scene jumps to the finale, the same as the scheduled one (celebrate, the
+    /// win music, then the clean-up). Returns the new scene time (the finale's), which the clock and the resume point
+    /// take, so a relaunch lands at the finale too. Past the finale it changes nothing.
+    public mutating func endEarly(at elapsed: TimeInterval) -> TimeInterval {
+        guard elapsed < finaleAt else { return elapsed }
+        fired.formUnion(cues.indices.filter { cues[$0].at < finaleAt })
+        return finaleAt
+    }
+
+    /// When event i's card goes down: its calm-again for a tense event, else the next event (or the finale).
+    public func eventEnds(_ i: Int) -> TimeInterval {
+        if events[i].isTense { return eventAt(i) + BeatTimeline.calmAgainAfter }
+        return i + 1 < events.count ? eventAt(i + 1) : finaleAt
     }
 
     public var finaleAt: TimeInterval { BeatTimeline.finaleAt(total: total) }
@@ -784,7 +844,7 @@ public struct BeatRun: Equatable, Sendable {
         if t >= finaleAt { return .finale }
         guard let i = lastEvent(at: t) else { return .playing }
         let at = eventAt(i)
-        if t - at < Self.eventShows { return .event(i) }
+        if t < eventEnds(i) { return .event(i) }
         if events[i].isTense {
             let calm = at + BeatTimeline.calmAgainAfter
             if t >= calm && t - calm < Self.calmAgainShows { return .calmAgain(i) }
@@ -846,7 +906,13 @@ public enum MusicMix {
     public static let crossfade: TimeInterval = 1.5
     public static let duckRamp: TimeInterval = 0.25
     /// The music level now.
-    public static func gain(speaking: Bool, chime: Bool) -> Float { (speaking || chime) ? base * duckFactor : base }
+    public static func gain(speaking: Bool, chime: Bool, muted: Bool = false) -> Float {
+        muted ? 0 : ((speaking || chime) ? base * duckFactor : base)
+    }
+    /// 2026-11-21 (Haylee): the music on/off choice (the pill's toggle). A per-device preference (Claude's call): it
+    /// lasts for the rest of the game, across a resume, and the next game starts the same way. Her voice and the
+    /// event chime still play when the music is off. Not kid data.
+    public static let musicOnKey = "pt.musicOn"
     /// The bundle path of a segment ("Music/space-adventure/calm.m4a"); the silent segment has none.
     public static func file(_ family: MusicFamily, _ segment: BeatMusic) -> String? {
         segment == .silent ? nil : "Music/\(family.rawValue)/\(segment.rawValue).m4a"

@@ -1,40 +1,170 @@
 [
-  {"id": "s1", "title": "Get the Plane Ready", "checklist": true,
-   "nutmegSays": "Pretend that the plane is taking off over the big blue ocean! Everyone, take your places!",
-   "steps": [
-    {"role": "R1", "text": "Put on your badge", "short": "Put on your badge"},
-    {"role": "R1", "text": "Hang the Gate 3 sign", "short": "Hang the Gate 3 sign"},
-    {"role": "R1", "text": "Set up the steering wheel", "short": "Set up the steering wheel"},
-    {"role": "R2", "text": "Put on your badge", "short": "Put on your badge"},
-    {"role": "R2", "text": "Get your boarding pass", "short": "Get your boarding pass"},
-    {"role": "R2", "text": "Pack your carry-on bag", "short": "Pack your carry-on bag"},
-    {"role": "R3", "text": "Put on your badge", "short": "Put on your badge"},
-    {"role": "R3", "text": "Line up the airplane seats", "short": "Line up the airplane seats"},
-    {"role": "R3", "text": "Load the snack cart", "short": "Load the snack cart"},
-    {"role": "R4", "text": "Put on your badge", "short": "Put on your badge"},
-    {"role": "R4", "text": "Lay out the travel cut-outs", "short": "Lay out the travel cut-outs"},
-    {"role": "R5", "text": "Put on your badge", "short": "Put on your badge"},
-    {"role": "R5", "text": "Set out the snack menu", "short": "Set out the snack menu"},
-    {"role": "R6", "text": "Put on your badge", "short": "Put on your badge"},
-    {"role": "R6", "text": "Count your Sky Dollars", "short": "Count your Sky Dollars"}
-   ],
-   "beats": {
-    "opener": "Pretend that the plane is taking off over the big blue ocean! Everyone, take your places!",
-    "music": "space-adventure",
-    "finale": "We landed safely by the beach! Everyone, cheer and give a big wave!",
-    "events": [
-     {"mood": "calm", "roles": ["R1"], "line": "Captain, time to start the engines! Flip the switches and get ready to fly!"},
-     {"mood": "tense", "roles": ["R1"], "line": "Captain! Bumpy clouds ahead! Hold the steering wheel tight and steer around them!", "calmAgain": "Phew, the sky is smooth again."},
-     {"mood": "calm", "roles": ["R1"], "line": "Captain, wave to the people down below, then tell everyone how high we are!"},
-     {"mood": "calm", "roles": ["R1", "R2"], "line": "Passenger, look out the window! Captain, tell the Passenger what you can see!"},
-     {"mood": "tense", "roles": ["R2"], "line": "Uh-oh, Passenger, your seat belt came loose! Quick, buckle up tight!", "calmAgain": "Phew, everyone is buckled up again."},
-     {"mood": "calm", "roles": ["R3"], "line": "Flight Attendant, the passengers are hungry! Bring everyone a pretend snack!"},
-     {"mood": "tense", "roles": ["R3", "R4"], "line": "Oh no, a red light is blinking! Co-Pilot, check the map, and Flight Attendant, help everyone stay in their seats!", "calmAgain": "Phew, the red light turned off."},
-     {"mood": "calm", "roles": ["R4"], "line": "Co-Pilot, read the map and point to where we're going!"},
-     {"mood": "tense", "roles": ["R5"], "line": "Oops, the snack oven is too hot! Snack Chef, fan it with your hands to cool it down!", "calmAgain": "Phew, the oven is just right again."},
-     {"mood": "calm", "roles": ["R5", "R6"], "line": "VIP Passenger, ask for your favorite snack! Snack Chef, make it extra fancy!"},
-     {"mood": "tense", "roles": ["R6"], "line": "Uh-oh, VIP Passenger, your pretend pillow fell down! Pick it up and get cozy again!", "calmAgain": "Phew, everyone is cozy again."},
-     {"mood": "calm", "roles": ["R2", "R6"], "line": "Passenger and VIP Passenger, buckle up and do a happy seat dance!"}
-    ]
-   }}
+ {
+  "id": "s1",
+  "title": "Get the Plane Ready",
+  "checklist": true,
+  "nutmegSays": "Pretend that the plane is taking off over the big blue ocean! Everyone, take your places!",
+  "steps": [
+   {
+    "role": "R1",
+    "text": "Hang the Gate 3 sign",
+    "short": "Hang the Gate 3 sign"
+   },
+   {
+    "role": "R1",
+    "text": "Set up the steering wheel",
+    "short": "Set up the steering wheel"
+   },
+   {
+    "role": "R2",
+    "text": "Line up the airplane seats",
+    "short": "Line up the airplane seats"
+   },
+   {
+    "role": "R2",
+    "text": "Hand out the boarding passes",
+    "short": "Hand out the boarding passes"
+   },
+   {
+    "role": "R3",
+    "text": "Load the snack cart",
+    "short": "Load the snack cart"
+   },
+   {
+    "role": "R3",
+    "text": "Get the cabin ready",
+    "short": "Get the cabin ready"
+   },
+   {
+    "role": "R4",
+    "text": "Lay out the travel cut-outs",
+    "short": "Lay out the travel cut-outs"
+   },
+   {
+    "role": "R4",
+    "text": "Get the cockpit ready",
+    "short": "Get the cockpit ready"
+   },
+   {
+    "role": "R5",
+    "text": "Set out the snack menu",
+    "short": "Set out the snack menu"
+   },
+   {
+    "role": "R5",
+    "text": "Get the snack kitchen ready",
+    "short": "Get the snack kitchen ready"
+   },
+   {
+    "role": "R6",
+    "text": "Stack the Sky Dollars",
+    "short": "Stack the Sky Dollars"
+   },
+   {
+    "role": "R6",
+    "text": "Pack the carry-on bag",
+    "short": "Pack the carry-on bag"
+   }
+  ],
+  "beats": {
+   "opener": "Pretend that the plane is taking off over the big blue ocean! Everyone, take your places!",
+   "music": "space-adventure",
+   "finale": "We landed safely by the beach! Everyone, cheer and give a big wave!",
+   "events": [
+    {
+     "mood": "calm",
+     "roles": [
+      "R1"
+     ],
+     "line": "The control tower is calling! Captain, check the steering wheel and get the plane ready for takeoff!"
+    },
+    {
+     "mood": "tense",
+     "roles": [
+      "R1"
+     ],
+     "line": "Bumpy clouds ahead! Captain, hold the steering wheel tight and steer the plane around them!",
+     "calmAgain": "Phew, the sky is smooth again."
+    },
+    {
+     "mood": "calm",
+     "roles": [
+      "R1"
+     ],
+     "line": "We're flying over the ocean! Captain, tell everyone what you can see down below and where we're going next!"
+    },
+    {
+     "mood": "calm",
+     "roles": [
+      "R1",
+      "R2"
+     ],
+     "line": "Passenger, you can't find your seat! Captain, help the Passenger find a good airplane seat for the trip!"
+    },
+    {
+     "mood": "tense",
+     "roles": [
+      "R2"
+     ],
+     "line": "Uh-oh, Passenger, your things are rolling around! Gather them up and keep them safe before the plane turns!",
+     "calmAgain": "Phew, everything is put away again."
+    },
+    {
+     "mood": "calm",
+     "roles": [
+      "R3"
+     ],
+     "line": "The passengers are hungry! Flight Attendant, roll the snack cart down the aisle and serve everyone a snack!"
+    },
+    {
+     "mood": "tense",
+     "roles": [
+      "R3",
+      "R4"
+     ],
+     "line": "Oh no, a red light is blinking! Co-Pilot, check the map for a safe way, and Flight Attendant, help everyone stay in their seats!",
+     "calmAgain": "Phew, the red light turned off."
+    },
+    {
+     "mood": "calm",
+     "roles": [
+      "R4"
+     ],
+     "line": "We need a new way to the beach! Co-Pilot, look at the travel cut-outs and help plan where the plane goes next!"
+    },
+    {
+     "mood": "tense",
+     "roles": [
+      "R5"
+     ],
+     "line": "Oops, the snack kitchen is a mess! Snack Chef, sort the snacks and get the new orders ready fast!",
+     "calmAgain": "Phew, the snack kitchen is tidy again."
+    },
+    {
+     "mood": "calm",
+     "roles": [
+      "R5",
+      "R6"
+     ],
+     "line": "VIP Passenger, order something fancy from the snack menu! Snack Chef, make it extra special!"
+    },
+    {
+     "mood": "tense",
+     "roles": [
+      "R6"
+     ],
+     "line": "Uh-oh, VIP Passenger, the cabin is getting wobbly! Make everything around your seat secure and hold on!",
+     "calmAgain": "Phew, the cabin is steady again."
+    },
+    {
+     "mood": "calm",
+     "roles": [
+      "R2",
+      "R6"
+     ],
+     "line": "Passenger and VIP Passenger, it's shopping time in the sky! Use your Sky Dollars to buy treats from the snack menu!"
+    }
+   ]
+  }
+ }
 ]
