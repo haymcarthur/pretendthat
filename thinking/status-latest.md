@@ -1,6 +1,34 @@
-# Where things stand (handoff, end of 2026-11-18 session)
+# Where things stand (handoff, 2026-11-20)
 
-Start here in a new session, after CLAUDE.md. The decision files have the details; this is the map of what's done, what's live, and what's next.
+Start here in a new session, after CLAUDE.md. The 2026-11-18 handoff is below (still true unless this section says otherwise).
+
+## 2026-11-20: shipped to the branch (claude/optimistic-allen-mifsgp), not in a build yet
+- **Voice stall fix** ([voice-stall-fix](decisions/2026-11-20-voice-stall-fix.md)): repeat row taps play this game's own take, the lines session is health-checked and falls back to the main session, per-request cancel tags, suspended can't stick, a 4 s line watchdog, Release voice logs.
+- **Checklist scenes round** ([round-checklist-scenes-build](decisions/2026-11-20-round-checklist-scenes-build.md), design: [checklist-then-scenario-scenes](decisions/2026-11-20-checklist-then-scenario-scenes.md)):
+  - The guide writes 4 scenes: a short title, 2–3 short checklist items per role, one "Pretend that…" scenario ending in an action for everyone. 1–2 kids see 4 scenes, 3–4 see 3, 5–6 see 2. No setup scene; every page and prop is in an item the kids see at every count (the app adds any that's missing). Clean-up is a final checklist, then The End. Estimated guide cost ≈ −3¢ per new game.
+  - Cards for every playing role at once (check on the left, 🔊 on the right, "1 of 3"), taps while she talks queue, the row being read is highlighted, a cue line when a scene opens, the scenario + "All done!" strip when every card is done, ◀ Previous / ▶ Next as one centered pair. iPad: cards in a row with Nutmeg peeking over the top-right card. iPhone: a shelf of cards with her head beside the title. New `previous_scene` voice tool.
+  - Replays can skip Props/Print (⏭ button). After a relaunch the start screen offers the game left mid-play (its picture with ▶) and opens it at that scene with its checks.
+  - Thinner button edges: `Theme.edge(height)` (≈4%, 2–4 pt) on every button with a depth edge; cards/rows 3 pt.
+  - Saved games are schema 6; schemas 2–5 still load and replay the old way. Demo mode plays the new format.
+- **Compiled/tested here:** NutmegCore only (Linux toolchain): 16 new tests pass; the same 10 environment-only failures as before. **The app files were not compiled** (no Xcode here), and nothing was run on a simulator. No live calls, $0.
+
+## Haylee's Mac checklist
+1. Run `xcodegen` (new file: PretendThat/Screens/ChecklistSceneView.swift), then build Release. The app files changed in both rounds are uncompiled: expect a few type-check fixes.
+2. `swift test` in NutmegCore (about 781 tests: 765 + 16 new).
+3. Demo mode (no keys), iPad and iPhone simulators (`-PTNoAI -PTAnalyticsOff -PTSkipAuth`):
+   - `-PTDemo checklist -PTPlayers 2` and `-PTPlayers 6` on the iPad: cards in a row, Nutmeg peeking over the top-right card, nothing clipped; the same on the iPhone (the shelf scrolls, her head beside the title, items not squished).
+   - Rapid taps on several rows' 🔊 and the title 🔊: nothing overlaps, the read row is highlighted, no stuck state.
+   - Check every item (or `-PTDemo scenario`): the scenario bubble with "Hear it again", the "All done!" strip, Nutmeg back big on the stage.
+   - ▶ Next, then ◀ Previous: the checks are as they were; no Previous on the first scene; the pair is centered and the same size.
+   - `-PTDemo cleanupList`: check everything → The End by itself.
+   - `-PTDemo replaySkip`: the ⏭ on a replay's Props skips to the scenes; a new game never shows it.
+   - Resume: play into scene 2, tick a couple of items, kill the app, relaunch: the picture with ▶ on the start screen opens scene 2 with those ticks; ✕ forgets it.
+   - Button edges: start, Saved games, The End's buttons, the hunt ✓/✗, the pair, the round checks and 🔊s look slim, not chunky.
+4. One live game (the round's one live game): check the AI's checklists (short, kid-doable, every page and prop used) and scenarios (short, end with "Everyone, …"), the cue lines, and one voice "what do I do?" / "go back".
+
+# Earlier handoff (end of 2026-11-18 session)
+
+The decision files have the details; this is the map of what's done, what's live, and what's next.
 
 ## Shipped
 - **TestFlight build 1.0 (4)** uploaded 2026-11-18 (commit 933c6c6, pushed to origin/main). Internal testers get it without beta review. Contents: [decisions/2026-11-18-build-4.md](decisions/2026-11-18-build-4.md).
