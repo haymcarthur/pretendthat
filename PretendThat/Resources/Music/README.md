@@ -71,8 +71,8 @@ Families (the guide picks one; `MusicFamily` in NutmegCore/OneScene.swift):
 ## 2026-11-20: calm2 for every family, four new families, two new wins
 
 - **`calm2.m4a` in all 14 families:** a second calm loop in calm A's measured key and tempo with the same instruments
-  and another melody, made so a 10-minute scene repeats less. The app should alternate calm → calm2 → calm … at loop
-  ends when `calm2.m4a` exists (both start on a downbeat at the same tempo, so the switch lands on a bar line). Both
+  and another melody, made so a 10-minute scene repeats less. The app alternates calm → calm2 → calm … at loop
+  ends when `calm2.m4a` exists (`MusicPlayer`, each loop scheduled on the device clock at the other's end; `CalmLoop`) (both start on a downbeat at the same tempo, so the switch lands on a bar line). Both
   −16 LUFS. Check by ear with `design/music-test/<family>/processed/loop-test-calm-aba.m4a`. **Magic kingdom's calm2
   is in C major** (the dominant of calm A's F; the only take, the other generation failed): listen, and delete it if
   it jars (a missing calm2 just means calm loops alone).

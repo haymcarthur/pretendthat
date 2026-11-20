@@ -38,6 +38,11 @@ public enum MusicFamily: String, Codable, Sendable, CaseIterable {
     case superheroCity = "superhero-city"
     case pirateAdventure = "pirate-adventure"
     case rescueTeam = "rescue-team"
+    // 2026-11-21 (Haylee): four more (Music/<family>/calm, calm2, tense, win).
+    case snowyNorth = "snowy-north"
+    case robotLab = "robot-lab"
+    case circusCarnival = "circus-carnival"
+    case raceDay = "race-day"
 
     /// The small music pill's words ("Space adventure").
     public var label: String {
@@ -52,13 +57,17 @@ public enum MusicFamily: String, Codable, Sendable, CaseIterable {
         case .superheroCity: "Superhero city"
         case .pirateAdventure: "Pirate adventure"
         case .rescueTeam: "Rescue team"
+        case .snowyNorth: "Snowy north"
+        case .robotLab: "Robot lab"
+        case .circusCarnival: "Circus & carnival"
+        case .raceDay: "Race day"
         }
     }
 
     /// What it fits (the prompt's list).
     public var fits: String {
         switch self {
-        case .spaceAdventure: "rockets, the Moon, planets, aliens, robots"
+        case .spaceAdventure: "rockets, the Moon, planets, aliens, astronauts"
         case .jungleOutdoors: "jungle, safari, camping, farm, zoo, dinosaurs, gardens"
         case .magical: "castles, fairies, wizards, dragons, unicorns, knights"
         case .cozyShop: "bakery, restaurant, shop, vet, doctor, school, salon, post office, anything everyday"
@@ -68,6 +77,10 @@ public enum MusicFamily: String, Codable, Sendable, CaseIterable {
         case .superheroCity: "superheroes, capes, saving the city, sidekicks, silly villains"
         case .pirateAdventure: "pirates, treasure hunts, pirate ships, parrots, treasure maps"
         case .rescueTeam: "firefighters, police, paramedics, lifeguards, rescue missions, emergency helpers"
+        case .snowyNorth: "snow, winter, the North Pole, penguins, igloos, ice and arctic animals"
+        case .robotLab: "robots, science labs, scientists, inventors, time machines"
+        case .circusCarnival: "circus, carnival, fairs, clowns, magic shows, jugglers, ringmasters"
+        case .raceDay: "races, race cars, sports, the Olympics, soccer, track and field"
         }
     }
 
@@ -81,11 +94,17 @@ public enum MusicFamily: String, Codable, Sendable, CaseIterable {
     }
 
     static let keywords: [(MusicFamily, [String])] = [
-        (.spaceAdventure, ["space", "rocket", "moon", "planet", "astronaut", "alien", "galaxy", "robot", "star base"]),
+        // 2026-11-21 (Haylee): Robot lab comes before Space ("robot" moved off Space adventure).
+        (.robotLab, ["robot", "robots", "lab", "science", "scientist", "inventor", "laboratory", "time machine"]),
+        (.spaceAdventure, ["space", "rocket", "moon", "planet", "astronaut", "alien", "galaxy", "star base"]),
         // 2026-11-21: the three new families come before Under the sea ("pirate" moved to Pirate adventure).
         (.superheroCity, ["superhero", "hero", "cape", "villain", "sidekick"]),
         (.pirateAdventure, ["pirate", "treasure", "parrot", "ship"]),
         (.rescueTeam, ["rescue", "firefighter", "fire truck", "police", "ambulance", "paramedic", "lifeguard"]),
+        (.snowyNorth, ["snow", "winter", "arctic", "penguin", "igloo", "north pole", "ice"]),
+        (.raceDay, ["race", "racing", "race car", "sports", "olympics", "soccer", "track"]),
+        // Circus before Magic kingdom, so "magic show" is the circus.
+        (.circusCarnival, ["circus", "carnival", "fair", "clown", "magic show", "juggler", "ringmaster"]),
         (.underTheSea, ["sea", "ocean", "mermaid", "submarine", "beach", "island", "fish", "shark", "boat"]),
         (.spookySilly, ["spooky", "ghost", "haunted", "monster", "halloween", "witch", "vampire", "mystery", "detective"]),
         (.magical, ["magic", "fairy", "castle", "wizard", "dragon", "princess", "unicorn", "knight", "royal", "kingdom"]),
@@ -95,7 +114,8 @@ public enum MusicFamily: String, Codable, Sendable, CaseIterable {
 
     /// A keyword guess from the game's words (title, setting) when the guide's tag is missing or unknown.
     public static func guess(_ text: String) -> MusicFamily {
-        let t = text.lowercased()
+        // "ice cream" is a shop, not the snowy north (Claude's call).
+        let t = text.lowercased().replacingOccurrences(of: "ice cream", with: "icecream")
         for (f, words) in keywords where words.contains(where: { PlayCast.names(t, $0) }) { return f }
         return fallback
     }
@@ -923,10 +943,40 @@ public enum MusicMix {
     public static func file(_ family: MusicFamily, _ segment: BeatMusic) -> String? {
         segment == .silent ? nil : "Music/\(family.rawValue)/\(segment.rawValue).m4a"
     }
+    /// 2026-11-21 (Haylee): the family's second calm loop ("Music/space-adventure/calm2.m4a"). When it's bundled the
+    /// calm music alternates calm → calm2 → calm… at each loop's end (`CalmLoop`).
+    public static func calm2(_ family: MusicFamily) -> String { "Music/\(family.rawValue)/calm2.m4a" }
     /// The one shared event chime.
     public static let chime = "Music/chime.m4a"
     /// The win ending plays once; calm and tense loop.
     public static func loops(_ segment: BeatMusic) -> Bool { segment == .calm || segment == .tense }
+}
+
+/// 2026-11-21 (Haylee): the calm music's loop order. With one calm loop it just loops; with calm + calm2 they take
+/// turns, each played once through, the next one starting exactly where the one before ends (the app schedules it on
+/// the audio device's clock, so there's no gap and no overlap).
+public struct CalmLoop: Equatable, Sendable {
+    /// 1 (calm only) or 2 (calm and calm2).
+    public let count: Int
+    /// The loop sounding now (0 = calm, 1 = calm2).
+    public private(set) var index = 0
+    public init(count: Int) { self.count = max(1, min(2, count)) }
+    /// The loop that follows the one sounding now.
+    public var next: Int { (index + 1) % count }
+    /// The one sounding now ended and the next took over.
+    public mutating func advance() { index = next }
+    /// Back to calm (a new scene).
+    public mutating func reset() { index = 0 }
+    /// The first `n` loops in playing order (calm, calm2, calm, …).
+    public func order(_ n: Int) -> [Int] {
+        var l = CalmLoop(count: count), out: [Int] = []
+        for _ in 0..<max(0, n) { out.append(l.index); l.advance() }
+        return out
+    }
+    /// When a loop started at device time `startedAt`, from `position` seconds in, ends (the next one's start time).
+    public static func endTime(startedAt: TimeInterval, duration: TimeInterval, position: TimeInterval) -> TimeInterval {
+        startedAt + max(0, duration - position)
+    }
 }
 
 // MARK: - The microphone stays off in Play (Haylee, decisions/2026-11-17-saved-game-page-and-play-bar.md)

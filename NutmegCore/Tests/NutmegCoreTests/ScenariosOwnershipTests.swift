@@ -221,7 +221,7 @@ struct ScenariosOwnershipTests {
     // MARK: 6. Music families and the on/off level
 
     @Test func theNewMusicFamiliesAndTheMuteLevel() {
-        #expect(MusicFamily.allCases.count == 10)
+        #expect(MusicFamily.allCases.count == 14)
         #expect(MusicFamily.parse("superhero-city") == .superheroCity && MusicFamily.parse("Pirate adventure") == .pirateAdventure
                 && MusicFamily.parse("rescue_team") == .rescueTeam)
         #expect(MusicFamily.guess("Superhero City Patrol") == .superheroCity && MusicFamily.guess("Treasure Island") == .pirateAdventure)

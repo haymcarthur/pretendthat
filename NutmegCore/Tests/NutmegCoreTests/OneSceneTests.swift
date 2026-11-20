@@ -61,14 +61,14 @@ struct OneSceneTests {
         // A tolerant music tag (and a guess when it's unknown).
         #expect(MusicFamily.parse("Under the sea") == .underTheSea && MusicFamily.parse("SPOOKY_SILLY") == .spookySilly)
         #expect(MusicFamily.guess("Pirate Ship Treasure Hunt") == .pirateAdventure && MusicFamily.guess("Moon Crumbs Bakery") == .spaceAdventure)
-        #expect(MusicFamily.guess("Sunny Bakery") == .cozyShop && MusicFamily.allCases.count == 10)
+        #expect(MusicFamily.guess("Sunny Bakery") == .cozyShop && MusicFamily.allCases.count == 14)
         let bad = try JSONDecoder().decode(SceneBeats.self, from: Data(#"{"opener":"x","events":[],"finale":"y","music":"polka"}"#.utf8))
         #expect(bad.music == MusicFamily.fallback)
         // The schema: story, setup (R1–R6), opener, the event pool, finale, music (a fixed list), clean-up title.
         let schema = OneScene.schema()
         #expect((schema["required"] as? [String])?.sorted() == ["cleanupTitle", "events", "finale", "music", "opener", "setup", "setupTitle", "story"])
         let p = schema["properties"] as? [String: Any]
-        #expect(((p?["music"] as? [String: Any])?["enum"] as? [String])?.count == 10)
+        #expect(((p?["music"] as? [String: Any])?["enum"] as? [String])?.count == 14)
         let ev = ((p?["events"] as? [String: Any])?["items"] as? [String: Any])?["required"] as? [String]
         #expect(ev?.sorted() == ["calmAgain", "line", "mood", "roles"])
         // The prompt: the pool works for every group size, calm-again never credits the kids, no household props yet.
