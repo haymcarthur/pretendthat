@@ -76,7 +76,7 @@ public enum SpeculativeTools {
         switch call {
         case .setGame, .setTheme: return step < .players
         case .showNextProp: return huntActive || step == .roles || step == .props
-        case .setPlayerCount, .confirmPlan, .markFound, .skipProp, .goToStep, .nextScene: return true   // no free text
+        case .setPlayerCount, .confirmPlan, .markFound, .skipProp, .goToStep, .nextScene, .previousScene: return true   // no free text
         default: return false
         }
     }

@@ -359,6 +359,111 @@ public final class AdventureStore {
         goToScene(i + 1)
     }
 
+    // MARK: Checklist scenes (2026-11-20, Haylee: checklists, then a short scenario)
+
+    /// The bundled fallback / demo game plays checklist scenes (tests of the older scene path turn this off).
+    @ObservationIgnored public var useChecklistFallback = true
+    /// Which checklist items are ticked, per scene (kept when the kids go back a scene; cleared on a count change).
+    public private(set) var progress = ChecklistProgress()
+
+    /// The composed scene on screen, if it is a checklist scene.
+    public var currentChecklist: Scene? {
+        guard case .scene(let i) = phase, let s = kit?.scenes, s.indices.contains(i), s[i].isChecklist else { return nil }
+        return s[i]
+    }
+    public func isChecked(_ step: Int) -> Bool {
+        guard let sc = currentChecklist else { return false }
+        return progress.isChecked(scene: sc.id, step: step)
+    }
+    /// Scene `i`'s items are all ticked.
+    public func sceneDone(_ i: Int) -> Bool {
+        guard let s = kit?.scenes, s.indices.contains(i) else { return false }
+        return progress.isDone(s[i])
+    }
+    /// The scene on screen is a checklist scene with every item ticked (the scenario moment, or the clean-up's end).
+    public var currentSceneDone: Bool {
+        guard case .scene(let i) = phase else { return false }
+        return sceneDone(i)
+    }
+    /// Ticks or unticks one item of the scene on screen. True when this tick finished the scene (the app then says
+    /// the scenario, or moves on to The End after the clean-up).
+    @discardableResult
+    public func toggleCheck(_ step: Int) -> Bool {
+        guard case .scene(let i) = phase, let sc = currentChecklist, sc.steps.indices.contains(step) else { return false }
+        let was = progress.isDone(sc)
+        progress.toggle(scene: sc.id, step: step)
+        return !was && sceneDone(i)
+    }
+    /// The scenario line of scene `i` (nil when it has none: the clean-up, an older scene).
+    public func scenarioLine(_ i: Int) -> String? {
+        guard let s = kit?.scenes, s.indices.contains(i), s[i].isChecklist, s[i].arc == .play else { return nil }
+        let t = s[i].nutmegSays.trimmingCharacters(in: .whitespacesAndNewlines)
+        return t.isEmpty ? nil : PlayCast.endSentence(t)
+    }
+    /// The play scene's number among the scenes the kids see ("Scene 2"), 1-based.
+    public func playNumber(_ i: Int) -> Int {
+        guard let s = kit?.scenes, s.indices.contains(i) else { return 1 }
+        return s.prefix(i + 1).filter { $0.arc == .play }.count
+    }
+    /// ◀ Previous scene is possible: an earlier scene with rows (never back into the story).
+    public var canGoBack: Bool {
+        guard case .scene(let i) = phase, let s = kit?.scenes, i > 0, s.indices.contains(i) else { return false }
+        return s[..<i].contains { $0.arc != .story }
+    }
+    /// ◀ Previous scene: back one scene (the story is skipped), the checks as they were.
+    public func previousScene() {
+        guard case .scene(let i) = phase, canGoBack, let s = kit?.scenes else { return }
+        let j = (0..<i).reversed().first { s[$0].arc != .story } ?? i
+        guard j < i else { return }
+        enterScene(j)
+    }
+
+    /// Resume after a relaunch (Haylee): the saved game opens as a replay straight at the scene it was on, with the
+    /// count and the checks it had (the props as saved, all there). Nothing is generated; the only line said is that
+    /// scene's cue.
+    public func resumeReplay(_ g: SavedGame, at point: ResumePoint) {
+        loadReplay(g)
+        playerCount = max(1, min(point.players, Players.max))
+        resetPlayProgress()
+        _ = startReplayHunt()
+        replayHuntDone()
+        replayFollowUp = nil
+        guard let s = kit?.scenes, !s.isEmpty else { return }
+        progress = point.progress
+        let k = max(0, min(point.scene, s.count - 1))
+        // Never back into the story on a resume: the first scene with rows.
+        let at = s[k].arc == .story ? (s.indices.first { s[$0].arc != .story } ?? k) : k
+        enterScene(at)
+    }
+
+    /// The replay's hunt ends here: every saved prop not answered yet counts as found (skip and resume).
+    private func replayHuntDone() {
+        guard isReplay else { return }
+        let all = props?.props ?? []
+        for p in all where !p.isSkipped { foundProps.insert(p.id) }
+        currentPropID = nil
+        presenting = .none
+    }
+
+    /// Where this game is now, for a resume after a relaunch (nil outside a scene, or before the game is saved).
+    public func resumePoint(now: Date = Date()) -> ResumePoint? {
+        guard case .scene(let i) = phase, playerCount > 0 else { return nil }
+        let id = isReplay ? gameID : (savedAs ?? gameID)
+        guard isReplay || savedAs != nil else { return nil }
+        return ResumePoint(gameID: id, players: playerCount, scene: i, progress: progress, savedAt: now)
+    }
+
+    /// Skip (replays only, Haylee): from Pick, Props or Print straight to the scenes. The saved props count as found.
+    public var canSkipToScenes: Bool {
+        guard isReplay, playerCount > 0, fullKit?.scenes.isEmpty == false else { return false }
+        switch phase { case .props, .makingKit, .kitReady: return true; default: return false }
+    }
+    public func skipToScenes() {
+        guard canSkipToScenes else { return }
+        replayHuntDone()
+        beginPlay()
+    }
+
     /// Round 25: at The End, the rail's Play step (or voice "back to the play step") reopens the last scene (round 29:
     /// she sets it up and reads its tasks again).
     public var playFinished: Bool { phase == .end }
@@ -373,6 +478,12 @@ public final class AdventureStore {
         // Round 36: the story is told as written (no cue: there are no rows); the first scene WITH rows (the setup)
         // says how to move on.
         if s[i].arc == .story { return PlayCast.endSentence(s[i].nutmegSays.trimmingCharacters(in: .whitespacesAndNewlines)) }
+        // 2026-11-20: a checklist scene opens with one short cue ("Scene 2: Get the rocket ready! Tap your picture to
+        // hear your jobs."); a finished one (back with ◀) says its scenario again.
+        if s[i].isChecklist {
+            if progress.isDone(s[i]), let line = scenarioLine(i) { return line }
+            return ChecklistScenes.cue(s[i], number: playNumber(i))
+        }
         return HandOffLines.sceneOpen(s[i], first: i == s.firstIndex { $0.arc != .story })
     }
 
@@ -407,6 +518,7 @@ public final class AdventureStore {
         // Round D1: a new adventure (or a replay that loads over this) starts clean.
         gameID = UUID(); countedNewGame = false; savedAs = nil
         replayGameID = nil; replaySaved = []; replayBase = []
+        progress = ChecklistProgress()
     }
 
     // MARK: Saved games and replays (round D1, Haylee)
@@ -986,6 +1098,12 @@ public final class AdventureStore {
             guard case .scene = phase else { return "There's no scene right now. Answer in ONE short line." }
             nextScene()
             return "Next scene: the app moves on and says its line. Say nothing."
+        case .previousScene:
+            // 2026-11-20: "go back" in a scene: the same as the ◀ Previous scene button.
+            guard case .scene = phase else { return "There's no scene right now. Answer in ONE short line." }
+            guard canGoBack else { return "This is the first scene, there's no scene before it. Answer in ONE short, kind line." }
+            previousScene()
+            return "Back one scene: the app says its line. Say nothing."
         case .readJob(let role):
             // Round 34: the app (AppModel) reads that row's spoken task; this is the fallback answer.
             guard case .scene(let i) = phase, let rows = kit?.scenes[i].steps,
@@ -1047,6 +1165,7 @@ public final class AdventureStore {
     /// Round C1: the play progress is for the old crew: Play starts over from the first scene.
     private func resetPlayProgress() {
         lastPlayPhase = nil
+        progress = ChecklistProgress()   // 2026-11-20: the checks were for the old crew's rows
     }
 
     /// The tap path: the count after the roles were made (no AI call; the roles and kit stay).
@@ -1337,7 +1456,8 @@ public final class AdventureStore {
     }
 
     private func useFallbackGame() {
-        let a = Fallback.airplane(playerCount: max(1, playerCount))
+        // 2026-11-20: the bundled game plays the checklist scenes (demo mode shows the new format with no AI).
+        let a = useChecklistFallback ? Fallback.checklistAirplane(playerCount: max(1, playerCount)) : Fallback.airplane(playerCount: max(1, playerCount))
         usingFallback = true
         lastError = nil
         retryAction = nil
@@ -1424,7 +1544,7 @@ public final class AdventureStore {
             }
             guard let self, gen == self.guideGeneration, !Task.isCancelled else { return }
             if let answer, var k = self.guideKit {
-                let woven = GuideWeave.apply(answer, to: k.scenes, props: todo, taken: self.guideUses)
+                let woven = GuideWeave.apply(answer, to: k.scenes, props: todo, taken: self.guideUses, roles: self.plan?.roles ?? [])
                 k.scenes = woven.scenes; self.guideUses += woven.uses
                 // Round 36: the props' setup and clean-up jobs came in the same answer.
                 k = Bookends.merge(answer.jobs ?? [], into: k, props: todo)
@@ -1484,14 +1604,19 @@ public final class AdventureStore {
             scenes = await finalGuideIfReady(items: items, waitForWeave: false)
         }
         guard gen == kitGeneration else { return }
+        var late: Kit?
         if scenes == nil, let service, !usingFallback {
-            // The early guide failed: write it now with the props, as before the prefetch.
+            // The early guide failed: write it now (2026-11-20: the same checklist guide; the props reach the items through
+            // the app's coverage step, with no weave).
             guideCalls += 1
-            scenes = (try? await RetryOnce.run { [ctx = context] in try await service.kitScenes(ctx: ctx, items: items) })?.scenes
+            late = try? await RetryOnce.run { [ctx = context] in try await service.earlyGuide(ctx: ctx, items: items) }
+            scenes = late?.scenes
             guard gen == kitGeneration else { return }
         }
-        let final = scenes ?? Fallback.airplane(playerCount: max(1, playerCount)).kit.scenes
-        fullKit = withArc(Kit(nutmegSays: guideKit?.nutmegSays ?? "", items: items, scenes: final))
+        let final = scenes ?? (useChecklistFallback ? Fallback.checklistScenes : Fallback.airplane(playerCount: max(1, playerCount)).kit.scenes)
+        var made = withArc(Kit(nutmegSays: guideKit?.nutmegSays ?? late?.nutmegSays ?? "", items: items, scenes: final))
+        if let late { made.story = late.story; made.cleanup = late.cleanup; made.setup = late.setup; made = Bookends.ensure(made) }
+        fullKit = made
         guideFinalAt = Date()
         guidePending = false
         if playQueued, phase == .kitReady { playQueued = false; beginPlay() }

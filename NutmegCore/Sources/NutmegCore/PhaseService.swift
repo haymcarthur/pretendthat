@@ -115,13 +115,14 @@ public final class PhaseService: Sendable {
         try await ClaudeRouting.$call.withValue(.guide) {
         var c = ctx; c.props = nil
         let roles = ctx.plan?.roles.count ?? 0
-        let made = try await safe({ try await self.ask(KitScenesSix.self, $0, KitScenesSix.schema(pages: items.compactMap(\.recipe)), Self.scenesEffort,
+        // 2026-11-20 (Haylee): the guide is 4 checklist scenes + a scenario each (`ChecklistScenes`).
+        let made = try await safe({ try await self.ask(KitScenesSix.self, $0, KitScenesSix.checklistSchema(), Self.scenesEffort,
                                    clean: { s in KitScenesSix(nutmegSays: s.nutmegSays, scenes: Sanitizer.clean(Kit(nutmegSays: "", items: [], scenes: s.scenes)).scenes,
                                                               story: s.story, setup: s.setup, cleanup: s.cleanup) },
                                    problem: { Validate.scenes($0.scenes, roles: roles) }) },
-                                  Prompts.kitScenes(ctx: c, items: items, huntPending: true))
+                                  Prompts.checklistScenes(ctx: c, items: items))
         // There's time during the hunt: a guide still short after its one fix is written again (RetryOnce).
-        if made.scenes.count < KitScenesSix.count { throw ClaudeError.decoding("the play guide had \(made.scenes.count) scenes") }
+        if made.scenes.count < KitScenesSix.checklistCount { throw ClaudeError.decoding("the play guide had \(made.scenes.count) scenes") }
         // Round 36: the story and the setup / clean-up scenes come with it (empty if the answer had none: repaired later).
         return Bookends.ensure(Kit(nutmegSays: made.nutmegSays, items: items, scenes: made.scenes,
                                    story: made.story.map { $0.replacingOccurrences(of: "\"", with: "") }, setup: made.setup, cleanup: made.cleanup))
@@ -155,7 +156,7 @@ public final class PhaseService: Sendable {
     public func weaveProps(scenes: [Scene], props: [Prop], taken: [PropUse], ctx: AdventureContext) async throws -> PropWeave {
         try await ClaudeRouting.$call.withValue(.weave) {
         let roles = ctx.plan?.roles ?? []
-        return try await safe({ try await self.ask(PropWeave.self, $0, GuideWeave.schema(propIDs: props.map(\.id)), .low,
+        return try await safe({ try await self.ask(PropWeave.self, $0, GuideWeave.schema(propIDs: props.map(\.id), checklist: scenes.contains(where: \.isChecklist)), .low,
                                                    clean: { $0 }, problem: { _ in nil }) },
                               GuideWeave.prompt(scenes: scenes, props: props, taken: taken, roles: roles, players: ctx.playerCount))
         }
@@ -262,7 +263,7 @@ public enum Validate {
     }
     /// `roles`: how many ranked roles the game has (round 29: each needs its own ONE task in every scene; 0 = no check).
     public static func scenes(_ scenes: [Scene], roles: Int = 0) -> Problem? {
-        let want = GuideRepair.minScenes
+        let want = scenes.contains(where: \.isChecklist) ? ChecklistScenes.generated : GuideRepair.minScenes
         if scenes.count < want { return short("scenes", scenes.count, want: "exactly \(want) scenes", fatal: scenes.isEmpty) }
         if let s = scenes.first(where: { GuideRepair.isPlaceholderTitle($0.title) }) {
             return Problem(message: "scene \"\(s.id)\" had no real title", fatal: false)
@@ -277,6 +278,7 @@ public enum Validate {
             return missing.isEmpty ? nil : "scene \"\(s.title)\" had no task for \(missing.map(\.rawValue).joined(separator: ", "))"
         }
         return gaps.isEmpty ? nil : Problem(message: gaps.joined(separator: "; ")
-            + "; give EVERY role (R1 to R6) its own ONE task in EVERY scene, tagged with its role id and calling it by its title", fatal: false)
+            + (scenes.contains(where: \.isChecklist) ? "; give EVERY role (R1 to R6) 2 or 3 checklist items in EVERY scene"
+               : "; give EVERY role (R1 to R6) its own ONE task in EVERY scene, tagged with its role id and calling it by its title"), fatal: false)
     }
 }

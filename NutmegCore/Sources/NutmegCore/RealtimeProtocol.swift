@@ -151,10 +151,12 @@ public enum Realtime {
     are on screen, color and outline: "color" → choose_print_set color; "we'll color them", "the outline ones", "plain" \
     → choose_print_set outline. Otherwise \
     answer in one short line. "Go play" wording is only for after start_play.
-    PLAY STEP: everyone plays each scene together (the app reads each role's task). If they want the next scene \
+    PLAY STEP: everyone plays each scene together: each role has a short checklist (the app reads the items), and \
+    when every item is checked the app says the scene's "Pretend that" scenario. If they want the next scene \
     ("next scene", "we're done", "what's next", "finished"), call next_scene and say nothing (the app says the next \
-    scene); if a kid asks what their job is ("what do I do, Pet Trainer?", "what's my job?"), call read_job with \
-    that role and say nothing (the app reads it); otherwise one short, fun line that helps the scene.
+    scene); to go back ("go back", "the scene before"), call previous_scene and say nothing; if a kid asks what their \
+    job is ("what do I do, Pet Trainer?", "what's my job?"), call read_job with that role and say nothing (the app \
+    reads it); otherwise one short, fun line that helps the scene.
     GOING BACK (after the hunt: print step, play step, The End; the steps are Pick, Props, Print, Play): "print it \
     again", "go back to the props", "back to the game", "back to the play step" → call go_to_step (pick, props, print \
     or play) and say only the line its result gives you.
@@ -379,8 +381,11 @@ public enum Realtime {
         fn("next_scene", "PLAY STEP scene only: the kids want the next scene (\"next scene\", \"we're done\", \"what's "
            + "next\", \"finished\"). Does exactly what tapping the green Next scene button does (after the last scene: "
            + "The End). Say nothing: the app says the next scene.", [:], required: []),
+        fn("previous_scene", "PLAY STEP scene only: the kids want to go back to the scene before (\"go back\", \"the last "
+           + "scene again\"). Does exactly what tapping the Previous scene button does (the checks stay as they were). Say "
+           + "nothing: the app says the scene's line.", [:], required: []),
         fn("read_job", "PLAY STEP scene only: a kid asks what their job is (\"what do I do, Pet Trainer?\", \"what's my "
-           + "job?\"). The app reads that role's task out loud, like tapping its row. Say nothing.",
+           + "job?\"). The app reads that role's checklist out loud, like tapping its picture. Say nothing.",
            ["role": ["type": "string", "description": "The role's title, as on the row (e.g. Pet Trainer)."]], required: ["role"]),
         fn("go_to_step", "After the hunt (print step, play step, The End): the kids want to go back to a step they already "
            + "did (\"print it again\", \"go back to the props\", \"back to the game\", \"back to the play step\"). The "
@@ -434,7 +439,7 @@ public enum Realtime {
     public static func afterHuntTools(_ phase: Phase) -> [String]? {
         switch phase {
         case .kitReady: return ["start_play", "print_kit", "choose_print_set", "go_to_step", "just_talk"]
-        case .scene: return ["next_scene", "read_job", "go_to_step", "just_talk"]
+        case .scene: return ["next_scene", "previous_scene", "read_job", "go_to_step", "just_talk"]
         case .end: return ["go_to_step", "just_talk"]
         default: return nil
         }
@@ -634,6 +639,8 @@ public enum PlanningCall: Equatable, Sendable {
     case choosePrintSet(PrintStyle)
     /// Round 29 (ensemble scenes): "next scene" / "we're done" in a scene, same as the green ▶ Next scene button.
     case nextScene
+    /// 2026-11-20 (Haylee): "go back", "the scene before" in a scene, same as the ◀ Previous scene button.
+    case previousScene
     /// Round 34: "what do I do, Pet Trainer?" in a scene: the app reads that role's spoken task (its row's 🔊).
     case readJob(String)
     /// Round 23: "print it again", "go back to the props": the same navigation as tapping a step on the rail.
@@ -688,6 +695,7 @@ public enum PlanningCall: Equatable, Sendable {
         case "print_kit": return .printKit
         case "choose_print_set": return PrintStyle(choice: s(a, "set")).map { .choosePrintSet($0) }
         case "next_scene": return .nextScene
+        case "previous_scene": return .previousScene
         case "read_job": let r = s(a, "role"); return r.isEmpty ? nil : .readJob(r)
         case "go_to_step": return BackNav.toolSteps[s(a, "step").lowercased()].map { .goToStep($0) }
         default: return nil

@@ -120,7 +120,7 @@ struct Round19SafetyTests {
         let store = AdventureStore(service: PhaseService(llm: FakeLLM(responses: ["Kit": bad])))
         store.setPlayerCount(1)
         await store.makeKit()
-        #expect(store.usingFallback && store.fullKit == Fallback.airplane(playerCount: 1).kit)
+        #expect(store.usingFallback && store.fullKit == Fallback.checklistAirplane(playerCount: 1).kit)
     }
 
     @Test func imagePromptsCarryTheSafetySuffixAndModeration() throws {

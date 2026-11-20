@@ -6,6 +6,8 @@ public enum Sanitizer {
         public static let ideas = 3, propsMax = 5, itemsMax = 6, scenesMax = 3, choicesMax = 4
         /// Round 29: ONE task for each of the 6 roles a scene, plus one solo task; none for everyone.
         public static let stepsMax = 7, legacyStepsMax = 5
+        /// 2026-11-20: checklist scenes (4 written; shown 2 to 4 by player count).
+        public static let checklistScenes = 4
         public static let copies = 1...8
     }
 
@@ -25,6 +27,21 @@ public enum Sanitizer {
             // cleaned again, so it keeps its app-drawn pages).
             if library { i.wholePage = true }
             return i
+        }
+        // 2026-11-20: a checklist guide has 4 scenes, 2 to 3 items per role and a scenario (`ChecklistScenes`).
+        if k.scenes.contains(where: \.isChecklist) {
+            k.scenes = Array(k.scenes.prefix(Limits.checklistScenes)).map { scene in
+                var s = scene
+                var seen: [RoleID: Int] = [:]
+                s.steps = s.steps.filter { st in
+                    guard let r = st.role.role else { return false }
+                    seen[r, default: 0] += 1
+                    return seen[r]! <= ChecklistScenes.maxItems
+                }
+                s.owner = .all
+                return s
+            }
+            return k
         }
         k.scenes = Array(k.scenes.prefix(Limits.scenesMax)).enumerated().map { i, scene in
             var s = scene

@@ -74,7 +74,8 @@ public enum BackNav {
         + "\"back to the game\", \"back to the play step\"), call go_to_step (print, props, pick or play) and say only the line its result gives you."
     /// The play step's (scene, The End) coaching note. Round 29: in a scene, "next scene" / "we're done" is next_scene.
     public static let playNote = "(Silent coaching, don't mention it.) They're playing now. If they want the next scene "
-        + "(\"next scene\", \"we're done\", \"what's next\"), call next_scene and say nothing. If a kid asks what their "
+        + "(\"next scene\", \"we're done\", \"what's next\"), call next_scene and say nothing; to go back a scene, "
+        + "previous_scene. If a kid asks what their "
         + "job is (\"what do I do, Pet Trainer?\"), call read_job with that role and say nothing. " + voiceHint
         + " Otherwise answer in ONE short, fun line that helps the current scene, with no tools."
 

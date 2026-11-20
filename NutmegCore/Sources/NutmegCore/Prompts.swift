@@ -159,6 +159,43 @@ public enum Prompts {
         """
     }
 
+    /// 2026-11-20 (Haylee, decisions/2026-11-20-checklist-then-scenario-scenes.md): the play guide as checklists, then
+    /// a short scenario. Written during the hunt (no household props yet: each prop's weave puts it into an item).
+    /// Shorter than the round 36 guide prompt: no setup scene, no goals, no page jobs, no spoken task texts.
+    public static func checklistScenes(ctx: AdventureContext, items: [KitItem]) -> String {
+        let enc = JSONEncoder(); enc.outputFormatting = [.sortedKeys]
+        let pages = items.map { ["recipe": $0.recipe?.rawValue ?? "", "title": $0.title, "purpose": $0.purpose ?? ""] }
+        let pagesJSON = (try? enc.encode(pages)).map { String(decoding: $0, as: UTF8.self) } ?? "[]"
+        return """
+        Phase: the play guide. The printable pages are already made (JSON): \(pagesJSON)
+        \(checklistRules)
+        \(contextJSON(ctx))
+        """
+    }
+
+    /// 2026-11-20 (Haylee): the rules for the checklist guide (4 scenes; every count sees scene 1 and scene 4).
+    static let checklistRules = "Write the STORY, 4 PLAY SCENES (scene1 to scene4) and the clean-up title, all in this "
+        + "one answer. Kids ages 4 to 8 play: everyone plays each scene at the same time. The game is written for up to 6 "
+        + "kids: the roles R1 to R6 are ranked, and with N kids only R1 to RN play. 1 or 2 kids play all 4 scenes, 3 or 4 "
+        + "kids play scenes 1, 2 and 4, 5 or 6 kids play scenes 1 and 4, so scene 1 and scene 4 matter most. "
+        + "Each scene: a title of 2 to 5 words saying what they get ready for (e.g. Get the rocket ready); for EACH role "
+        + "R1, R2, R3, R4, R5 and R6, a checklist of 2 or 3 SHORT items, each 2 to 6 words, ONE simple action a "
+        + "4-year-old can do on their own, no role title, no end punctuation: put on or set up a printed page, or a simple "
+        + "action (e.g. Put on your badge, Hang the Moon Base sign, Line up the seats, Count down from five). Items get the "
+        + "scene ready, never busywork, nothing to read and no lines to say (no quotes). Then the scenario: ONE short line, "
+        + "about 20 to 30 words, that starts with \"Pretend that\", adds a small twist and ALWAYS ends with an action for "
+        + "everyone (e.g. \"Pretend that the rocket is blasting off... uh-oh, the control panel is beeping! Everyone, do "
+        + "your job to get the rocket safely into space!\"). The 4 scenarios tell a little story (a start, surprises, a big "
+        + "finish), and the scene titles and scenarios name no role except R1. "
+        + "EVERY PRINTED PAGE IS USED: scene1 has Put on your badge for every role; spread the other pages over the "
+        + "scenes and the roles, naming each page by its kind or title, and use every page in scene1 or scene4 too, so "
+        + "every group size uses it. ONLY REAL THINGS: an item may name only the printed pages and the kids' own bodies "
+        + "(hands, feet, voice). The kids are still hunting for household props, so use NO household props and name no "
+        + "household things (the app works their props into the items later). "
+        + "story: what Nutmeg tells right after printing, 3 or 4 short sentences (about 15 seconds): where we are, who the "
+        + "kids are and what is about to happen. cleanupTitle: 2 to 4 words for the final clean-up checklist, the story's "
+        + "ending (e.g. Closing Time)."
+
     public static func turn(kidSaid: String, phase: String, ctx: AdventureContext) -> String {
         "Phase: \(phase). The kid said: \"\(kidSaid)\". Reply as Nutmeg in one short line and offer 2 to 4 tap choices. If the words make no sense, set understood to false and ask again kindly. Return NutmegTurn.\n\(contextJSON(ctx))"
     }

@@ -127,12 +127,13 @@ import Testing
         #expect(llm.calls == calls)                                          // no regeneration on the skip
         #expect(guidePrompts(llm).count == 1 && store.guideCalls == 1)
         let steps = store.fullKit?.scenes.flatMap(\.steps) ?? []
-        #expect(steps.contains { $0.text == "Passenger, peek in the pretend big oven!" && $0.picture.kind == .kit })
+        // 2026-11-20: checklist items (the role title the weave wrote is taken off: the card shows the role).
+        #expect(steps.contains { $0.short == "Peek in the pretend big oven" && $0.picture.kind == .kit })
         #expect(steps.contains { $0.picture == .prop("bowl") })
-        // Round 29: the playing roles are Captain + the customer counterpart (Passenger); every scene shows both rows.
+        // Round 29: the playing roles are Captain + the customer counterpart (Passenger); every scene shows both cards.
         #expect(store.playingRoles.map(\.roleName) == ["Captain", "Passenger"])
-        #expect(store.kit?.playScenes.count == 3)
-        #expect(store.kit?.scenes.filter { $0.arc == .play }.allSatisfy { $0.steps.map(\.role) == [.R1, .R2] } == true)
+        #expect(store.kit?.playScenes.count == 4)   // 2 kids: all 4 checklist scenes
+        #expect(store.kit?.scenes.filter { $0.arc == .play }.allSatisfy { Set($0.steps.map(\.role)) == [.R1, .R2] } == true)
     }
 
     @Test func aCorrectionRestartsTheGuide() async {
@@ -148,7 +149,7 @@ import Testing
         _ = await store.apply(.showNextProp(.init(itemID: "bowl", becomes: "the snack bowl", forRole: "all")))
         _ = await store.apply(.finishPlanning)
         await waitFor { store.phase == .kitReady && !store.guidePending }
-        #expect(guidePrompts(llm).count == 1 && (store.fullKit?.scenes.count ?? 0) == 3)
+        #expect(guidePrompts(llm).count == 1 && (store.fullKit?.scenes.count ?? 0) == 4)
     }
 
     @Test func paperGoesAheadAndPlayWaitsForTheGuide() async {
@@ -165,7 +166,7 @@ import Testing
         #expect(await store.apply(.startPlay) == AdventureStore.playQueuedOutput)
         await waitFor { !store.guidePending }
         #expect(store.phase == .scene(0))   // play started by itself
-        #expect(!store.playQueued && (store.kit?.playScenes.count ?? 0) == 3)   // round 29: the 3 scenes, everyone together
+        #expect(!store.playQueued && (store.kit?.playScenes.count ?? 0) == 4)   // 2026-11-20: 2 kids see the 4 checklist scenes
         #expect(store.fullKit?.scenes.flatMap(\.steps).contains { $0.picture == .prop("bowl") } == true)
     }
 

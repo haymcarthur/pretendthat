@@ -25,7 +25,9 @@ final class FakeLLM: LLM, @unchecked Sendable {
         let a = Fallback.airplane
         let all: [Any] = [a.ideas, a.plan, a.props, a.kit, NutmegTurn(nutmegSays: "Ready, Captain?", choices: [], understood: true),
                           KitPages(nutmegSays: a.kit.nutmegSays, items: a.kit.items), KitScenes(nutmegSays: a.kit.nutmegSays, scenes: a.kit.scenes),
-                          KitScenesSix(nutmegSays: a.kit.nutmegSays, scenes: a.kit.scenes)]
+                          // 2026-11-20: a new guide is 4 checklist scenes + the story and the clean-up title.
+                          KitScenesSix(nutmegSays: a.kit.nutmegSays, scenes: Fallback.checklistScenes, story: a.kit.story,
+                                       cleanup: Bookend(title: a.kit.cleanup?.title ?? "", nutmegSays: ""))]
         guard let v = all.compactMap({ $0 as? T }).first else { throw ClaudeError.decoding("no fake for \(T.self)") }
         return v
     }

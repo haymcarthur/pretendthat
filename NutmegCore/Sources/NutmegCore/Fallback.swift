@@ -13,6 +13,27 @@ public enum Fallback {
         return a
     }()
 
+    /// 2026-11-20 (Haylee, checklist scenes): the bundled airplane game's play guide as checklist scenes (4 scenes, 2 to
+    /// 3 items per role, a scenario each; `airplane-checklists.json`). The app's fallback and demo mode use it, so demo
+    /// screenshots show the new scene format with no AI. `airplane` keeps the round 36 shape (an older game's path).
+    public static let checklistScenes: [Scene] = {
+        guard let url = Bundle.module.url(forResource: "airplane-checklists", withExtension: "json"),
+              let data = try? Data(contentsOf: url),
+              let scenes = try? JSONDecoder().decode([Scene].self, from: data) else {
+            fatalError("airplane-checklists.json missing or invalid")   // covered by a test
+        }
+        return scenes
+    }()
+
+    /// The fallback game with the checklist play guide (no setup scene; the story and the clean-up jobs stay).
+    public static func checklistAirplane(playerCount: Int) -> Airplane {
+        var a = airplane(playerCount: playerCount)
+        a.kit.scenes = checklistScenes
+        a.kit.setup = nil
+        a.kit.cleanup?.goals = nil
+        return a
+    }
+
     /// The fallback game. Round C1: written for 6 ranked roles like every game; the count only says how many play.
     public static func airplane(playerCount: Int) -> Airplane {
         var a = airplane

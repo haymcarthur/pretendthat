@@ -6,6 +6,8 @@ import Foundation
 public enum UserAction: String, CaseIterable, Sendable {
     /// Round 29: `nextScene` (the green ▶), `readTask` (a row's 🔊) replace the checklist and hand-off taps.
     case nextScene, readTask, propFound, propMissing, print, letsPlay, repeatLine
+    /// 2026-11-20 (checklist scenes): ◀ Previous scene, and Skip to the scenes on a replay.
+    case previousScene, skipToScenes
     case newGame, playAgain, close, goHome, stepRail, confirmYes, confirmChange
     /// Round 20 (Haylee: she typed during the greeting and the voice kept going): the kid starting their OWN turn,
     /// by sending typed text or pressing the mic, stops everything she's saying too.

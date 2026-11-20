@@ -359,7 +359,7 @@ import Testing
         var k = a.kit; k.items = Sanitizer.clean(Kit(nutmegSays: "", items: a.kit.items, scenes: []), picks: PrintPicks.make(game: ["airplane"])).items
         let art = ["img:badges@3", "img:cutouts#more", "oimg:sign", "cut:characters:0", "cut:characters:7"]
         let g = SavedGame(createdAt: Date(), title: "Sky", roles: roles, props: [], kit: k, printStyle: .fullColor, art: art, voiceID: "v")
-        #expect(g.schemaVersion == 5 && SavedGame.readableSchemas == [2, 3, 4, 5])
+        #expect(g.schemaVersion == 6 && SavedGame.readableSchemas == [2, 3, 4, 5, 6])   // 2026-11-20: 6 = checklist scenes
         let back = try SavedGame.decode(SavedGame.encoder().encode(g))
         #expect(back.kit.items == k.items && back.kit.items.allSatisfy { $0.aiPage })
         #expect(ArtKey.parse("img:badges@3", plain: .fullColor)! == ("badges@3", nil, .fullColor))

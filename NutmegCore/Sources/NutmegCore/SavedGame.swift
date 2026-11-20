@@ -50,7 +50,7 @@ public struct SavedClip: Codable, Equatable, Sendable {
 /// with ONE task per role (R1…R6) plus a solo task. Version 1 games (round 28's hand-off guide) are dropped: the app
 /// wasn't live, so they are never read (they stay off the shelf).
 public struct SavedGame: Codable, Equatable, Sendable, Identifiable {
-    public static let currentSchema = 5
+    public static let currentSchema = 6
     /// Round 36: schema 3 adds the story and the setup / clean-up scenes (`Kit.story`, `.setup`, `.cleanup`). A schema 2
     /// game (round 29 to 35) still opens: it has no arc, so its replay is exactly its 3 play scenes, as first played.
     /// Round 45: schema 4 = a printables-library kit (4 to 6 types, `KitItem.variant` / `.pictures`, picture-only art).
@@ -59,7 +59,10 @@ public struct SavedGame: Codable, Equatable, Sendable, Identifiable {
     /// Round 46: schema 5 = AI-drawn whole pages (`KitItem.wholePage`, `.pageLines`; page art keys `badges@N` and
     /// `cutouts#more`) and the character sheet's slices (`cut:characters:k`). A schema 4 game (round 45) replays with its
     /// app-drawn pages and picture slices exactly as before; a schema 3 game as before that. Never a new image.
-    public static let readableSchemas: Set<Int> = [2, 3, 4, 5]
+    /// 2026-11-20 (Haylee, checklist scenes): schema 6 = a checklist guide (`Scene.checklist`: 4 scenes of per-role
+    /// checklist items + a scenario, no setup scene, a clean-up checklist). Schemas 2 to 5 still open and replay exactly
+    /// as before (their scenes have no `checklist` flag, so they keep the ensemble / setup / goal-row path).
+    public static let readableSchemas: Set<Int> = [2, 3, 4, 5, 6]
     public var id: UUID
     public var schemaVersion: Int
     /// Device usage for the shelf order (newest first), not about a kid.
