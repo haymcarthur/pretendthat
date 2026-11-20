@@ -85,7 +85,7 @@ struct RootView: View {
                             // 2026-11-17: a saved game's page (for everyone), over the bookshelf.
                             if let g = model.savedPage {
                                 SavedGamePageView(model: model, game: g)
-                                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                                    .transition(.opacity)   // 2026-11-20: the stage fades; the page's own sheet slides up
                                     .zIndex(3)
                             }
                             // Round 33: New game was blocked (no AI consent, or the Free Preview is used up).

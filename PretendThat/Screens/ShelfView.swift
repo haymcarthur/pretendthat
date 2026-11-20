@@ -199,7 +199,9 @@ struct PTBookshelf: View {
         let card = CGRect(x: x, y: bottom - side, width: w, height: side)
         // The board's front face (shelfFrontY → boardFaceBottomY ≈ +0.027 of the art) holds the label.
         // 2026-11-18: a bigger label for the short titles (nice and big, one line).
-        let lh = max(22, size.height * 0.032), lw = w + gap * 1.5
+        // 2026-11-20 (Haylee: the names overlapped): a label is a bit wider than its card but leaves a clear space
+        // between neighbours (it was w + 1.5 gaps, wider than the card plus the gap between cards).
+        let lh = max(22, size.height * 0.032), lw = w + gap * 0.6
         let label = CGRect(x: card.midX - lw / 2, y: (slot.shelfFrontY + 0.0135) * size.height - lh / 2, width: lw, height: lh)
         return (card, label)
     }
@@ -221,7 +223,7 @@ struct PTBookshelf: View {
         let w = (innerW - 4 * gap) / 3
         let x = innerX + gap + CGFloat(col) * (w + gap)
         let card = CGRect(x: x, y: bottom - side, width: w, height: side)
-        let lh = max(18, h * 0.2), lw = w + gap * 0.5
+        let lh = max(18, h * 0.2), lw = w + gap * 0.3   // 2026-11-20: a clear space between neighbouring names
         let label = CGRect(x: card.midX - lw / 2, y: slot.shelfFrontY * size.height + size.height * 0.022 - lh / 2, width: lw, height: lh)
         return (card, label)
     }

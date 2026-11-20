@@ -11,8 +11,21 @@ struct SavedGamePageView: View {
     let model: AppModel
     let game: SavedGame
     @Environment(\.layoutMetrics) private var metrics
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// 2026-11-20 (Haylee): only the white sheet (with Nutmeg peeking over it) slides up; the stage behind it fades in.
+    @State private var sheetIn = false
 
     private var phone: Bool { metrics.isPhone }
+    private var slide: Animation { reduceMotion ? Theme.stageMoveReduced : Theme.stageMove }
+
+    /// The sheet slides back down, then the page closes (the stage fades out).
+    private func close() {
+        withAnimation(slide) { sheetIn = false }
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(reduceMotion ? 0.1 : 0.3))
+            model.closeSavedPage()
+        }
+    }
 
     var body: some View {
         GeometryReader { geo in
@@ -25,28 +38,33 @@ struct SavedGamePageView: View {
             let sheetTop = max(curtain.valance * 0.55, geo.safeAreaInsets.top + 8) + above
             ZStack(alignment: .top) {
                 PTStageBackdrop()
-                // Nutmeg behind the sheet (tail, body), paws in front of its top edge, looking down at the page.
-                NutmegPeek(part: .back, state: model.nutmegState, mouthLevel: model.mouthLevel, mouthShape: model.mouthShape,
-                           isSpeaking: model.isSpeaking)
-                    .frame(width: peekW, height: above + overhang)
-                    .position(x: full.width / 2, y: sheetTop - above + (above + overhang) / 2)
-                    .allowsHitTesting(false)
-                sheet(width: sheetW, bottomInset: geo.safeAreaInsets.bottom, topClear: NutmegPeek.pawClearance(width: peekW))   // what the paws overhang (v2 art, no lift)
-                    .frame(width: sheetW, height: full.height - sheetTop)
-                    .background(UnevenRoundedRectangle(topLeadingRadius: 36, topTrailingRadius: 36, style: .continuous).fill(Theme.white))
-                    .clipShape(UnevenRoundedRectangle(topLeadingRadius: 36, topTrailingRadius: 36, style: .continuous))
-                    .shadow(color: Theme.panelShadow, radius: 12, y: -2)
-                    .position(x: full.width / 2, y: sheetTop + (full.height - sheetTop) / 2)
-                NutmegPeek(part: .front, state: model.nutmegState, mouthLevel: model.mouthLevel, mouthShape: model.mouthShape,
-                           isSpeaking: model.isSpeaking)
-                    .frame(width: peekW, height: above + overhang)
-                    .position(x: full.width / 2, y: sheetTop - above + (above + overhang) / 2)
-                    .allowsHitTesting(false)
-                    .accessibilityHidden(true)
-                PTIconButton(symbol: "arrow.left", label: SavedGamePageCopy.back, fill: Theme.white, size: phone ? 52 : 64) { model.closeSavedPage() }
-                    .shadow(color: Theme.panelShadow, radius: 8, y: 2)
-                    .position(x: (phone ? 16 : max(Theme.Space.l, curtain.visible * 0.3)) + (phone ? 26 : 32),
-                              y: max(curtain.valance, geo.safeAreaInsets.top) + (phone ? 34 : 40))
+                ZStack(alignment: .top) {
+                    // Nutmeg behind the sheet (tail, body), paws in front of its top edge, looking down at the page.
+                    NutmegPeek(part: .back, state: model.nutmegState, mouthLevel: model.mouthLevel, mouthShape: model.mouthShape,
+                               isSpeaking: model.isSpeaking)
+                        .frame(width: peekW, height: above + overhang)
+                        .position(x: full.width / 2, y: sheetTop - above + (above + overhang) / 2)
+                        .allowsHitTesting(false)
+                    sheet(width: sheetW, bottomInset: geo.safeAreaInsets.bottom, topClear: NutmegPeek.pawClearance(width: peekW))   // what the paws overhang (v2 art, no lift)
+                        .frame(width: sheetW, height: full.height - sheetTop)
+                        .background(UnevenRoundedRectangle(topLeadingRadius: 36, topTrailingRadius: 36, style: .continuous).fill(Theme.white))
+                        .clipShape(UnevenRoundedRectangle(topLeadingRadius: 36, topTrailingRadius: 36, style: .continuous))
+                        // 2026-11-20 (Haylee): the close button sits ON the sheet (top right), like the chat panel's.
+                        .overlay(alignment: .topTrailing) {
+                            PTIconButton(symbol: "xmark", label: SavedGamePageCopy.back, size: phone ? 44 : 52) { close() }
+                                .padding(phone ? 14 : 18)
+                                .accessibilityIdentifier("savedPage.close")
+                        }
+                        .shadow(color: Theme.panelShadow, radius: 12, y: -2)
+                        .position(x: full.width / 2, y: sheetTop + (full.height - sheetTop) / 2)
+                    NutmegPeek(part: .front, state: model.nutmegState, mouthLevel: model.mouthLevel, mouthShape: model.mouthShape,
+                               isSpeaking: model.isSpeaking)
+                        .frame(width: peekW, height: above + overhang)
+                        .position(x: full.width / 2, y: sheetTop - above + (above + overhang) / 2)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                }
+                .offset(y: sheetIn ? 0 : full.height)
                 if model.savedPageAsk {
                     SavedPageAskCard(model: model, game: game, size: full, safe: geo.safeAreaInsets)
                         .transition(.opacity)
@@ -57,6 +75,7 @@ struct SavedGamePageView: View {
             .offset(x: -geo.safeAreaInsets.leading, y: -geo.safeAreaInsets.top)
         }
         .animation(.easeOut(duration: 0.25), value: model.savedPageAsk)
+        .onAppear { withAnimation(slide) { sheetIn = true } }
         .sheet(isPresented: Binding(get: { model.savedPageGrownUp }, set: { model.savedPageGrownUp = $0 })) {
             SavedPageGrownUpSheet(model: model, game: game)
         }
